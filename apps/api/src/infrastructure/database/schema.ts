@@ -76,6 +76,16 @@ export const wellnessConfigs = pgTable("wellness_configs", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });
 
+export const wellnessLogs = pgTable("wellness_logs", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  type: varchar("type", { length: 50 }).notNull(),
+  date: varchar("date", { length: 10 }).notNull(),
+  value: integer("value").notNull().default(0),
+  goal: integer("goal").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
+});
+
 export const contacts = pgTable("contacts", {
   id: uuid("id").primaryKey().defaultRandom(),
   name: varchar("name", { length: 255 }).notNull(),
