@@ -6,7 +6,7 @@ import { useCalendarStore } from "./application/stores/calendarStore";
 import { useViewStore } from "./application/stores/viewStore";
 import { useWellnessStore } from "./application/stores/wellnessStore";
 import { useTimerStore } from "./application/stores/timerStore";
-import { TauriNotificationAdapter } from "./infrastructure/tauri/tauriNotifications";
+import { initNotifications, notify } from "./infrastructure/tauri/notifications";
 import { connectSSE } from "./infrastructure/api/sseClient";
 
 export function App() {
@@ -14,7 +14,6 @@ export function App() {
   const { currentDate, viewMode } = useViewStore();
   const { fetchConfigs, startAll, stopAll, fetchTodayLogs } = useWellnessStore();
   const { fetchTodayStats } = useTimerStore();
-  const notifications = new TauriNotificationAdapter();
   let disconnectSSE: (() => void) | null = null;
 
   function getViewRange(): { from: Date; to: Date } {
@@ -63,7 +62,7 @@ export function App() {
     fetchContacts();
     syncClickUp();
     fetchTodayStats();
-    await notifications.requestPermission();
+    await initNotifications();
     await fetchConfigs();
     fetchTodayLogs();
     startAll();
@@ -75,7 +74,7 @@ export function App() {
         minute: "2-digit",
       });
 
-      await notifications.send(
+      await notify(
         reminder.eventTitle,
         reminder.minutesBefore > 0
           ? `Dans ${reminder.minutesBefore} min (${startTime})`

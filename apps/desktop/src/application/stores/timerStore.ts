@@ -1,5 +1,6 @@
 import { createSignal } from "solid-js";
 import { api } from "../../infrastructure/api/apiClient";
+import { notify } from "../../infrastructure/tauri/notifications";
 import type { TimerStats } from "../../domain/models/TimerSession";
 
 export type TimerMode = "pomodoro" | "free";
@@ -65,19 +66,30 @@ async function onTimerComplete() {
     const isLongBreak = count % settings.sessionsBeforeLong === 0;
     const breakMin = isLongBreak ? settings.longBreakMin : settings.shortBreakMin;
 
+    await notify(
+      "Pomodoro termine !",
+      isLongBreak
+        ? `Session ${count} terminee. Longue pause de ${breakMin} min.`
+        : `Session ${count} terminee. Pause de ${breakMin} min.`,
+    );
+
     setTimerState("break");
     const secs = breakMin * 60;
     setTotalSeconds(secs);
     setRemainingSeconds(secs);
     startTickInterval();
   } else if (mode === "pomodoro" && state === "break") {
+    await notify("Pause terminee !", "C'est reparti pour une session de focus.");
+
     setTimerState("focus");
     const secs = pomodoroSettings().focusMin * 60;
     setTotalSeconds(secs);
     setRemainingSeconds(secs);
+    sessionStartedAt = new Date();
     startTickInterval();
   } else if (mode === "free") {
     await saveSession(true);
+    await notify("Timer termine !", "Votre session de travail est terminee.");
     setTimerState("idle");
     setTimerMode(null);
   }

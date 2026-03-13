@@ -2,7 +2,7 @@ import { createSignal } from "solid-js";
 import { api } from "../../infrastructure/api/apiClient";
 import type { WellnessConfig, CreateWellnessConfigDTO, UpdateWellnessConfigDTO } from "../../domain/models/WellnessConfig";
 import type { WellnessLog } from "../../domain/models/WellnessLog";
-import { sendNotification, isPermissionGranted } from "@tauri-apps/plugin-notification";
+import { notify } from "../../infrastructure/tauri/notifications";
 
 const [configs, setConfigs] = createSignal<WellnessConfig[]>([]);
 const [todayLogs, setTodayLogs] = createSignal<WellnessLog[]>([]);
@@ -14,14 +14,7 @@ function getTodayDate(): string {
 }
 
 async function sendWellnessNotification(config: WellnessConfig) {
-  try {
-    const granted = await isPermissionGranted();
-    if (granted) {
-      sendNotification({ title: "Bien-être", body: config.label });
-    }
-  } catch (e) {
-    console.error("Failed to send wellness notification:", e);
-  }
+  await notify("Bien-etre", config.label);
 }
 
 export function useWellnessStore() {
