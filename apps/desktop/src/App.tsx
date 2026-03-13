@@ -4,12 +4,16 @@ import { CalendarGrid } from "./ui/components/calendar/CalendarGrid";
 import { EventForm } from "./ui/components/events/EventForm";
 import { useCalendarStore } from "./application/stores/calendarStore";
 import { useViewStore } from "./application/stores/viewStore";
+import { useWellnessStore } from "./application/stores/wellnessStore";
+import { useTimerStore } from "./application/stores/timerStore";
 import { TauriNotificationAdapter } from "./infrastructure/tauri/tauriNotifications";
 import { connectSSE } from "./infrastructure/api/sseClient";
 
 export function App() {
   const { fetchCalendars, fetchEvents, fetchContacts, syncClickUp } = useCalendarStore();
   const { currentDate, viewMode } = useViewStore();
+  const { fetchConfigs, startAll, stopAll } = useWellnessStore();
+  const { fetchTodayStats } = useTimerStore();
   const notifications = new TauriNotificationAdapter();
   let disconnectSSE: (() => void) | null = null;
 
@@ -19,6 +23,13 @@ export function App() {
     const month = d.getMonth();
 
     switch (viewMode()) {
+      case "dashboard": {
+        const from = new Date(d);
+        from.setHours(0, 0, 0, 0);
+        const to = new Date(d);
+        to.setHours(23, 59, 59, 999);
+        return { from, to };
+      }
       case "month": {
         const from = new Date(year, month, 1);
         const to = new Date(year, month + 1, 0, 23, 59, 59);
@@ -51,7 +62,10 @@ export function App() {
     await fetchCalendars();
     fetchContacts();
     syncClickUp();
+    fetchTodayStats();
     await notifications.requestPermission();
+    await fetchConfigs();
+    startAll();
 
     // Connect SSE for real-time reminder notifications
     disconnectSSE = connectSSE(async (reminder) => {
@@ -69,7 +83,10 @@ export function App() {
     });
   });
 
-  onCleanup(() => disconnectSSE?.());
+  onCleanup(() => {
+    disconnectSSE?.();
+    stopAll();
+  });
 
   createEffect(() => {
     const range = getViewRange();
