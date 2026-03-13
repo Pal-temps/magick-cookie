@@ -1,0 +1,26 @@
+# Specs Mobile — Index
+
+Documentation des specifications pour l'application mobile Android (Kotlin).
+
+## Ordre d'implementation recommande
+
+1. **[calendriers.md](calendriers.md)** — CRUD calendriers + toggle visibilite
+2. **[evenements.md](evenements.md)** — CRUD evenements + filtrage par date range
+3. **[rappels.md](rappels.md)** — Systeme de rappels + notifications Android
+4. **[desktop-calendrier-evenements.md](desktop-calendrier-evenements.md)** — Vues calendrier (mois/semaine/jour), EventCard, EventForm, multi-calendriers
+5. **[desktop-rappels-vues.md](desktop-rappels-vues.md)** — Notifications Android avancees, vues semaine/jour adaptees mobile
+6. **[connecteur-clickup.md](connecteur-clickup.md)** — Connecteur ClickUp : sync taches, taches sans date, indicateurs priorite
+
+## API de reference
+
+- Base URL : `http://<api-host>:47300/api`
+- Format reponses : `{ data: T }` (succes) / `{ error: string }` (erreur)
+- Toutes les dates en ISO 8601 avec timezone
+
+## Stack mobile cible
+
+- Kotlin + Jetpack Compose
+- Retrofit pour les appels API
+- Room pour le cache local (optionnel)
+- WorkManager pour le polling des rappels
+- Material 3 avec theme dark personnalise (memes couleurs que le desktop)
