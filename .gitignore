@@ -1,0 +1,24 @@
+node_modules/
+dist/
+target/
+.env
+.env.local
+*.log
+.DS_Store
+Thumbs.db
+
+# Bun
+bun.lock
+
+# Tauri
+apps/desktop/src-tauri/target/
+apps/desktop/src-tauri/gen/
+
+# Drizzle
+apps/api/drizzle/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo

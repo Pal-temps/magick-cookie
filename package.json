@@ -1,0 +1,12 @@
+{
+  "name": "do-it-now",
+  "private": true,
+  "workspaces": ["apps/*"],
+  "scripts": {
+    "api:dev": "bun run --filter api dev",
+    "desktop:dev": "bun run --filter desktop tauri:dev",
+    "test": "bun run --filter api test",
+    "test:integration": "bun run --filter api test:integration",
+    "test:e2e": "bun run --filter api test:e2e"
+  }
+}
