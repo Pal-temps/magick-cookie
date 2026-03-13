@@ -1,0 +1,40 @@
+:root {
+  /* Backgrounds */
+  --bg-base: #0f0f13;
+  --bg-surface: #1a1a24;
+  --bg-elevated: #24243a;
+  --bg-overlay: #2e2e4a;
+
+  /* Accent */
+  --accent-primary: #6c5ce7;
+  --accent-primary-hover: #7d6ff0;
+
+  /* Calendar colors */
+  --cal-blue: #0984e3;
+  --cal-green: #00b894;
+  --cal-orange: #fdcb6e;
+  --cal-pink: #fd79a8;
+  --cal-red: #d63031;
+  --cal-purple: #6c5ce7;
+
+  /* Text */
+  --text-primary: #e8e8f0;
+  --text-secondary: #8888a8;
+  --text-muted: #55556a;
+
+  /* Borders */
+  --border-color: #2a2a40;
+  --border-hover: #3a3a55;
+
+  /* Sizing */
+  --sidebar-width: 260px;
+  --header-height: 56px;
+
+  /* Radius */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+
+  /* Transitions */
+  --transition-fast: 150ms ease;
+}
