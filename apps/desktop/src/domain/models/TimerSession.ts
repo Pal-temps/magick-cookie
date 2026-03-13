@@ -24,3 +24,12 @@ export interface TimerStats {
   totalSeconds: number;
   sessionCount: number;
 }
+
+export interface DailyTimerStats {
+  date: string;
+  totalSeconds: number;
+  focusSeconds: number;
+  sessionCount: number;
+  completedCount: number;
+  cancelledCount: number;
+}
