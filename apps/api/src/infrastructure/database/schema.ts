@@ -54,6 +54,28 @@ export const reminders = pgTable("reminders", {
   index("idx_reminders_pending").on(table.scheduledAt).where(sql`sent_at IS NULL`),
 ]);
 
+export const timerSessions = pgTable("timer_sessions", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  mode: varchar("mode", { length: 20 }).notNull(),
+  durationMinutes: integer("duration_minutes").notNull(),
+  actualSeconds: integer("actual_seconds").notNull(),
+  startedAt: timestamp("started_at", { withTimezone: true }).notNull(),
+  endedAt: timestamp("ended_at", { withTimezone: true }).notNull(),
+  completed: boolean("completed").notNull().default(true),
+  label: varchar("label", { length: 255 }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const wellnessConfigs = pgTable("wellness_configs", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  type: varchar("type", { length: 50 }).notNull().unique(),
+  label: varchar("label", { length: 255 }).notNull(),
+  intervalMinutes: integer("interval_minutes").notNull(),
+  enabled: boolean("enabled").notNull().default(true),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
+});
+
 export const contacts = pgTable("contacts", {
   id: uuid("id").primaryKey().defaultRandom(),
   name: varchar("name", { length: 255 }).notNull(),

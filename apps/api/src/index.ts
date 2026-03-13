@@ -10,6 +10,8 @@ import { DrizzleEventRepository } from "./infrastructure/repositories/event.repo
 import { DrizzleReminderRepository } from "./infrastructure/repositories/reminder.repository.impl";
 import { DrizzleContactRepository } from "./infrastructure/repositories/contact.repository.impl";
 import { DrizzleClickUpConnectorRepository } from "./infrastructure/repositories/clickup.repository.impl";
+import { DrizzleTimerSessionRepository } from "./infrastructure/repositories/timer-session.repository.impl";
+import { DrizzleWellnessConfigRepository } from "./infrastructure/repositories/wellness-config.repository.impl";
 
 // Services
 import { CalendarService } from "./application/calendar/calendar.service";
@@ -17,6 +19,8 @@ import { EventService } from "./application/event/event.service";
 import { ReminderService } from "./application/reminder/reminder.service";
 import { ContactService } from "./application/contact/contact.service";
 import { ClickUpSyncService } from "./application/connector/clickup-sync.service";
+import { TimerSessionService } from "./application/timer-session/timer-session.service";
+import { WellnessConfigService } from "./application/wellness-config/wellness-config.service";
 
 // Connectors
 import { ClickUpApiClient } from "./infrastructure/connectors/clickup-api.client";
@@ -31,6 +35,8 @@ import { createReminderRoutes, createEventReminderRoutes } from "./presentation/
 import { createSSERoutes } from "./presentation/routes/sse.routes";
 import { createContactRoutes } from "./presentation/routes/contact.routes";
 import { createConnectorRoutes } from "./presentation/routes/connector.routes";
+import { createTimerSessionRoutes } from "./presentation/routes/timer-session.routes";
+import { createWellnessConfigRoutes } from "./presentation/routes/wellness-config.routes";
 
 // Jobs
 import { startReminderChecker } from "./infrastructure/jobs/reminder-checker";
@@ -40,11 +46,15 @@ const calendarRepo = new DrizzleCalendarRepository(db);
 const eventRepo = new DrizzleEventRepository(db);
 const reminderRepo = new DrizzleReminderRepository(db);
 const contactRepo = new DrizzleContactRepository(db);
+const timerSessionRepo = new DrizzleTimerSessionRepository(db);
+const wellnessConfigRepo = new DrizzleWellnessConfigRepository(db);
 
 const calendarService = new CalendarService(calendarRepo);
 const eventService = new EventService(eventRepo, reminderRepo);
 const reminderService = new ReminderService(reminderRepo, eventRepo);
 const contactService = new ContactService(contactRepo);
+const timerSessionService = new TimerSessionService(timerSessionRepo);
+const wellnessConfigService = new WellnessConfigService(wellnessConfigRepo);
 
 const clickUpConnectorRepo = new DrizzleClickUpConnectorRepository(db);
 const clickUpApiClient = new ClickUpApiClient(config.clickupApiToken);
@@ -70,9 +80,14 @@ app.route("/api/events/:eventId/reminders", createEventReminderRoutes(reminderSe
 app.route("/api/sse", createSSERoutes(reminderEmitter));
 app.route("/api/contacts", createContactRoutes(contactService));
 app.route("/api/connectors", createConnectorRoutes(clickUpSyncService, clickUpConnectorRepo));
+app.route("/api/timer-sessions", createTimerSessionRoutes(timerSessionService));
+app.route("/api/wellness-configs", createWellnessConfigRoutes(wellnessConfigService));
 
 // Start reminder checker — pushes to SSE, does NOT mark as sent
 startReminderChecker(reminderService, eventRepo, reminderEmitter);
+
+// Seed default wellness configs
+wellnessConfigService.seedDefaults().catch(console.error);
 
 export default {
   port: config.port,
