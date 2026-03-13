@@ -1,0 +1,162 @@
+import { createSignal, For, Show } from "solid-js";
+import { useCalendarStore } from "../../../application/stores/calendarStore";
+
+export function ContactManager() {
+  const { contacts, createContact, deleteContact } = useCalendarStore();
+
+  const [isAdding, setIsAdding] = createSignal(false);
+  const [newName, setNewName] = createSignal("");
+  const [newDate, setNewDate] = createSignal("");
+  const [newPhone, setNewPhone] = createSignal("");
+  const [newEmail, setNewEmail] = createSignal("");
+
+  async function handleAdd(e: Event) {
+    e.preventDefault();
+    if (!newName().trim()) return;
+    await createContact({
+      name: newName().trim(),
+      birthDate: newDate() || null,
+      phone: newPhone().trim() || null,
+      email: newEmail().trim() || null,
+    });
+    setNewName("");
+    setNewDate("");
+    setNewPhone("");
+    setNewEmail("");
+    setIsAdding(false);
+  }
+
+  function formatDate(dateStr: string) {
+    const d = new Date(dateStr);
+    return d.toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
+  }
+
+  function secondaryInfo(c: { birthDate: string | null; phone: string | null; email: string | null }) {
+    if (c.birthDate) return formatDate(c.birthDate);
+    if (c.phone) return c.phone;
+    if (c.email) return c.email;
+    return null;
+  }
+
+  const inputStyle = {
+    width: "100%",
+    padding: "4px 8px",
+    background: "var(--bg-elevated)",
+    border: "1px solid var(--border-color)",
+    "border-radius": "var(--radius-sm)",
+    color: "var(--text-primary)",
+    "font-size": "12px",
+  };
+
+  return (
+    <div style={{ display: "flex", "flex-direction": "column", gap: "2px" }}>
+      <For each={contacts()}>
+        {(c) => (
+          <div
+            style={{
+              display: "flex",
+              "align-items": "center",
+              gap: "8px",
+              padding: "4px",
+              "border-radius": "var(--radius-sm)",
+            }}
+            onMouseEnter={(e) => e.currentTarget.style.background = "var(--bg-elevated)"}
+            onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
+          >
+            <span style={{ "font-size": "12px", flex: "1", overflow: "hidden", "text-overflow": "ellipsis", "white-space": "nowrap" }}>
+              {c.name}
+            </span>
+            <Show when={secondaryInfo(c)}>
+              <span style={{ "font-size": "10px", color: "var(--text-muted)", "flex-shrink": "0" }}>
+                {secondaryInfo(c)}
+              </span>
+            </Show>
+            <button
+              onClick={() => deleteContact(c.id)}
+              style={{
+                "font-size": "11px",
+                color: "var(--text-muted)",
+                cursor: "pointer",
+                "flex-shrink": "0",
+                padding: "0 2px",
+                "line-height": "1",
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.color = "#ef4444"}
+              onMouseLeave={(e) => e.currentTarget.style.color = "var(--text-muted)"}
+            >
+              &times;
+            </button>
+          </div>
+        )}
+      </For>
+
+      <Show when={contacts().length === 0 && !isAdding()}>
+        <div style={{ "font-size": "11px", color: "var(--text-muted)", padding: "4px 0" }}>
+          Aucun contact
+        </div>
+      </Show>
+
+      <button
+        onClick={() => setIsAdding((v) => !v)}
+        style={{
+          "font-size": "11px",
+          color: isAdding() ? "var(--cal-red)" : "var(--accent-primary)",
+          cursor: "pointer",
+          padding: "4px 0",
+          "margin-top": "2px",
+        }}
+      >
+        {isAdding() ? "Annuler" : "+ Ajouter"}
+      </button>
+
+      <Show when={isAdding()}>
+        <form onSubmit={handleAdd} style={{ display: "flex", "flex-direction": "column", gap: "4px", "margin-top": "4px" }}>
+          <input
+            style={inputStyle}
+            placeholder="Nom"
+            value={newName()}
+            onInput={(e) => setNewName(e.currentTarget.value)}
+            required
+          />
+          <input
+            type="date"
+            style={{ ...inputStyle, "font-size": "11px", padding: "4px 6px" }}
+            placeholder="Date de naissance"
+            value={newDate()}
+            onInput={(e) => setNewDate(e.currentTarget.value)}
+          />
+          <div style={{ display: "flex", gap: "4px" }}>
+            <input
+              type="tel"
+              style={{ ...inputStyle, flex: "1", "font-size": "11px", padding: "4px 6px" }}
+              placeholder="Telephone"
+              value={newPhone()}
+              onInput={(e) => setNewPhone(e.currentTarget.value)}
+            />
+            <input
+              type="email"
+              style={{ ...inputStyle, flex: "1", "font-size": "11px", padding: "4px 6px" }}
+              placeholder="Email"
+              value={newEmail()}
+              onInput={(e) => setNewEmail(e.currentTarget.value)}
+            />
+          </div>
+          <button
+            type="submit"
+            style={{
+              padding: "4px 10px",
+              "font-size": "11px",
+              "border-radius": "var(--radius-sm)",
+              background: "var(--accent-primary)",
+              color: "#fff",
+              "font-weight": "600",
+              cursor: "pointer",
+            }}
+          >
+            OK
+          </button>
+        </form>
+      </Show>
+    </div>
+  );
+}
