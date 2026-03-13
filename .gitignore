@@ -14,8 +14,8 @@ bun.lock
 apps/desktop/src-tauri/target/
 apps/desktop/src-tauri/gen/
 
-# Drizzle
-apps/api/drizzle/
+# Drizzle (keep migrations tracked, ignore generated meta snapshots cache)
+
 
 # IDE
 .idea/
