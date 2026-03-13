@@ -16,6 +16,15 @@ export function createTimerSessionRoutes(service: TimerSessionService) {
     return c.json({ data: stats });
   });
 
+  app.get("/stats/daily", async (c) => {
+    const query = timerSessionQuerySchema.parse(c.req.query());
+    if (!query.from || !query.to) {
+      return c.json({ error: "from and to are required" }, 400);
+    }
+    const stats = await service.getDailyStats(query.from, query.to);
+    return c.json({ data: stats });
+  });
+
   app.post("/", async (c) => {
     const body = createTimerSessionSchema.parse(await c.req.json());
     const session = await service.create(body);

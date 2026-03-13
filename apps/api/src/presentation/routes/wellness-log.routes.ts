@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import type { WellnessLogService } from "../../application/wellness-log/wellness-log.service";
-import { wellnessLogDateSchema, incrementWellnessLogSchema, setGoalSchema } from "../validators/wellness-log.validator";
+import { wellnessLogDateSchema, wellnessLogRangeSchema, incrementWellnessLogSchema, setGoalSchema } from "../validators/wellness-log.validator";
 
 export function createWellnessLogRoutes(service: WellnessLogService) {
   const app = new Hono();
@@ -8,6 +8,12 @@ export function createWellnessLogRoutes(service: WellnessLogService) {
   app.get("/", async (c) => {
     const query = wellnessLogDateSchema.parse(c.req.query());
     const logs = await service.getByDate(query.date);
+    return c.json({ data: logs });
+  });
+
+  app.get("/range", async (c) => {
+    const query = wellnessLogRangeSchema.parse(c.req.query());
+    const logs = await service.getByRange(query.from, query.to, query.type);
     return c.json({ data: logs });
   });
 

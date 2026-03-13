@@ -17,6 +17,10 @@ export class WellnessLogService {
     return this.wellnessLogRepo.findByDateAndType(date, type);
   }
 
+  async getByRange(from: string, to: string, type?: string): Promise<WellnessLog[]> {
+    return this.wellnessLogRepo.findByRange(from, to, type);
+  }
+
   async increment(date: string, type: string, amount: number): Promise<WellnessLog> {
     const existing = await this.wellnessLogRepo.findByDateAndType(date, type);
 

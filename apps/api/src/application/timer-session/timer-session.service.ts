@@ -1,4 +1,4 @@
-import type { TimerSessionRepository } from "../../domain/timer-session/timer-session.repository";
+import type { TimerSessionRepository, DailyTimerStats } from "../../domain/timer-session/timer-session.repository";
 import type { TimerSession, CreateTimerSessionInput } from "../../domain/timer-session/timer-session.entity";
 
 export class TimerSessionService {
@@ -14,5 +14,9 @@ export class TimerSessionService {
 
   async getTodayStats(): Promise<{ totalSeconds: number; sessionCount: number }> {
     return this.timerSessionRepo.getTodayStats();
+  }
+
+  async getDailyStats(from: Date, to: Date): Promise<DailyTimerStats[]> {
+    return this.timerSessionRepo.getDailyStats(from, to);
   }
 }

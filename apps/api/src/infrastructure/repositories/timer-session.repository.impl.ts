@@ -1,7 +1,7 @@
 import { eq, and, gte, lte, sql } from "drizzle-orm";
 import type { Database } from "../database/client";
 import { timerSessions } from "../database/schema";
-import type { TimerSessionRepository } from "../../domain/timer-session/timer-session.repository";
+import type { TimerSessionRepository, DailyTimerStats } from "../../domain/timer-session/timer-session.repository";
 import type { TimerSession, CreateTimerSessionInput } from "../../domain/timer-session/timer-session.entity";
 
 export class DrizzleTimerSessionRepository implements TimerSessionRepository {
@@ -60,6 +60,31 @@ export class DrizzleTimerSessionRepository implements TimerSessionRepository {
       totalSeconds: Number(result[0]?.totalSeconds ?? 0),
       sessionCount: Number(result[0]?.sessionCount ?? 0),
     };
+  }
+
+  async getDailyStats(from: Date, to: Date): Promise<DailyTimerStats[]> {
+    const rows = await this.db
+      .select({
+        date: sql<string>`to_char(${timerSessions.startedAt}::date, 'YYYY-MM-DD')`,
+        totalSeconds: sql<number>`coalesce(sum(${timerSessions.actualSeconds}), 0)`,
+        focusSeconds: sql<number>`coalesce(sum(case when ${timerSessions.completed} = true then ${timerSessions.actualSeconds} else 0 end), 0)`,
+        sessionCount: sql<number>`count(*)::int`,
+        completedCount: sql<number>`count(*) filter (where ${timerSessions.completed} = true)::int`,
+        cancelledCount: sql<number>`count(*) filter (where ${timerSessions.completed} = false)::int`,
+      })
+      .from(timerSessions)
+      .where(and(gte(timerSessions.startedAt, from), lte(timerSessions.startedAt, to)))
+      .groupBy(sql`${timerSessions.startedAt}::date`)
+      .orderBy(sql`${timerSessions.startedAt}::date`);
+
+    return rows.map((r) => ({
+      date: r.date,
+      totalSeconds: Number(r.totalSeconds),
+      focusSeconds: Number(r.focusSeconds),
+      sessionCount: Number(r.sessionCount),
+      completedCount: Number(r.completedCount),
+      cancelledCount: Number(r.cancelledCount),
+    }));
   }
 
   private toDomain(row: typeof timerSessions.$inferSelect): TimerSession {

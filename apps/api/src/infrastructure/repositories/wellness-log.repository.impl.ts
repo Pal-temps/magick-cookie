@@ -1,4 +1,4 @@
-import { eq, and, sql } from "drizzle-orm";
+import { eq, and, gte, lte, sql } from "drizzle-orm";
 import type { Database } from "../database/client";
 import { wellnessLogs } from "../database/schema";
 import type { WellnessLogRepository } from "../../domain/wellness-log/wellness-log.repository";
@@ -17,6 +17,19 @@ export class DrizzleWellnessLogRepository implements WellnessLogRepository {
     const rows = await this.db.select().from(wellnessLogs)
       .where(eq(wellnessLogs.date, date))
       .orderBy(wellnessLogs.type);
+    return rows.map(this.toDomain);
+  }
+
+  async findByRange(from: string, to: string, type?: string): Promise<WellnessLog[]> {
+    const conditions = [
+      gte(wellnessLogs.date, from),
+      lte(wellnessLogs.date, to),
+    ];
+    if (type) conditions.push(eq(wellnessLogs.type, type));
+
+    const rows = await this.db.select().from(wellnessLogs)
+      .where(and(...conditions))
+      .orderBy(wellnessLogs.date);
     return rows.map(this.toDomain);
   }
 
