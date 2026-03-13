@@ -3,7 +3,7 @@
   "private": true,
   "workspaces": ["apps/*"],
   "scripts": {
-    "dev": "bun run db:migrate && bun run --filter api dev & bun run --filter desktop tauri:dev",
+    "dev": "bun run db:migrate && concurrently -n api,desktop -c blue,green \"bun run api:dev\" \"bun run desktop:dev\"",
     "api:dev": "bun run --filter api dev",
     "desktop:dev": "bun run --filter desktop tauri:dev",
     "db:migrate": "bun run --filter api db:migrate",
@@ -12,5 +12,8 @@
     "test": "bun run --filter api test",
     "test:integration": "bun run --filter api test:integration",
     "test:e2e": "bun run --filter api test:e2e"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1"
   }
 }
