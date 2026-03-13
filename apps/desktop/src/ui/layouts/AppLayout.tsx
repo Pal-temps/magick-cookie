@@ -1,6 +1,8 @@
 import type { JSX } from "solid-js";
+import { Show } from "solid-js";
 import { useViewStore } from "../../application/stores/viewStore";
 import { useCalendarStore } from "../../application/stores/calendarStore";
+import { MiniTimer } from "../components/common/MiniTimer";
 import { MiniCalendar } from "../components/sidebar/MiniCalendar";
 import { CalendarList } from "../components/sidebar/CalendarList";
 import { UnscheduledTasks } from "../components/sidebar/UnscheduledTasks";
@@ -105,12 +107,22 @@ export function AppLayout(props: AppLayoutProps) {
           "flex-shrink": "0",
         }}>
           <div style={{ display: "flex", "align-items": "center", gap: "12px" }}>
-            <Button variant="ghost" onClick={navigatePrev}>&lt;</Button>
-            <h1 style={{ "font-size": "18px", "font-weight": "600", "text-transform": "capitalize", "min-width": "180px", "text-align": "center" }}>
-              {headerTitle()}
-            </h1>
-            <Button variant="ghost" onClick={navigateNext}>&gt;</Button>
-            <Button variant="secondary" size="sm" onClick={goToToday}>Aujourd'hui</Button>
+            <Button
+              variant={viewMode() === "dashboard" ? "primary" : "ghost"}
+              size="sm"
+              onClick={() => setViewMode("dashboard")}
+            >
+              Accueil
+            </Button>
+            <Show when={viewMode() !== "dashboard"}>
+              <Button variant="ghost" onClick={navigatePrev}>&lt;</Button>
+              <h1 style={{ "font-size": "18px", "font-weight": "600", "text-transform": "capitalize", "min-width": "180px", "text-align": "center" }}>
+                {headerTitle()}
+              </h1>
+              <Button variant="ghost" onClick={navigateNext}>&gt;</Button>
+              <Button variant="secondary" size="sm" onClick={goToToday}>Aujourd'hui</Button>
+            </Show>
+            <MiniTimer />
           </div>
           <div style={{ display: "flex", gap: "4px" }}>
             <Button variant={viewMode() === "month" ? "primary" : "secondary"} size="sm" onClick={() => setViewMode("month")}>Mois</Button>
