@@ -1,10 +1,17 @@
 import { createSignal } from "solid-js";
 import { api } from "../../infrastructure/api/apiClient";
 import type { WellnessConfig, CreateWellnessConfigDTO, UpdateWellnessConfigDTO } from "../../domain/models/WellnessConfig";
+import type { WellnessLog } from "../../domain/models/WellnessLog";
 import { sendNotification, isPermissionGranted } from "@tauri-apps/plugin-notification";
 
 const [configs, setConfigs] = createSignal<WellnessConfig[]>([]);
+const [todayLogs, setTodayLogs] = createSignal<WellnessLog[]>([]);
 const activeIntervals = new Map<string, ReturnType<typeof setInterval>>();
+
+function getTodayDate(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
 
 async function sendWellnessNotification(config: WellnessConfig) {
   try {
@@ -96,8 +103,62 @@ export function useWellnessStore() {
     }, minutes * 60_000);
   }
 
+  async function fetchTodayLogs() {
+    try {
+      const date = getTodayDate();
+      const data = await api.get<WellnessLog[]>(`/wellness-logs?date=${date}`);
+      setTodayLogs(data);
+    } catch (e) {
+      console.error("Failed to fetch wellness logs:", e);
+    }
+  }
+
+  async function incrementLog(type: string, amount: number) {
+    try {
+      const date = getTodayDate();
+      const log = await api.post<WellnessLog>("/wellness-logs/increment", { type, date, amount });
+      setTodayLogs((prev) => {
+        const idx = prev.findIndex((l) => l.type === type && l.date === date);
+        if (idx >= 0) {
+          const updated = [...prev];
+          updated[idx] = log;
+          return updated;
+        }
+        return [...prev, log];
+      });
+      return log;
+    } catch (e) {
+      console.error("Failed to increment wellness log:", e);
+    }
+  }
+
+  async function setGoal(type: string, goal: number) {
+    try {
+      const date = getTodayDate();
+      const log = await api.post<WellnessLog>("/wellness-logs/goal", { type, date, goal });
+      setTodayLogs((prev) => {
+        const idx = prev.findIndex((l) => l.type === type && l.date === date);
+        if (idx >= 0) {
+          const updated = [...prev];
+          updated[idx] = log;
+          return updated;
+        }
+        return [...prev, log];
+      });
+      return log;
+    } catch (e) {
+      console.error("Failed to set wellness goal:", e);
+    }
+  }
+
+  function getLog(type: string): WellnessLog | undefined {
+    const date = getTodayDate();
+    return todayLogs().find((l) => l.type === type && l.date === date);
+  }
+
   return {
     configs,
+    todayLogs,
     fetchConfigs,
     createConfig,
     updateConfig,
@@ -105,5 +166,9 @@ export function useWellnessStore() {
     startAll,
     stopAll,
     snooze,
+    fetchTodayLogs,
+    incrementLog,
+    setGoal,
+    getLog,
   };
 }

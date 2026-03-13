@@ -12,7 +12,7 @@ import { connectSSE } from "./infrastructure/api/sseClient";
 export function App() {
   const { fetchCalendars, fetchEvents, fetchContacts, syncClickUp } = useCalendarStore();
   const { currentDate, viewMode } = useViewStore();
-  const { fetchConfigs, startAll, stopAll } = useWellnessStore();
+  const { fetchConfigs, startAll, stopAll, fetchTodayLogs } = useWellnessStore();
   const { fetchTodayStats } = useTimerStore();
   const notifications = new TauriNotificationAdapter();
   let disconnectSSE: (() => void) | null = null;
@@ -65,6 +65,7 @@ export function App() {
     fetchTodayStats();
     await notifications.requestPermission();
     await fetchConfigs();
+    fetchTodayLogs();
     startAll();
 
     // Connect SSE for real-time reminder notifications

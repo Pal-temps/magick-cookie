@@ -2,6 +2,8 @@ import { TimerWidget } from "./TimerWidget";
 import { WellnessStatus } from "./WellnessStatus";
 import { DailyStats } from "./DailyStats";
 import { TodayEvents } from "./TodayEvents";
+import { WaterTracker } from "./WaterTracker";
+import { FruitVegTracker } from "./FruitVegTracker";
 
 export function DashboardView() {
   const today = () => {
@@ -29,6 +31,8 @@ export function DashboardView() {
       }}>
         <TimerWidget />
         <DailyStats />
+        <WaterTracker />
+        <FruitVegTracker />
         <TodayEvents />
         <WellnessStatus />
       </div>
