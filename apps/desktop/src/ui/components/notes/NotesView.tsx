@@ -514,8 +514,7 @@ export function NotesView() {
             <Show when={store.activeFile()}>
               <Button size="sm" variant="secondary" onClick={handleSaveFile} disabled={!store.isDirty()}>Sauver</Button>
             </Show>
-            <Button size="sm" variant="secondary" onClick={() => store.gitPull()} disabled={store.isSyncing()}>{store.isSyncing() ? "..." : "Pull"}</Button>
-            <Button size="sm" variant="primary" onClick={() => store.gitPush()} disabled={store.isSyncing()}>{store.isSyncing() ? "..." : "Push"}</Button>
+            <Button size="sm" variant="primary" onClick={() => store.gitSync()} disabled={store.isSyncing()}>{store.isSyncing() ? "Sync..." : "Sync"}</Button>
             <Show when={store.activeFile()}>
               <Button size="sm" variant="danger" onClick={() => { if (confirm(`Supprimer ${store.activeFile()} ?`)) store.deleteFile(store.activeFile()!); }}>Suppr.</Button>
             </Show>

@@ -283,6 +283,29 @@ export function useNotesStore() {
     }
   }
 
+  async function gitSync() {
+    if (isDirty()) await saveCurrentFile();
+    setIsSyncing(true);
+    try {
+      // Pull remote changes first
+      await invoke<string>("notes_git_pull");
+      // Reload files after pull (may have new content)
+      await fetchAll();
+      if (activeFile()) {
+        try {
+          const content = await invoke<string>("notes_read", { path: activeFile() });
+          setNoteContent(content);
+          setIsDirty(false);
+        } catch { /* file may have been deleted */ }
+      }
+      // Push local changes (add + commit + push)
+      await invoke<string>("notes_git_push", { message: "" });
+      await refreshGitStatus();
+    } finally {
+      setIsSyncing(false);
+    }
+  }
+
   // ─── SSH ───
   async function checkSshKey(): Promise<boolean> {
     try {
@@ -315,7 +338,7 @@ export function useNotesStore() {
     expandedFolders, toggleFolder, expandFolder, isFolderExpanded, buildTree,
     loadConfig, saveConfig, fetchNotes, fetchDrawings, fetchAll, allFiles, openFile, updateContent,
     saveCurrentFile, createNote, createDrawing, createFolder, renameFile, deleteFile,
-    refreshGitStatus, gitPull, gitPush, filteredFiles,
+    refreshGitStatus, gitPull, gitPush, gitSync, filteredFiles,
     checkSshKey, generateSshKey,
   };
 }
