@@ -26,17 +26,7 @@ export function DayView() {
 
   return (
     <div style={{ display: "flex", "flex-direction": "column", height: "100%", overflow: "auto" }}>
-      <div style={{
-        padding: "12px 16px",
-        "font-size": "16px",
-        "font-weight": "600",
-        "border-bottom": "1px solid var(--border-color)",
-        "text-transform": "capitalize",
-        position: "sticky",
-        top: "0",
-        background: "var(--bg-surface)",
-        "z-index": "1",
-      }}>
+      <div class="day-header">
         {dayLabel()}
       </div>
 
@@ -45,11 +35,11 @@ export function DayView() {
           {(hour) => {
             const hourEvents = () => dayEvents().filter((ev) => new Date(ev.startAt).getHours() === hour);
             return (
-              <div style={{ display: "grid", "grid-template-columns": "60px 1fr", "min-height": "48px", "border-bottom": "1px solid var(--border-color)" }}>
-                <div style={{ "font-size": "11px", color: "var(--text-muted)", padding: "4px 8px", "text-align": "right" }}>
+              <div class="day-hour-row">
+                <div class="day-time-label">
                   {String(hour).padStart(2, "0")}:00
                 </div>
-                <div style={{ padding: "2px 8px", "border-left": "1px solid var(--border-color)" }}>
+                <div class="day-events-cell">
                   <For each={hourEvents()}>
                     {(ev) => <EventCard event={ev} />}
                   </For>

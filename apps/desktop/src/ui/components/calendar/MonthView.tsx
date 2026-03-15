@@ -7,6 +7,8 @@ function toLocalDateStr(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
+const DAY_NAMES_FULL = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"];
+
 export function MonthView() {
   const { currentDate } = useViewStore();
   const { visibleEvents } = useCalendarStore();
@@ -60,35 +62,24 @@ export function MonthView() {
   return (
     <div style={{ display: "flex", "flex-direction": "column", height: "100%" }}>
       {/* Header */}
-      <div style={{ display: "grid", "grid-template-columns": "repeat(7, 1fr)", "border-bottom": "1px solid var(--border-color)" }}>
-        <For each={["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"]}>
-          {(d) => (
-            <div style={{ padding: "8px", "text-align": "center", "font-size": "12px", "font-weight": "600", color: "var(--text-muted)" }}>
-              {d}
-            </div>
-          )}
+      <div class="month-header">
+        <For each={DAY_NAMES_FULL}>
+          {(d) => <div class="month-header-cell">{d}</div>}
         </For>
       </div>
 
       {/* Grid */}
-      <div style={{ flex: "1", display: "flex", "flex-direction": "column" }}>
+      <div class="month-grid">
         <For each={weeks()}>
           {(week) => (
-            <div style={{ display: "grid", "grid-template-columns": "repeat(7, 1fr)", flex: "1", "min-height": "0" }}>
+            <div class="month-week">
               <For each={week}>
                 {(cell) => {
                   const cellEvents = () => eventsByDate().get(cell.dateStr) ?? [];
                   const isToday = cell.dateStr === todayStr;
 
                   return (
-                    <div style={{
-                      "border-right": "1px solid var(--border-color)",
-                      "border-bottom": "1px solid var(--border-color)",
-                      "min-height": "80px",
-                      overflow: "hidden",
-                      display: "flex",
-                      "flex-direction": "column",
-                    }}>
+                    <div class="month-cell">
                       <div style={{
                         padding: "4px 6px",
                         "font-size": "12px",
@@ -100,7 +91,7 @@ export function MonthView() {
                       }}>
                         {cell.day}
                       </div>
-                      <div style={{ display: "flex", "flex-direction": "column", gap: "2px", padding: "4px", flex: "1" }}>
+                      <div class="month-cell-events">
                         <For each={cellEvents().slice(0, 3)}>
                           {(ev) => <EventCard event={ev} />}
                         </For>

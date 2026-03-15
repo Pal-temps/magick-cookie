@@ -1,4 +1,4 @@
-import { For, createMemo } from "solid-js";
+import { For, createMemo, createSignal, onMount, onCleanup } from "solid-js";
 import { useViewStore } from "../../../application/stores/viewStore";
 import { useCalendarStore } from "../../../application/stores/calendarStore";
 import { EventCard } from "../events/EventCard";
@@ -11,7 +11,22 @@ export function WeekView() {
   const { currentDate } = useViewStore();
   const { visibleEvents } = useCalendarStore();
 
-  const weekDays = createMemo(() => {
+  // Track container width for compact mode
+  let containerRef: HTMLDivElement | undefined;
+  const [compact, setCompact] = createSignal(false);
+
+  function checkWidth() {
+    if (containerRef) setCompact(containerRef.offsetWidth < 500);
+  }
+
+  onMount(() => {
+    checkWidth();
+    const ro = new ResizeObserver(checkWidth);
+    if (containerRef) ro.observe(containerRef);
+    onCleanup(() => ro.disconnect());
+  });
+
+  const allWeekDays = createMemo(() => {
     const d = currentDate();
     const day = d.getDay();
     const monday = new Date(d);
@@ -26,6 +41,19 @@ export function WeekView() {
         label: date.toLocaleDateString("fr-FR", { weekday: "short", day: "numeric" }),
       };
     });
+  });
+
+  // In compact mode, show 3 days centered on current day within the week
+  const visibleDays = createMemo(() => {
+    const all = allWeekDays();
+    if (!compact()) return all;
+
+    const todayStr = toLocalDateStr(currentDate());
+    let centerIdx = all.findIndex((d) => d.dateStr === todayStr);
+    if (centerIdx === -1) centerIdx = 0;
+
+    const start = Math.max(0, Math.min(centerIdx - 1, all.length - 3));
+    return all.slice(start, start + 3);
   });
 
   const hours = Array.from({ length: 24 }, (_, i) => i);
@@ -43,11 +71,15 @@ export function WeekView() {
   });
 
   return (
-    <div style={{ display: "flex", "flex-direction": "column", height: "100%", overflow: "auto" }}>
+    <div ref={containerRef} style={{ display: "flex", "flex-direction": "column", height: "100%", overflow: "auto" }}>
       {/* Header */}
-      <div style={{ display: "grid", "grid-template-columns": "60px repeat(7, 1fr)", "border-bottom": "1px solid var(--border-color)", position: "sticky", top: "0", background: "var(--bg-surface)", "z-index": "1" }}>
+      <div class="week-header" style={{
+        "grid-template-columns": compact()
+          ? "40px repeat(3, 1fr)"
+          : undefined,
+      }}>
         <div />
-        <For each={weekDays()}>
+        <For each={visibleDays()}>
           {(day) => (
             <div style={{
               padding: "8px 4px",
@@ -67,16 +99,20 @@ export function WeekView() {
       <div style={{ flex: "1" }}>
         <For each={hours}>
           {(hour) => (
-            <div style={{ display: "grid", "grid-template-columns": "60px repeat(7, 1fr)", "min-height": "48px", "border-bottom": "1px solid var(--border-color)" }}>
-              <div style={{ "font-size": "11px", color: "var(--text-muted)", padding: "4px 8px", "text-align": "right" }}>
+            <div class="week-hour-row" style={{
+              "grid-template-columns": compact()
+                ? "40px repeat(3, 1fr)"
+                : undefined,
+            }}>
+              <div class="week-time-label">
                 {String(hour).padStart(2, "0")}:00
               </div>
-              <For each={weekDays()}>
+              <For each={visibleDays()}>
                 {(day) => {
                   const hourEvents = () => (eventsByDate().get(day.dateStr) ?? [])
                     .filter((ev) => new Date(ev.startAt).getHours() === hour);
                   return (
-                    <div style={{ "border-left": "1px solid var(--border-color)", padding: "2px", "min-height": "48px" }}>
+                    <div class="week-day-cell">
                       <For each={hourEvents()}>
                         {(ev) => <EventCard event={ev} />}
                       </For>
