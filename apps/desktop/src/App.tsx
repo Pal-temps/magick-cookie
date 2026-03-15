@@ -6,6 +6,7 @@ import { useCalendarStore } from "./application/stores/calendarStore";
 import { useViewStore } from "./application/stores/viewStore";
 import { useWellnessStore } from "./application/stores/wellnessStore";
 import { useTimerStore } from "./application/stores/timerStore";
+import { useDogWalkStore } from "./application/stores/dogWalkStore";
 import { initNotifications, notify } from "./infrastructure/tauri/notifications";
 import { connectSSE } from "./infrastructure/api/sseClient";
 
@@ -14,6 +15,7 @@ export function App() {
   const { currentDate, viewMode } = useViewStore();
   const { fetchConfigs, startAll, stopAll, fetchTodayLogs } = useWellnessStore();
   const { fetchTodayStats } = useTimerStore();
+  const { fetchActive: fetchActiveWalk } = useDogWalkStore();
   let disconnectSSE: (() => void) | null = null;
 
   function getViewRange(): { from: Date; to: Date } {
@@ -62,6 +64,7 @@ export function App() {
     fetchContacts();
     syncClickUp();
     fetchTodayStats();
+    fetchActiveWalk();
     await initNotifications();
     await fetchConfigs();
     fetchTodayLogs();

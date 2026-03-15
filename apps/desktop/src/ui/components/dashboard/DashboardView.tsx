@@ -6,6 +6,7 @@ import { TodayEvents } from "./TodayEvents";
 import { WaterTracker } from "./WaterTracker";
 import { FruitVegTracker } from "./FruitVegTracker";
 import { StatsView } from "./StatsView";
+import { DogWalkWidget } from "./DogWalkWidget";
 import { Button } from "../common/Button";
 
 export function DashboardView() {
@@ -44,6 +45,7 @@ export function DashboardView() {
           <DailyStats />
           <WaterTracker />
           <FruitVegTracker />
+          <DogWalkWidget />
           <TodayEvents />
           <WellnessStatus />
         </div>

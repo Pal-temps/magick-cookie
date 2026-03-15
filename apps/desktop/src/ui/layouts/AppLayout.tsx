@@ -3,12 +3,15 @@ import { Show } from "solid-js";
 import { useViewStore } from "../../application/stores/viewStore";
 import { useCalendarStore } from "../../application/stores/calendarStore";
 import { MiniTimer } from "../components/common/MiniTimer";
+import { MicButton } from "../components/common/MicButton";
+import { MiniDogWalk } from "../components/common/MiniDogWalk";
 import { MiniCalendar } from "../components/sidebar/MiniCalendar";
 import { CalendarList } from "../components/sidebar/CalendarList";
 import { UnscheduledTasks } from "../components/sidebar/UnscheduledTasks";
 import { ContactManager } from "../components/sidebar/ContactManager";
 import { CollapsibleSection } from "../components/common/CollapsibleSection";
 import { Button } from "../components/common/Button";
+import { TaskDetail } from "../components/clickup/TaskDetail";
 
 interface AppLayoutProps {
   children: JSX.Element;
@@ -123,6 +126,8 @@ export function AppLayout(props: AppLayoutProps) {
               <Button variant="secondary" size="sm" onClick={goToToday}>Aujourd'hui</Button>
             </Show>
             <MiniTimer />
+            <MiniDogWalk />
+            <MicButton />
           </div>
           <div style={{ display: "flex", gap: "4px" }}>
             <Button variant={viewMode() === "month" ? "primary" : "secondary"} size="sm" onClick={() => setViewMode("month")}>Mois</Button>
@@ -136,6 +141,8 @@ export function AppLayout(props: AppLayoutProps) {
           {props.children}
         </div>
       </main>
+
+      <TaskDetail />
     </div>
   );
 }
