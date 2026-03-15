@@ -499,7 +499,7 @@ export function NotesView() {
             value={store.searchQuery()} onInput={(e) => store.setSearchQuery(e.currentTarget.value)}
             style={{ ...inputStyle(), flex: "1" }}
           />
-          <Button size="sm" variant="ghost" onClick={openSettings} style={{ "font-size": "14px" }}>&#9881;</Button>
+          <Button size="sm" variant="ghost" onClick={openSettings} style={{ "font-size": "18px", "min-width": "32px", "min-height": "32px", display: "inline-flex", "align-items": "center", "justify-content": "center", padding: "0" }}>&#9881;</Button>
         </div>
 
         <div
