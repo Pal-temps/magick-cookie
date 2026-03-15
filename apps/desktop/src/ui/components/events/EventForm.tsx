@@ -4,7 +4,7 @@ import { Modal } from "../common/Modal";
 import { Button } from "../common/Button";
 
 export function EventForm() {
-  const { isEventFormOpen, editingEvent, closeForm, calendars, createEvent, updateEvent } = useCalendarStore();
+  const { isEventFormOpen, editingEvent, closeForm, calendars, createEvent, updateEvent, prefillData, setPrefillData } = useCalendarStore();
 
   const isEditing = createMemo(() => !!editingEvent());
 
@@ -29,16 +29,29 @@ export function EventForm() {
       setEndAt(ev.endAt.slice(0, 16));
       setIsAllDay(ev.isAllDay);
     } else {
-      setTitle("");
-      setDescription("");
-      setLocation("");
-      setCalendarId(calendars()[0]?.id ?? "");
-      const now = new Date();
-      const later = new Date(now.getTime() + 3600000);
-      setStartAt(toLocalInput(now));
-      setEndAt(toLocalInput(later));
-      setIsAllDay(false);
-      setReminderMinutes(15);
+      const prefill = prefillData();
+      if (prefill) {
+        setTitle(prefill.title);
+        setDescription("");
+        setLocation(prefill.location ?? "");
+        setCalendarId(calendars()[0]?.id ?? "");
+        setStartAt(prefill.startAt ? toLocalInput(prefill.startAt) : toLocalInput(new Date()));
+        setEndAt(prefill.endAt ? toLocalInput(prefill.endAt) : toLocalInput(new Date(Date.now() + 3600000)));
+        setIsAllDay(prefill.isAllDay);
+        setReminderMinutes(15);
+        setPrefillData(null);
+      } else {
+        setTitle("");
+        setDescription("");
+        setLocation("");
+        setCalendarId(calendars()[0]?.id ?? "");
+        const now = new Date();
+        const later = new Date(now.getTime() + 3600000);
+        setStartAt(toLocalInput(now));
+        setEndAt(toLocalInput(later));
+        setIsAllDay(false);
+        setReminderMinutes(15);
+      }
     }
   };
 

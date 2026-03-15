@@ -1,3 +1,5 @@
+mod whisper;
+
 use tauri::{
     menu::{Menu, MenuItem},
     tray::TrayIconBuilder,
@@ -46,6 +48,11 @@ pub fn run() {
 
             Ok(())
         })
+        .invoke_handler(tauri::generate_handler![
+            whisper::check_whisper_model,
+            whisper::download_whisper_model,
+            whisper::transcribe_audio,
+        ])
         .on_window_event(|window, event| {
             // Minimize to tray instead of quitting when window is closed
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {

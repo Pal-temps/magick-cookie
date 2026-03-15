@@ -1,7 +1,8 @@
 import { createSignal } from "solid-js";
 import type { Calendar, CreateCalendarDTO, UpdateCalendarDTO } from "../../domain/models/Calendar";
 import type { CalendarEvent, CreateEventDTO, UpdateEventDTO, Contact, CreateContactDTO, UpdateContactDTO } from "../../domain/models/CalendarEvent";
-import type { UnscheduledTask, SyncResult } from "../../domain/models/ClickUpTask";
+import type { UnscheduledTask, SyncResult, TaskDetailData } from "../../domain/models/ClickUpTask";
+import type { ParsedEventData } from "../services/eventParser";
 import { api } from "../../infrastructure/api/apiClient";
 
 // --- Calendars ---
@@ -24,9 +25,15 @@ const [showBirthdays, setShowBirthdays] = createSignal(true);
 const [showClickUp, setShowClickUp] = createSignal(true);
 const [showPersonal, setShowPersonal] = createSignal(true);
 
+// --- Speech prefill ---
+const [prefillData, setPrefillData] = createSignal<ParsedEventData | null>(null);
+
 // --- ClickUp ---
 const [unscheduledTasks, setUnscheduledTasks] = createSignal<UnscheduledTask[]>([]);
 const [isSyncing, setIsSyncing] = createSignal(false);
+const [selectedTask, setSelectedTask] = createSignal<UnscheduledTask | null>(null);
+const [taskDetail, setTaskDetail] = createSignal<TaskDetailData | null>(null);
+const [isLoadingTaskDetail, setIsLoadingTaskDetail] = createSignal(false);
 
 export function useCalendarStore() {
   // Calendar CRUD
@@ -114,6 +121,12 @@ export function useCalendarStore() {
     setEventFormOpen(true);
   }
 
+  function openCreateFormWithData(data: ParsedEventData) {
+    setPrefillData(data);
+    setEditingEvent(null);
+    setEventFormOpen(true);
+  }
+
   function openEditForm(event: CalendarEvent) {
     setEditingEvent(event);
     setEventFormOpen(true);
@@ -183,6 +196,22 @@ export function useCalendarStore() {
     return result;
   }
 
+  // ClickUp task detail
+  function openTaskDetail(task: UnscheduledTask) {
+    setSelectedTask(task);
+    setTaskDetail(null);
+    setIsLoadingTaskDetail(true);
+    api.get<TaskDetailData>(`/connectors/clickup/tasks/${task.clickupTaskId}/detail`)
+      .then((data) => setTaskDetail(data))
+      .catch(() => setTaskDetail(null))
+      .finally(() => setIsLoadingTaskDetail(false));
+  }
+
+  function closeTaskDetail() {
+    setSelectedTask(null);
+    setTaskDetail(null);
+  }
+
   // ClickUp sync
   async function fetchUnscheduledTasks() {
     const data = await api.get<UnscheduledTask[]>("/connectors/clickup/tasks");
@@ -209,9 +238,10 @@ export function useCalendarStore() {
     fetchEvents, createEvent, updateEvent, deleteEvent,
     visibleEvents,
     showBirthdays, showClickUp, showPersonal, toggleSourceFilter,
-    openCreateForm, openEditForm, closeForm,
+    prefillData, setPrefillData,
+    openCreateForm, openCreateFormWithData, openEditForm, closeForm,
     contacts, fetchContacts, createContact, updateContact, deleteContact, birthdayEventsForRange,
-    unscheduledTasks, isSyncing,
-    fetchUnscheduledTasks, syncClickUp,
+    unscheduledTasks, isSyncing, selectedTask, taskDetail, isLoadingTaskDetail,
+    fetchUnscheduledTasks, syncClickUp, openTaskDetail, closeTaskDetail,
   };
 }
