@@ -3,13 +3,12 @@ import { useNotesStore, type NoteEntry, type TreeNode } from "../../../applicati
 import { useThemeStore } from "../../../application/stores/themeStore";
 import { mountExcalidraw, type ExcalidrawHandle } from "../drawings/excalidrawMount";
 import { Button } from "../common/Button";
+import "../../styles/notes.css";
 
 interface ContextMenuState {
   x: number;
   y: number;
-  /** folder path where new items should be created, or "" for root */
   folder: string;
-  /** if right-clicking a specific item */
   item?: { type: "file" | "folder"; path: string; name: string };
 }
 
@@ -24,11 +23,10 @@ export function NotesView() {
   const [isGenerating, setIsGenerating] = createSignal(false);
   const [copied, setCopied] = createSignal(false);
   const [isLoadingExcalidraw, setIsLoadingExcalidraw] = createSignal(false);
+  const [sidebarOpen, setSidebarOpen] = createSignal(false);
 
-  // Context menu
   const [ctxMenu, setCtxMenu] = createSignal<ContextMenuState | null>(null);
 
-  // Inline creation/rename
   const [inlineAction, setInlineAction] = createSignal<{
     mode: "create-note" | "create-schema" | "create-folder" | "rename";
     folder: string;
@@ -37,7 +35,6 @@ export function NotesView() {
   } | null>(null);
   const [inlineName, setInlineName] = createSignal("");
 
-  // Reactive tree — recomputes when notes/drawings change
   const tree = createMemo((): TreeNode => store.buildTree());
 
   const [editorContainer, setEditorContainer] = createSignal<HTMLDivElement | null>(null);
@@ -65,8 +62,6 @@ export function NotesView() {
     setCtxMenu(null);
   }
 
-  // Mount/destroy Excalidraw — only reacts to file/type/container changes, NOT content
-  // (content changes come from Excalidraw's own onChange, tracking it would cause infinite remount)
   createEffect(() => {
     const file = store.activeFile();
     const type = store.activeFileType();
@@ -214,6 +209,12 @@ export function NotesView() {
     } catch {}
   }
 
+  // Close sidebar when selecting a file in compact mode
+  function handleFileSelect(path: string) {
+    store.openFile(path);
+    setSidebarOpen(false);
+  }
+
   // ─── Settings Panel ───
   function SettingsPanel() {
     return (
@@ -303,11 +304,10 @@ export function NotesView() {
     );
   }
 
-  // ─── Inline Input (shown inside tree at target folder) ───
+  // ─── Inline Input ───
   function InlineInputRow(props: { folder: string }) {
     const action = inlineAction();
     if (!action || action.folder !== props.folder) return null;
-    // This is NOT reactive on purpose — it's a transient UI that gets created/destroyed by the parent <Show>
     const label = action.mode === "create-folder" ? "Dossier" : action.mode === "create-schema" ? "Schema" : action.mode === "create-note" ? "Note" : "Renommer";
     return (
       <div
@@ -343,7 +343,6 @@ export function NotesView() {
 
     return (
       <div>
-        {/* Folder row */}
         <button
           data-ctx-item
           onClick={() => store.toggleFolder(props.node.path)}
@@ -373,21 +372,17 @@ export function NotesView() {
           </span>
         </button>
 
-        {/* Children (expanded) */}
         <Show when={expanded()}>
-          {/* Inline input for this folder */}
           <Show when={hasInline()}>
             <div style={{ "padding-left": `${6 + indent() + 16}px` }}>
               <InlineInputRow folder={props.node.path} />
             </div>
           </Show>
 
-          {/* Sub-folders */}
           <For each={props.node.folders}>
             {(child) => <FolderNode node={child} depth={props.depth + 1} />}
           </For>
 
-          {/* Files */}
           <For each={props.node.files}>
             {(file) => <FileNode file={file} depth={props.depth + 1} />}
           </For>
@@ -408,7 +403,7 @@ export function NotesView() {
     return (
       <button
         data-ctx-item
-        onClick={() => store.openFile(props.file.path)}
+        onClick={() => handleFileSelect(props.file.path)}
         onContextMenu={(e) => showContextMenu(e, { folder: parentFolder(), item: { type: "file", path: props.file.path, name: props.file.name } })}
         style={{
           display: "flex", "align-items": "center", gap: "4px", width: "100%",
@@ -435,15 +430,10 @@ export function NotesView() {
   // ─── Main View ───
   return (
     <Show when={!showSettings()} fallback={<SettingsPanel />}>
-    <div style={{ display: "flex", height: "100%", overflow: "hidden" }} onKeyDown={handleKeyDown} onClick={handleGlobalClick}>
-      {/* Left panel — file explorer */}
-      <div style={{
-        width: "260px", "min-width": "260px",
-        "border-right": "1px solid var(--border-color)",
-        display: "flex", "flex-direction": "column", overflow: "hidden",
-      }}>
-        {/* Search + settings */}
-        <div style={{ padding: "8px", display: "flex", gap: "4px", "border-bottom": "1px solid var(--border-color)" }}>
+    <div class="notes-container" onKeyDown={handleKeyDown} onClick={handleGlobalClick}>
+      {/* Sidebar */}
+      <div class={`notes-sidebar ${sidebarOpen() ? "notes-sidebar--open" : ""}`}>
+        <div class="notes-sidebar-search">
           <input
             type="text" placeholder="Rechercher..."
             value={store.searchQuery()} onInput={(e) => store.setSearchQuery(e.currentTarget.value)}
@@ -452,16 +442,14 @@ export function NotesView() {
           <Button size="sm" variant="ghost" onClick={openSettings} style={{ "font-size": "14px" }}>&#9881;</Button>
         </div>
 
-        {/* Tree / search results */}
         <div
-          style={{ flex: "1", "overflow-y": "auto" }}
+          class="notes-sidebar-tree"
           onContextMenu={(e) => {
             if (!(e.target as HTMLElement).closest("[data-ctx-item]")) {
               showContextMenu(e, { folder: "" });
             }
           }}
         >
-          {/* Search mode: flat results */}
           <Show when={store.searchQuery()}>
             <For each={store.filteredFiles()}>
               {(file) => <FileNode file={file} depth={0} showPath />}
@@ -471,21 +459,17 @@ export function NotesView() {
             </Show>
           </Show>
 
-          {/* Tree mode */}
           <Show when={!store.searchQuery()}>
-            {/* Inline input at root level */}
             <Show when={inlineAction()?.folder === ""}>
               <div style={{ "padding-left": "6px" }}>
                 <InlineInputRow folder="" />
               </div>
             </Show>
 
-            {/* Root folders */}
             <For each={tree().folders}>
               {(folder) => <FolderNode node={folder} depth={0} />}
             </For>
 
-            {/* Root files */}
             <For each={tree().files}>
               {(file) => <FileNode file={file} depth={0} />}
             </For>
@@ -499,17 +483,24 @@ export function NotesView() {
         </div>
       </div>
 
-      {/* Right panel — editor */}
-      <div style={{ flex: "1", display: "flex", "flex-direction": "column", overflow: "hidden" }}>
+      {/* Editor */}
+      <div class="notes-editor">
         {/* Toolbar */}
-        <div style={{ padding: "6px 12px", display: "flex", "align-items": "center", "justify-content": "space-between", "border-bottom": "1px solid var(--border-color)", "flex-shrink": "0" }}>
-          <div style={{ display: "flex", "align-items": "center", gap: "6px" }}>
+        <div class="notes-toolbar">
+          <div class="notes-toolbar-left">
+            <button
+              class="notes-toggle-sidebar"
+              onClick={() => setSidebarOpen(!sidebarOpen())}
+              title="Fichiers"
+            >
+              {sidebarOpen() ? "\u2715" : "\u2630"}
+            </button>
             <Show when={store.activeFile()}>
-              <span style={{ "font-size": "13px", "font-weight": "500", color: "var(--text-primary)" }}>{store.activeFile()}</span>
+              <span class="notes-toolbar-filename" style={{ "font-size": "13px", "font-weight": "500", color: "var(--text-primary)" }}>{store.activeFile()}</span>
               <Show when={store.isDirty()}><span style={{ "font-size": "11px", color: "var(--cal-orange)", "font-weight": "600" }}>*</span></Show>
             </Show>
           </div>
-          <div style={{ display: "flex", "align-items": "center", gap: "6px" }}>
+          <div class="notes-toolbar-right">
             <Show when={store.gitStatus()}>
               <span style={{ "font-size": "10px", padding: "2px 8px", "border-radius": "var(--radius-sm)", background: store.gitStatus()!.has_changes ? "var(--cal-orange)" : "var(--cal-green)", color: "#fff" }}>
                 {store.gitStatus()!.summary}
@@ -532,30 +523,32 @@ export function NotesView() {
         </div>
 
         {/* Editor area */}
-        <Show when={store.activeFile()} fallback={
-          <div style={{ flex: "1", display: "flex", "align-items": "center", "justify-content": "center", color: "var(--text-muted)", "font-size": "14px" }}>Selectionnez ou creez un fichier</div>
-        }>
-          <Show when={store.activeFileType() === "md"}>
-            <Show when={store.isPreview()} fallback={
-              <textarea
-                value={store.noteContent()} onInput={(e) => store.updateContent(e.currentTarget.value)}
-                onDragOver={handleEditorDragOver} onDrop={handleEditorDrop}
-                style={{ flex: "1", width: "100%", padding: "16px 20px", background: "var(--bg-base)", color: "var(--text-primary)", border: "none", outline: "none", resize: "none", "font-family": "'JetBrains Mono', 'Fira Code', 'Consolas', monospace", "font-size": "13px", "line-height": "1.6", "tab-size": "2" }}
-                spellcheck={false}
-              />
-            }>
-              <div style={{ flex: "1", padding: "16px 20px", "overflow-y": "auto", "font-size": "13px", "line-height": "1.6", color: "var(--text-primary)" }} innerHTML={renderMarkdown(store.noteContent())} />
+        <div class="notes-editor-content">
+          <Show when={store.activeFile()} fallback={
+            <div style={{ flex: "1", display: "flex", "align-items": "center", "justify-content": "center", color: "var(--text-muted)", "font-size": "14px" }}>Selectionnez ou creez un fichier</div>
+          }>
+            <Show when={store.activeFileType() === "md"}>
+              <Show when={store.isPreview()} fallback={
+                <textarea
+                  class="notes-textarea"
+                  value={store.noteContent()} onInput={(e) => store.updateContent(e.currentTarget.value)}
+                  onDragOver={handleEditorDragOver} onDrop={handleEditorDrop}
+                  spellcheck={false}
+                />
+              }>
+                <div class="notes-preview" innerHTML={renderMarkdown(store.noteContent())} />
+              </Show>
+            </Show>
+            <Show when={store.activeFileType() === "excalidraw"}>
+              <div style={{ flex: "1", position: "relative", overflow: "hidden" }}>
+                <Show when={isLoadingExcalidraw()}>
+                  <div style={{ position: "absolute", inset: "0", display: "flex", "align-items": "center", "justify-content": "center", background: "var(--bg-base)", "z-index": "10", color: "var(--text-muted)", "font-size": "14px" }}>Chargement d'Excalidraw...</div>
+                </Show>
+                <div ref={setEditorContainer} style={{ width: "100%", height: "100%" }} />
+              </div>
             </Show>
           </Show>
-          <Show when={store.activeFileType() === "excalidraw"}>
-            <div style={{ flex: "1", position: "relative", overflow: "hidden" }}>
-              <Show when={isLoadingExcalidraw()}>
-                <div style={{ position: "absolute", inset: "0", display: "flex", "align-items": "center", "justify-content": "center", background: "var(--bg-base)", "z-index": "10", color: "var(--text-muted)", "font-size": "14px" }}>Chargement d'Excalidraw...</div>
-              </Show>
-              <div ref={setEditorContainer} style={{ width: "100%", height: "100%" }} />
-            </div>
-          </Show>
-        </Show>
+        </div>
       </div>
 
       <ContextMenu />
