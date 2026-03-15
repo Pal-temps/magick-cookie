@@ -3,6 +3,7 @@ import { useNotesStore, type NoteEntry, type TreeNode } from "../../../applicati
 import { useThemeStore } from "../../../application/stores/themeStore";
 import { mountExcalidraw, type ExcalidrawHandle } from "../drawings/excalidrawMount";
 import { Button } from "../common/Button";
+import { ConfirmDialog, requestConfirm } from "../common/ConfirmDialog";
 import "../../styles/notes.css";
 
 interface ContextMenuState {
@@ -162,12 +163,12 @@ export function NotesView() {
 
   async function handleDeleteFromMenu(path: string) {
     setCtxMenu(null);
-    if (confirm(`Supprimer ${path} ?`)) await store.deleteFile(path);
+    if (await requestConfirm(`Supprimer "${path}" ?`)) await store.deleteFile(path);
   }
 
   async function handleDeleteFolderFromMenu(path: string) {
     setCtxMenu(null);
-    if (confirm(`Supprimer le dossier "${path}" et tout son contenu ?`)) await store.deleteFolder(path);
+    if (await requestConfirm(`Supprimer le dossier "${path}" et tout son contenu ?`)) await store.deleteFolder(path);
   }
 
   // ─── Editor ───
@@ -524,7 +525,7 @@ export function NotesView() {
             </Show>
             <Button size="sm" variant="primary" onClick={() => store.gitSync()} disabled={store.isSyncing()}>{store.isSyncing() ? "Sync..." : "Sync"}</Button>
             <Show when={store.activeFile()}>
-              <Button size="sm" variant="danger" onClick={() => { if (confirm(`Supprimer ${store.activeFile()} ?`)) store.deleteFile(store.activeFile()!); }}>Suppr.</Button>
+              <Button size="sm" variant="danger" onClick={async () => { if (await requestConfirm(`Supprimer "${store.activeFile()}" ?`)) store.deleteFile(store.activeFile()!); }}>Suppr.</Button>
             </Show>
           </div>
         </div>
@@ -559,6 +560,7 @@ export function NotesView() {
       </div>
 
       <ContextMenu />
+      <ConfirmDialog />
     </div>
     </Show>
   );
