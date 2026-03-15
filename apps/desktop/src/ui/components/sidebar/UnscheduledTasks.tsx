@@ -96,7 +96,7 @@ function TaskItem(props: { task: UnscheduledTask; onClick: () => void }) {
   function handleDragStart(e: DragEvent) {
     const t = props.task;
     const md = `- [${t.name}](${t.url}) — *${t.status}* (${t.listName})`;
-    e.dataTransfer!.setData("application/x-do-it-now", JSON.stringify({ type: "task", markdown: md }));
+    e.dataTransfer!.setData("application/x-magick-cookie", JSON.stringify({ type: "task", markdown: md }));
     e.dataTransfer!.setData("text/plain", md);
     e.dataTransfer!.effectAllowed = "copy";
   }

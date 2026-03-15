@@ -1,6 +1,7 @@
 import { createSignal, Show, For, onCleanup } from "solid-js";
 import type { JSX } from "solid-js";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { ThemeSwitcher } from "./ThemeSwitcher";
 
 // --- Types ---
 
@@ -74,7 +75,7 @@ export function TitleBar(props: TitleBarProps) {
           color: "var(--accent-primary)",
           "-webkit-app-region": "no-drag",
         }}>
-          do-it-now
+          Magick Cookie
         </div>
 
         {/* Menu items */}
@@ -165,6 +166,9 @@ export function TitleBar(props: TitleBarProps) {
       <div style={{ display: "flex", "align-items": "center", height: "100%", "-webkit-app-region": "no-drag" }}>
         {/* Custom right slot (mini indicators) */}
         {props.rightSlot}
+
+        {/* Theme switcher */}
+        <ThemeSwitcher />
 
         {/* Window controls */}
         <button

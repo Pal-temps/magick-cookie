@@ -34,7 +34,8 @@ export async function mountExcalidraw(
   let currentFiles: any = {};
 
   // Parse initial data
-  const defaultAppState = { theme, viewBackgroundColor: theme === "dark" ? "#1e1e2e" : "#ffffff" };
+  const bgColor = getComputedStyle(document.documentElement).getPropertyValue("--excalidraw-bg").trim() || (theme === "dark" ? "#1e1e2e" : "#ffffff");
+  const defaultAppState = { theme, viewBackgroundColor: bgColor };
   let initialData: any = { elements: [], appState: defaultAppState, files: {} };
   if (initialContent.trim()) {
     try {

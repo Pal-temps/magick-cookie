@@ -1,12 +1,14 @@
 import { onMount, onCleanup, Show, For, createSignal, createEffect } from "solid-js";
 import { useDrawingStore } from "../../../application/stores/drawingStore";
 import { useNotesStore } from "../../../application/stores/notesStore";
+import { useThemeStore } from "../../../application/stores/themeStore";
 import { mountExcalidraw, type ExcalidrawHandle } from "./excalidrawMount";
 import { Button } from "../common/Button";
 
 export function DrawingsView() {
   const store = useDrawingStore();
   const notes = useNotesStore();
+  const { theme } = useThemeStore();
   const [newDrawingName, setNewDrawingName] = createSignal("");
   const [showNewDrawing, setShowNewDrawing] = createSignal(false);
   const [isLoading, setIsLoading] = createSignal(false);
@@ -49,11 +51,7 @@ export function DrawingsView() {
 
     setIsLoading(true);
 
-    // Detect dark mode
-    const isDark = getComputedStyle(document.documentElement).getPropertyValue("--bg-base").trim().startsWith("#1") ||
-                   getComputedStyle(document.documentElement).getPropertyValue("--bg-base").trim().startsWith("#0") ||
-                   document.documentElement.classList.contains("dark");
-    const theme = isDark ? "dark" as const : "dark" as const; // Force dark for now
+    const excalidrawTheme = theme() === "light" ? "light" as const : "dark" as const;
 
     mountExcalidraw(
       editorContainer,
@@ -61,7 +59,7 @@ export function DrawingsView() {
       (newContent) => {
         store.updateContent(newContent);
       },
-      theme,
+      excalidrawTheme,
     ).then((handle) => {
       excalidrawHandle = handle;
       setIsLoading(false);

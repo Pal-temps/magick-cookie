@@ -1,5 +1,6 @@
 import { onMount, onCleanup, Show, For, createSignal, createEffect, createMemo, untrack } from "solid-js";
 import { useNotesStore, type NoteEntry, type TreeNode } from "../../../application/stores/notesStore";
+import { useThemeStore } from "../../../application/stores/themeStore";
 import { mountExcalidraw, type ExcalidrawHandle } from "../drawings/excalidrawMount";
 import { Button } from "../common/Button";
 
@@ -14,6 +15,7 @@ interface ContextMenuState {
 
 export function NotesView() {
   const store = useNotesStore();
+  const { theme } = useThemeStore();
   const [showSettings, setShowSettings] = createSignal(false);
   const [settingsPath, setSettingsPath] = createSignal("");
   const [settingsRemote, setSettingsRemote] = createSignal("");
@@ -78,8 +80,9 @@ export function NotesView() {
     if (excalidrawHandle) { excalidrawHandle.destroy(); excalidrawHandle = null; }
 
     const content = untrack(() => store.noteContent());
+    const excalidrawTheme = theme() === "light" ? "light" as const : "dark" as const;
     setIsLoadingExcalidraw(true);
-    mountExcalidraw(container, content, (c) => store.updateContent(c), "dark")
+    mountExcalidraw(container, content, (c) => store.updateContent(c), excalidrawTheme)
       .then((h) => { excalidrawHandle = h; setIsLoadingExcalidraw(false); })
       .catch(() => setIsLoadingExcalidraw(false));
   });
@@ -191,11 +194,11 @@ export function NotesView() {
   }
 
   function handleEditorDragOver(e: DragEvent) {
-    if (e.dataTransfer?.types.includes("application/x-do-it-now")) { e.preventDefault(); e.dataTransfer.dropEffect = "copy"; }
+    if (e.dataTransfer?.types.includes("application/x-magick-cookie")) { e.preventDefault(); e.dataTransfer.dropEffect = "copy"; }
   }
 
   function handleEditorDrop(e: DragEvent) {
-    const raw = e.dataTransfer?.getData("application/x-do-it-now");
+    const raw = e.dataTransfer?.getData("application/x-magick-cookie");
     if (!raw) return;
     e.preventDefault();
     try {
@@ -231,7 +234,7 @@ export function NotesView() {
             <div style={{ display: "flex", "align-items": "center", "justify-content": "space-between" }}>
               <div>
                 <div style={{ "font-size": "13px", "font-weight": "600", color: "var(--text-primary)" }}>Cle SSH dediee</div>
-                <div style={{ "font-size": "11px", color: "var(--text-muted)", "margin-top": "2px" }}>Genere une cle SSH utilisee uniquement par do-it-now.</div>
+                <div style={{ "font-size": "11px", color: "var(--text-muted)", "margin-top": "2px" }}>Genere une cle SSH utilisee uniquement par Magick Cookie.</div>
               </div>
               <Show when={store.sshKeyExists()}>
                 <span style={{ "font-size": "10px", padding: "2px 8px", "border-radius": "var(--radius-sm)", background: "var(--cal-green)", color: "#fff" }}>Cle configuree</span>
@@ -260,7 +263,7 @@ export function NotesView() {
             <Show when={store.config()}><Button variant="ghost" onClick={() => setShowSettings(false)}>Annuler</Button></Show>
             <Show when={import.meta.env.DEV}>
               <Button variant="ghost" size="sm" onClick={async () => {
-                const tmpPath = `${await import("@tauri-apps/api/path").then((m) => m.tempDir())}do-it-now-dev-notes`;
+                const tmpPath = `${await import("@tauri-apps/api/path").then((m) => m.tempDir())}magick-cookie-dev-notes`;
                 await store.saveConfig(tmpPath, ""); setShowSettings(false); await store.fetchAll();
               }} style={{ "margin-left": "auto", "font-size": "11px", color: "var(--cal-orange)" }}>Skip (dev)</Button>
             </Show>

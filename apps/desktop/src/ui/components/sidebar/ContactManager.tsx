@@ -58,7 +58,7 @@ export function ContactManager() {
             if (c.email) parts.push(c.email);
             if (c.birthDate) parts.push(`anniversaire: ${new Date(c.birthDate).toLocaleDateString("fr-FR")}`);
             const md = `**${c.name}**` + (parts.length > 1 ? ` — ${parts.slice(1).join(", ")}` : "");
-            e.dataTransfer!.setData("application/x-do-it-now", JSON.stringify({ type: "contact", markdown: md }));
+            e.dataTransfer!.setData("application/x-magick-cookie", JSON.stringify({ type: "contact", markdown: md }));
             e.dataTransfer!.setData("text/plain", md);
             e.dataTransfer!.effectAllowed = "copy";
           }
