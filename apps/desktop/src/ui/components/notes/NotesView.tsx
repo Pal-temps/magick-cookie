@@ -317,19 +317,23 @@ export function NotesView() {
   function InlineInputRow(props: { folder: string }) {
     const action = inlineAction();
     if (!action || action.folder !== props.folder) return null;
-    const label = action.mode === "create-folder" ? "Dossier" : action.mode === "create-schema" ? "Schema" : action.mode === "create-note" ? "Note" : "Renommer";
+    const isRename = action.mode === "rename";
+    const label = action.mode === "create-folder" ? "Dossier" : action.mode === "create-schema" ? "Schema" : action.mode === "create-note" ? "Note" : "";
     return (
       <div
-        style={{ padding: "3px 0 3px 4px", display: "flex", "align-items": "center", gap: "4px" }}
+        style={{ padding: "3px 0 3px 4px", display: "flex", "align-items": "center", gap: "4px", overflow: "hidden", "min-width": "0" }}
         onClick={(e) => e.stopPropagation()}
       >
-        <span style={{ "font-size": "10px", color: "var(--text-muted)", "font-weight": "600", "min-width": "48px" }}>{label}</span>
+        <Show when={!isRename}>
+          <span style={{ "font-size": "10px", color: "var(--text-muted)", "font-weight": "600", "flex-shrink": "0" }}>{label}</span>
+        </Show>
         <input
           type="text"
           value={inlineName()}
           onInput={(e) => setInlineName(e.currentTarget.value)}
           onKeyDown={(e) => { if (e.key === "Enter") confirmInline(); if (e.key === "Escape") cancelInline(); }}
-          style={{ ...inputStyle(), flex: "1", "font-size": "11px", padding: "3px 6px" }}
+          placeholder={isRename ? "Nouveau nom" : ""}
+          style={{ ...inputStyle(), flex: "1", "font-size": "11px", padding: "3px 6px", "min-width": "0" }}
           ref={(el) => setTimeout(() => el.focus(), 0)}
         />
         <button
