@@ -355,20 +355,30 @@ export function NotesView() {
   // ─── Inline rename input (replaces name in-place) ───
   function InlineRenameInput() {
     return (
-      <div style={{ display: "flex", "align-items": "center", gap: "2px", flex: "1", "min-width": "0", overflow: "hidden" }} onClick={(e) => e.stopPropagation()}>
+      <div style={{ display: "flex", "align-items": "center", gap: "4px", flex: "1", "min-width": "0", overflow: "hidden" }} onClick={(e) => e.stopPropagation()}>
         <input
           type="text"
           value={inlineName()}
           onInput={(e) => setInlineName(e.currentTarget.value)}
           onKeyDown={(e) => { if (e.key === "Enter") confirmInline(); if (e.key === "Escape") cancelInline(); }}
-          style={{ ...inputStyle(), flex: "1", "font-size": "11px", padding: "2px 6px", "min-width": "0" }}
+          style={{
+            flex: "1", "min-width": "0",
+            "font-size": "12px", "line-height": "1",
+            padding: "0 4px",
+            height: "18px",
+            background: "var(--bg-base)",
+            color: "var(--text-primary)",
+            border: "1px solid var(--accent-primary)",
+            "border-radius": "var(--radius-sm)",
+            outline: "none",
+          }}
           ref={(el) => setTimeout(() => { el.focus(); el.select(); }, 0)}
         />
         <button
           onClick={confirmInline}
-          style={{ "font-size": "10px", padding: "2px 6px", "border-radius": "var(--radius-sm)", background: "var(--accent-primary)", color: "#fff", cursor: "pointer", "font-weight": "600", "flex-shrink": "0" }}
+          style={{ "font-size": "10px", padding: "1px 5px", "line-height": "1", "border-radius": "var(--radius-sm)", background: "var(--accent-primary)", color: "#fff", cursor: "pointer", "font-weight": "600", "flex-shrink": "0" }}
         >OK</button>
-        <button onClick={cancelInline} style={{ "font-size": "13px", color: "var(--text-muted)", cursor: "pointer", padding: "0 2px", "line-height": "1", "flex-shrink": "0" }}>&times;</button>
+        <button onClick={cancelInline} style={{ "font-size": "12px", color: "var(--text-muted)", cursor: "pointer", padding: "0 2px", "line-height": "1", "flex-shrink": "0" }}>&times;</button>
       </div>
     );
   }
