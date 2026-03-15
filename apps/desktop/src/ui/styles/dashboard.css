@@ -77,17 +77,51 @@
 /* ─── Drag & Drop ─── */
 
 .dashboard-card {
+  position: relative;
   border-radius: var(--radius-lg);
-  cursor: grab;
-  transition: transform 150ms ease, box-shadow 150ms ease, opacity 150ms ease;
+  transition: transform 150ms ease, opacity 150ms ease;
 }
 
-.dashboard-card:active {
+.dashboard-card-handle {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  z-index: 1;
+  width: 24px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  cursor: grab;
+  opacity: 0;
+  transition: opacity 150ms ease, background 150ms ease;
+  background: transparent;
+  user-select: none;
+}
+
+.dashboard-card-handle:active {
   cursor: grabbing;
 }
 
+.dashboard-card:hover .dashboard-card-handle {
+  opacity: 0.6;
+}
+
+.dashboard-card-handle:hover {
+  opacity: 1 !important;
+  background: var(--bg-elevated);
+}
+
+.dashboard-card-handle-icon {
+  font-size: 12px;
+  line-height: 1;
+  color: var(--text-muted);
+  letter-spacing: -2px;
+}
+
 .dashboard-card--dragging {
-  opacity: 0.4;
+  opacity: 0.3;
 }
 
 .dashboard-card--drop-target {
