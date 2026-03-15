@@ -1,5 +1,4 @@
 import { For, Show } from "solid-js";
-import { openUrl } from "@tauri-apps/plugin-opener";
 import { useCalendarStore } from "../../../application/stores/calendarStore";
 
 function priorityColor(priority: string | null): string | null {
@@ -13,7 +12,7 @@ function priorityColor(priority: string | null): string | null {
 }
 
 export function UnscheduledTasks() {
-  const { unscheduledTasks } = useCalendarStore();
+  const { unscheduledTasks, openTaskDetail } = useCalendarStore();
 
   return (
     <div style={{ display: "flex", "flex-direction": "column", gap: "2px" }}>
@@ -22,7 +21,7 @@ export function UnscheduledTasks() {
           const pColor = priorityColor(task.priority);
           return (
             <button
-              onClick={() => openUrl(task.url)}
+              onClick={() => openTaskDetail(task)}
               style={{
                 display: "flex",
                 "align-items": "flex-start",

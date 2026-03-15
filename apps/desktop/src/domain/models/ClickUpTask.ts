@@ -17,3 +17,15 @@ export interface SyncResult {
   eventsUpdated: number;
   unscheduledCount: number;
 }
+
+export interface ClickUpComment {
+  id: string;
+  commentText: string;
+  user: { username: string; initials: string };
+  date: string;
+}
+
+export interface TaskDetailData {
+  description: string | null;
+  comments: ClickUpComment[];
+}

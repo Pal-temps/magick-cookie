@@ -1,5 +1,26 @@
 import type { ClickUpTask } from "../../domain/connector/clickup.entity";
 
+export interface ClickUpComment {
+  id: string;
+  commentText: string;
+  user: { username: string; initials: string };
+  date: string;
+}
+
+interface ClickUpRawComment {
+  id: string;
+  comment_text: string;
+  user: { username: string; initials: string };
+  date: string;
+}
+
+interface ClickUpRawTaskDetail {
+  id: string;
+  text_content: string | null;
+  markdown_description: string | null;
+  description: string | null;
+}
+
 interface ClickUpRawTask {
   id: string;
   name: string;
@@ -38,6 +59,40 @@ export class ClickUpApiClient {
     }
 
     return allTasks;
+  }
+
+  async fetchTaskDetail(taskId: string): Promise<{ textContent: string | null; markdownDescription: string | null }> {
+    const res = await fetch(`${this.baseUrl}/task/${taskId}`, {
+      headers: { Authorization: this.token },
+    });
+
+    if (!res.ok) {
+      throw new Error(`ClickUp API error (GET /task/${taskId}): ${res.status} ${res.statusText}`);
+    }
+
+    const data = (await res.json()) as ClickUpRawTaskDetail;
+    return {
+      textContent: data.text_content || data.description || null,
+      markdownDescription: data.markdown_description || null,
+    };
+  }
+
+  async fetchTaskComments(taskId: string): Promise<ClickUpComment[]> {
+    const res = await fetch(`${this.baseUrl}/task/${taskId}/comment`, {
+      headers: { Authorization: this.token },
+    });
+
+    if (!res.ok) {
+      throw new Error(`ClickUp API error (GET /task/${taskId}/comment): ${res.status} ${res.statusText}`);
+    }
+
+    const data = (await res.json()) as { comments: ClickUpRawComment[] };
+    return data.comments.map((c) => ({
+      id: c.id,
+      commentText: c.comment_text,
+      user: { username: c.user.username, initials: c.user.initials },
+      date: c.date,
+    }));
   }
 
   private async fetchAuthenticatedUserId(): Promise<number> {
