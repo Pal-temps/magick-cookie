@@ -9,6 +9,8 @@ export function useViewStore() {
   function navigatePrev() {
     const d = new Date(currentDate());
     switch (viewMode()) {
+      case "triage":
+      case "notes":
       case "dashboard": return;
       case "month": d.setMonth(d.getMonth() - 1); break;
       case "week": d.setDate(d.getDate() - 7); break;
@@ -20,6 +22,8 @@ export function useViewStore() {
   function navigateNext() {
     const d = new Date(currentDate());
     switch (viewMode()) {
+      case "triage":
+      case "notes":
       case "dashboard": return;
       case "month": d.setMonth(d.getMonth() + 1); break;
       case "week": d.setDate(d.getDate() + 7); break;

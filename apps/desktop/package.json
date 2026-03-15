@@ -11,15 +11,20 @@
     "tauri:build": "tauri build"
   },
   "dependencies": {
-    "solid-js": "^1.9.3",
+    "@excalidraw/excalidraw": "^0.18.0",
     "@tauri-apps/api": "^2",
+    "@tauri-apps/plugin-notification": "^2",
     "@tauri-apps/plugin-opener": "^2",
-    "@tauri-apps/plugin-notification": "^2"
+    "react": "18",
+    "react-dom": "18",
+    "solid-js": "^1.9.3"
   },
   "devDependencies": {
+    "@tauri-apps/cli": "^2",
+    "@types/react": "18",
+    "@types/react-dom": "18",
     "typescript": "~5.6.2",
     "vite": "^6.0.3",
-    "vite-plugin-solid": "^2.11.0",
-    "@tauri-apps/cli": "^2"
+    "vite-plugin-solid": "^2.11.0"
   }
 }
