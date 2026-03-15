@@ -33,6 +33,7 @@ export function NotesView() {
     folder: string;
     oldPath?: string;
     oldName?: string;
+    itemType?: "file" | "folder";
   } | null>(null);
   const [inlineName, setInlineName] = createSignal("");
 
@@ -127,9 +128,9 @@ export function NotesView() {
     setInlineName("");
   }
 
-  function startRename(path: string, name: string, folder: string) {
+  function startRename(path: string, name: string, folder: string, itemType: "file" | "folder") {
     setCtxMenu(null);
-    setInlineAction({ mode: "rename", folder, oldPath: path, oldName: name });
+    setInlineAction({ mode: "rename", folder, oldPath: path, oldName: name, itemType });
     setInlineName(name);
   }
 
@@ -146,8 +147,14 @@ export function NotesView() {
       await store.createNote(name, action.folder);
     } else if (action.mode === "rename" && action.oldPath) {
       const dir = action.oldPath.includes("/") ? action.oldPath.slice(0, action.oldPath.lastIndexOf("/") + 1) : "";
-      const oldExt = action.oldPath.slice(action.oldPath.lastIndexOf("."));
-      const newName = name.includes(".") ? name : name + oldExt;
+      let newName = name;
+      if (action.itemType === "file") {
+        // Preserve file extension if not provided
+        const dotIdx = action.oldPath.lastIndexOf(".");
+        if (dotIdx > action.oldPath.lastIndexOf("/") && !name.includes(".")) {
+          newName = name + action.oldPath.slice(dotIdx);
+        }
+      }
       const newPath = dir + newName;
       if (newPath !== action.oldPath) await store.renameFile(action.oldPath, newPath);
     }
@@ -298,7 +305,7 @@ export function NotesView() {
             <Show when={menu().item}>
               {(item) => (<>
                 <div style={{ height: "1px", background: "var(--border-color)", margin: "4px 0" }} />
-                <button style={itemStyle} onMouseEnter={hoverIn} onMouseLeave={hoverOut} onClick={() => startRename(item().path, item().name, menu().folder)}>Renommer</button>
+                <button style={itemStyle} onMouseEnter={hoverIn} onMouseLeave={hoverOut} onClick={() => startRename(item().path, item().name, menu().folder, item().type)}>Renommer</button>
                 <Show when={item().type === "file"}>
                   <button style={dangerStyle} onMouseEnter={hoverInDanger} onMouseLeave={hoverOut} onClick={() => handleDeleteFromMenu(item().path)}>Supprimer</button>
                 </Show>
@@ -345,28 +352,55 @@ export function NotesView() {
     );
   }
 
+  // ─── Inline rename input (replaces name in-place) ───
+  function InlineRenameInput() {
+    return (
+      <div style={{ display: "flex", "align-items": "center", gap: "2px", flex: "1", "min-width": "0", overflow: "hidden" }} onClick={(e) => e.stopPropagation()}>
+        <input
+          type="text"
+          value={inlineName()}
+          onInput={(e) => setInlineName(e.currentTarget.value)}
+          onKeyDown={(e) => { if (e.key === "Enter") confirmInline(); if (e.key === "Escape") cancelInline(); }}
+          style={{ ...inputStyle(), flex: "1", "font-size": "11px", padding: "2px 6px", "min-width": "0" }}
+          ref={(el) => setTimeout(() => { el.focus(); el.select(); }, 0)}
+        />
+        <button
+          onClick={confirmInline}
+          style={{ "font-size": "10px", padding: "2px 6px", "border-radius": "var(--radius-sm)", background: "var(--accent-primary)", color: "#fff", cursor: "pointer", "font-weight": "600", "flex-shrink": "0" }}
+        >OK</button>
+        <button onClick={cancelInline} style={{ "font-size": "13px", color: "var(--text-muted)", cursor: "pointer", padding: "0 2px", "line-height": "1", "flex-shrink": "0" }}>&times;</button>
+      </div>
+    );
+  }
+
+  function isRenamingItem(path: string) {
+    const a = inlineAction();
+    return a && a.mode === "rename" && a.oldPath === path;
+  }
+
   // ─── Tree Folder Node ───
   function FolderNode(props: { node: TreeNode; depth: number }) {
     const expanded = () => store.isFolderExpanded(props.node.path);
     const indent = () => props.depth * 16;
-    const hasInline = () => {
+    const hasCreateInline = () => {
       const a = inlineAction();
-      return a && a.folder === props.node.path;
+      return a && a.mode !== "rename" && a.folder === props.node.path;
     };
+    const renaming = () => isRenamingItem(props.node.path);
 
     return (
       <div>
-        <button
+        <div
           data-ctx-item
-          onClick={() => store.toggleFolder(props.node.path)}
+          onClick={() => { if (!renaming()) store.toggleFolder(props.node.path); }}
           onContextMenu={(e) => showContextMenu(e, { folder: props.node.path, item: { type: "folder", path: props.node.path, name: props.node.name } })}
           style={{
             display: "flex", "align-items": "center", gap: "4px", width: "100%",
             padding: `4px 6px 4px ${6 + indent()}px`, "text-align": "left", cursor: "pointer",
-            color: "var(--text-primary)", transition: "background 0.1s",
+            color: "var(--text-primary)", transition: "background 0.1s", overflow: "hidden",
           }}
-          onMouseEnter={(e) => e.currentTarget.style.background = "var(--bg-elevated)"}
-          onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
+          onMouseEnter={(e) => (e.currentTarget as HTMLElement).style.background = "var(--bg-elevated)"}
+          onMouseLeave={(e) => (e.currentTarget as HTMLElement).style.background = "transparent"}
         >
           <span style={{
             "font-size": "11px", color: "var(--text-secondary)", width: "14px", "text-align": "center", "flex-shrink": "0",
@@ -377,16 +411,22 @@ export function NotesView() {
             {"\u25B6"}
           </span>
           <span style={{ "font-size": "12px", "flex-shrink": "0" }}>{"\uD83D\uDCC1"}</span>
-          <span style={{ "font-size": "12px", "font-weight": "500", overflow: "hidden", "text-overflow": "ellipsis", "white-space": "nowrap" }}>
-            {props.node.name}
-          </span>
-          <span style={{ "font-size": "10px", color: "var(--text-muted)", "margin-left": "auto", "flex-shrink": "0" }}>
-            {props.node.files.length + props.node.folders.length}
-          </span>
-        </button>
+          <Show when={renaming()} fallback={
+            <>
+              <span style={{ "font-size": "12px", "font-weight": "500", overflow: "hidden", "text-overflow": "ellipsis", "white-space": "nowrap" }}>
+                {props.node.name}
+              </span>
+              <span style={{ "font-size": "10px", color: "var(--text-muted)", "margin-left": "auto", "flex-shrink": "0" }}>
+                {props.node.files.length + props.node.folders.length}
+              </span>
+            </>
+          }>
+            <InlineRenameInput />
+          </Show>
+        </div>
 
         <Show when={expanded()}>
-          <Show when={hasInline()}>
+          <Show when={hasCreateInline()}>
             <div style={{ "padding-left": `${6 + indent() + 16}px` }}>
               <InlineInputRow folder={props.node.path} />
             </div>
@@ -408,35 +448,42 @@ export function NotesView() {
   function FileNode(props: { file: NoteEntry; depth: number; showPath?: boolean }) {
     const indent = () => props.depth * 16;
     const isActive = () => store.activeFile() === props.file.path;
+    const renaming = () => isRenamingItem(props.file.path);
     const parentFolder = () => {
       const idx = props.file.path.lastIndexOf("/");
       return idx > 0 ? props.file.path.slice(0, idx) : "";
     };
 
     return (
-      <button
+      <div
         data-ctx-item
-        onClick={() => handleFileSelect(props.file.path)}
+        onClick={() => { if (!renaming()) handleFileSelect(props.file.path); }}
         onContextMenu={(e) => showContextMenu(e, { folder: parentFolder(), item: { type: "file", path: props.file.path, name: props.file.name } })}
         style={{
           display: "flex", "align-items": "center", gap: "4px", width: "100%",
           padding: `4px 6px 4px ${6 + indent() + 16}px`, "text-align": "left", cursor: "pointer",
-          background: isActive() ? "var(--accent-primary)" : "transparent",
-          color: "var(--text-primary)", transition: "background 0.1s",
+          background: isActive() && !renaming() ? "var(--accent-primary)" : "transparent",
+          color: "var(--text-primary)", transition: "background 0.1s", overflow: "hidden",
         }}
-        onMouseEnter={(e) => { if (!isActive()) e.currentTarget.style.background = "var(--bg-elevated)"; }}
-        onMouseLeave={(e) => { if (!isActive()) e.currentTarget.style.background = "transparent"; }}
+        onMouseEnter={(e) => { if (!isActive() || renaming()) (e.currentTarget as HTMLElement).style.background = "var(--bg-elevated)"; }}
+        onMouseLeave={(e) => { if (!isActive() || renaming()) (e.currentTarget as HTMLElement).style.background = "transparent"; }}
       >
         <span style={{ "font-size": "11px", color: props.file.type === "excalidraw" ? "var(--cal-purple)" : "var(--text-muted)", "flex-shrink": "0" }}>
           {fileIcon(props.file.type)}
         </span>
-        <span style={{ "font-size": "12px", overflow: "hidden", "text-overflow": "ellipsis", "white-space": "nowrap", flex: "1" }}>
-          {props.file.name}
-        </span>
-        <span style={{ "font-size": "10px", color: "var(--text-muted)", "flex-shrink": "0" }}>
-          {props.showPath ? props.file.path : formatSize(props.file.size)}
-        </span>
-      </button>
+        <Show when={renaming()} fallback={
+          <>
+            <span style={{ "font-size": "12px", overflow: "hidden", "text-overflow": "ellipsis", "white-space": "nowrap", flex: "1" }}>
+              {props.file.name}
+            </span>
+            <span style={{ "font-size": "10px", color: "var(--text-muted)", "flex-shrink": "0" }}>
+              {props.showPath ? props.file.path : formatSize(props.file.size)}
+            </span>
+          </>
+        }>
+          <InlineRenameInput />
+        </Show>
+      </div>
     );
   }
 
