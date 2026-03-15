@@ -4,7 +4,7 @@
   "workspaces": ["apps/*"],
   "scripts": {
     "predev": "node scripts/kill-existing.js",
-    "dev": "bun run db:migrate && concurrently -n api,desktop -c blue,green \"bun run api:dev\" \"bun run desktop:dev\"",
+    "dev": "node scripts/ensure-db.js && bun run db:migrate && concurrently -n api,desktop -c blue,green \"bun run api:dev\" \"bun run desktop:dev\"",
     "api:dev": "bun run --filter api dev",
     "desktop:dev": "bun run --filter desktop tauri:dev",
     "db:migrate": "bun run --filter api db:migrate",
