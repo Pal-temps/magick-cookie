@@ -331,3 +331,114 @@ describe("filteredFiles", () => {
     expect(result[0].type).toBe("excalidraw");
   });
 });
+
+// ─── Delete folder logic (pure) ───
+
+function cleanExpandedFolders(expanded: Set<string>, deletedPath: string): Set<string> {
+  const next = new Set(expanded);
+  for (const p of next) {
+    if (p === deletedPath || p.startsWith(deletedPath + "/")) next.delete(p);
+  }
+  return next;
+}
+
+function isActiveFileInFolder(activeFile: string | null, folderPath: string): boolean {
+  return activeFile != null && activeFile.startsWith(folderPath + "/");
+}
+
+describe("cleanExpandedFolders", () => {
+  test("removes the deleted folder itself", () => {
+    const expanded = new Set(["projects", "projects/web", "notes"]);
+    const result = cleanExpandedFolders(expanded, "projects");
+    expect(result.has("projects")).toBe(false);
+    expect(result.has("projects/web")).toBe(false);
+    expect(result.has("notes")).toBe(true);
+  });
+
+  test("removes all nested subfolders", () => {
+    const expanded = new Set(["a", "a/b", "a/b/c", "other"]);
+    const result = cleanExpandedFolders(expanded, "a");
+    expect(result.size).toBe(1);
+    expect(result.has("other")).toBe(true);
+  });
+
+  test("does not remove unrelated folders with similar prefix", () => {
+    const expanded = new Set(["project", "projects", "projects-old"]);
+    const result = cleanExpandedFolders(expanded, "project");
+    expect(result.has("project")).toBe(false);
+    expect(result.has("projects")).toBe(true);
+    expect(result.has("projects-old")).toBe(true);
+  });
+
+  test("handles empty set", () => {
+    const result = cleanExpandedFolders(new Set(), "anything");
+    expect(result.size).toBe(0);
+  });
+});
+
+describe("isActiveFileInFolder", () => {
+  test("returns true when file is inside folder", () => {
+    expect(isActiveFileInFolder("projects/web/index.md", "projects")).toBe(true);
+    expect(isActiveFileInFolder("projects/web/index.md", "projects/web")).toBe(true);
+  });
+
+  test("returns false when file is outside folder", () => {
+    expect(isActiveFileInFolder("notes/todo.md", "projects")).toBe(false);
+  });
+
+  test("returns false when file is at root", () => {
+    expect(isActiveFileInFolder("readme.md", "projects")).toBe(false);
+  });
+
+  test("returns false when activeFile is null", () => {
+    expect(isActiveFileInFolder(null, "projects")).toBe(false);
+  });
+
+  test("does not match partial folder names", () => {
+    expect(isActiveFileInFolder("projects-old/file.md", "projects")).toBe(false);
+  });
+});
+
+// ─── Rename logic (pure) ───
+
+function computeRenamePath(
+  oldPath: string,
+  newName: string,
+  itemType: "file" | "folder",
+): string {
+  const dir = oldPath.includes("/") ? oldPath.slice(0, oldPath.lastIndexOf("/") + 1) : "";
+  let finalName = newName;
+  if (itemType === "file") {
+    const dotIdx = oldPath.lastIndexOf(".");
+    if (dotIdx > oldPath.lastIndexOf("/") && !newName.includes(".")) {
+      finalName = newName + oldPath.slice(dotIdx);
+    }
+  }
+  return dir + finalName;
+}
+
+describe("computeRenamePath", () => {
+  test("renames file preserving extension", () => {
+    expect(computeRenamePath("notes/todo.md", "done", "file")).toBe("notes/done.md");
+  });
+
+  test("renames file keeping explicit extension", () => {
+    expect(computeRenamePath("notes/todo.md", "done.txt", "file")).toBe("notes/done.txt");
+  });
+
+  test("renames folder without adding extension", () => {
+    expect(computeRenamePath("projects/web", "frontend", "folder")).toBe("projects/frontend");
+  });
+
+  test("renames root-level file", () => {
+    expect(computeRenamePath("readme.md", "about", "file")).toBe("about.md");
+  });
+
+  test("renames root-level folder", () => {
+    expect(computeRenamePath("archive", "old", "folder")).toBe("old");
+  });
+
+  test("renames excalidraw file preserving extension", () => {
+    expect(computeRenamePath("schemas/plan.excalidraw", "design", "file")).toBe("schemas/design.excalidraw");
+  });
+});

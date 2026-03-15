@@ -10,6 +10,7 @@ Documentation des specifications pour l'application mobile Android (Kotlin).
 4. **[desktop-calendrier-evenements.md](desktop-calendrier-evenements.md)** — Vues calendrier (mois/semaine/jour), EventCard, EventForm, multi-calendriers
 5. **[desktop-rappels-vues.md](desktop-rappels-vues.md)** — Notifications Android avancees, vues semaine/jour adaptees mobile
 6. **[connecteur-clickup.md](connecteur-clickup.md)** — Connecteur ClickUp : sync taches, taches sans date, indicateurs priorite
+7. **[notes-sync-themes.md](notes-sync-themes.md)** — Notes vault, git sync, 3 themes (dark/light/cookie), responsive
 
 ## API de reference
 
