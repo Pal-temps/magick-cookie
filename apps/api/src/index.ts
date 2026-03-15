@@ -14,6 +14,7 @@ import { DrizzleTimerSessionRepository } from "./infrastructure/repositories/tim
 import { DrizzleWellnessConfigRepository } from "./infrastructure/repositories/wellness-config.repository.impl";
 import { DrizzleWellnessLogRepository } from "./infrastructure/repositories/wellness-log.repository.impl";
 import { DrizzleDogWalkRepository } from "./infrastructure/repositories/dog-walk.repository.impl";
+import { DrizzleTriageRepository } from "./infrastructure/repositories/triage.repository.impl";
 
 // Services
 import { CalendarService } from "./application/calendar/calendar.service";
@@ -25,6 +26,7 @@ import { TimerSessionService } from "./application/timer-session/timer-session.s
 import { WellnessConfigService } from "./application/wellness-config/wellness-config.service";
 import { WellnessLogService } from "./application/wellness-log/wellness-log.service";
 import { DogWalkService } from "./application/dog-walk/dog-walk.service";
+import { TriageService } from "./application/triage/triage.service";
 
 // Connectors
 import { ClickUpApiClient } from "./infrastructure/connectors/clickup-api.client";
@@ -43,6 +45,7 @@ import { createTimerSessionRoutes } from "./presentation/routes/timer-session.ro
 import { createWellnessConfigRoutes } from "./presentation/routes/wellness-config.routes";
 import { createWellnessLogRoutes } from "./presentation/routes/wellness-log.routes";
 import { createDogWalkRoutes } from "./presentation/routes/dog-walk.routes";
+import { createTriageRoutes } from "./presentation/routes/triage.routes";
 
 // Jobs
 import { startReminderChecker } from "./infrastructure/jobs/reminder-checker";
@@ -56,6 +59,7 @@ const timerSessionRepo = new DrizzleTimerSessionRepository(db);
 const wellnessConfigRepo = new DrizzleWellnessConfigRepository(db);
 const wellnessLogRepo = new DrizzleWellnessLogRepository(db);
 const dogWalkRepo = new DrizzleDogWalkRepository(db);
+const triageRepo = new DrizzleTriageRepository(db);
 
 const calendarService = new CalendarService(calendarRepo);
 const eventService = new EventService(eventRepo, reminderRepo);
@@ -65,6 +69,7 @@ const timerSessionService = new TimerSessionService(timerSessionRepo);
 const wellnessConfigService = new WellnessConfigService(wellnessConfigRepo);
 const wellnessLogService = new WellnessLogService(wellnessLogRepo);
 const dogWalkService = new DogWalkService(dogWalkRepo);
+const triageService = new TriageService(triageRepo);
 
 const clickUpConnectorRepo = new DrizzleClickUpConnectorRepository(db);
 const clickUpApiClient = new ClickUpApiClient(config.clickupApiToken);
@@ -94,6 +99,7 @@ app.route("/api/timer-sessions", createTimerSessionRoutes(timerSessionService));
 app.route("/api/wellness-configs", createWellnessConfigRoutes(wellnessConfigService));
 app.route("/api/wellness-logs", createWellnessLogRoutes(wellnessLogService));
 app.route("/api/dog-walks", createDogWalkRoutes(dogWalkService));
+app.route("/api/triage", createTriageRoutes(triageService));
 
 // Start reminder checker — pushes to SSE, does NOT mark as sent
 startReminderChecker(reminderService, eventRepo, reminderEmitter);
@@ -104,6 +110,7 @@ wellnessConfigService.seedDefaults().catch(console.error);
 export default {
   port: config.port,
   fetch: app.fetch,
+  idleTimeout: 255, // seconds — needed for SSE long-lived connections
 };
 
 console.log(`API running on http://localhost:${config.port}`);
