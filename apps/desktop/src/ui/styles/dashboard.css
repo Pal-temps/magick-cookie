@@ -1,0 +1,86 @@
+/* ═══════════════════════════════════════════
+   Dashboard — Responsive Grid
+   ═══════════════════════════════════════════ */
+
+.dashboard-container {
+  container-type: inline-size;
+  container-name: dashboard;
+}
+
+.dashboard-scroll {
+  padding: 24px;
+  height: 100%;
+  overflow-y: auto;
+}
+
+.dashboard-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+/* >=500px : 2 colonnes */
+@container dashboard (min-width: 500px) {
+  .dashboard-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+  }
+
+  .dashboard-scroll {
+    padding: 24px;
+  }
+}
+
+/* >=900px : 3 colonnes */
+@container dashboard (min-width: 900px) {
+  .dashboard-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+/* >=1400px : 4 colonnes (ultra-wide) */
+@container dashboard (min-width: 1400px) {
+  .dashboard-grid {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 20px;
+  }
+
+  .dashboard-scroll {
+    padding: 32px;
+  }
+}
+
+/* >=2000px : 4 colonnes larges avec max-width centre */
+@container dashboard (min-width: 2000px) {
+  .dashboard-grid {
+    grid-template-columns: repeat(4, 1fr);
+    max-width: 2200px;
+    gap: 24px;
+  }
+
+  .dashboard-scroll {
+    padding: 40px;
+  }
+
+  .dashboard-header {
+    max-width: 2200px;
+  }
+}
+
+/* <500px : mobile-like, 1 colonne, padding reduit */
+@container dashboard (max-width: 499px) {
+  .dashboard-scroll {
+    padding: 12px;
+  }
+
+  .dashboard-header h2 {
+    font-size: 16px !important;
+  }
+}

@@ -8,6 +8,7 @@ import { FruitVegTracker } from "./FruitVegTracker";
 import { StatsView } from "./StatsView";
 import { DogWalkWidget } from "./DogWalkWidget";
 import { Button } from "../common/Button";
+import "../../styles/dashboard.css";
 
 export function DashboardView() {
   const [showStats, setShowStats] = createSignal(false);
@@ -19,35 +20,32 @@ export function DashboardView() {
 
   return (
     <Show when={!showStats()} fallback={<StatsView onClose={() => setShowStats(false)} />}>
-      <div style={{ padding: "24px", height: "100%", "overflow-y": "auto" }}>
-        <div style={{ display: "flex", "align-items": "center", "justify-content": "space-between", "margin-bottom": "20px", "max-width": "900px" }}>
-          <h2 style={{
-            margin: "0",
-            "font-size": "20px",
-            "font-weight": "600",
-            color: "var(--text-primary)",
-            "text-transform": "capitalize",
-          }}>
-            {today()}
-          </h2>
-          <Button variant="secondary" size="sm" onClick={() => setShowStats(true)}>
-            Statistiques
-          </Button>
-        </div>
+      <div class="dashboard-container" style={{ height: "100%" }}>
+        <div class="dashboard-scroll">
+          <div class="dashboard-header">
+            <h2 style={{
+              margin: "0",
+              "font-size": "20px",
+              "font-weight": "600",
+              color: "var(--text-primary)",
+              "text-transform": "capitalize",
+            }}>
+              {today()}
+            </h2>
+            <Button variant="secondary" size="sm" onClick={() => setShowStats(true)}>
+              Statistiques
+            </Button>
+          </div>
 
-        <div style={{
-          display: "grid",
-          "grid-template-columns": "1fr 1fr",
-          gap: "16px",
-          "max-width": "900px",
-        }}>
-          <TimerWidget />
-          <DailyStats />
-          <WaterTracker />
-          <FruitVegTracker />
-          <DogWalkWidget />
-          <TodayEvents />
-          <WellnessStatus />
+          <div class="dashboard-grid">
+            <TimerWidget />
+            <DailyStats />
+            <WaterTracker />
+            <FruitVegTracker />
+            <DogWalkWidget />
+            <TodayEvents />
+            <WellnessStatus />
+          </div>
         </div>
       </div>
     </Show>
