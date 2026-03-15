@@ -497,9 +497,9 @@ export function NotesView() {
           <input
             type="text" placeholder="Rechercher..."
             value={store.searchQuery()} onInput={(e) => store.setSearchQuery(e.currentTarget.value)}
-            style={{ ...inputStyle(), flex: "1" }}
+            style={{ ...inputStyle(), flex: "1", "min-width": "0" }}
           />
-          <Button size="sm" variant="ghost" onClick={openSettings} style={{ "font-size": "16px", padding: "4px 6px" }}>&#9881;</Button>
+          <Button size="sm" variant="ghost" onClick={openSettings} style={{ "font-size": "16px", padding: "4px 6px", "flex-shrink": "0" }}>&#9881;</Button>
         </div>
 
         <div
