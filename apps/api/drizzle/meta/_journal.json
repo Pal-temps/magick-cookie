@@ -43,6 +43,13 @@
       "when": 1773753600000,
       "tag": "0005_dog_walks",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1773840000000,
+      "tag": "0006_task_triage",
+      "breakpoints": true
     }
   ]
 }

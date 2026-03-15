@@ -95,6 +95,15 @@ export const dogWalks = pgTable("dog_walks", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+export const taskTriage = pgTable("task_triage", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  clickupTaskId: varchar("clickup_task_id", { length: 255 }).notNull().unique(),
+  triageStatus: varchar("triage_status", { length: 50 }).notNull(),
+  triagedAt: timestamp("triaged_at", { withTimezone: true }).notNull().defaultNow(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
+});
+
 export const contacts = pgTable("contacts", {
   id: uuid("id").primaryKey().defaultRandom(),
   name: varchar("name", { length: 255 }).notNull(),
