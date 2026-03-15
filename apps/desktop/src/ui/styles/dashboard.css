@@ -74,6 +74,28 @@
   }
 }
 
+/* ─── Drag & Drop ─── */
+
+.dashboard-card {
+  border-radius: var(--radius-lg);
+  cursor: grab;
+  transition: transform 150ms ease, box-shadow 150ms ease, opacity 150ms ease;
+}
+
+.dashboard-card:active {
+  cursor: grabbing;
+}
+
+.dashboard-card--dragging {
+  opacity: 0.4;
+}
+
+.dashboard-card--drop-target {
+  outline: 2px dashed var(--accent-primary);
+  outline-offset: 2px;
+  transform: scale(1.02);
+}
+
 /* <500px : mobile-like, 1 colonne, padding reduit */
 @container dashboard (max-width: 499px) {
   .dashboard-scroll {
