@@ -244,6 +244,25 @@ export function useNotesStore() {
     await fetchAll();
   }
 
+  async function deleteFolder(path: string) {
+    await invoke("notes_delete_folder", { path });
+    // If the active file was inside this folder, clear it
+    if (activeFile()?.startsWith(path + "/")) {
+      setActiveFile(null);
+      setNoteContent("");
+      setIsDirty(false);
+    }
+    // Remove from expanded folders
+    setExpandedFolders((prev) => {
+      const next = new Set(prev);
+      for (const p of next) {
+        if (p === path || p.startsWith(path + "/")) next.delete(p);
+      }
+      return next;
+    });
+    await fetchAll();
+  }
+
   // ─── Git ───
   async function refreshGitStatus() {
     try {
@@ -337,7 +356,7 @@ export function useNotesStore() {
     isPreview, setIsPreview, searchQuery, setSearchQuery, sshKeyExists,
     expandedFolders, toggleFolder, expandFolder, isFolderExpanded, buildTree,
     loadConfig, saveConfig, fetchNotes, fetchDrawings, fetchAll, allFiles, openFile, updateContent,
-    saveCurrentFile, createNote, createDrawing, createFolder, renameFile, deleteFile,
+    saveCurrentFile, createNote, createDrawing, createFolder, renameFile, deleteFile, deleteFolder,
     refreshGitStatus, gitPull, gitPush, gitSync, filteredFiles,
     checkSshKey, generateSshKey,
   };

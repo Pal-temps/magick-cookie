@@ -165,6 +165,11 @@ export function NotesView() {
     if (confirm(`Supprimer ${path} ?`)) await store.deleteFile(path);
   }
 
+  async function handleDeleteFolderFromMenu(path: string) {
+    setCtxMenu(null);
+    if (confirm(`Supprimer le dossier "${path}" et tout son contenu ?`)) await store.deleteFolder(path);
+  }
+
   // ─── Editor ───
   function handleKeyDown(e: KeyboardEvent) {
     if (e.ctrlKey && e.key === "s") {
@@ -295,6 +300,9 @@ export function NotesView() {
                 <button style={itemStyle} onMouseEnter={hoverIn} onMouseLeave={hoverOut} onClick={() => startRename(item().path, item().name, menu().folder)}>Renommer</button>
                 <Show when={item().type === "file"}>
                   <button style={dangerStyle} onMouseEnter={hoverInDanger} onMouseLeave={hoverOut} onClick={() => handleDeleteFromMenu(item().path)}>Supprimer</button>
+                </Show>
+                <Show when={item().type === "folder"}>
+                  <button style={dangerStyle} onMouseEnter={hoverInDanger} onMouseLeave={hoverOut} onClick={() => handleDeleteFolderFromMenu(item().path)}>Supprimer le dossier</button>
                 </Show>
               </>)}
             </Show>

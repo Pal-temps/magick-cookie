@@ -363,6 +363,16 @@ pub async fn notes_delete(app: AppHandle, path: String) -> Result<(), String> {
     std::fs::remove_file(&file_path).map_err(|e| format!("Delete error: {e}"))
 }
 
+#[tauri::command]
+pub async fn notes_delete_folder(app: AppHandle, path: String) -> Result<(), String> {
+    let config = load_config(&app)?;
+    let dir_path = PathBuf::from(&config.path).join(&path);
+    if !dir_path.is_dir() {
+        return Err(format!("Not a directory: {path}"));
+    }
+    std::fs::remove_dir_all(&dir_path).map_err(|e| format!("Delete folder error: {e}"))
+}
+
 // ─── Git Operations ───
 
 #[tauri::command]

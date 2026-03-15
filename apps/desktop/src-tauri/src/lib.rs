@@ -70,6 +70,7 @@ pub fn run() {
             notes::notes_read,
             notes::notes_save,
             notes::notes_delete,
+            notes::notes_delete_folder,
             notes::notes_git_status,
             notes::notes_git_pull,
             notes::notes_git_push,
