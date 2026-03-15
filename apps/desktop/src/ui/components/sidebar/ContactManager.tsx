@@ -51,14 +51,29 @@ export function ContactManager() {
   return (
     <div style={{ display: "flex", "flex-direction": "column", gap: "2px" }}>
       <For each={contacts()}>
-        {(c) => (
+        {(c) => {
+          function handleDragStart(e: DragEvent) {
+            const parts = [c.name];
+            if (c.phone) parts.push(c.phone);
+            if (c.email) parts.push(c.email);
+            if (c.birthDate) parts.push(`anniversaire: ${new Date(c.birthDate).toLocaleDateString("fr-FR")}`);
+            const md = `**${c.name}**` + (parts.length > 1 ? ` — ${parts.slice(1).join(", ")}` : "");
+            e.dataTransfer!.setData("application/x-do-it-now", JSON.stringify({ type: "contact", markdown: md }));
+            e.dataTransfer!.setData("text/plain", md);
+            e.dataTransfer!.effectAllowed = "copy";
+          }
+
+          return (
           <div
+            draggable={true}
+            onDragStart={handleDragStart}
             style={{
               display: "flex",
               "align-items": "center",
               gap: "8px",
               padding: "4px",
               "border-radius": "var(--radius-sm)",
+              cursor: "grab",
             }}
             onMouseEnter={(e) => e.currentTarget.style.background = "var(--bg-elevated)"}
             onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
@@ -87,7 +102,8 @@ export function ContactManager() {
               &times;
             </button>
           </div>
-        )}
+          );
+        }}
       </For>
 
       <Show when={contacts().length === 0 && !isAdding()}>
