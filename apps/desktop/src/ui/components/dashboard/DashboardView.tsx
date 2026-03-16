@@ -33,7 +33,6 @@ function loadOrder(): string[] {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored) {
       const ids = JSON.parse(stored) as string[];
-      // Validate: keep only known IDs, append any new widgets
       const known = new Set(ALL_WIDGETS.map((w) => w.id));
       const valid = ids.filter((id) => known.has(id));
       const missing = ALL_WIDGETS.map((w) => w.id).filter((id) => !valid.includes(id));
@@ -53,6 +52,9 @@ export function DashboardView() {
   const [draggedId, setDraggedId] = createSignal<string | null>(null);
   const [dropTargetId, setDropTargetId] = createSignal<string | null>(null);
 
+  // Refs for each card by widget id
+  const cardRefs = new Map<string, HTMLDivElement>();
+
   const orderedWidgets = () => {
     const map = new Map(ALL_WIDGETS.map((w) => [w.id, w]));
     return order().map((id) => map.get(id)!).filter(Boolean);
@@ -63,40 +65,55 @@ export function DashboardView() {
     return d.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
   };
 
-  function handleDragEnd() {
-    setDraggedId(null);
-    setDropTargetId(null);
-  }
+  // ─── Pointer-based drag ───
 
-  function handleDragOver(e: DragEvent, id: string) {
+  function handlePointerDown(e: PointerEvent, id: string) {
+    // Only left mouse button
+    if (e.button !== 0) return;
     e.preventDefault();
-    e.dataTransfer!.dropEffect = "move";
-    if (draggedId() && draggedId() !== id) {
-      setDropTargetId(id);
+
+    const handle = e.currentTarget as HTMLElement;
+    handle.setPointerCapture(e.pointerId);
+
+    setDraggedId(id);
+
+    function onPointerMove(ev: PointerEvent) {
+      // Find which card we're hovering over
+      const el = document.elementFromPoint(ev.clientX, ev.clientY);
+      if (!el) { setDropTargetId(null); return; }
+
+      const card = el.closest("[data-widget-id]") as HTMLElement | null;
+      if (card && card.dataset.widgetId !== id) {
+        setDropTargetId(card.dataset.widgetId!);
+      } else {
+        setDropTargetId(null);
+      }
     }
-  }
 
-  function handleDragLeave(_e: DragEvent, id: string) {
-    if (dropTargetId() === id) setDropTargetId(null);
-  }
+    function onPointerUp() {
+      const target = dropTargetId();
+      const source = draggedId();
 
-  function handleDrop(e: DragEvent, targetId: string) {
-    e.preventDefault();
-    const sourceId = draggedId();
-    if (!sourceId || sourceId === targetId) return;
+      if (source && target && source !== target) {
+        const current = [...order()];
+        const fromIdx = current.indexOf(source);
+        const toIdx = current.indexOf(target);
+        if (fromIdx !== -1 && toIdx !== -1) {
+          current.splice(fromIdx, 1);
+          current.splice(toIdx, 0, source);
+          setOrder(current);
+          saveOrder(current);
+        }
+      }
 
-    const current = [...order()];
-    const fromIdx = current.indexOf(sourceId);
-    const toIdx = current.indexOf(targetId);
-    if (fromIdx === -1 || toIdx === -1) return;
+      setDraggedId(null);
+      setDropTargetId(null);
+      handle.removeEventListener("pointermove", onPointerMove);
+      handle.removeEventListener("pointerup", onPointerUp);
+    }
 
-    current.splice(fromIdx, 1);
-    current.splice(toIdx, 0, sourceId);
-
-    setOrder(current);
-    saveOrder(current);
-    setDraggedId(null);
-    setDropTargetId(null);
+    handle.addEventListener("pointermove", onPointerMove);
+    handle.addEventListener("pointerup", onPointerUp);
   }
 
   return (
@@ -120,44 +137,25 @@ export function DashboardView() {
 
           <div class="dashboard-grid">
             <For each={orderedWidgets()}>
-              {(widget) => {
-                let cardRef: HTMLDivElement | undefined;
-
-                function onHandleDragStart(e: DragEvent) {
-                  // Set drag data from the handle, but drag the whole card
-                  e.dataTransfer!.effectAllowed = "move";
-                  e.dataTransfer!.setData("text/plain", widget.id);
-                  setDraggedId(widget.id);
-                  // Use the card as drag image
-                  if (cardRef) {
-                    e.dataTransfer!.setDragImage(cardRef, 50, 20);
-                  }
-                }
-
-                return (
+              {(widget) => (
+                <div
+                  ref={(el) => cardRefs.set(widget.id, el)}
+                  data-widget-id={widget.id}
+                  class="dashboard-card"
+                  classList={{
+                    "dashboard-card--dragging": draggedId() === widget.id,
+                    "dashboard-card--drop-target": dropTargetId() === widget.id,
+                  }}
+                >
                   <div
-                    ref={cardRef}
-                    onDragOver={(e) => handleDragOver(e, widget.id)}
-                    onDragLeave={(e) => handleDragLeave(e, widget.id)}
-                    onDrop={(e) => handleDrop(e, widget.id)}
-                    class="dashboard-card"
-                    classList={{
-                      "dashboard-card--dragging": draggedId() === widget.id,
-                      "dashboard-card--drop-target": dropTargetId() === widget.id,
-                    }}
+                    class="dashboard-card-handle"
+                    onPointerDown={(e) => handlePointerDown(e, widget.id)}
                   >
-                    <div
-                      class="dashboard-card-handle"
-                      draggable="true"
-                      onDragStart={onHandleDragStart}
-                      onDragEnd={handleDragEnd}
-                    >
-                      <span class="dashboard-card-handle-icon">&#8942;&#8942;</span>
-                    </div>
-                    <widget.component />
+                    <span class="dashboard-card-handle-icon">&#8942;&#8942;</span>
                   </div>
-                );
-              }}
+                  <widget.component />
+                </div>
+              )}
             </For>
           </div>
         </div>
