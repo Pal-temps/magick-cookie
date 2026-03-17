@@ -8,6 +8,23 @@ use tauri::{
     Emitter, Manager,
 };
 
+/// Restore the main window: exit desktop mode, show, and focus.
+fn restore_main_window(app: &tauri::AppHandle) {
+    let app = app.clone();
+    tauri::async_runtime::spawn(async move {
+        // Exit desktop mode (restores size, z-order, etc.)
+        let _ = desktop_mode::exit_desktop_mode(app.clone()).await;
+    });
+}
+
+/// Send window to desktop mode (Rainmeter-style background widgets).
+fn send_to_desktop(app: &tauri::AppHandle) {
+    let app = app.clone();
+    tauri::async_runtime::spawn(async move {
+        let _ = desktop_mode::enter_desktop_mode(app).await;
+    });
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -27,11 +44,7 @@ pub fn run() {
                 .tooltip("do-it-now")
                 .on_menu_event(|app, event| match event.id.as_ref() {
                     "show" => {
-                        if let Some(window) = app.get_webview_window("main") {
-                            let _ = window.show();
-                            let _ = window.unminimize();
-                            let _ = window.set_focus();
-                        }
+                        restore_main_window(app);
                     }
                     "desktop" => {
                         let _ = app.emit("toggle-desktop-mode", ());
@@ -42,12 +55,13 @@ pub fn run() {
                     _ => {}
                 })
                 .on_tray_icon_event(|tray, event| {
-                    if let tauri::tray::TrayIconEvent::DoubleClick { .. } = event {
-                        if let Some(window) = tray.app_handle().get_webview_window("main") {
-                            let _ = window.show();
-                            let _ = window.unminimize();
-                            let _ = window.set_focus();
+                    // Restore window on single-click or double-click on tray icon
+                    match event {
+                        tauri::tray::TrayIconEvent::Click { .. }
+                        | tauri::tray::TrayIconEvent::DoubleClick { .. } => {
+                            restore_main_window(tray.app_handle());
                         }
+                        _ => {}
                     }
                 })
                 .build(app)?;
@@ -78,10 +92,10 @@ pub fn run() {
             notes::notes_ssh_generate,
         ])
         .on_window_event(|window, event| {
-            // Minimize to tray instead of quitting when window is closed
+            // X button → enter desktop mode (Rainmeter-style background widgets)
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
-                let _ = window.hide();
                 api.prevent_close();
+                send_to_desktop(window.app_handle());
             }
         })
         .run(tauri::generate_context!())
