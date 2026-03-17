@@ -24,12 +24,7 @@ export function StreakWidget() {
   });
 
   return (
-    <div style={{
-      background: "var(--bg-surface)",
-      "border-radius": "var(--radius-lg)",
-      border: "1px solid var(--border-color)",
-      padding: "20px",
-    }}>
+    <div>
       <Show when={streak()} fallback={
         <CookieLoader size={32} message="Chargement..." />
       }>

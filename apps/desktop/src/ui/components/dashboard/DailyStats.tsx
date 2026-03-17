@@ -11,16 +11,7 @@ export function DailyStats() {
   const { todayStats } = useTimerStore();
 
   return (
-    <div style={{
-      background: "var(--bg-surface)",
-      "border-radius": "var(--radius-lg)",
-      border: "1px solid var(--border-color)",
-      padding: "20px",
-    }}>
-      <h3 style={{ margin: "0 0 16px", "font-size": "14px", "font-weight": "600", color: "var(--text-primary)" }}>
-        Aujourd'hui
-      </h3>
-
+    <div>
       <div style={{ display: "flex", gap: "16px" }}>
         <div style={{
           flex: "1",

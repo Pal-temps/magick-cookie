@@ -16,16 +16,8 @@ export function FruitVegTracker() {
   });
 
   return (
-    <div style={{
-      background: "var(--bg-surface)",
-      "border-radius": "var(--radius-lg)",
-      border: "1px solid var(--border-color)",
-      padding: "20px",
-    }}>
-      <h3 style={{ margin: "0 0 8px", "font-size": "14px", "font-weight": "600", color: "var(--text-primary)" }}>
-        Fruits & Legumes
-      </h3>
-      <div style={{ "font-size": "11px", color: "var(--text-muted)", "margin-bottom": "16px" }}>
+    <div>
+      <div style={{ "font-size": "11px", color: "var(--text-muted)", "margin-bottom": "12px" }}>
         1 portion = ~80g (cru ou cuit) ou 1 fruit entier
       </div>
 

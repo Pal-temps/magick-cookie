@@ -58,40 +58,37 @@ export function GitHubWidget() {
 
   return (
     <div>
-      {/* Header */}
+      {/* Toolbar */}
       <div style={{
         display: "flex",
         "align-items": "center",
         "justify-content": "space-between",
-        "margin-bottom": "10px",
+        "margin-bottom": "8px",
       }}>
-        <div style={{ display: "flex", "align-items": "center", gap: "8px" }}>
-          <span style={{ "font-size": "14px", "font-weight": "600", color: "var(--text-primary)" }}>
-            GitHub PRs
+        <Show when={prs().length > 0}>
+          <span style={{
+            "font-size": "11px",
+            "font-weight": "600",
+            background: "var(--accent-primary)",
+            color: "white",
+            padding: "1px 7px",
+            "border-radius": "10px",
+            "min-width": "18px",
+            "text-align": "center",
+          }}>
+            {prs().length}
           </span>
-          <Show when={prs().length > 0}>
-            <span style={{
-              "font-size": "11px",
-              "font-weight": "600",
-              background: "var(--accent-primary)",
-              color: "white",
-              padding: "1px 7px",
-              "border-radius": "10px",
-              "min-width": "18px",
-              "text-align": "center",
-            }}>
-              {prs().length}
-            </span>
-          </Show>
+        </Show>
+        <div style={{ "margin-left": "auto" }}>
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={syncPRs}
+            disabled={isSyncing()}
+          >
+            {isSyncing() ? "..." : "Sync"}
+          </Button>
         </div>
-        <Button
-          size="sm"
-          variant="secondary"
-          onClick={syncPRs}
-          disabled={isSyncing()}
-        >
-          {isSyncing() ? "..." : "Sync"}
-        </Button>
       </div>
 
       {/* No config */}

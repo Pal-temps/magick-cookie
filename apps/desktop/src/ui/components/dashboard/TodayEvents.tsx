@@ -22,16 +22,7 @@ export function TodayEvents() {
     calendars().find((c) => c.id === calId)?.color ?? "var(--accent-primary)";
 
   return (
-    <div style={{
-      background: "var(--bg-surface)",
-      "border-radius": "var(--radius-lg)",
-      border: "1px solid var(--border-color)",
-      padding: "20px",
-    }}>
-      <h3 style={{ margin: "0 0 16px", "font-size": "14px", "font-weight": "600", color: "var(--text-primary)" }}>
-        Evenements du jour
-      </h3>
-
+    <div>
       <Show when={todayEvents().length === 0}>
         <div style={{ "font-size": "12px", color: "var(--text-muted)", padding: "8px 0" }}>
           Aucun evenement aujourd'hui

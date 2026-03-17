@@ -39,6 +39,7 @@ import { BriefService } from "./application/brief/brief.service";
 import { ChatService } from "./application/chat/chat.service";
 import { GitScanService } from "./application/git/git-scan.service";
 import { GitHubService } from "./application/github/github.service";
+import { VpsProxyService } from "./application/vps/vps-proxy.service";
 
 // Connectors
 import { ClickUpApiClient } from "./infrastructure/connectors/clickup-api.client";
@@ -66,6 +67,7 @@ import { createLlmRoutes } from "./presentation/routes/llm.routes";
 import { createBriefRoutes } from "./presentation/routes/brief.routes";
 import { createChatRoutes } from "./presentation/routes/chat.routes";
 import { createGitHubRoutes } from "./presentation/routes/github.routes";
+import { createVpsRoutes } from "./presentation/routes/vps.routes";
 
 // Jobs
 import { startReminderChecker } from "./infrastructure/jobs/reminder-checker";
@@ -107,6 +109,7 @@ const gitScanService = gitRepoPaths.length > 0 ? new GitScanService(gitRepoPaths
 const briefService = new BriefService(timerSessionRepo, eventRepo, taskRepo, triageRepo, emailRepo, llmService, gitScanService);
 const chatService = new ChatService(chatRepo, llmService);
 const githubService = new GitHubService(db);
+const vpsProxyService = new VpsProxyService(config.vpsApiUrl, config.vpsApiToken);
 
 const clickUpApiClient = new ClickUpApiClient(config.clickupApiToken);
 const clickUpSyncService = new ClickUpSyncService(clickUpApiClient, calendarService, eventRepo, taskRepo);
@@ -144,6 +147,7 @@ app.route("/api/llm", createLlmRoutes(llmService));
 app.route("/api/brief", createBriefRoutes(briefService));
 app.route("/api/chat", createChatRoutes(chatService));
 app.route("/api/github", createGitHubRoutes(githubService));
+app.route("/api/vps", createVpsRoutes(vpsProxyService));
 
 // Start reminder checker — pushes to SSE, does NOT mark as sent
 startReminderChecker(reminderService, eventRepo, reminderEmitter);

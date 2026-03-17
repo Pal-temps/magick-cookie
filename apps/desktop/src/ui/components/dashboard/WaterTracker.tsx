@@ -21,16 +21,8 @@ export function WaterTracker() {
   const goalLiters = () => (goal() / 1000).toFixed(1);
 
   return (
-    <div style={{
-      background: "var(--bg-surface)",
-      "border-radius": "var(--radius-lg)",
-      border: "1px solid var(--border-color)",
-      padding: "20px",
-    }}>
-      <div style={{ display: "flex", "align-items": "center", "justify-content": "space-between", "margin-bottom": "16px" }}>
-        <h3 style={{ margin: "0", "font-size": "14px", "font-weight": "600", color: "var(--text-primary)" }}>
-          Eau
-        </h3>
+    <div>
+      <div style={{ display: "flex", "align-items": "center", "justify-content": "flex-end", "margin-bottom": "8px" }}>
         <button
           onClick={() => { setGoalInput(goal()); setEditingGoal(!editingGoal()); }}
           style={{

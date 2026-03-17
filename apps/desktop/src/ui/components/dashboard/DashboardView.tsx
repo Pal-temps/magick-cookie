@@ -9,6 +9,7 @@ import { StatsView } from "./StatsView";
 import { DogWalkWidget } from "./DogWalkWidget";
 import { AnalyticsWidget } from "./AnalyticsWidget";
 import { GitHubWidget } from "./GitHubWidget";
+import { VpsWidget } from "./VpsWidget";
 import { StreakWidget } from "./StreakWidget";
 import { WeeklyReview } from "./WeeklyReview";
 import { BriefView } from "./BriefView";
@@ -33,6 +34,7 @@ const ALL_WIDGETS: WidgetDef[] = [
   { id: "wellness", label: "Bien-etre", component: WellnessStatus },
   { id: "streak", label: "Streak", component: StreakWidget },
   { id: "github-prs", label: "GitHub PRs", component: GitHubWidget },
+  { id: "vps", label: "VPS", component: VpsWidget },
   { id: "analytics", label: "Vue d'ensemble", component: AnalyticsWidget },
 ];
 
@@ -185,13 +187,25 @@ export function DashboardView() {
                     "dashboard-card--drop-target": dropTargetId() === widget.id,
                   }}
                 >
-                  <div
-                    class="dashboard-card-handle"
-                    onPointerDown={(e) => handlePointerDown(e, widget.id)}
-                  >
-                    <span class="dashboard-card-handle-icon">&#8942;&#8942;</span>
+                  <div class="dashboard-card-header">
+                    <div
+                      class="dashboard-card-handle"
+                      onPointerDown={(e) => handlePointerDown(e, widget.id)}
+                    >
+                      <svg class="dashboard-card-handle-icon" width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                        <circle cx="5" cy="3" r="1.5" />
+                        <circle cx="11" cy="3" r="1.5" />
+                        <circle cx="5" cy="8" r="1.5" />
+                        <circle cx="11" cy="8" r="1.5" />
+                        <circle cx="5" cy="13" r="1.5" />
+                        <circle cx="11" cy="13" r="1.5" />
+                      </svg>
+                    </div>
+                    <span class="dashboard-card-title">{widget.label}</span>
                   </div>
-                  <widget.component />
+                  <div class="dashboard-card-body">
+                    <widget.component />
+                  </div>
                 </div>
               )}
             </For>

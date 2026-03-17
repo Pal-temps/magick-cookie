@@ -29,19 +29,7 @@ export function DogWalkWidget() {
   };
 
   return (
-    <div style={{
-      background: "var(--bg-surface)",
-      "border-radius": "var(--radius-lg)",
-      padding: "16px",
-      border: isWalking() ? "2px solid var(--cal-green)" : "1px solid var(--border-color)",
-      transition: "border-color 0.2s ease",
-    }}>
-      <div style={{ display: "flex", "align-items": "center", "justify-content": "space-between", "margin-bottom": "12px" }}>
-        <h3 style={{ margin: "0", "font-size": "14px", "font-weight": "600", color: "var(--text-primary)" }}>
-          Balade chien
-        </h3>
-        <span style={{ "font-size": "18px" }}>🐕</span>
-      </div>
+    <div>
 
       {/* Chrono display */}
       <div style={{

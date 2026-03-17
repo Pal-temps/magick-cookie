@@ -51,10 +51,7 @@ export function AnalyticsWidget() {
 
   return (
     <div>
-      <div style={{ display: "flex", "align-items": "center", "justify-content": "space-between", "margin-bottom": "10px" }}>
-        <span style={{ "font-size": "14px", "font-weight": "600", color: "var(--text-primary)" }}>
-          Vue d'ensemble
-        </span>
+      <div style={{ display: "flex", "justify-content": "flex-end", "margin-bottom": "8px" }}>
         <div style={{ display: "flex", gap: "4px" }}>
           <Button size="sm" variant={period() === "7d" ? "primary" : "secondary"} onClick={() => switchPeriod("7d")}>
             7j

@@ -7,6 +7,7 @@ import { NotesView } from "./ui/components/notes/NotesView";
 import { TriageView } from "./ui/components/triage/TriageView";
 import { EmailView } from "./ui/components/email/EmailView";
 import { ChatView } from "./ui/components/chat/ChatView";
+import { VpsView } from "./ui/components/vps/VpsView";
 import { SettingsView } from "./ui/components/settings/SettingsView";
 import { useCalendarStore } from "./application/stores/calendarStore";
 import { useViewStore } from "./application/stores/viewStore";
@@ -49,6 +50,7 @@ export function App() {
       case "notes":
       case "email":
       case "chat":
+      case "vps":
       case "settings":
       case "dashboard": {
         const from = new Date(d);
@@ -176,10 +178,13 @@ export function App() {
         <Show when={viewMode() === "chat"}>
           <ChatView />
         </Show>
+        <Show when={viewMode() === "vps"}>
+          <VpsView />
+        </Show>
         <Show when={viewMode() === "settings"}>
           <SettingsView />
         </Show>
-        <Show when={viewMode() !== "notes" && viewMode() !== "triage" && viewMode() !== "email" && viewMode() !== "chat" && viewMode() !== "settings"}>
+        <Show when={viewMode() !== "notes" && viewMode() !== "triage" && viewMode() !== "email" && viewMode() !== "chat" && viewMode() !== "vps" && viewMode() !== "settings"}>
           <CalendarGrid />
           <EventForm />
         </Show>

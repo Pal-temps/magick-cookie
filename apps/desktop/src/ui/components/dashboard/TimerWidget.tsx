@@ -40,16 +40,7 @@ export function TimerWidget() {
   };
 
   return (
-    <div style={{
-      background: "var(--bg-surface)",
-      "border-radius": "var(--radius-lg)",
-      border: "1px solid var(--border-color)",
-      padding: "20px",
-    }}>
-      <h3 style={{ margin: "0 0 16px", "font-size": "14px", "font-weight": "600", color: "var(--text-primary)" }}>
-        Timer
-      </h3>
-
+    <div>
       <Show when={timerState() === "idle"}>
         <div style={{ display: "flex", "flex-direction": "column", gap: "12px" }}>
           {/* Task selector */}
