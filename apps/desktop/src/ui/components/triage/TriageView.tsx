@@ -5,6 +5,11 @@ import type { UnscheduledTask } from "../../../domain/models/ClickUpTask";
 import { SwipeCard } from "./SwipeCard";
 import { Button } from "../common/Button";
 
+// --- Module-level drag state (ephemeral, no persistence needed) ---
+const [activeDrag, setActiveDrag] = createSignal<{ id: string; name: string } | null>(null);
+const [ghostPos, setGhostPos] = createSignal({ x: 0, y: 0 });
+const [dropTarget, setDropTarget] = createSignal<TriageStatus | null>(null);
+
 export function TriageView() {
   const triage = useTriageStore();
   const { unscheduledTasks, fetchUnscheduledTasks, syncClickUp, isSyncing, openTaskDetail } = useCalendarStore();
@@ -40,14 +45,13 @@ export function TriageView() {
     }
   }
 
-  // Triage mode — swipe cards
   return (
     <div style={{ height: "100%", display: "flex", "flex-direction": "column", overflow: "hidden" }} tabIndex={0} onKeyDown={handleKeyboard}>
       <Show when={triage.isTriaging()} fallback={<TriageDashboard
         priorityTasks={priorityTasks()}
         laterTasks={laterTasks()}
         archivedTasks={archivedTasks()}
-        untriagedCount={untriagedTasks().length}
+        untriagedTasks={untriagedTasks()}
         totalCount={unscheduledTasks().length}
         onStartTriage={handleStartTriage}
         onSync={syncClickUp}
@@ -135,12 +139,13 @@ export function TriageView() {
   );
 }
 
-// Dashboard showing triaged tasks with drag & drop
+// --- Dashboard ---
+
 interface TriageDashboardProps {
   priorityTasks: UnscheduledTask[];
   laterTasks: UnscheduledTask[];
   archivedTasks: UnscheduledTask[];
-  untriagedCount: number;
+  untriagedTasks: UnscheduledTask[];
   totalCount: number;
   onStartTriage: () => void;
   onSync: () => void;
@@ -151,24 +156,48 @@ interface TriageDashboardProps {
 
 function TriageDashboard(props: TriageDashboardProps) {
   return (
-    <div style={{ height: "100%", "overflow-y": "auto", padding: "20px" }}>
+    <div style={{ height: "100%", "overflow-y": "auto", padding: "20px", position: "relative" }}>
+      {/* Drag ghost */}
+      <Show when={activeDrag()}>
+        <div
+          id="triage-ghost"
+          style={{
+            position: "fixed",
+            left: ghostPos().x + "px",
+            top: ghostPos().y + "px",
+            transform: "translate(-50%, -50%) rotate(2deg)",
+            background: "var(--bg-elevated)",
+            border: "1px solid var(--border-color)",
+            "border-radius": "var(--radius-sm)",
+            padding: "6px 12px",
+            "font-size": "12px",
+            color: "var(--text-primary)",
+            "pointer-events": "none",
+            "z-index": "9999",
+            "box-shadow": "0 4px 16px rgba(0,0,0,0.3)",
+            "max-width": "200px",
+            "white-space": "nowrap",
+            overflow: "hidden",
+            "text-overflow": "ellipsis",
+            opacity: "0.95",
+          }}
+        >
+          {activeDrag()!.name}
+        </div>
+      </Show>
+
       {/* Header */}
       <div style={{ display: "flex", "align-items": "center", "justify-content": "space-between", "margin-bottom": "20px" }}>
         <div>
           <h2 style={{ "font-size": "20px", "font-weight": "600", color: "var(--text-primary)" }}>Triage des taches</h2>
           <p style={{ "font-size": "12px", color: "var(--text-muted)", "margin-top": "4px" }}>
-            {props.totalCount} tache(s) au total — {props.untriagedCount} non triee(s)
+            {props.totalCount} tache(s) au total — {props.untriagedTasks.length} non triee(s)
           </p>
         </div>
         <div style={{ display: "flex", gap: "8px" }}>
           <Button size="sm" variant="secondary" onClick={props.onSync} disabled={props.isSyncing}>
             {props.isSyncing ? "..." : "Sync ClickUp"}
           </Button>
-          <Show when={props.untriagedCount > 0}>
-            <Button size="sm" variant="primary" onClick={props.onStartTriage}>
-              Trier ({props.untriagedCount})
-            </Button>
-          </Show>
         </div>
       </div>
 
@@ -180,7 +209,7 @@ function TriageDashboard(props: TriageDashboardProps) {
           color="#ef4444"
           tasks={props.priorityTasks}
           onClickTask={props.onClickTask}
-          onDrop={props.onMoveTask}
+          onMoveTask={props.onMoveTask}
         />
         <TaskColumn
           title="Plus tard"
@@ -188,7 +217,7 @@ function TriageDashboard(props: TriageDashboardProps) {
           color="#3b82f6"
           tasks={props.laterTasks}
           onClickTask={props.onClickTask}
-          onDrop={props.onMoveTask}
+          onMoveTask={props.onMoveTask}
         />
         <TaskColumn
           title="Archive"
@@ -196,12 +225,24 @@ function TriageDashboard(props: TriageDashboardProps) {
           color="#8b5cf6"
           tasks={props.archivedTasks}
           onClickTask={props.onClickTask}
-          onDrop={props.onMoveTask}
+          onMoveTask={props.onMoveTask}
         />
       </div>
+
+      {/* Untriaged section */}
+      <Show when={props.untriagedTasks.length > 0}>
+        <UntriagedSection
+          tasks={props.untriagedTasks}
+          onClickTask={props.onClickTask}
+          onStartTriage={props.onStartTriage}
+          onMoveTask={props.onMoveTask}
+        />
+      </Show>
     </div>
   );
 }
+
+// --- Columns ---
 
 interface TaskColumnProps {
   title: string;
@@ -209,42 +250,21 @@ interface TaskColumnProps {
   color: string;
   tasks: UnscheduledTask[];
   onClickTask: (task: UnscheduledTask) => void;
-  onDrop: (clickupTaskId: string, newStatus: TriageStatus) => void;
+  onMoveTask: (clickupTaskId: string, newStatus: TriageStatus) => void;
 }
 
 function TaskColumn(props: TaskColumnProps) {
-  const [isDragOver, setIsDragOver] = createSignal(false);
-
-  function handleDragOver(e: DragEvent) {
-    e.preventDefault();
-    if (e.dataTransfer) e.dataTransfer.dropEffect = "move";
-    setIsDragOver(true);
-  }
-
-  function handleDragLeave() {
-    setIsDragOver(false);
-  }
-
-  function handleDrop(e: DragEvent) {
-    e.preventDefault();
-    setIsDragOver(false);
-    const clickupTaskId = e.dataTransfer?.getData("text/plain");
-    if (clickupTaskId) {
-      props.onDrop(clickupTaskId, props.status);
-    }
-  }
+  const isDropTarget = () => activeDrag() !== null && dropTarget() === props.status;
 
   return (
     <div
-      onDragOver={handleDragOver}
-      onDragLeave={handleDragLeave}
-      onDrop={handleDrop}
+      data-triage-status={props.status}
       style={{
-        background: isDragOver() ? `${props.color}11` : "var(--bg-surface)",
+        background: isDropTarget() ? `${props.color}15` : "var(--bg-surface)",
         "border-radius": "var(--radius-md)",
-        border: `2px ${isDragOver() ? "dashed" : "solid"} ${isDragOver() ? props.color : "var(--border-color)"}`,
+        border: `2px ${isDropTarget() ? "dashed" : "solid"} ${isDropTarget() ? props.color : "var(--border-color)"}`,
         overflow: "hidden",
-        transition: "background 0.15s, border 0.15s",
+        transition: "background 0.15s, border-color 0.15s",
         "min-height": "120px",
       }}
     >
@@ -271,7 +291,7 @@ function TaskColumn(props: TaskColumnProps) {
       <div style={{ "max-height": "400px", "overflow-y": "auto" }}>
         <For each={props.tasks}>
           {(task) => (
-            <DraggableTaskItem task={task} onClick={() => props.onClickTask(task)} />
+            <DraggableTaskItem task={task} onMoveTask={props.onMoveTask} onClick={() => props.onClickTask(task)} />
           )}
         </For>
         <Show when={props.tasks.length === 0}>
@@ -279,10 +299,10 @@ function TaskColumn(props: TaskColumnProps) {
             padding: "24px 16px",
             "text-align": "center",
             "font-size": "11px",
-            color: isDragOver() ? props.color : "var(--text-muted)",
+            color: isDropTarget() ? props.color : "var(--text-muted)",
             transition: "color 0.15s",
           }}>
-            {isDragOver() ? "Deposer ici" : "Aucune tache"}
+            {isDropTarget() ? "Deposer ici" : "Aucune tache"}
           </div>
         </Show>
       </div>
@@ -290,44 +310,157 @@ function TaskColumn(props: TaskColumnProps) {
   );
 }
 
+// --- Untriaged section ---
+
+interface UntriagedSectionProps {
+  tasks: UnscheduledTask[];
+  onClickTask: (task: UnscheduledTask) => void;
+  onStartTriage: () => void;
+  onMoveTask: (clickupTaskId: string, newStatus: TriageStatus) => void;
+}
+
+function UntriagedSection(props: UntriagedSectionProps) {
+  const [isExpanded, setIsExpanded] = createSignal(true);
+
+  return (
+    <div style={{ "margin-top": "24px" }}>
+      <div style={{
+        display: "flex",
+        "align-items": "center",
+        "justify-content": "space-between",
+        "margin-bottom": "12px",
+      }}>
+        <button
+          onClick={() => setIsExpanded((v) => !v)}
+          style={{
+            display: "flex",
+            "align-items": "center",
+            gap: "8px",
+            background: "none",
+            border: "none",
+            cursor: "pointer",
+            padding: "0",
+            color: "var(--text-primary)",
+          }}
+        >
+          <span style={{
+            "font-size": "13px",
+            "font-weight": "600",
+            transition: "transform 0.15s",
+            display: "inline-block",
+            transform: isExpanded() ? "rotate(90deg)" : "rotate(0deg)",
+          }}>▶</span>
+          <span style={{ "font-size": "14px", "font-weight": "600" }}>Non triees</span>
+          <span style={{
+            "font-size": "11px",
+            padding: "1px 8px",
+            "border-radius": "var(--radius-sm)",
+            background: "var(--bg-elevated)",
+            color: "var(--text-muted)",
+          }}>
+            {props.tasks.length}
+          </span>
+        </button>
+        <Button size="sm" variant="primary" onClick={props.onStartTriage}>
+          Trier (tinder) ✦ {props.tasks.length}
+        </Button>
+      </div>
+
+      <Show when={isExpanded()}>
+        <div style={{
+          display: "grid",
+          "grid-template-columns": "repeat(auto-fill, minmax(240px, 1fr))",
+          gap: "8px",
+        }}>
+          <For each={props.tasks}>
+            {(task) => (
+              <DraggableTaskItem task={task} card onMoveTask={props.onMoveTask} onClick={() => props.onClickTask(task)} />
+            )}
+          </For>
+        </div>
+      </Show>
+    </div>
+  );
+}
+
+// --- Draggable item (pointer events, Tauri-safe) ---
+
 interface DraggableTaskItemProps {
   task: UnscheduledTask;
   onClick: () => void;
+  onMoveTask: (clickupTaskId: string, newStatus: TriageStatus) => void;
+  card?: boolean;
 }
 
 function DraggableTaskItem(props: DraggableTaskItemProps) {
-  const [isDragging, setIsDragging] = createSignal(false);
+  const isDragging = () => activeDrag()?.id === props.task.clickupTaskId;
 
-  function handleDragStart(e: DragEvent) {
-    if (e.dataTransfer) {
-      e.dataTransfer.setData("text/plain", props.task.clickupTaskId);
-      e.dataTransfer.effectAllowed = "move";
+  function handlePointerDown(e: PointerEvent) {
+    if (e.button !== 0) return;
+    e.preventDefault();
+
+    const el = e.currentTarget as HTMLElement;
+    el.setPointerCapture(e.pointerId);
+
+    setActiveDrag({ id: props.task.clickupTaskId, name: props.task.name });
+    setGhostPos({ x: e.clientX, y: e.clientY });
+    setDropTarget(null);
+
+    function onMove(ev: PointerEvent) {
+      setGhostPos({ x: ev.clientX, y: ev.clientY });
+
+      // Ghost has pointer-events:none so elementFromPoint sees through it
+      const under = document.elementFromPoint(ev.clientX, ev.clientY);
+      const col = under?.closest("[data-triage-status]") as HTMLElement | null;
+      setDropTarget((col?.dataset.triageStatus as TriageStatus) ?? null);
     }
-    setIsDragging(true);
+
+    function onUp(ev: PointerEvent) {
+      el.removeEventListener("pointermove", onMove);
+      el.removeEventListener("pointerup", onUp);
+
+      const status = dropTarget();
+      setActiveDrag(null);
+      setDropTarget(null);
+
+      if (status) {
+        props.onMoveTask(props.task.clickupTaskId, status);
+      }
+    }
+
+    el.addEventListener("pointermove", onMove);
+    el.addEventListener("pointerup", onUp);
   }
 
-  function handleDragEnd() {
-    setIsDragging(false);
+  function handleClick(e: MouseEvent) {
+    // Only fire click if not dragging
+    if (!activeDrag()) props.onClick();
   }
 
   return (
     <div
-      draggable={true}
-      onDragStart={handleDragStart}
-      onDragEnd={handleDragEnd}
-      onClick={props.onClick}
+      onPointerDown={handlePointerDown}
+      onClick={handleClick}
       style={{
         display: "block",
         width: "100%",
         padding: "8px 14px",
         "text-align": "left",
-        cursor: "grab",
-        "border-bottom": "1px solid var(--border-color)",
-        transition: "background 0.1s, opacity 0.15s",
-        opacity: isDragging() ? "0.4" : "1",
+        cursor: isDragging() ? "grabbing" : "grab",
+        ...(props.card
+          ? {
+              background: "var(--bg-surface)",
+              border: "1px solid var(--border-color)",
+              "border-radius": "var(--radius-sm)",
+            }
+          : { "border-bottom": "1px solid var(--border-color)" }),
+        transition: "opacity 0.1s",
+        opacity: isDragging() ? "0.3" : "1",
+        "user-select": "none",
+        "box-sizing": "border-box",
       }}
-      onMouseEnter={(e) => e.currentTarget.style.background = "var(--bg-elevated)"}
-      onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
+      onMouseEnter={(e) => { if (!isDragging()) e.currentTarget.style.background = "var(--bg-elevated)"; }}
+      onMouseLeave={(e) => { e.currentTarget.style.background = props.card ? "var(--bg-surface)" : "transparent"; }}
     >
       <div style={{
         "font-size": "12px",

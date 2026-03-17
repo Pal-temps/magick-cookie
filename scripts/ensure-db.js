@@ -5,16 +5,19 @@ const { execSync } = require("child_process");
 const CONTAINER = "do-it-now-db";
 const MAX_WAIT = 30; // seconds
 
-function isContainerRunning() {
+function getContainerStatus() {
   try {
-    const status = execSync(`docker inspect -f "{{.State.Status}}" ${CONTAINER}`, {
+    return execSync(`docker inspect -f "{{.State.Status}}" ${CONTAINER}`, {
       encoding: "utf-8",
       stdio: ["pipe", "pipe", "pipe"],
     }).trim();
-    return status === "running";
   } catch {
-    return false;
+    return null; // container doesn't exist
   }
+}
+
+function isContainerRunning() {
+  return getContainerStatus() === "running";
 }
 
 function isDbReady() {
@@ -35,7 +38,14 @@ function sleep(ms) {
 async function main() {
   if (!isContainerRunning()) {
     console.log("Starting database container...");
-    execSync("docker compose up -d db", { stdio: "inherit" });
+    const status = getContainerStatus();
+    if (status !== null) {
+      // Container exists but is stopped/exited — just start it
+      execSync(`docker start ${CONTAINER}`, { stdio: "inherit" });
+    } else {
+      // Container doesn't exist — create it via compose
+      execSync("docker compose up -d db", { stdio: "inherit" });
+    }
   }
 
   // Wait for DB to be ready
