@@ -7,6 +7,7 @@ use tauri::{
     tray::TrayIconBuilder,
     Emitter, Manager,
 };
+use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut};
 
 /// Restore the main window: exit desktop mode, show, and focus.
 fn restore_main_window(app: &tauri::AppHandle) {
@@ -30,6 +31,32 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_notification::init())
+        .plugin(
+            tauri_plugin_global_shortcut::Builder::new()
+                .with_handler(|app, shortcut, event| {
+                    if event.state == tauri_plugin_global_shortcut::ShortcutState::Pressed {
+                        let capture = Shortcut::new(Some(Modifiers::SHIFT | Modifiers::SUPER), Code::KeyN);
+                        let timer = Shortcut::new(Some(Modifiers::SHIFT | Modifiers::SUPER), Code::KeyT);
+                        let brief = Shortcut::new(Some(Modifiers::SHIFT | Modifiers::SUPER), Code::KeyB);
+                        let desktop = Shortcut::new(Some(Modifiers::SHIFT | Modifiers::SUPER), Code::KeyD);
+
+                        let action = if shortcut == &capture {
+                            "capture"
+                        } else if shortcut == &timer {
+                            "timer"
+                        } else if shortcut == &brief {
+                            "brief"
+                        } else if shortcut == &desktop {
+                            "desktop"
+                        } else {
+                            return;
+                        };
+
+                        let _ = app.emit("global-shortcut", action);
+                    }
+                })
+                .build(),
+        )
         .setup(|app| {
             // Build tray menu
             let show = MenuItem::with_id(app, "show", "Ouvrir do-it-now", true, None::<&str>)?;
@@ -55,16 +82,34 @@ pub fn run() {
                     _ => {}
                 })
                 .on_tray_icon_event(|tray, event| {
-                    // Restore window on single-click or double-click on tray icon
+                    // Left-click or double-click → restore window
+                    // Right-click is handled by the menu automatically
                     match event {
-                        tauri::tray::TrayIconEvent::Click { .. }
-                        | tauri::tray::TrayIconEvent::DoubleClick { .. } => {
+                        tauri::tray::TrayIconEvent::Click {
+                            button: tauri::tray::MouseButton::Left, ..
+                        }
+                        | tauri::tray::TrayIconEvent::DoubleClick {
+                            button: tauri::tray::MouseButton::Left, ..
+                        } => {
                             restore_main_window(tray.app_handle());
                         }
                         _ => {}
                     }
                 })
                 .build(app)?;
+
+            // Register global shortcuts (ignore errors if already taken by another app)
+            let shortcuts = [
+                Shortcut::new(Some(Modifiers::SHIFT | Modifiers::SUPER), Code::KeyN),
+                Shortcut::new(Some(Modifiers::SHIFT | Modifiers::SUPER), Code::KeyT),
+                Shortcut::new(Some(Modifiers::SHIFT | Modifiers::SUPER), Code::KeyB),
+                Shortcut::new(Some(Modifiers::SHIFT | Modifiers::SUPER), Code::KeyD),
+            ];
+            for shortcut in shortcuts {
+                if let Err(e) = app.global_shortcut().register(shortcut) {
+                    eprintln!("Warning: could not register shortcut {:?}: {}", shortcut, e);
+                }
+            }
 
             Ok(())
         })
