@@ -14,6 +14,7 @@ Documentation des specifications pour l'application mobile Android (Kotlin).
 8. **[dashboard-analytics-weekly-review.md](dashboard-analytics-weekly-review.md)** — Widget analytics agrege (7j/30j) + bilan hebdomadaire avec deltas
 9. **[email-shortcuts-ai-summary.md](email-shortcuts-ai-summary.md)** — Gestes email (swipe archive/delete) + resume IA via LLM local
 10. **[llm-integration.md](llm-integration.md)** — Configuration LLM local (Ollama/LM Studio), endpoints chat/test, DB schema
+11. **[agent-chat-mobile.md](agent-chat-mobile.md)** — App agent mobile : chat intelligent + dashboard compact + notifications push (prerequis: Phase 1-2 agent done)
 
 ## API de reference
 
