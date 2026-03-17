@@ -1,13 +1,21 @@
 import { createSignal, Show } from "solid-js";
 import { LlmSettings } from "./LlmSettings";
+import { ThemeSettings } from "./ThemeSettings";
+import { FocusSettings } from "./FocusSettings";
+import { GitHubSettings } from "./GitHubSettings";
+import { BriefSettings } from "./BriefSettings";
 
-type SettingsTab = "llm";
+type SettingsTab = "theme" | "llm" | "focus" | "github" | "brief";
 
 export function SettingsView() {
-  const [tab, setTab] = createSignal<SettingsTab>("llm");
+  const [tab, setTab] = createSignal<SettingsTab>("theme");
 
   const tabs: { id: SettingsTab; label: string }[] = [
+    { id: "theme", label: "Apparence" },
+    { id: "focus", label: "Focus" },
     { id: "llm", label: "Intelligence artificielle" },
+    { id: "brief", label: "Brief" },
+    { id: "github", label: "GitHub" },
   ];
 
   return (
@@ -53,8 +61,20 @@ export function SettingsView() {
 
       {/* Content */}
       <div style={{ flex: "1", "overflow-y": "auto" }}>
+        <Show when={tab() === "theme"}>
+          <ThemeSettings />
+        </Show>
+        <Show when={tab() === "focus"}>
+          <FocusSettings />
+        </Show>
         <Show when={tab() === "llm"}>
           <LlmSettings />
+        </Show>
+        <Show when={tab() === "brief"}>
+          <BriefSettings />
+        </Show>
+        <Show when={tab() === "github"}>
+          <GitHubSettings />
         </Show>
       </div>
     </div>
