@@ -2,6 +2,18 @@ import type { EmailAccountRepository, EmailRepository } from "../../domain/email
 import type { EmailAccount, Email, CreateEmailAccountInput, UpdateEmailAccountInput } from "../../domain/email/email.entity";
 import type { ImapConnector } from "../../infrastructure/connectors/imap.connector";
 
+export interface EmailDigestBySender {
+  sender: string;
+  count: number;
+  subjects: string[];
+}
+
+export interface EmailDigest {
+  totalUnread: number;
+  period: { from: string; to: string };
+  bySender: EmailDigestBySender[];
+}
+
 export class EmailService {
   constructor(
     private accountRepo: EmailAccountRepository,
@@ -86,6 +98,39 @@ export class EmailService {
     await this.accountRepo.updateLastSyncedAt(accountId, new Date());
 
     return { newEmails };
+  }
+
+  // --- Digest ---
+
+  async getDigest(days: number = 7): Promise<EmailDigest> {
+    const since = new Date();
+    since.setDate(since.getDate() - days);
+
+    // Get unread emails from the last N days
+    const emails = await this.emailRepo.findAll({ unread: true, limit: 200 });
+    const recent = emails.filter((e) => new Date(e.sentAt) >= since);
+
+    // Group by sender
+    const bySender = new Map<string, { count: number; subjects: string[] }>();
+    for (const email of recent) {
+      const sender = email.fromName || email.fromAddress;
+      const entry = bySender.get(sender) || { count: 0, subjects: [] };
+      entry.count++;
+      if (entry.subjects.length < 3) entry.subjects.push(email.subject || "(sans sujet)");
+      bySender.set(sender, entry);
+    }
+
+    return {
+      totalUnread: recent.length,
+      period: { from: since.toISOString(), to: new Date().toISOString() },
+      bySender: Array.from(bySender.entries())
+        .map(([sender, data]) => ({
+          sender,
+          count: data.count,
+          subjects: data.subjects,
+        }))
+        .sort((a, b) => b.count - a.count),
+    };
   }
 
   async syncAll(): Promise<{ total: number; errors: string[] }> {

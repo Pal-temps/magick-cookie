@@ -18,6 +18,24 @@ export function createEmailRoutes(emailService: EmailService, llmService?: LlmSe
     return c.json({ data });
   });
 
+  // GET /api/emails/digest
+  app.get("/digest", async (c) => {
+    const days = Number(c.req.query("days") || "7");
+    const digest = await emailService.getDigest(days);
+    let summary = "";
+    if (llmService) {
+      try {
+        summary = await llmService.summarize(
+          JSON.stringify(digest),
+          "Resume ce digest email en francais. Groupe par expediteur, mentionne les sujets importants. 3-5 bullet points max.",
+        );
+      } catch {
+        // LLM not available — return structured data only
+      }
+    }
+    return c.json({ data: { ...digest, summary } });
+  });
+
   // GET /api/emails/unread-count
   app.get("/unread-count", async (c) => {
     const accountId = c.req.query("accountId");

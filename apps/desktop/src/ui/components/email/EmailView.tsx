@@ -2,12 +2,15 @@ import { onMount, onCleanup, createEffect, Show, createSignal } from "solid-js";
 import { useEmailStore } from "../../../application/stores/emailStore";
 import { EmailList } from "./EmailList";
 import { EmailDetail } from "./EmailDetail";
+import { EmailDigest } from "./EmailDigest";
 import { AccountSettings } from "./AccountSettings";
 import { Button } from "../common/Button";
+import { CookieLoader } from "../common/CookieLoader";
 
 export function EmailView() {
   const store = useEmailStore();
   const [showSettings, setShowSettings] = createSignal(false);
+  const [showDigest, setShowDigest] = createSignal(false);
 
   onMount(async () => {
     await store.fetchAccounts();
@@ -83,6 +86,9 @@ export function EmailView() {
   const folders = ["INBOX", "Sent", "Archive"] as const;
 
   return (
+    <Show when={!showDigest()} fallback={
+      <EmailDigest onClose={() => setShowDigest(false)} />
+    }>
     <Show when={!showSettings()} fallback={
       <AccountSettings
         accounts={store.accounts()}
@@ -134,6 +140,9 @@ export function EmailView() {
             ))}
           </div>
           <div style={{ display: "flex", "align-items": "center", gap: "6px" }}>
+            <Button size="sm" variant="secondary" onClick={() => setShowDigest(true)}>
+              Digest
+            </Button>
             <Button size="sm" variant="secondary" onClick={store.syncEmails} disabled={store.isSyncing()}>
               {store.isSyncing() ? "Sync..." : "Sync"}
             </Button>
@@ -181,8 +190,8 @@ export function EmailView() {
             overflow: "hidden",
           }}>
             <Show when={!store.isLoading()} fallback={
-              <div style={{ padding: "20px", "text-align": "center", color: "var(--text-muted)", "font-size": "12px" }}>
-                Chargement...
+              <div style={{ padding: "20px", display: "flex", "justify-content": "center" }}>
+                <CookieLoader size={32} message="Chargement..." />
               </div>
             }>
               <EmailList
@@ -209,6 +218,7 @@ export function EmailView() {
           </div>
         </div>
       </div>
+    </Show>
     </Show>
   );
 }

@@ -14,6 +14,22 @@ const [focusedIndex, setFocusedIndex] = createSignal(-1);
 const [emailSummary, setEmailSummary] = createSignal<string | null>(null);
 const [summaryLoading, setSummaryLoading] = createSignal(false);
 
+export interface EmailDigestBySender {
+  sender: string;
+  count: number;
+  subjects: string[];
+}
+
+export interface EmailDigest {
+  totalUnread: number;
+  period: { from: string; to: string };
+  bySender: EmailDigestBySender[];
+  summary: string;
+}
+
+const [digest, setDigest] = createSignal<EmailDigest | null>(null);
+const [digestLoading, setDigestLoading] = createSignal(false);
+
 export function useEmailStore() {
   async function fetchAccounts() {
     const data = await api.get<EmailAccount[]>("/email-accounts");
@@ -137,6 +153,19 @@ export function useEmailStore() {
     setUnreadCount((c) => email.isRead ? c + 1 : Math.max(0, c - 1));
   }
 
+  async function fetchDigest(days: number = 7) {
+    setDigestLoading(true);
+    try {
+      const data = await api.get<EmailDigest>(`/emails/digest?days=${days}`);
+      setDigest(data);
+    } catch (err) {
+      console.error("Failed to fetch email digest:", err);
+      setDigest(null);
+    } finally {
+      setDigestLoading(false);
+    }
+  }
+
   async function summarizeEmail(id: string) {
     setSummaryLoading(true);
     setEmailSummary(null);
@@ -155,8 +184,9 @@ export function useEmailStore() {
     emails, accounts, selectedEmail, activeAccountId, activeFolder,
     isLoading, isSyncing, unreadCount,
     focusedIndex, emailSummary, summaryLoading,
+    digest, digestLoading,
     setActiveAccountId, setActiveFolder, setSelectedEmail, setFocusedIndex, setEmailSummary,
-    fetchAccounts, fetchEmails, fetchUnreadCount,
+    fetchAccounts, fetchEmails, fetchUnreadCount, fetchDigest,
     selectEmail, toggleStar, archiveEmail, deleteEmail,
     syncEmails, addAccount, removeAccount, testConnection,
     moveFocus, selectFocused, toggleReadStatus, summarizeEmail,
