@@ -230,6 +230,15 @@ export const projects = pgTable("projects", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });
 
+export const pushNotifications = pgTable("push_notifications", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  type: varchar("type", { length: 50 }).notNull(),
+  title: varchar("title", { length: 500 }).notNull(),
+  body: text("body").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  readAt: timestamp("read_at", { withTimezone: true }),
+});
+
 export const contacts = pgTable("contacts", {
   id: uuid("id").primaryKey().defaultRandom(),
   name: varchar("name", { length: 255 }).notNull(),

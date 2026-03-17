@@ -21,6 +21,7 @@ import { DrizzleLlmConfigRepository } from "./infrastructure/repositories/llm-co
 import { DrizzleChatRepository } from "./infrastructure/repositories/chat.repository.impl";
 import { DrizzleBookmarkRepository } from "./infrastructure/repositories/bookmark.repository.impl";
 import { DrizzleProjectRepository } from "./infrastructure/repositories/project.repository.impl";
+import { DrizzlePushNotificationRepository } from "./infrastructure/repositories/push-notification.repository.impl";
 
 // Services
 import { CalendarService } from "./application/calendar/calendar.service";
@@ -83,11 +84,13 @@ import { createBookmarkRoutes } from "./presentation/routes/bookmark.routes";
 import { createProjectRoutes } from "./presentation/routes/project.routes";
 import { createSmartReminderRoutes } from "./presentation/routes/smart-reminder.routes";
 import { createAgentRoutes } from "./presentation/routes/agent.routes";
+import { createPushRoutes } from "./presentation/routes/push.routes";
 
 // Jobs
 import { startReminderChecker } from "./infrastructure/jobs/reminder-checker";
 import { startEmailSyncJob } from "./infrastructure/jobs/email-sync.job";
 import { startGitHubSyncJob } from "./infrastructure/jobs/github-sync.job";
+import { startAgentScheduler } from "./infrastructure/jobs/agent-scheduler";
 
 // --- DI ---
 const calendarRepo = new DrizzleCalendarRepository(db);
@@ -106,6 +109,7 @@ const llmConfigRepo = new DrizzleLlmConfigRepository(db);
 const chatRepo = new DrizzleChatRepository(db);
 const bookmarkRepo = new DrizzleBookmarkRepository(db);
 const projectRepo = new DrizzleProjectRepository(db);
+const pushRepo = new DrizzlePushNotificationRepository(db);
 
 const calendarService = new CalendarService(calendarRepo);
 const eventService = new EventService(eventRepo, reminderRepo);
@@ -184,6 +188,7 @@ app.route("/api/bookmarks", createBookmarkRoutes(bookmarkService));
 app.route("/api/projects", createProjectRoutes(projectService));
 app.route("/api/smart-reminders", createSmartReminderRoutes(smartReminderService));
 app.route("/api/agent", createAgentRoutes(agentService));
+app.route("/api/push", createPushRoutes(pushRepo));
 
 // Start reminder checker — pushes to SSE, does NOT mark as sent
 startReminderChecker(reminderService, eventRepo, reminderEmitter);
@@ -193,6 +198,15 @@ startEmailSyncJob(emailService);
 
 // Start GitHub sync job
 startGitHubSyncJob(githubService);
+
+// Start agent scheduler (proactive notifications)
+startAgentScheduler({
+  pushRepo,
+  analyticsService,
+  briefService,
+  emailService,
+  timerService: timerSessionService,
+});
 
 // Seed default wellness configs
 wellnessConfigService.seedDefaults().catch(console.error);
