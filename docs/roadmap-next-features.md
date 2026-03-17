@@ -2,13 +2,13 @@
 
 ## Vue d'ensemble
 
-| # | Feature | Priorite | Complexite | Dependances |
-|---|---------|----------|------------|-------------|
-| 1 | Dashboard Analytics | Haute | Moyenne | Donnees existantes (timer, wellness, triage, dog-walk) |
-| 2 | Weekly Review | Haute | Moyenne | Dashboard Analytics (reutilise les queries) |
-| 3 | Raccourcis clavier Email | Moyenne | Faible | Feature email (Phase 1 done) |
-| 4 | Integration LLM local | Haute | Haute | Aucune — socle generique a poser |
-| 5 | Resume email par IA | Moyenne | Faible | #4 (LLM local) + feature email |
+| # | Feature | Priorite | Complexite | Statut |
+|---|---------|----------|------------|--------|
+| 1 | Dashboard Analytics | Haute | Moyenne | ✅ Done (overview, streak, widgets, AnalyticsWidget, StatsView) |
+| 2 | Weekly Review | Haute | Moyenne | ✅ Done (API weekly-review + WeeklyReview UI + deltas) |
+| 3 | Raccourcis clavier Email | Moyenne | Faible | ❌ A faire |
+| 4 | Integration LLM local | Haute | Haute | ✅ Done (Ollama/LM Studio/OpenAI adapters, LlmSettings UI) |
+| 5 | Resume email par IA | Moyenne | Faible | ❌ A faire |
 
 ---
 
@@ -50,10 +50,10 @@ Remplacer/enrichir le dashboard actuel avec des metriques visuelles sur la produ
 
 ### Phases
 
-- [ ] Phase 1 : Routes API analytics (agregate queries SQL)
-- [ ] Phase 2 : Widgets focus + wellness (les plus utiles au quotidien)
-- [ ] Phase 3 : Charts triage, email, dog walk
-- [ ] Phase 4 : Calendar heatmap + streaks
+- [x] Phase 1 : Routes API analytics (agregate queries SQL)
+- [x] Phase 2 : Widgets focus + wellness (AnalyticsWidget, StatsView, DailyStats)
+- [x] Phase 3 : Charts triage, email, dog walk (dans AnalyticsWidget overview)
+- [x] Phase 4 : Calendar heatmap + streaks (StreakWidget avec contribution graph)
 
 ---
 
@@ -87,9 +87,9 @@ Chaque dimanche (ou a la demande), generer un resume de la semaine : ce qui a et
 
 ### Phases
 
-- [ ] Phase 1 : Endpoint API weekly review (reutilise analytics)
-- [ ] Phase 2 : UI cards de review dans le dashboard
-- [ ] Phase 3 : Comparaison semaine precedente (deltas)
+- [x] Phase 1 : Endpoint API weekly review (reutilise analytics)
+- [x] Phase 2 : UI cards de review dans le dashboard (WeeklyReview.tsx)
+- [x] Phase 3 : Comparaison semaine precedente (deltas avec pctDelta)
 - [ ] Phase 4 : Resume narratif via LLM local (#4)
 
 ---
@@ -195,9 +195,9 @@ Tous implementent la meme interface `LlmPort` :
 
 ### Phases
 
-- [ ] Phase 1 : Entites, port, adapter Ollama, route `/llm/chat` + `/llm/test`
-- [ ] Phase 2 : UI settings (choisir provider, URL, modele, tester)
-- [ ] Phase 3 : Adapter LM Studio / OpenAI-compatible
+- [x] Phase 1 : Entites, port, adapter Ollama, route `/llm/chat` + `/llm/test`
+- [x] Phase 2 : UI settings (LlmSettings.tsx — provider, URL, modele, test)
+- [x] Phase 3 : Adapter OpenAI-compatible (couvre LM Studio aussi)
 - [ ] Phase 4 : Methodes specialisees (`summarize`, `classify`) avec prompts optimises
 
 ---
@@ -237,13 +237,13 @@ Bouton "Resumer" dans `EmailDetail` qui envoie le contenu de l'email au LLM loca
 ## Ordre d'implementation suggere
 
 ```
-1. Dashboard Analytics (Phase 1-2)    ← donnees deja la, impact quotidien
-2. Raccourcis clavier Email           ← rapide a faire, QoL
-3. Dashboard Analytics (Phase 3-4)    ← completer les charts
-4. Weekly Review                      ← reutilise analytics
-5. Integration LLM local (Phase 1-2) ← socle IA
-6. Resume email par IA               ← premiere utilisation du LLM
-7. Integration LLM local (Phase 3-4) ← polish
+1. ✅ Dashboard Analytics (Phase 1-4) — DONE
+2. ✅ Weekly Review (Phase 1-3)       — DONE
+3. ✅ Integration LLM local (Phase 1-3) — DONE
+4. Raccourcis clavier Email           ← prochain, rapide, QoL
+5. Resume email par IA               ← reutilise LLM existant
+6. Weekly Review Phase 4              ← resume narratif LLM
+7. LLM Phase 4                       ← methodes specialisees
 ```
 
 ---

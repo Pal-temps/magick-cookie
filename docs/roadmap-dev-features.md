@@ -8,9 +8,20 @@ Features orientees productivite dev, a ajouter a l'app existante.
 
 | # | Feature | Statut | Notes |
 |---|---------|--------|-------|
-| 1 | Command Palette (Ctrl+K) | ✅ Phase 1-2 done | Reste: phase 3 (icones, historique, raccourcis) |
-| 2 | Brief quotidien | ✅ Phase 1-2 done | Reste: phase 3 (git scan), phase 4 (templates) |
-| 3 | Time Tracking par tache | ✅ Phase 1-2 done | Reste: phase 3 (analytics), phase 4 (timesheet) |
+| 1 | Command Palette (Ctrl+K) | ✅ Phase 1-3 done | Historique, bookmarks go:, recherche. Reste: icones SVG |
+| 2 | Brief quotidien | ✅ Phase 1-2 done, phase 4 done | BriefView + templates custom (BriefSettings). Reste: phase 3 (git scan) |
+| 3 | Time Tracking par tache | ✅ Phase 1-4 done | Analytics par tache (TaskTimeChart), timesheet (TimesheetView), time-by-project |
+| 4 | Bookmarks | ✅ Done | CRUD API + sidebar favoris + command palette go: + BookmarkSettings |
+| 5 | Projects | ✅ Done | CRUD API + timer projectId + time-by-project analytics + ProjectSettings |
+| 6 | Smart Reminders | ✅ Done | Alertes stale tasks, untriaged, unread emails + polling 1h |
+| 7 | Streak tracker | ✅ Done | StreakWidget avec contribution graph 30j |
+| 8 | Patterns de productivite | ✅ Done | PatternsView (hourly/weekday distribution) |
+| 9 | Theme auto jour/nuit | ✅ Done | ThemeSwitcher (manual/auto-system/auto-schedule) + 3 themes |
+| 10 | Focus Mode | ✅ Done | FocusOverlay + auto-toggle avec timer |
+| 11 | Quick Capture | ✅ Done | QuickCapture (Win+Shift+N) + global shortcuts |
+| 12 | VPS Monitoring | ✅ Done | VpsWidget + VpsView + VpsSettings |
+| 13 | GitHub PR watcher | ✅ Done | GitHubWidget + GitHubSettings |
+| 14 | Chat LLM | ✅ Done | ChatView + chatStore |
 
 ---
 
@@ -18,55 +29,55 @@ Features orientees productivite dev, a ajouter a l'app existante.
 
 Organise en sprints de complexite croissante. Chaque sprint est independant mais les features s'enrichissent mutuellement.
 
-### Sprint 1 — Quick wins (100% frontend, 0 migration)
+### Sprint 1 — Quick wins (100% frontend, 0 migration) ✅ DONE
 
-| # | Feature | Complexite | Dependances | Fichiers |
-|---|---------|------------|-------------|----------|
-| 4 | Command Palette polish | Faible | Command Palette ✅ | commandStore.ts, CommandPalette.tsx |
-| 5 | Theme automatique jour/nuit | Faible | Aucune | ThemeSwitcher.tsx, settings |
-| 6 | Streak tracker | Faible | Timer ✅ | DashboardView.tsx, analyticsStore.ts |
-
----
-
-### Sprint 2 — Capture rapide + Focus (Tauri plugins)
-
-| # | Feature | Complexite | Dependances | Fichiers |
-|---|---------|------------|-------------|----------|
-| 7 | Quick Capture (Win+Shift+N) | Moyenne | global-shortcut plugin | Nouveau: QuickCapture.tsx, lib.rs |
-| 8 | Focus Mode | Moyenne | Timer ✅ | TimerWidget, App.tsx, nouveau FocusOverlay.tsx |
-| 9 | Raccourcis globaux Windows | Moyenne | global-shortcut plugin | lib.rs, settings |
+| # | Feature | Statut | Notes |
+|---|---------|--------|-------|
+| 4 | Command Palette polish | ✅ Done | Historique, bookmarks go:, scoring |
+| 5 | Theme automatique jour/nuit | ✅ Done | ThemeSwitcher 3 modes + 3 themes |
+| 6 | Streak tracker | ✅ Done | StreakWidget + contribution graph |
 
 ---
 
-### Sprint 3 — Intelligence sur les donnees (LLM + analytics)
+### Sprint 2 — Capture rapide + Focus (Tauri plugins) ✅ DONE
 
-| # | Feature | Complexite | Dependances | Fichiers |
-|---|---------|------------|-------------|----------|
-| 10 | Git activity scan (Brief phase 3) | Moyenne | Brief ✅ | brief.service.ts, settings, nouveau git-scan |
-| 11 | Analytics par tache (Time Tracking phase 3) | Moyenne | Time Tracking ✅ | analytics.service.ts, StatsView.tsx |
-| 12 | Patterns de productivite | Moyenne | Analytics ✅ | Nouveau: PatternsView.tsx, analytics.service.ts |
-| 13 | Auto-triage suggestions | Moyenne | LLM + Triage ✅ | triage.service.ts, TriageView.tsx |
-| 14 | Chat LLM | Moyenne | LLM ✅ | Nouveau: ChatView.tsx, chatStore.ts |
+| # | Feature | Statut | Notes |
+|---|---------|--------|-------|
+| 7 | Quick Capture (Win+Shift+N) | ✅ Done | QuickCapture.tsx + global shortcut listener |
+| 8 | Focus Mode | ✅ Done | FocusOverlay + auto-toggle timer + Escape exit |
+| 9 | Raccourcis globaux Windows | ✅ Done | Win+Shift+T/B/D dans App.tsx |
 
 ---
 
-### Sprint 4 — Integrations externes + polish
+### Sprint 3 — Intelligence sur les donnees (LLM + analytics) — Majoritairement DONE
 
-| # | Feature | Complexite | Dependances | Fichiers |
-|---|---------|------------|-------------|----------|
-| 15 | GitHub PR watcher | Haute | Aucune | Nouveau: connecteur GitHub, widget dashboard |
-| 16 | Resume hebdo email | Faible | LLM + Email ✅ | email.service.ts, EmailView.tsx |
-| 17 | Clipboard history | Moyenne | global-shortcut plugin | Nouveau: clipboardStore.ts, CommandPalette |
-| 18 | Vue timesheet (Time Tracking phase 4) | Moyenne | Time Tracking phase 3 | Nouveau: TimesheetView.tsx |
+| # | Feature | Statut | Notes |
+|---|---------|--------|-------|
+| 10 | Git activity scan (Brief phase 3) | ❌ A faire | Seule feature restante du sprint |
+| 11 | Analytics par tache (Time Tracking phase 3) | ✅ Done | TaskTimeChart + time-by-task endpoint |
+| 12 | Patterns de productivite | ✅ Done | PatternsView (hourly/weekday + trends) |
+| 13 | Auto-triage suggestions | ❌ A faire | LLM + triage integration |
+| 14 | Chat LLM | ✅ Done | ChatView + chatStore + conversations |
 
 ---
 
-### Sprint 5 — Notes avancees + templates
+### Sprint 4 — Integrations externes + polish — Majoritairement DONE
 
-| # | Feature | Complexite | Dependances | Fichiers |
-|---|---------|------------|-------------|----------|
-| 19 | Wiki-links dans les notes | Moyenne | Notes ✅ | NotesEditor, notes.rs |
-| 20 | Brief templates customisables (phase 4) | Faible | Brief ✅ | brief.service.ts, SettingsView |
+| # | Feature | Statut | Notes |
+|---|---------|--------|-------|
+| 15 | GitHub PR watcher | ✅ Done | GitHubWidget + GitHubSettings |
+| 16 | Resume hebdo email | ❌ A faire | LLM + email digest |
+| 17 | Clipboard history | ✅ Done | clipboardStore + command palette clip: |
+| 18 | Vue timesheet (Time Tracking phase 4) | ✅ Done | TimesheetView avec ISO weeks |
+
+---
+
+### Sprint 5 — Notes avancees + templates — Partiellement DONE
+
+| # | Feature | Statut | Notes |
+|---|---------|--------|-------|
+| 19 | Wiki-links dans les notes | ❌ A faire | Parser [[...]] + autocomplete + backlinks |
+| 20 | Brief templates customisables (phase 4) | ✅ Done | BriefSettings + presets + custom templates |
 
 ---
 
@@ -539,49 +550,30 @@ Organise en sprints de complexite croissante. Chaque sprint est independant mais
 
 ---
 
-## Ordre d'implementation recommande
+## Ordre d'implementation — Restant
 
 ```
-Sprint 1 — Quick wins (1-2 jours)
-  4. Command Palette polish
-  5. Theme auto jour/nuit
-  6. Streak tracker
-
-Sprint 2 — Capture + Focus (2-3 jours)
-  7. Quick Capture (Win+Shift+N)     ← necessite tauri-plugin-global-shortcut
-  8. Focus Mode                       ← mutualisé: timer + overlay
-  9. Raccourcis globaux              ← mutualisé avec #7
-
-Sprint 3 — Intelligence + Chat (3-4 jours)
-  10. Git activity scan              ← enrichit le brief
-  11. Analytics par tache            ← enrichit les stats
-  12. Patterns de productivite       ← nouveau widget dashboard
-  13. Auto-triage suggestions        ← LLM + triage
-  14. Chat LLM                       ← interface conversationnelle, nouvelle vue
-
-Sprint 4 — Integrations (3-4 jours)
-  15. GitHub PR watcher              ← nouveau connecteur, le plus gros morceau
-  16. Resume hebdo email             ← rapide, reutilise LLM + emails
-  17. Clipboard history              ← tauri plugin + command palette
-  18. Vue timesheet                  ← UI tableau, backend simple
-
-Sprint 5 — Notes + Templates (1-2 jours)
-  19. Wiki-links dans les notes
-  20. Brief templates customisables
+Prochain :
+  3. Raccourcis clavier Email (roadmap-next-features #3)  ← rapide, QoL
+  5. Resume email par IA (roadmap-next-features #5)       ← reutilise LLM existant
+  10. Git activity scan (Brief phase 3)                   ← enrichit le brief
+  13. Auto-triage suggestions                             ← LLM + triage
+  16. Resume hebdo email                                  ← LLM + email digest
+  19. Wiki-links dans les notes                           ← parser + autocomplete
 ```
 
 ---
 
-## Estimation globale
+## Bilan
 
-| Sprint | Nb features | Complexite | New files | Modifs |
-|--------|-------------|------------|-----------|--------|
-| 1 | 3 | Faible | 1 | 5 |
-| 2 | 3 | Moyenne | 3 | 6 |
-| 3 | 5 | Moyenne | 5 | 12 |
-| 4 | 4 | Moyenne-Haute | 6 | 8 |
-| 5 | 2 | Faible-Moyenne | 1 | 4 |
-| **Total** | **17** | | **16 new** | **35 modifs** |
+| Sprint | Features | Statut |
+|--------|----------|--------|
+| 1 | 3 | ✅ 3/3 done |
+| 2 | 3 | ✅ 3/3 done |
+| 3 | 5 | 3/5 done (reste: git scan, auto-triage) |
+| 4 | 4 | 3/4 done (reste: resume hebdo email) |
+| 5 | 2 | 1/2 done (reste: wiki-links) |
+| **Total** | **17** | **13/17 done — 4 restantes** |
 
 ---
 

@@ -268,9 +268,10 @@ Le wiring DI est dans `apps/api/src/index.ts`. Tous les repos et services sont i
 ## Ordre d'implementation
 
 ```
-1. BriefService backend (collectData + generateBrief + route)
-2. Tests unitaires brief.service.test.ts
-3. Wiring index.ts
-4. Frontend BriefView + integration DashboardView
-5. Verification TypeScript + tests
+1. ✅ BriefService backend (collectData + generateBrief + route)
+2. ✅ Tests unitaires brief.service.test.ts
+3. ✅ Wiring index.ts
+4. ✅ Frontend BriefView + integration DashboardView (bouton Brief dans header)
+5. ✅ Templates customisables (BriefSettings + presets)
+6. ❌ Phase 3 : Git activity scan (enrichir rawData avec commits recents)
 ```
