@@ -1,6 +1,7 @@
 import { createSignal, onMount, Show } from "solid-js";
 import { useAnalyticsStore } from "../../../application/stores/analyticsStore";
 import { Button } from "../common/Button";
+import { CookieLoader } from "../common/CookieLoader";
 
 function formatDuration(seconds: number): string {
   const h = Math.floor(seconds / 3600);
@@ -92,7 +93,7 @@ export function WeeklyReview(props: WeeklyReviewProps) {
       </div>
 
       <Show when={weeklyLoading()}>
-        <div style={{ color: "var(--text-muted)", "font-size": "13px", padding: "20px 0" }}>Chargement...</div>
+        <CookieLoader message="Chargement..." />
       </Show>
 
       <Show when={!weeklyLoading() && weeklyReview()}>

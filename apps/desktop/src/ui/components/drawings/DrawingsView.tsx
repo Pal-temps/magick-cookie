@@ -4,6 +4,7 @@ import { useNotesStore } from "../../../application/stores/notesStore";
 import { useThemeStore } from "../../../application/stores/themeStore";
 import { mountExcalidraw, type ExcalidrawHandle } from "./excalidrawMount";
 import { Button } from "../common/Button";
+import { CookieLoader } from "../common/CookieLoader";
 
 export function DrawingsView() {
   const store = useDrawingStore();
@@ -231,10 +232,8 @@ export function DrawingsView() {
                 "justify-content": "center",
                 background: "var(--bg-base)",
                 "z-index": "10",
-                color: "var(--text-muted)",
-                "font-size": "14px",
               }}>
-                Chargement d'Excalidraw...
+                <CookieLoader message="Chargement d'Excalidraw..." />
               </div>
             </Show>
             <div

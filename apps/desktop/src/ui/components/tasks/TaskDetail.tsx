@@ -1,4 +1,5 @@
 import { Show, For } from "solid-js";
+import { CookieLoader } from "../common/CookieLoader";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import type { Task } from "../../../domain/models/Task";
 import { useTaskStore } from "../../../application/stores/taskStore";
@@ -75,9 +76,7 @@ export function TaskDetail() {
 
           {/* Description — loaded from API */}
           <Show when={isLoadingTaskDetail()}>
-            <div style={{ "font-size": "12px", color: "var(--text-muted)", padding: "12px 0" }}>
-              Chargement...
-            </div>
+            <CookieLoader size={32} message="Chargement..." />
           </Show>
           <Show when={!isLoadingTaskDetail() && taskDetail()?.description}>
             <div>

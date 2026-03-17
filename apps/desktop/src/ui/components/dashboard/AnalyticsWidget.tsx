@@ -1,6 +1,7 @@
 import { createSignal, onMount, Show, For } from "solid-js";
 import { useAnalyticsStore } from "../../../application/stores/analyticsStore";
 import { Button } from "../common/Button";
+import { CookieLoader } from "../common/CookieLoader";
 
 function formatDuration(seconds: number): string {
   const h = Math.floor(seconds / 3600);
@@ -65,7 +66,7 @@ export function AnalyticsWidget() {
       </div>
 
       <Show when={analyticsLoading()}>
-        <div style={{ color: "var(--text-muted)", "font-size": "12px", padding: "12px 0" }}>Chargement...</div>
+        <CookieLoader size={32} message="Chargement..." />
       </Show>
 
       <Show when={!analyticsLoading() && overview()}>
