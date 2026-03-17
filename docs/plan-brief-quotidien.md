@@ -273,5 +273,5 @@ Le wiring DI est dans `apps/api/src/index.ts`. Tous les repos et services sont i
 3. ✅ Wiring index.ts
 4. ✅ Frontend BriefView + integration DashboardView (bouton Brief dans header)
 5. ✅ Templates customisables (BriefSettings + presets)
-6. ❌ Phase 3 : Git activity scan (enrichir rawData avec commits recents)
+6. ✅ Phase 3 : Git activity scan (GitScanService + env GIT_SCAN_REPOS)
 ```

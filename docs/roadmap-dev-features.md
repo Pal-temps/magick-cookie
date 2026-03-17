@@ -9,7 +9,7 @@ Features orientees productivite dev, a ajouter a l'app existante.
 | # | Feature | Statut | Notes |
 |---|---------|--------|-------|
 | 1 | Command Palette (Ctrl+K) | ✅ Phase 1-3 done | Historique, bookmarks go:, recherche. Reste: icones SVG |
-| 2 | Brief quotidien | ✅ Phase 1-2 done, phase 4 done | BriefView + templates custom (BriefSettings). Reste: phase 3 (git scan) |
+| 2 | Brief quotidien | ✅ Phase 1-4 done | BriefView + templates (BriefSettings) + git scan (GitScanService) |
 | 3 | Time Tracking par tache | ✅ Phase 1-4 done | Analytics par tache (TaskTimeChart), timesheet (TimesheetView), time-by-project |
 | 4 | Bookmarks | ✅ Done | CRUD API + sidebar favoris + command palette go: + BookmarkSettings |
 | 5 | Projects | ✅ Done | CRUD API + timer projectId + time-by-project analytics + ProjectSettings |
@@ -49,14 +49,14 @@ Organise en sprints de complexite croissante. Chaque sprint est independant mais
 
 ---
 
-### Sprint 3 — Intelligence sur les donnees (LLM + analytics) — Majoritairement DONE
+### Sprint 3 — Intelligence sur les donnees (LLM + analytics) ✅ DONE
 
 | # | Feature | Statut | Notes |
 |---|---------|--------|-------|
-| 10 | Git activity scan (Brief phase 3) | ❌ A faire | Seule feature restante du sprint |
+| 10 | Git activity scan (Brief phase 3) | ✅ Done | GitScanService + integration BriefService (env GIT_SCAN_REPOS) |
 | 11 | Analytics par tache (Time Tracking phase 3) | ✅ Done | TaskTimeChart + time-by-task endpoint |
 | 12 | Patterns de productivite | ✅ Done | PatternsView (hourly/weekday + trends) |
-| 13 | Auto-triage suggestions | ❌ A faire | LLM + triage integration |
+| 13 | Auto-triage suggestions | ✅ Done | TriageService.suggestTriage() + TriageView auto-triage UI |
 | 14 | Chat LLM | ✅ Done | ChatView + chatStore + conversations |
 
 ---
@@ -72,11 +72,11 @@ Organise en sprints de complexite croissante. Chaque sprint est independant mais
 
 ---
 
-### Sprint 5 — Notes avancees + templates — Partiellement DONE
+### Sprint 5 — Notes avancees + templates ✅ DONE
 
 | # | Feature | Statut | Notes |
 |---|---------|--------|-------|
-| 19 | Wiki-links dans les notes | ❌ A faire | Parser [[...]] + autocomplete + backlinks |
+| 19 | Wiki-links dans les notes | ✅ Done | [[...]] parser + autocomplete popup + clickable links + backlinks |
 | 20 | Brief templates customisables (phase 4) | ✅ Done | BriefSettings + presets + custom templates |
 
 ---
@@ -553,10 +553,12 @@ Organise en sprints de complexite croissante. Chaque sprint est independant mais
 ## Ordre d'implementation — Restant
 
 ```
-Prochain :
-  10. Git activity scan (Brief phase 3)                   ← enrichit le brief
-  13. Auto-triage suggestions                             ← LLM + triage
-  19. Wiki-links dans les notes                           ← parser + autocomplete
+✅ TOUTES LES FEATURES SONT IMPLEMENTEES.
+
+Reste uniquement du polish/phase 4 :
+  - Resume email : cache summary DB + classification auto
+  - Weekly Review : resume narratif LLM
+  - LLM : methodes specialisees (summarize, classify)
 ```
 
 ---
@@ -567,10 +569,10 @@ Prochain :
 |--------|----------|--------|
 | 1 | 3 | ✅ 3/3 done |
 | 2 | 3 | ✅ 3/3 done |
-| 3 | 5 | 3/5 done (reste: git scan, auto-triage) |
+| 3 | 5 | ✅ 5/5 done |
 | 4 | 4 | ✅ 4/4 done |
-| 5 | 2 | 1/2 done (reste: wiki-links) |
-| **Total** | **17** | **15/17 done — 2 restantes** (+ git scan, auto-triage) |
+| 5 | 2 | ✅ 2/2 done |
+| **Total** | **17** | **✅ 17/17 done** |
 
 ---
 
