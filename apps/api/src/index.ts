@@ -18,6 +18,7 @@ import { DrizzleTriageRepository } from "./infrastructure/repositories/triage.re
 import { DrizzleEmailAccountRepository } from "./infrastructure/repositories/email-account.repository.impl";
 import { DrizzleEmailRepository } from "./infrastructure/repositories/email.repository.impl";
 import { DrizzleLlmConfigRepository } from "./infrastructure/repositories/llm-config.repository.impl";
+import { DrizzleChatRepository } from "./infrastructure/repositories/chat.repository.impl";
 
 // Services
 import { CalendarService } from "./application/calendar/calendar.service";
@@ -34,6 +35,10 @@ import { TriageService } from "./application/triage/triage.service";
 import { EmailService } from "./application/email/email.service";
 import { AnalyticsService } from "./application/analytics/analytics.service";
 import { LlmService } from "./application/llm/llm.service";
+import { BriefService } from "./application/brief/brief.service";
+import { ChatService } from "./application/chat/chat.service";
+import { GitScanService } from "./application/git/git-scan.service";
+import { GitHubService } from "./application/github/github.service";
 
 // Connectors
 import { ClickUpApiClient } from "./infrastructure/connectors/clickup-api.client";
@@ -58,10 +63,14 @@ import { createTriageRoutes } from "./presentation/routes/triage.routes";
 import { createEmailRoutes, createEmailAccountRoutes } from "./presentation/routes/email.routes";
 import { createAnalyticsRoutes } from "./presentation/routes/analytics.routes";
 import { createLlmRoutes } from "./presentation/routes/llm.routes";
+import { createBriefRoutes } from "./presentation/routes/brief.routes";
+import { createChatRoutes } from "./presentation/routes/chat.routes";
+import { createGitHubRoutes } from "./presentation/routes/github.routes";
 
 // Jobs
 import { startReminderChecker } from "./infrastructure/jobs/reminder-checker";
 import { startEmailSyncJob } from "./infrastructure/jobs/email-sync.job";
+import { startGitHubSyncJob } from "./infrastructure/jobs/github-sync.job";
 
 // --- DI ---
 const calendarRepo = new DrizzleCalendarRepository(db);
@@ -77,6 +86,7 @@ const triageRepo = new DrizzleTriageRepository(db);
 const emailAccountRepo = new DrizzleEmailAccountRepository(db);
 const emailRepo = new DrizzleEmailRepository(db);
 const llmConfigRepo = new DrizzleLlmConfigRepository(db);
+const chatRepo = new DrizzleChatRepository(db);
 
 const calendarService = new CalendarService(calendarRepo);
 const eventService = new EventService(eventRepo, reminderRepo);
@@ -87,11 +97,16 @@ const timerSessionService = new TimerSessionService(timerSessionRepo);
 const wellnessConfigService = new WellnessConfigService(wellnessConfigRepo);
 const wellnessLogService = new WellnessLogService(wellnessLogRepo);
 const dogWalkService = new DogWalkService(dogWalkRepo);
-const triageService = new TriageService(triageRepo);
 const imapConnector = new ImapConnector();
 const emailService = new EmailService(emailAccountRepo, emailRepo, imapConnector);
-const analyticsService = new AnalyticsService(timerSessionRepo, dogWalkRepo, wellnessLogRepo, triageRepo, emailRepo, eventRepo);
+const analyticsService = new AnalyticsService(timerSessionRepo, dogWalkRepo, wellnessLogRepo, triageRepo, emailRepo, eventRepo, taskRepo);
 const llmService = new LlmService(llmConfigRepo);
+const triageService = new TriageService(triageRepo, taskRepo, llmService);
+const gitRepoPaths = process.env.GIT_SCAN_REPOS?.split(",").map((p) => p.trim()).filter(Boolean) || [];
+const gitScanService = gitRepoPaths.length > 0 ? new GitScanService(gitRepoPaths) : undefined;
+const briefService = new BriefService(timerSessionRepo, eventRepo, taskRepo, triageRepo, emailRepo, llmService, gitScanService);
+const chatService = new ChatService(chatRepo, llmService);
+const githubService = new GitHubService(db);
 
 const clickUpApiClient = new ClickUpApiClient(config.clickupApiToken);
 const clickUpSyncService = new ClickUpSyncService(clickUpApiClient, calendarService, eventRepo, taskRepo);
@@ -126,12 +141,18 @@ app.route("/api/emails", createEmailRoutes(emailService, llmService));
 app.route("/api/email-accounts", createEmailAccountRoutes(emailService));
 app.route("/api/analytics", createAnalyticsRoutes(analyticsService));
 app.route("/api/llm", createLlmRoutes(llmService));
+app.route("/api/brief", createBriefRoutes(briefService));
+app.route("/api/chat", createChatRoutes(chatService));
+app.route("/api/github", createGitHubRoutes(githubService));
 
 // Start reminder checker — pushes to SSE, does NOT mark as sent
 startReminderChecker(reminderService, eventRepo, reminderEmitter);
 
 // Start email sync job
 startEmailSyncJob(emailService);
+
+// Start GitHub sync job
+startGitHubSyncJob(githubService);
 
 // Seed default wellness configs
 wellnessConfigService.seedDefaults().catch(console.error);

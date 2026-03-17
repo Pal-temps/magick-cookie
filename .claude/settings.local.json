@@ -121,7 +121,22 @@
       "Bash(./node_modules/.bin/tsc --noEmit)",
       "Bash(cargo \")",
       "Bash(cargo check:*)",
-      "Bash(grep -r \"clickup_task_id\\\\|clickup_unscheduled_tasks\" /c/Users/bumbl/Documents/Perso/magick-cookie/apps/api/src --include=*.ts)"
+      "Bash(grep -r \"clickup_task_id\\\\|clickup_unscheduled_tasks\" /c/Users/bumbl/Documents/Perso/magick-cookie/apps/api/src --include=*.ts)",
+      "Bash(grep -r \"contextMenu\\\\|onContextMenu\\\\|right.*click\\\\|hide.*function\" /c/Users/bumbl/Documents/Perso/magick-cookie/apps/desktop/src --include=*.tsx --include=*.ts)",
+      "Bash(git log:*)",
+      "Bash(grep -r \"onContextMenu\\\\|addEventListener.*contextmenu\\\\|addEventListener.*right\" /c/Users/bumbl/Documents/Perso/magick-cookie/apps/desktop/src --include=*.ts --include=*.tsx -A 5)",
+      "Bash(taskkill //F //IM \"do-it-now.exe\")",
+      "Bash(taskkill //F //IM \"magick-cookie.exe\")",
+      "Bash(cargo build:*)",
+      "Bash(psql:*)",
+      "Bash(netstat -ano)",
+      "Bash(taskkill:*)",
+      "Bash(node_modules/.bin/tsc --noEmit --pretty)",
+      "Bash(npx --workspace=apps/desktop tsc --noEmit)",
+      "Bash(C:/Users/bumbl/Documents/Perso/magick-cookie/apps/desktop/node_modules/.bin/tsc --noEmit --project C:/Users/bumbl/Documents/Perso/magick-cookie/apps/desktop/tsconfig.json)",
+      "Bash(/c/Users/bumbl/Documents/Perso/magick-cookie/apps/desktop/node_modules/.bin/tsc --noEmit --pretty)",
+      "Bash(certutil -hashfile apps/api/drizzle/0012_github.sql MD5)",
+      "Bash(./node_modules/.bin/tsc --noEmit --pretty)"
     ]
   }
 }
