@@ -11,6 +11,8 @@ export function useViewStore() {
     switch (viewMode()) {
       case "triage":
       case "notes":
+      case "email":
+      case "settings":
       case "dashboard": return;
       case "month": d.setMonth(d.getMonth() - 1); break;
       case "week": d.setDate(d.getDate() - 7); break;
@@ -24,6 +26,8 @@ export function useViewStore() {
     switch (viewMode()) {
       case "triage":
       case "notes":
+      case "email":
+      case "settings":
       case "dashboard": return;
       case "month": d.setMonth(d.getMonth() + 1); break;
       case "week": d.setDate(d.getDate() + 7); break;

@@ -5,6 +5,8 @@ import { CalendarGrid } from "./ui/components/calendar/CalendarGrid";
 import { EventForm } from "./ui/components/events/EventForm";
 import { NotesView } from "./ui/components/notes/NotesView";
 import { TriageView } from "./ui/components/triage/TriageView";
+import { EmailView } from "./ui/components/email/EmailView";
+import { SettingsView } from "./ui/components/settings/SettingsView";
 import { useCalendarStore } from "./application/stores/calendarStore";
 import { useViewStore } from "./application/stores/viewStore";
 import { useWellnessStore } from "./application/stores/wellnessStore";
@@ -12,11 +14,13 @@ import { useTimerStore } from "./application/stores/timerStore";
 import { useDogWalkStore } from "./application/stores/dogWalkStore";
 import { useDesktopModeStore } from "./application/stores/desktopModeStore";
 import { useTriageStore } from "./application/stores/triageStore";
+import { useTaskStore } from "./application/stores/taskStore";
 import { initNotifications, notify } from "./infrastructure/tauri/notifications";
 import { connectSSE } from "./infrastructure/api/sseClient";
 
 export function App() {
-  const { fetchCalendars, fetchEvents, fetchContacts, syncClickUp } = useCalendarStore();
+  const { fetchCalendars, fetchEvents, fetchContacts } = useCalendarStore();
+  const { syncConnector, fetchTasks } = useTaskStore();
   const { currentDate, viewMode } = useViewStore();
   const { fetchConfigs, startAll, stopAll, fetchTodayLogs } = useWellnessStore();
   const { fetchTodayStats } = useTimerStore();
@@ -33,6 +37,8 @@ export function App() {
     switch (viewMode()) {
       case "triage":
       case "notes":
+      case "email":
+      case "settings":
       case "dashboard": {
         const from = new Date(d);
         from.setHours(0, 0, 0, 0);
@@ -71,7 +77,8 @@ export function App() {
   onMount(async () => {
     await fetchCalendars();
     fetchContacts();
-    syncClickUp();
+    syncConnector("clickup");
+    fetchTasks();
     fetchTriage();
     fetchTodayStats();
     fetchActiveWalk();
@@ -115,7 +122,13 @@ export function App() {
         <Show when={viewMode() === "triage"}>
           <TriageView />
         </Show>
-        <Show when={viewMode() !== "notes" && viewMode() !== "triage"}>
+        <Show when={viewMode() === "email"}>
+          <EmailView />
+        </Show>
+        <Show when={viewMode() === "settings"}>
+          <SettingsView />
+        </Show>
+        <Show when={viewMode() !== "notes" && viewMode() !== "triage" && viewMode() !== "email" && viewMode() !== "settings"}>
           <CalendarGrid />
           <EventForm />
         </Show>

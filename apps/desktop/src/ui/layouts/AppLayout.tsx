@@ -2,6 +2,7 @@ import type { JSX } from "solid-js";
 import { Show } from "solid-js";
 import { useViewStore } from "../../application/stores/viewStore";
 import { useCalendarStore } from "../../application/stores/calendarStore";
+import { useTaskStore } from "../../application/stores/taskStore";
 import { useDesktopModeStore } from "../../application/stores/desktopModeStore";
 import { useSpeechStore } from "../../application/stores/speechStore";
 import { useDogWalkStore } from "../../application/stores/dogWalkStore";
@@ -14,7 +15,7 @@ import { UnscheduledTasks } from "../components/sidebar/UnscheduledTasks";
 import { ContactManager } from "../components/sidebar/ContactManager";
 import { CollapsibleSection } from "../components/common/CollapsibleSection";
 import { Button } from "../components/common/Button";
-import { TaskDetail } from "../components/clickup/TaskDetail";
+import { TaskDetail } from "../components/tasks/TaskDetail";
 
 interface AppLayoutProps {
   children: JSX.Element;
@@ -22,7 +23,8 @@ interface AppLayoutProps {
 
 export function AppLayout(props: AppLayoutProps) {
   const { viewMode, setViewMode, currentDate, navigatePrev, navigateNext, goToToday } = useViewStore();
-  const { openCreateForm, syncClickUp, isSyncing, unscheduledTasks, contacts } = useCalendarStore();
+  const { openCreateForm, contacts } = useCalendarStore();
+  const { syncConnector, isSyncing, tasks: unscheduledTasks } = useTaskStore();
   const { enterDesktop } = useDesktopModeStore();
   const { startSpeechRecording } = useSpeechStore();
   const { startWalk, stopWalk, activeWalk } = useDogWalkStore();
@@ -40,7 +42,7 @@ export function AppLayout(props: AppLayoutProps) {
         { label: "Nouvel evenement", shortcut: "Ctrl+N", action: openCreateForm },
         { label: "Dicter un evenement", action: () => startSpeechRecording() },
         { separator: true, label: "" },
-        { label: "Sync ClickUp", action: syncClickUp, disabled: isSyncing() },
+        { label: "Sync ClickUp", action: () => syncConnector("clickup"), disabled: isSyncing() },
         { separator: true, label: "" },
         { label: "Mode bureau", action: enterDesktop },
         { separator: true, label: "" },
@@ -60,6 +62,7 @@ export function AppLayout(props: AppLayoutProps) {
         { separator: true, label: "" },
         { label: "Notes & Schemas", action: () => setViewMode("notes"), shortcut: "Ctrl+4" },
         { label: "Triage taches", action: () => setViewMode("triage"), shortcut: "Ctrl+5" },
+        { label: "Email", action: () => setViewMode("email"), shortcut: "Ctrl+6" },
       ],
     },
     {
@@ -71,6 +74,8 @@ export function AppLayout(props: AppLayoutProps) {
         },
         { separator: true, label: "" },
         { label: "Statistiques", action: () => setViewMode("dashboard") },
+        { separator: true, label: "" },
+        { label: "Parametres", action: () => setViewMode("settings"), shortcut: "Ctrl+," },
       ],
     },
   ];
@@ -108,7 +113,7 @@ export function AppLayout(props: AppLayoutProps) {
             <Button
               variant="secondary"
               size="sm"
-              onClick={syncClickUp}
+              onClick={() => syncConnector("clickup")}
               disabled={isSyncing()}
               style={{ "flex-shrink": "0", "font-size": "11px" }}
             >
@@ -199,6 +204,13 @@ export function AppLayout(props: AppLayoutProps) {
                 onClick={() => setViewMode("triage")}
               >
                 Triage
+              </Button>
+              <Button
+                variant={viewMode() === "email" ? "primary" : "ghost"}
+                size="sm"
+                onClick={() => setViewMode("email")}
+              >
+                Email
               </Button>
               <Show when={["month", "week", "day"].includes(viewMode())}>
                 <div style={{ width: "1px", height: "18px", background: "var(--border-color)", margin: "0 4px" }} />
