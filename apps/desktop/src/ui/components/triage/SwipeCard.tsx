@@ -1,9 +1,9 @@
 import { createSignal, Show } from "solid-js";
-import type { UnscheduledTask } from "../../../domain/models/ClickUpTask";
+import type { Task } from "../../../domain/models/Task";
 import type { TriageStatus } from "../../../application/stores/triageStore";
 
 interface SwipeCardProps {
-  task: UnscheduledTask;
+  task: Task;
   onSwipe: (status: TriageStatus) => void;
 }
 
@@ -52,29 +52,23 @@ export function SwipeCard(props: SwipeCardProps) {
     return Math.min(1, dist / THRESHOLD);
   }
 
-  function onPointerDown(e: PointerEvent) {
-    if (isExiting()) return;
-    const target = e.currentTarget as HTMLElement;
-    target.setPointerCapture(e.pointerId);
-    startX = e.clientX;
-    startY = e.clientY;
-    setIsDragging(true);
-  }
+  let activePointerId: number | null = null;
+  let activeTarget: HTMLElement | null = null;
 
-  function onPointerMove(e: PointerEvent) {
-    if (!isDragging() || isExiting()) return;
-    setDragX(e.clientX - startX);
-    setDragY(e.clientY - startY);
-  }
-
-  function onPointerUp() {
+  function cleanupDrag() {
     if (!isDragging() || isExiting()) return;
     setIsDragging(false);
+
+    if (activeTarget && activePointerId !== null) {
+      try { activeTarget.releasePointerCapture(activePointerId); } catch {}
+    }
+    window.removeEventListener("blur", cleanupDrag);
+    activePointerId = null;
+    activeTarget = null;
 
     const dir = getDirection();
     if (dir) {
       setIsExiting(true);
-      // Animate out
       const multiplier = 3;
       setDragX(dragX() * multiplier);
       setDragY(dragY() * multiplier);
@@ -90,6 +84,32 @@ export function SwipeCard(props: SwipeCardProps) {
     }
   }
 
+  function onPointerDown(e: PointerEvent) {
+    if (isExiting()) return;
+    const target = e.currentTarget as HTMLElement;
+    activePointerId = e.pointerId;
+    activeTarget = target;
+    target.setPointerCapture(e.pointerId);
+    startX = e.clientX;
+    startY = e.clientY;
+    setIsDragging(true);
+    window.addEventListener("blur", cleanupDrag);
+  }
+
+  function onPointerMove(e: PointerEvent) {
+    if (!isDragging() || isExiting()) return;
+    setDragX(e.clientX - startX);
+    setDragY(e.clientY - startY);
+  }
+
+  function onPointerUp() {
+    cleanupDrag();
+  }
+
+  function onPointerCancel() {
+    cleanupDrag();
+  }
+
   const dir = () => getDirection();
   const config = () => dir() ? DIRECTION_CONFIG[dir()!] : null;
 
@@ -98,6 +118,7 @@ export function SwipeCard(props: SwipeCardProps) {
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
+      onPointerCancel={onPointerCancel}
       style={{
         position: "absolute",
         width: "380px",
@@ -169,7 +190,7 @@ export function SwipeCard(props: SwipeCardProps) {
             color: "var(--text-muted)",
             "margin-left": "auto",
           }}>
-            {props.task.listName}
+            {props.task.labels[0] ?? ""}
           </span>
         </div>
 
@@ -181,7 +202,7 @@ export function SwipeCard(props: SwipeCardProps) {
           "line-height": "1.3",
           "margin-bottom": "12px",
         }}>
-          {props.task.name}
+          {props.task.title}
         </h3>
 
         {/* Assignees */}

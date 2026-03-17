@@ -1,7 +1,7 @@
 import { onMount, Show, For, createMemo, createSignal } from "solid-js";
 import { useTriageStore, type TriageStatus } from "../../../application/stores/triageStore";
-import { useCalendarStore } from "../../../application/stores/calendarStore";
-import type { UnscheduledTask } from "../../../domain/models/ClickUpTask";
+import { useTaskStore } from "../../../application/stores/taskStore";
+import type { Task } from "../../../domain/models/Task";
 import { SwipeCard } from "./SwipeCard";
 import { Button } from "../common/Button";
 
@@ -12,7 +12,7 @@ const [dropTarget, setDropTarget] = createSignal<TriageStatus | null>(null);
 
 export function TriageView() {
   const triage = useTriageStore();
-  const { unscheduledTasks, fetchUnscheduledTasks, syncClickUp, isSyncing, openTaskDetail } = useCalendarStore();
+  const { tasks: unscheduledTasks, fetchUnscheduledTasks, syncConnector, isSyncing, openTaskDetail } = useTaskStore();
 
   onMount(async () => {
     await triage.fetchTriage();
@@ -54,7 +54,7 @@ export function TriageView() {
         untriagedTasks={untriagedTasks()}
         totalCount={unscheduledTasks().length}
         onStartTriage={handleStartTriage}
-        onSync={syncClickUp}
+        onSync={() => syncConnector("clickup")}
         isSyncing={isSyncing()}
         onClickTask={openTaskDetail}
         onMoveTask={(id, status) => triage.moveTask(id, status)}
@@ -142,16 +142,16 @@ export function TriageView() {
 // --- Dashboard ---
 
 interface TriageDashboardProps {
-  priorityTasks: UnscheduledTask[];
-  laterTasks: UnscheduledTask[];
-  archivedTasks: UnscheduledTask[];
-  untriagedTasks: UnscheduledTask[];
+  priorityTasks: Task[];
+  laterTasks: Task[];
+  archivedTasks: Task[];
+  untriagedTasks: Task[];
   totalCount: number;
   onStartTriage: () => void;
   onSync: () => void;
   isSyncing: boolean;
-  onClickTask: (task: UnscheduledTask) => void;
-  onMoveTask: (clickupTaskId: string, newStatus: TriageStatus) => void;
+  onClickTask: (task: Task) => void;
+  onMoveTask: (taskId: string, newStatus: TriageStatus) => void;
 }
 
 function TriageDashboard(props: TriageDashboardProps) {
@@ -248,9 +248,9 @@ interface TaskColumnProps {
   title: string;
   status: TriageStatus;
   color: string;
-  tasks: UnscheduledTask[];
-  onClickTask: (task: UnscheduledTask) => void;
-  onMoveTask: (clickupTaskId: string, newStatus: TriageStatus) => void;
+  tasks: Task[];
+  onClickTask: (task: Task) => void;
+  onMoveTask: (taskId: string, newStatus: TriageStatus) => void;
 }
 
 function TaskColumn(props: TaskColumnProps) {
@@ -313,10 +313,10 @@ function TaskColumn(props: TaskColumnProps) {
 // --- Untriaged section ---
 
 interface UntriagedSectionProps {
-  tasks: UnscheduledTask[];
-  onClickTask: (task: UnscheduledTask) => void;
+  tasks: Task[];
+  onClickTask: (task: Task) => void;
   onStartTriage: () => void;
-  onMoveTask: (clickupTaskId: string, newStatus: TriageStatus) => void;
+  onMoveTask: (taskId: string, newStatus: TriageStatus) => void;
 }
 
 function UntriagedSection(props: UntriagedSectionProps) {
@@ -349,7 +349,7 @@ function UntriagedSection(props: UntriagedSectionProps) {
             transition: "transform 0.15s",
             display: "inline-block",
             transform: isExpanded() ? "rotate(90deg)" : "rotate(0deg)",
-          }}>▶</span>
+          }}>&#9654;</span>
           <span style={{ "font-size": "14px", "font-weight": "600" }}>Non triees</span>
           <span style={{
             "font-size": "11px",
@@ -362,7 +362,7 @@ function UntriagedSection(props: UntriagedSectionProps) {
           </span>
         </button>
         <Button size="sm" variant="primary" onClick={props.onStartTriage}>
-          Trier (tinder) ✦ {props.tasks.length}
+          Trier (tinder) &#10022; {props.tasks.length}
         </Button>
       </div>
 
@@ -386,23 +386,24 @@ function UntriagedSection(props: UntriagedSectionProps) {
 // --- Draggable item (pointer events, Tauri-safe) ---
 
 interface DraggableTaskItemProps {
-  task: UnscheduledTask;
+  task: Task;
   onClick: () => void;
-  onMoveTask: (clickupTaskId: string, newStatus: TriageStatus) => void;
+  onMoveTask: (taskId: string, newStatus: TriageStatus) => void;
   card?: boolean;
 }
 
 function DraggableTaskItem(props: DraggableTaskItemProps) {
-  const isDragging = () => activeDrag()?.id === props.task.clickupTaskId;
+  const isDragging = () => activeDrag()?.id === props.task.id;
 
   function handlePointerDown(e: PointerEvent) {
     if (e.button !== 0) return;
     e.preventDefault();
 
     const el = e.currentTarget as HTMLElement;
-    el.setPointerCapture(e.pointerId);
+    const pointerId = e.pointerId;
+    el.setPointerCapture(pointerId);
 
-    setActiveDrag({ id: props.task.clickupTaskId, name: props.task.name });
+    setActiveDrag({ id: props.task.id, name: props.task.title });
     setGhostPos({ x: e.clientX, y: e.clientY });
     setDropTarget(null);
 
@@ -415,21 +416,26 @@ function DraggableTaskItem(props: DraggableTaskItemProps) {
       setDropTarget((col?.dataset.triageStatus as TriageStatus) ?? null);
     }
 
-    function onUp(ev: PointerEvent) {
+    function cleanup() {
       el.removeEventListener("pointermove", onMove);
-      el.removeEventListener("pointerup", onUp);
+      el.removeEventListener("pointerup", cleanup);
+      el.removeEventListener("pointercancel", cleanup);
+      window.removeEventListener("blur", cleanup);
+      try { el.releasePointerCapture(pointerId); } catch {}
 
       const status = dropTarget();
       setActiveDrag(null);
       setDropTarget(null);
 
       if (status) {
-        props.onMoveTask(props.task.clickupTaskId, status);
+        props.onMoveTask(props.task.id, status);
       }
     }
 
     el.addEventListener("pointermove", onMove);
-    el.addEventListener("pointerup", onUp);
+    el.addEventListener("pointerup", cleanup);
+    el.addEventListener("pointercancel", cleanup);
+    window.addEventListener("blur", cleanup);
   }
 
   function handleClick(e: MouseEvent) {
@@ -469,10 +475,10 @@ function DraggableTaskItem(props: DraggableTaskItemProps) {
         "text-overflow": "ellipsis",
         "white-space": "nowrap",
       }}>
-        {props.task.name}
+        {props.task.title}
       </div>
       <div style={{ display: "flex", gap: "6px", "margin-top": "2px" }}>
-        <span style={{ "font-size": "10px", color: "var(--text-muted)" }}>{props.task.listName}</span>
+        <span style={{ "font-size": "10px", color: "var(--text-muted)" }}>{props.task.labels[0] ?? ""}</span>
         <Show when={props.task.priority}>
           <span style={{
             "font-size": "9px",
