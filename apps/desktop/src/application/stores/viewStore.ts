@@ -12,6 +12,7 @@ export function useViewStore() {
       case "triage":
       case "notes":
       case "email":
+      case "chat":
       case "settings":
       case "dashboard": return;
       case "month": d.setMonth(d.getMonth() - 1); break;
@@ -27,6 +28,7 @@ export function useViewStore() {
       case "triage":
       case "notes":
       case "email":
+      case "chat":
       case "settings":
       case "dashboard": return;
       case "month": d.setMonth(d.getMonth() + 1); break;
