@@ -1,0 +1,2 @@
+# Docker volumes are managed by Docker, not git
+# But keep compose files and setup scripts tracked
