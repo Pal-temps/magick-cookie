@@ -5,8 +5,10 @@ import { FocusSettings } from "./FocusSettings";
 import { GitHubSettings } from "./GitHubSettings";
 import { BriefSettings } from "./BriefSettings";
 import { VpsSettings } from "./VpsSettings";
+import { BookmarkSettings } from "./BookmarkSettings";
+import { ProjectSettings } from "./ProjectSettings";
 
-type SettingsTab = "theme" | "llm" | "focus" | "github" | "brief" | "vps";
+type SettingsTab = "theme" | "llm" | "focus" | "github" | "brief" | "vps" | "bookmarks" | "projects";
 
 export function SettingsView() {
   const [tab, setTab] = createSignal<SettingsTab>("theme");
@@ -14,6 +16,8 @@ export function SettingsView() {
   const tabs: { id: SettingsTab; label: string }[] = [
     { id: "theme", label: "Apparence" },
     { id: "focus", label: "Focus" },
+    { id: "bookmarks", label: "Signets" },
+    { id: "projects", label: "Projets" },
     { id: "llm", label: "Intelligence artificielle" },
     { id: "brief", label: "Brief" },
     { id: "github", label: "GitHub" },
@@ -74,6 +78,12 @@ export function SettingsView() {
         </Show>
         <Show when={tab() === "brief"}>
           <BriefSettings />
+        </Show>
+        <Show when={tab() === "bookmarks"}>
+          <BookmarkSettings />
+        </Show>
+        <Show when={tab() === "projects"}>
+          <ProjectSettings />
         </Show>
         <Show when={tab() === "github"}>
           <GitHubSettings />

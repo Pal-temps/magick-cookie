@@ -8,8 +8,7 @@ const themes: { value: Theme; label: string; icon: string }[] = [
 ];
 
 const modes: { value: ThemeMode; label: string; icon: string }[] = [
-  { value: "dark", label: "Toujours sombre", icon: "\u{1F319}" },
-  { value: "light", label: "Toujours clair", icon: "\u2600" },
+  { value: "manual", label: "Manuel", icon: "\u{1F3A8}" },
   { value: "auto-system", label: "Suivre le systeme", icon: "\u{1F4BB}" },
   { value: "auto-schedule", label: "Horaire auto", icon: "\u{23F0}" },
 ];
@@ -28,7 +27,7 @@ export function ThemeSwitcher() {
   document.addEventListener("click", handleDocClick);
   onCleanup(() => document.removeEventListener("click", handleDocClick));
 
-  const isManualMode = () => themeMode() === "dark" || themeMode() === "light";
+  const isManualMode = () => themeMode() === "manual";
 
   return (
     <div style={{ position: "relative", height: "100%", display: "flex", "align-items": "center" }} data-theme-switcher>

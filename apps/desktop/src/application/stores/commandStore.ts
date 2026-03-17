@@ -6,6 +6,8 @@ import { useTaskStore } from "./taskStore";
 import { useEmailStore } from "./emailStore";
 import { useDesktopModeStore } from "./desktopModeStore";
 import { useClipboardStore } from "./clipboardStore";
+import { useBookmarkStore } from "./bookmarkStore";
+import { openUrl } from "@tauri-apps/plugin-opener";
 
 export interface CommandResult {
   id: string;
@@ -53,6 +55,7 @@ export function useCommandStore() {
   const { emails } = useEmailStore();
   const { enterDesktop } = useDesktopModeStore();
   const { clipboardHistory, copyToClipboard } = useClipboardStore();
+  const { bookmarks } = useBookmarkStore();
 
   const staticNavigation: CommandResult[] = [
     { id: "nav-dashboard", label: "Accueil", sublabel: "Aller au dashboard", category: "Navigation", icon: "📍", shortcut: "Alt+1", action: () => setViewMode("dashboard") },
@@ -107,6 +110,12 @@ export function useCommandStore() {
         }
         if (h.id.startsWith("note-")) {
           return { id: h.id, label: h.label, category: "Récents", icon: "🕑", action: () => setViewMode("notes") };
+        }
+        if (h.id.startsWith("bookmark-")) {
+          const bm = bookmarks().find((b) => `bookmark-${b.id}` === h.id);
+          if (bm) {
+            return { id: h.id, label: h.label, category: "Récents", icon: "🕑", action: () => openUrl(bm.url) };
+          }
         }
         return null;
       })
@@ -170,6 +179,22 @@ export function useCommandStore() {
         return recentItems;
       }
       return [...staticNavigation, ...staticActions];
+    }
+
+    // Prefix go: restricts to bookmarks
+    if (q.startsWith("go:")) {
+      const goQuery = q.slice(3).trim();
+      return bookmarks()
+        .filter((b) => !goQuery || matchScore(b.name, goQuery) > 0 || matchScore(b.url, goQuery) > 0)
+        .slice(0, 10)
+        .map((b): CommandResult => ({
+          id: `bookmark-${b.id}`,
+          label: `${b.emoji ?? "🔗"} ${b.name}`,
+          sublabel: b.url,
+          category: "Bookmarks",
+          icon: "🔗",
+          action: () => { openUrl(b.url); },
+        }));
     }
 
     // Prefix clip: restricts to clipboard history

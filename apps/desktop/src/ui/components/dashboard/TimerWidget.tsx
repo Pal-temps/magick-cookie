@@ -1,6 +1,7 @@
 import { Show, For, createSignal, onMount } from "solid-js";
 import { useTimerStore } from "../../../application/stores/timerStore";
 import { useTaskStore } from "../../../application/stores/taskStore";
+import { useProjectStore } from "../../../application/stores/projectStore";
 import { Button } from "../common/Button";
 
 function formatTime(seconds: number): string {
@@ -14,9 +15,12 @@ export function TimerWidget() {
     timerMode, timerState, remainingSeconds, totalSeconds, pomodoroCount,
     pomodoroSettings, startPomodoro, startFreeTimer, pause, resume, stop,
     selectedTaskId, selectedTaskTitle, selectTask,
+    selectedProjectId, setSelectedProjectId,
+    awaitingNote, sessionNote, setSessionNote, submitNote, skipNote,
   } = useTimerStore();
 
   const { tasks, fetchTasks } = useTaskStore();
+  const { projects } = useProjectStore();
 
   const [freeMinutes, setFreeMinutes] = createSignal(25);
 
@@ -41,8 +45,68 @@ export function TimerWidget() {
 
   return (
     <div>
-      <Show when={timerState() === "idle"}>
+      {/* Session note prompt */}
+      <Show when={awaitingNote()}>
+        <div style={{ display: "flex", "flex-direction": "column", gap: "8px" }}>
+          <div style={{ "font-size": "12px", color: "var(--text-secondary)", "font-weight": "500" }}>
+            Note de session (optionnel)
+          </div>
+          <textarea
+            value={sessionNote()}
+            onInput={(e) => setSessionNote(e.currentTarget.value)}
+            placeholder="Qu'avez-vous fait ? Blocages ?"
+            rows={3}
+            style={{
+              width: "100%",
+              padding: "8px",
+              "border-radius": "var(--radius-md)",
+              border: "1px solid var(--border-color)",
+              background: "var(--bg-elevated)",
+              color: "var(--text-primary)",
+              "font-size": "12px",
+              resize: "vertical",
+              "font-family": "inherit",
+            }}
+          />
+          <div style={{ display: "flex", gap: "8px" }}>
+            <Button variant="primary" size="sm" onClick={submitNote} style={{ flex: "1" }}>
+              Sauver
+            </Button>
+            <Button variant="secondary" size="sm" onClick={skipNote} style={{ flex: "1" }}>
+              Passer
+            </Button>
+          </div>
+        </div>
+      </Show>
+
+      <Show when={!awaitingNote() && timerState() === "idle"}>
         <div style={{ display: "flex", "flex-direction": "column", gap: "12px" }}>
+          {/* Project selector */}
+          <Show when={projects().length > 0}>
+            <select
+              value={selectedProjectId() ?? ""}
+              onChange={(e) => setSelectedProjectId(e.target.value || null)}
+              style={{
+                padding: "6px 8px",
+                "border-radius": "var(--radius-md)",
+                border: "1px solid var(--border-color)",
+                background: "var(--bg-elevated)",
+                color: "var(--text-primary)",
+                "font-size": "12px",
+                width: "100%",
+              }}
+            >
+              <option value="">-- Aucun projet --</option>
+              <For each={projects()}>
+                {(project) => (
+                  <option value={project.id} style={{ color: project.color }}>
+                    {project.name}
+                  </option>
+                )}
+              </For>
+            </select>
+          </Show>
+
           {/* Task selector */}
           <select
             value={selectedTaskId() ?? ""}

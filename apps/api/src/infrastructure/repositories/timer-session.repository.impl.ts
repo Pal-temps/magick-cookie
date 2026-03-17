@@ -47,6 +47,7 @@ export class DrizzleTimerSessionRepository implements TimerSessionRepository {
       completed: input.completed ?? true,
       label: input.label ?? null,
       taskId: input.taskId ?? null,
+      projectId: input.projectId ?? null,
     }).returning();
     return this.toDomain(rows[0]);
   }
@@ -112,6 +113,7 @@ export class DrizzleTimerSessionRepository implements TimerSessionRepository {
       completed: row.completed,
       label: row.label,
       taskId: row.taskId,
+      projectId: row.projectId,
       createdAt: row.createdAt,
     };
   }

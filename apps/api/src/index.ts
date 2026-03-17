@@ -19,6 +19,8 @@ import { DrizzleEmailAccountRepository } from "./infrastructure/repositories/ema
 import { DrizzleEmailRepository } from "./infrastructure/repositories/email.repository.impl";
 import { DrizzleLlmConfigRepository } from "./infrastructure/repositories/llm-config.repository.impl";
 import { DrizzleChatRepository } from "./infrastructure/repositories/chat.repository.impl";
+import { DrizzleBookmarkRepository } from "./infrastructure/repositories/bookmark.repository.impl";
+import { DrizzleProjectRepository } from "./infrastructure/repositories/project.repository.impl";
 
 // Services
 import { CalendarService } from "./application/calendar/calendar.service";
@@ -40,6 +42,9 @@ import { ChatService } from "./application/chat/chat.service";
 import { GitScanService } from "./application/git/git-scan.service";
 import { GitHubService } from "./application/github/github.service";
 import { VpsProxyService } from "./application/vps/vps-proxy.service";
+import { BookmarkService } from "./application/bookmark/bookmark.service";
+import { ProjectService } from "./application/project/project.service";
+import { SmartReminderService } from "./application/smart-reminder/smart-reminder.service";
 
 // Connectors
 import { ClickUpApiClient } from "./infrastructure/connectors/clickup-api.client";
@@ -68,6 +73,9 @@ import { createBriefRoutes } from "./presentation/routes/brief.routes";
 import { createChatRoutes } from "./presentation/routes/chat.routes";
 import { createGitHubRoutes } from "./presentation/routes/github.routes";
 import { createVpsRoutes } from "./presentation/routes/vps.routes";
+import { createBookmarkRoutes } from "./presentation/routes/bookmark.routes";
+import { createProjectRoutes } from "./presentation/routes/project.routes";
+import { createSmartReminderRoutes } from "./presentation/routes/smart-reminder.routes";
 
 // Jobs
 import { startReminderChecker } from "./infrastructure/jobs/reminder-checker";
@@ -89,6 +97,8 @@ const emailAccountRepo = new DrizzleEmailAccountRepository(db);
 const emailRepo = new DrizzleEmailRepository(db);
 const llmConfigRepo = new DrizzleLlmConfigRepository(db);
 const chatRepo = new DrizzleChatRepository(db);
+const bookmarkRepo = new DrizzleBookmarkRepository(db);
+const projectRepo = new DrizzleProjectRepository(db);
 
 const calendarService = new CalendarService(calendarRepo);
 const eventService = new EventService(eventRepo, reminderRepo);
@@ -101,7 +111,7 @@ const wellnessLogService = new WellnessLogService(wellnessLogRepo);
 const dogWalkService = new DogWalkService(dogWalkRepo);
 const imapConnector = new ImapConnector();
 const emailService = new EmailService(emailAccountRepo, emailRepo, imapConnector);
-const analyticsService = new AnalyticsService(timerSessionRepo, dogWalkRepo, wellnessLogRepo, triageRepo, emailRepo, eventRepo, taskRepo);
+const analyticsService = new AnalyticsService(timerSessionRepo, dogWalkRepo, wellnessLogRepo, triageRepo, emailRepo, eventRepo, taskRepo, projectRepo);
 const llmService = new LlmService(llmConfigRepo);
 const triageService = new TriageService(triageRepo, taskRepo, llmService);
 const gitRepoPaths = process.env.GIT_SCAN_REPOS?.split(",").map((p) => p.trim()).filter(Boolean) || [];
@@ -110,6 +120,9 @@ const briefService = new BriefService(timerSessionRepo, eventRepo, taskRepo, tri
 const chatService = new ChatService(chatRepo, llmService);
 const githubService = new GitHubService(db);
 const vpsProxyService = new VpsProxyService(config.vpsApiUrl, config.vpsApiToken);
+const bookmarkService = new BookmarkService(bookmarkRepo);
+const projectService = new ProjectService(projectRepo);
+const smartReminderService = new SmartReminderService(triageRepo, taskRepo, emailRepo);
 
 const clickUpApiClient = new ClickUpApiClient(config.clickupApiToken);
 const clickUpSyncService = new ClickUpSyncService(clickUpApiClient, calendarService, eventRepo, taskRepo);
@@ -148,6 +161,9 @@ app.route("/api/brief", createBriefRoutes(briefService));
 app.route("/api/chat", createChatRoutes(chatService));
 app.route("/api/github", createGitHubRoutes(githubService));
 app.route("/api/vps", createVpsRoutes(vpsProxyService));
+app.route("/api/bookmarks", createBookmarkRoutes(bookmarkService));
+app.route("/api/projects", createProjectRoutes(projectService));
+app.route("/api/smart-reminders", createSmartReminderRoutes(smartReminderService));
 
 // Start reminder checker — pushes to SSE, does NOT mark as sent
 startReminderChecker(reminderService, eventRepo, reminderEmitter);

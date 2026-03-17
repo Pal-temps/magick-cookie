@@ -9,6 +9,7 @@ export const createTimerSessionSchema = z.object({
   completed: z.boolean().optional(),
   label: z.string().max(255).nullable().optional(),
   taskId: z.string().uuid().optional(),
+  projectId: z.string().uuid().nullable().optional(),
 });
 
 export const timerSessionQuerySchema = z.object({

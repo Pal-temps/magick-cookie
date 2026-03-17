@@ -100,6 +100,16 @@ const [brief, setBrief] = createSignal<{ brief: string; rawData: BriefRawData } 
 const [briefLoading, setBriefLoading] = createSignal(false);
 const [timeByTask, setTimeByTask] = createSignal<TaskTimeEntry[]>([]);
 
+export interface ProjectTimeEntry {
+  projectId: string | null;
+  projectName: string | null;
+  color: string | null;
+  totalSeconds: number;
+  sessionCount: number;
+}
+
+const [timeByProject, setTimeByProject] = createSignal<ProjectTimeEntry[]>([]);
+
 function formatDate(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
@@ -150,6 +160,17 @@ export function useAnalyticsStore() {
       setTimeByTask(data);
     } catch (e) {
       console.error("Failed to fetch time by task:", e);
+    }
+  }
+
+  async function fetchTimeByProject(from: Date, to: Date) {
+    try {
+      const data = await api.get<ProjectTimeEntry[]>(
+        `/analytics/time-by-project?from=${formatDate(from)}&to=${formatDate(to)}`,
+      );
+      setTimeByProject(data);
+    } catch (e) {
+      console.error("Failed to fetch time by project:", e);
     }
   }
 
@@ -214,6 +235,8 @@ export function useAnalyticsStore() {
     fetchStreak,
     fetchBrief,
     fetchTimeByTask,
+    fetchTimeByProject,
+    timeByProject,
     fetchPatterns,
     fetchTimesheet,
   };

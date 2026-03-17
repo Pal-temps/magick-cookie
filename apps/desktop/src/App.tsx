@@ -19,6 +19,9 @@ import { useTriageStore } from "./application/stores/triageStore";
 import { useTaskStore } from "./application/stores/taskStore";
 import { useCommandStore } from "./application/stores/commandStore";
 import { useClipboardStore } from "./application/stores/clipboardStore";
+import { useBookmarkStore } from "./application/stores/bookmarkStore";
+import { useProjectStore } from "./application/stores/projectStore";
+import { useSmartReminderStore } from "./application/stores/smartReminderStore";
 import { CommandPalette } from "./ui/components/common/CommandPalette";
 import { FocusOverlay } from "./ui/components/common/FocusOverlay";
 import { QuickCapture } from "./ui/components/capture/QuickCapture";
@@ -37,6 +40,9 @@ export function App() {
   const { fetchTriage } = useTriageStore();
   const { open: openCommandPalette } = useCommandStore();
   const { init: initClipboard } = useClipboardStore();
+  const { fetchBookmarks } = useBookmarkStore();
+  const { fetchProjects } = useProjectStore();
+  const { startSmartReminders, stopSmartReminders } = useSmartReminderStore();
   let disconnectSSE: (() => void) | null = null;
   let unlistenShortcuts: (() => void) | null = null;
 
@@ -107,7 +113,10 @@ export function App() {
     fetchTriage();
     fetchTodayStats();
     fetchActiveWalk();
+    fetchBookmarks();
+    fetchProjects();
     await initNotifications();
+    startSmartReminders();
     await fetchConfigs();
     fetchTodayLogs();
     startAll();
@@ -152,6 +161,7 @@ export function App() {
     disconnectSSE?.();
     unlistenShortcuts?.();
     stopAll();
+    stopSmartReminders();
   });
 
   createEffect(() => {

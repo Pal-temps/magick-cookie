@@ -5,6 +5,15 @@ import type { TriageRepository } from "../../domain/triage/triage.repository";
 import type { EmailRepository } from "../../domain/email/email.repository";
 import type { EventRepository } from "../../domain/event/event.repository";
 import type { TaskRepository } from "../../domain/task/task.repository";
+import type { ProjectRepository } from "../../domain/project/project.repository";
+
+export interface ProjectTimeEntry {
+  projectId: string | null;
+  projectName: string | null;
+  color: string | null;
+  totalSeconds: number;
+  sessionCount: number;
+}
 
 export interface AnalyticsOverview {
   period: { from: string; to: string };
@@ -86,6 +95,7 @@ export class AnalyticsService {
     private emailRepo: EmailRepository,
     private eventRepo: EventRepository,
     private taskRepo: TaskRepository,
+    private projectRepo?: ProjectRepository,
   ) {}
 
   async getOverview(from: Date, to: Date): Promise<AnalyticsOverview> {
@@ -392,6 +402,40 @@ export class AnalyticsService {
     }
 
     // Sort by totalSeconds descending
+    result.sort((a, b) => b.totalSeconds - a.totalSeconds);
+    return result;
+  }
+
+  async getTimeByProject(from: Date, to: Date): Promise<ProjectTimeEntry[]> {
+    const sessions = await this.timerRepo.findAll(from, to);
+
+    // Group by projectId
+    const map = new Map<string | null, { totalSeconds: number; sessionCount: number }>();
+    for (const s of sessions) {
+      const key = s.projectId || null;
+      const entry = map.get(key) || { totalSeconds: 0, sessionCount: 0 };
+      entry.totalSeconds += s.actualSeconds;
+      entry.sessionCount++;
+      map.set(key, entry);
+    }
+
+    // Fetch project names
+    const result: ProjectTimeEntry[] = [];
+    for (const [projectId, data] of map) {
+      let projectName: string | null = null;
+      let color: string | null = null;
+      if (projectId && this.projectRepo) {
+        try {
+          const project = await this.projectRepo.findById(projectId);
+          projectName = project?.name ?? null;
+          color = project?.color ?? null;
+        } catch {
+          // Skip if project lookup fails
+        }
+      }
+      result.push({ projectId, projectName, color, ...data });
+    }
+
     result.sort((a, b) => b.totalSeconds - a.totalSeconds);
     return result;
   }

@@ -34,6 +34,25 @@ const [focusModeEnabled, setFocusModeEnabled] = createSignal(
   localStorage.getItem("magick-cookie-focus-mode") !== "false"
 );
 
+// Project selection
+const [selectedProjectId, setSelectedProjectId] = createSignal<string | null>(null);
+
+// Session note signals
+const [awaitingNote, setAwaitingNote] = createSignal(false);
+const [sessionNote, setSessionNote] = createSignal("");
+
+// Pending session data (saved when awaiting note)
+let pendingSession: {
+  mode: string;
+  durationMinutes: number;
+  actualSeconds: number;
+  startedAt: string;
+  endedAt: string;
+  completed: boolean;
+  taskId: string | null;
+  projectId: string | null;
+} | null = null;
+
 let intervalId: ReturnType<typeof setInterval> | null = null;
 let sessionStartedAt: Date | null = null;
 
@@ -64,6 +83,7 @@ async function onTimerComplete() {
   const state = timerState();
 
   if (mode === "pomodoro" && state === "focus") {
+    // Auto-save completed pomodoro sessions (no note prompt for auto-complete)
     await saveSession(true);
     const count = pomodoroCount() + 1;
     setPomodoroCount(count);
@@ -104,13 +124,14 @@ async function onTimerComplete() {
   }
 }
 
-async function saveSession(completed: boolean) {
+async function saveSession(completed: boolean, label?: string | null) {
   if (!sessionStartedAt || !timerMode()) return;
 
   const now = new Date();
   const actualSecs = Math.round((now.getTime() - sessionStartedAt.getTime()) / 1000);
 
   const taskId = selectedTaskId();
+  const projectId = selectedProjectId();
   try {
     await api.post("/timer-sessions", {
       mode: timerMode(),
@@ -119,7 +140,9 @@ async function saveSession(completed: boolean) {
       startedAt: sessionStartedAt.toISOString(),
       endedAt: now.toISOString(),
       completed,
+      ...(label ? { label } : {}),
       ...(taskId ? { taskId } : {}),
+      ...(projectId ? { projectId } : {}),
     });
     await fetchTodayStats();
   } catch (e) {
@@ -127,6 +150,37 @@ async function saveSession(completed: boolean) {
   }
 
   sessionStartedAt = null;
+}
+
+function buildPendingSession(completed: boolean) {
+  if (!sessionStartedAt || !timerMode()) return;
+  const now = new Date();
+  const actualSecs = Math.round((now.getTime() - sessionStartedAt.getTime()) / 1000);
+  pendingSession = {
+    mode: timerMode()!,
+    durationMinutes: Math.round(totalSeconds() / 60),
+    actualSeconds: actualSecs,
+    startedAt: sessionStartedAt.toISOString(),
+    endedAt: now.toISOString(),
+    completed,
+    taskId: selectedTaskId(),
+    projectId: selectedProjectId()
+  };
+  sessionStartedAt = null;
+}
+
+async function savePendingSession(label: string | null) {
+  if (!pendingSession) return;
+  try {
+    await api.post("/timer-sessions", {
+      ...pendingSession,
+      ...(label ? { label } : {}),
+    });
+    await fetchTodayStats();
+  } catch (e) {
+    console.error("Failed to save timer session:", e);
+  }
+  pendingSession = null;
 }
 
 async function fetchTodayStats() {
@@ -184,7 +238,16 @@ export function useTimerStore() {
   async function stop() {
     clearTickInterval();
     if (timerState() !== "idle" && sessionStartedAt) {
-      await saveSession(false);
+      // Build pending session and show note prompt
+      buildPendingSession(false);
+      setTimerState("idle");
+      setTimerMode(null);
+      setRemainingSeconds(0);
+      setTotalSeconds(0);
+      setIsFocusMode(false);
+      setSessionNote("");
+      setAwaitingNote(true);
+      return;
     }
     setTimerState("idle");
     setTimerMode(null);
@@ -192,7 +255,27 @@ export function useTimerStore() {
     setTotalSeconds(0);
     setSelectedTaskId(null);
     setSelectedTaskTitle(null);
+    setSelectedProjectId(null);
     setIsFocusMode(false);
+  }
+
+  async function submitNote() {
+    const note = sessionNote().trim();
+    await savePendingSession(note || null);
+    setAwaitingNote(false);
+    setSessionNote("");
+    setSelectedTaskId(null);
+    setSelectedTaskTitle(null);
+    setSelectedProjectId(null);
+  }
+
+  async function skipNote() {
+    await savePendingSession(null);
+    setAwaitingNote(false);
+    setSessionNote("");
+    setSelectedTaskId(null);
+    setSelectedTaskTitle(null);
+    setSelectedProjectId(null);
   }
 
   function toggleFocusMode() {
@@ -214,14 +297,21 @@ export function useTimerStore() {
     todayStats,
     selectedTaskId,
     selectedTaskTitle,
+    selectedProjectId,
+    setSelectedProjectId,
     isFocusMode,
     focusModeEnabled,
+    awaitingNote,
+    sessionNote,
+    setSessionNote,
     selectTask,
     startPomodoro,
     startFreeTimer,
     pause,
     resume,
     stop,
+    submitNote,
+    skipNote,
     toggleFocusMode,
     setFocusModePreference,
     fetchTodayStats,

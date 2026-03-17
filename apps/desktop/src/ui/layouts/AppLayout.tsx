@@ -1,5 +1,5 @@
 import type { JSX } from "solid-js";
-import { Show } from "solid-js";
+import { Show, For } from "solid-js";
 import { useViewStore } from "../../application/stores/viewStore";
 import { useCalendarStore } from "../../application/stores/calendarStore";
 import { useTaskStore } from "../../application/stores/taskStore";
@@ -16,6 +16,8 @@ import { ContactManager } from "../components/sidebar/ContactManager";
 import { CollapsibleSection } from "../components/common/CollapsibleSection";
 import { Button } from "../components/common/Button";
 import { TaskDetail } from "../components/tasks/TaskDetail";
+import { useBookmarkStore } from "../../application/stores/bookmarkStore";
+import { openUrl } from "@tauri-apps/plugin-opener";
 
 interface AppLayoutProps {
   children: JSX.Element;
@@ -28,6 +30,7 @@ export function AppLayout(props: AppLayoutProps) {
   const { enterDesktop } = useDesktopModeStore();
   const { startSpeechRecording } = useSpeechStore();
   const { startWalk, stopWalk, activeWalk } = useDogWalkStore();
+  const { favorites } = useBookmarkStore();
 
   const headerTitle = () => {
     const d = currentDate();
@@ -121,6 +124,49 @@ export function AppLayout(props: AppLayoutProps) {
             "overflow-y": "auto",
             "border-top": "1px solid var(--border-color)",
           }}>
+            <Show when={favorites().length > 0}>
+              <CollapsibleSection
+                title="Favoris"
+                defaultOpen={true}
+                badge={
+                  <span style={{ "font-size": "10px", color: "var(--text-muted)", background: "var(--bg-elevated)", padding: "1px 6px", "border-radius": "var(--radius-sm)" }}>
+                    {favorites().length}
+                  </span>
+                }
+              >
+                <div style={{ display: "flex", "flex-direction": "column", gap: "2px" }}>
+                  <For each={favorites()}>
+                    {(bookmark) => (
+                      <button
+                        onClick={() => openUrl(bookmark.url)}
+                        style={{
+                          display: "flex",
+                          "align-items": "center",
+                          gap: "6px",
+                          padding: "4px 0",
+                          "font-size": "12px",
+                          color: "var(--text-primary)",
+                          cursor: "pointer",
+                          background: "none",
+                          border: "none",
+                          width: "100%",
+                          "text-align": "left",
+                        }}
+                        title={bookmark.url}
+                      >
+                        <span style={{ "font-size": "13px" }}>{bookmark.emoji ?? "🔗"}</span>
+                        <span style={{ overflow: "hidden", "text-overflow": "ellipsis", "white-space": "nowrap" }}>
+                          {bookmark.name}
+                        </span>
+                      </button>
+                    )}
+                  </For>
+                </div>
+              </CollapsibleSection>
+
+              <div style={{ height: "1px", background: "var(--border-color)" }} />
+            </Show>
+
             <CollapsibleSection title="Filtres" defaultOpen={true}>
               <CalendarList />
             </CollapsibleSection>

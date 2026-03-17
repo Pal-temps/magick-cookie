@@ -42,6 +42,15 @@ export function createAnalyticsRoutes(analyticsService: AnalyticsService) {
     return c.json({ data });
   });
 
+  // GET /api/analytics/time-by-project?from=YYYY-MM-DD&to=YYYY-MM-DD
+  app.get("/time-by-project", async (c) => {
+    const from = c.req.query("from");
+    const to = c.req.query("to");
+    if (!from || !to) return c.json({ error: "from and to required" }, 400);
+    const data = await analyticsService.getTimeByProject(new Date(from), new Date(to + "T23:59:59"));
+    return c.json({ data });
+  });
+
   // GET /api/analytics/patterns?from=YYYY-MM-DD&to=YYYY-MM-DD
   app.get("/patterns", async (c) => {
     const from = c.req.query("from");

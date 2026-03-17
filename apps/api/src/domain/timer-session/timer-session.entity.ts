@@ -8,6 +8,7 @@ export interface TimerSession {
   completed: boolean;
   label: string | null;
   taskId: string | null;
+  projectId: string | null;
   createdAt: Date;
 }
 
@@ -20,4 +21,5 @@ export interface CreateTimerSessionInput {
   completed?: boolean;
   label?: string | null;
   taskId?: string;
+  projectId?: string | null;
 }

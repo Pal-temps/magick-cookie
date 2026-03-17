@@ -220,6 +220,7 @@ Regles :
 - Utilise des verbes d'action au passe compose (hier) et futur/infinitif (aujourd'hui)
 - Si une section est vide, ecris "RAS"
 - Mentionne les durees de focus si significatives (> 30min)
+- Si des notes de session sont presentes (champ "label"), mentionne-les — elles decrivent ce qui a ete fait ou les blocages
 - Pour la section Git, resume les commits par repo (ex: "magick-cookie: 3 commits - refactoring timer, fix bug X")
 - Sois concis et actionnable, pas de blabla
 
