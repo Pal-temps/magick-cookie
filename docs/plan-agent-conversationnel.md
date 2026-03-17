@@ -1,13 +1,14 @@
 # Plan — Agent conversationnel Magick Cookie
 
 Inspire par OpenClaw, mais scope a tes donnees de productivite (pas d'acces systeme complet).
+Aucune dependance a des services tiers — tout est heberge par toi.
 
 ## Concept
 
 Un agent IA qui connait **toutes tes donnees Magick Cookie** et avec qui tu peux interagir par :
-1. Le chat integre dans l'app (deja existant)
-2. Telegram / Discord (acces mobile, hors de l'app)
-3. Des actions proactives (l'agent te contacte)
+1. Le chat integre dans l'app desktop (deja existant)
+2. Une **app mobile legere** (chat + dashboard + notifications push)
+3. Des actions proactives (l'agent te contacte via push)
 
 L'agent ne controle pas ton PC — il a acces a tes donnees de productivite et peut agir dessus.
 
@@ -45,15 +46,15 @@ L'agent ne controle pas ton PC — il a acces a tes donnees de productivite et p
 | "Genere mon brief" | POST /brief/generate |
 | "Lance la balade du chien" | POST /dog-walks/start |
 
-### Proactif (l'agent te contacte)
+### Proactif (l'agent te contacte sur le mobile)
 
-| Trigger | Message |
-|---------|---------|
-| 8h du matin | Brief du jour envoye sur Telegram |
+| Trigger | Notification push |
+|---------|-------------------|
+| 8h du matin | Brief du jour |
 | Dimanche soir | Weekly review de la semaine |
 | Pas de focus depuis 3h (jour ouvre) | "Tu veux lancer un pomodoro ?" |
 | Tache en priority depuis 5 jours | "La tache X stagne, on en fait quoi ?" |
-| PR mergee/commentee | Notif GitHub sur Telegram |
+| PR mergee/commentee | Notif GitHub |
 | Inbox > 20 non lus | "Tu as 23 emails non lus, digest ?" |
 | Fin d'un pomodoro | "Session terminee ! Note de session ?" |
 | Streak a risque (pas de focus aujourd'hui) | "Ton streak de 12 jours est en danger !" |
@@ -63,240 +64,395 @@ L'agent ne controle pas ton PC — il a acces a tes donnees de productivite et p
 ## Architecture
 
 ```
-                    ┌──────────────┐
-                    │  Telegram    │
-                    │  Discord     │
-                    │  (canaux)    │
-                    └──────┬───────┘
-                           │ webhook / polling
-                           v
-┌─────────────────────────────────────────────┐
-│              apps/agent                      │
-│                                              │
-│  ┌─────────────┐  ┌──────────────────────┐  │
-│  │ Channel      │  │ Agent Core           │  │
-│  │ Adapters     │──│                      │  │
-│  │ - Telegram   │  │ 1. Parse intent      │  │
-│  │ - Discord    │  │ 2. Call API interne   │  │
-│  │ - Internal   │  │ 3. Format reponse    │  │
-│  └─────────────┘  │ 4. Envoyer           │  │
-│                    └──────────┬───────────┘  │
-│                               │              │
-│  ┌─────────────┐  ┌──────────┴───────────┐  │
-│  │ Scheduler    │  │ Tool Registry        │  │
-│  │ (cron-like)  │  │ (fonctions dispo)    │  │
-│  │ - brief 8h   │  │ - read_analytics     │  │
-│  │ - review dim │  │ - create_task        │  │
-│  │ - nudges     │  │ - manage_email       │  │
-│  └─────────────┘  │ - control_timer      │  │
-│                    │ - ...                │  │
-│                    └─────────────────────┘  │
-└──────────────────────┬──────────────────────┘
-                       │ HTTP (localhost)
-                       v
-              ┌──────────────────┐
-              │   apps/api       │
-              │  (API existante) │
-              └──────────────────┘
+┌─────────────────────┐     ┌──────────────────────┐
+│  apps/desktop       │     │  apps/mobile          │
+│  (Tauri + SolidJS)  │     │  (Kotlin Compose)     │
+│                     │     │                       │
+│  ChatView ←─────────┤     │  ChatView ←───────────┤
+│  Dashboard          │     │  Mini Dashboard       │
+│                     │     │  Push Notifications   │
+└─────────┬───────────┘     └───────────┬───────────┘
+          │                             │
+          │  HTTP (localhost / LAN)     │ HTTP (LAN / Tailscale)
+          v                             v
+┌──────────────────────────────────────────────────────┐
+│                    apps/api                            │
+│                                                        │
+│  ┌──────────────────┐  ┌───────────────────────────┐  │
+│  │ Routes existantes │  │ Agent Service (NOUVEAU)   │  │
+│  │ /analytics       │  │                           │  │
+│  │ /tasks           │  │ 1. Recoit un message      │  │
+│  │ /emails          │  │ 2. Envoie au LLM + tools  │  │
+│  │ /timer-sessions  │  │ 3. Execute les tool calls │  │
+│  │ /brief           │  │ 4. Retourne la reponse    │  │
+│  │ /triage          │  │                           │  │
+│  │ /chat            │  └───────────────────────────┘  │
+│  │ /bookmarks       │                                  │
+│  │ /projects        │  ┌───────────────────────────┐  │
+│  │ /vps             │  │ Scheduler (NOUVEAU)       │  │
+│  │ /github          │  │ - brief 8h                │  │
+│  └──────────────────┘  │ - review dimanche         │  │
+│                         │ - nudges (streak, inbox)  │  │
+│                         │ → stocke dans push_queue  │  │
+│                         └───────────────────────────┘  │
+│                                                        │
+│  ┌──────────────────────────────────────────────────┐  │
+│  │ Push Queue (NOUVEAU)                              │  │
+│  │ Table DB : { id, title, body, sentAt, readAt }   │  │
+│  │ GET /api/push/pending → notifications a afficher │  │
+│  │ POST /api/push/:id/read → marquer comme lu       │  │
+│  └──────────────────────────────────────────────────┘  │
+└──────────────────────────────────────────────────────┘
+          │
+          v
+┌──────────────────┐
+│   apps/llm       │
+│   (Ollama Docker) │
+└──────────────────┘
 ```
 
-### Principe cle : l'agent appelle l'API existante
+### Principes cles
 
-L'agent n'accede PAS directement a la DB. Il utilise les memes endpoints REST que le frontend desktop. Ca veut dire :
-- Zero modification backend pour les features existantes
-- L'agent a exactement les memes capacites que l'UI
-- Facile a tester (mock l'API)
-- Securise par design (pas d'escalade de privileges)
+**1. L'agent vit dans l'API, pas dans un process separe**
+L'agent est un service dans `apps/api` — pas besoin d'un `apps/agent` separe. Il appelle les autres services directement (pas via HTTP vers lui-meme). Plus simple, plus performant.
+
+**2. Notifications push sans service tiers**
+Pas de Firebase, pas d'APNs. On utilise un systeme de **pull-based push** :
+- Le scheduler ecrit dans une table `push_queue`
+- L'app mobile poll `GET /api/push/pending` toutes les 30s (ou via SSE)
+- Quand il y a une notification, l'app mobile l'affiche en notification Android locale
+- C'est exactement comme ca que fonctionne deja le SSE pour les rappels dans l'app desktop
+
+**3. L'app mobile est un client leger**
+L'app mobile n'a PAS besoin de repliquer toute l'UI desktop. Elle a 3 ecrans :
+- **Chat** : parler a l'agent (l'interface principale)
+- **Dashboard compact** : brief du jour, streak, taches prio, prochain event
+- **Notifications** : historique des push recus
+
+Tout le reste (calendrier, notes, triage, email, analytics) reste sur le desktop.
+
+**4. Acces reseau**
+L'API tourne sur ton PC. Le mobile y accede via :
+- **WiFi local** : meme reseau → `http://192.168.x.x:47300`
+- **Tailscale** (optionnel, gratuit, sans serveur tiers) : acces hors du reseau local
+- **WireGuard** (alternative) : VPN maison
 
 ---
 
 ## Implementation
 
-### Phase 1 — Agent Core + Chat interne enrichi
+### Phase 1 — Agent Core (tool-calling dans le chat)
 
-**Objectif :** Le chat existant devient intelligent — il comprend tes donnees.
+**Objectif :** Le chat existant (desktop + futur mobile) devient intelligent — il comprend tes donnees.
 
 Actuellement le chat LLM est "bete" : il envoie tes messages au LLM sans contexte.
-On le transforme en **agent avec tools** : le LLM peut appeler les endpoints API.
+On le transforme en **agent avec tools** : le LLM peut appeler les services internes.
 
 **Approche : Function calling / Tool use**
 
 ```typescript
-// Tool definition pour le LLM
-const AGENT_TOOLS = [
-  {
-    name: "get_analytics",
-    description: "Recupere les stats de productivite (focus, triage, wellness, email, events)",
-    parameters: { from: "date", to: "date" },
-    execute: (params) => api.get(`/analytics?from=${params.from}&to=${params.to}`),
-  },
-  {
-    name: "get_priority_tasks",
-    description: "Liste les taches marquees comme prioritaires",
-    execute: () => api.get("/triage?status=priority"),
-  },
-  {
-    name: "create_task",
-    description: "Cree une nouvelle tache",
-    parameters: { title: "string", source: "string" },
-    execute: (params) => api.post("/tasks", params),
-  },
-  {
-    name: "start_pomodoro",
-    description: "Demarre un timer pomodoro",
-    parameters: { projectId: "string?", taskId: "string?" },
-    execute: (params) => api.post("/timer-sessions/start", params),
-  },
-  // ... 20+ tools couvrant toute l'API
-];
+// apps/api/src/application/agent/tool-registry.ts
+export interface AgentTool {
+  name: string;
+  description: string;  // Le LLM lit ca pour decider quand utiliser le tool
+  parameters: Record<string, { type: string; description: string; required?: boolean }>;
+  execute: (params: Record<string, unknown>) => Promise<unknown>;
+}
+
+// apps/api/src/application/agent/tools/analytics.tools.ts
+export function createAnalyticsTools(analyticsService: AnalyticsService): AgentTool[] {
+  return [
+    {
+      name: "get_productivity_overview",
+      description: "Recupere les stats de productivite sur une periode : temps de focus, sessions, triage, wellness, emails, events",
+      parameters: {
+        from: { type: "string", description: "Date debut YYYY-MM-DD", required: true },
+        to: { type: "string", description: "Date fin YYYY-MM-DD", required: true },
+      },
+      execute: async (params) => {
+        return analyticsService.getOverview(new Date(params.from as string), new Date(params.to as string));
+      },
+    },
+    {
+      name: "get_streak",
+      description: "Recupere le streak de focus (jours consecutifs avec du temps de focus)",
+      parameters: {},
+      execute: async () => analyticsService.getStreak(),
+    },
+    // ...
+  ];
+}
 ```
 
 **Le flow :**
 1. User : "Combien de temps j'ai bosse cette semaine ?"
-2. Agent envoie au LLM avec les tools disponibles
-3. LLM decide d'appeler `get_analytics` avec `from=lundi, to=aujourd'hui`
-4. Agent execute l'appel API, recupere les donnees
-5. Agent renvoie les donnees au LLM
-6. LLM formule une reponse : "Cette semaine tu as 12h30 de focus, 28 pomodoros..."
+2. AgentService envoie au LLM avec les tools disponibles (format Ollama/OpenAI function calling)
+3. LLM decide d'appeler `get_productivity_overview` avec `from=2026-03-11, to=2026-03-17`
+4. AgentService execute l'appel, recupere les donnees
+5. AgentService renvoie les donnees au LLM
+6. LLM formule une reponse : "Cette semaine tu as 12h30 de focus sur 28 sessions..."
 
 **Fichiers :**
 
 | Action | Fichier |
 |--------|---------|
-| Creer | `apps/agent/src/core/agent.ts` — orchestrateur principal |
-| Creer | `apps/agent/src/core/tool-registry.ts` — registre des tools |
-| Creer | `apps/agent/src/tools/*.ts` — un fichier par domaine (analytics, tasks, timer, email...) |
-| Creer | `apps/agent/src/core/api-client.ts` — client HTTP vers l'API locale |
-| Modifier | `apps/api/src/application/chat/chat.service.ts` — integrer le tool-calling |
-| Modifier | `apps/desktop/src/ui/components/chat/ChatView.tsx` — afficher les actions executees |
+| Creer | `apps/api/src/application/agent/agent.service.ts` — orchestrateur (LLM + tool loop) |
+| Creer | `apps/api/src/application/agent/tool-registry.ts` — registre + interface AgentTool |
+| Creer | `apps/api/src/application/agent/tools/analytics.tools.ts` |
+| Creer | `apps/api/src/application/agent/tools/timer.tools.ts` |
+| Creer | `apps/api/src/application/agent/tools/task.tools.ts` |
+| Creer | `apps/api/src/application/agent/tools/email.tools.ts` |
+| Creer | `apps/api/src/application/agent/tools/calendar.tools.ts` |
+| Creer | `apps/api/src/application/agent/tools/brief.tools.ts` |
+| Creer | `apps/api/src/application/agent/tools/project.tools.ts` |
+| Creer | `apps/api/src/presentation/routes/agent.routes.ts` — POST /api/agent/chat |
+| Modifier | `apps/api/src/index.ts` — wiring AgentService |
+| Modifier | `apps/desktop/src/ui/components/chat/ChatView.tsx` — utiliser /api/agent/chat |
 
-**Valeur :** Le chat dans l'app devient un vrai assistant qui peut repondre a des questions sur tes donnees et executer des actions.
-
----
-
-### Phase 2 — Connecteur Telegram
-
-**Objectif :** Interagir avec Magick Cookie depuis ton telephone via Telegram.
-
-**Pourquoi Telegram ?**
-- API bot simple et gratuite
-- Pas besoin de numero WhatsApp business
-- Markdown supporte nativement
-- Pas de rate limiting agressif
-- Un seul user (toi) donc pas de gestion multi-tenant
-
-**Architecture :**
-- Bot Telegram en long-polling (pas besoin de webhook/domaine public)
-- Le bot tourne dans `apps/agent` a cote de l'API
-- Securise par ton chat_id Telegram (seul toi peux parler au bot)
-
-```typescript
-// apps/agent/src/channels/telegram.ts
-import TelegramBot from "node-telegram-bot-api";
-
-export class TelegramChannel {
-  private bot: TelegramBot;
-
-  constructor(
-    private token: string,
-    private allowedChatId: string,
-    private agent: AgentCore,
-  ) {
-    this.bot = new TelegramBot(token, { polling: true });
-    this.bot.on("message", (msg) => this.handleMessage(msg));
-  }
-
-  private async handleMessage(msg: TelegramBot.Message) {
-    if (String(msg.chat.id) !== this.allowedChatId) return; // securite
-
-    const response = await this.agent.process(msg.text ?? "");
-    await this.bot.sendMessage(msg.chat.id, response, { parse_mode: "Markdown" });
-  }
-
-  async sendProactive(text: string) {
-    await this.bot.sendMessage(this.allowedChatId, text, { parse_mode: "Markdown" });
-  }
-}
+**Endpoint :**
+```
+POST /api/agent/chat
+Body: { message: string, conversationId?: string }
+Response: { response: string, toolCalls?: { tool: string, result: unknown }[] }
 ```
 
-**Config :**
-- `TELEGRAM_BOT_TOKEN` — token du bot (@BotFather)
-- `TELEGRAM_CHAT_ID` — ton chat_id personnel
-
-**Fichiers :**
-
-| Action | Fichier |
-|--------|---------|
-| Creer | `apps/agent/src/channels/telegram.ts` — adaptateur Telegram |
-| Creer | `apps/agent/src/channels/channel.interface.ts` — interface commune |
-| Modifier | `apps/agent/src/index.ts` — demarrer le bot Telegram |
-| Ajouter | Dependance `node-telegram-bot-api` |
-
-**Valeur :** Tu peux demander ton brief, checker tes taches, ajouter des notes depuis ton telephone sans ouvrir l'app.
-
 ---
 
-### Phase 3 — Actions proactives (Scheduler)
+### Phase 2 — Scheduler + Push Queue
 
 **Objectif :** L'agent te contacte de lui-meme quand c'est pertinent.
 
-**Implementation :**
-- Scheduler cron-like dans `apps/agent`
-- Chaque job verifie une condition et envoie un message si necessaire
-- Utilise les canaux configures (Telegram, et/ou notification desktop)
+**DB :**
+```sql
+CREATE TABLE push_notifications (
+  id TEXT PRIMARY KEY,
+  type TEXT NOT NULL,          -- 'brief', 'streak', 'inbox', 'stale-task', 'pr'
+  title TEXT NOT NULL,
+  body TEXT NOT NULL,
+  created_at TIMESTAMP DEFAULT NOW(),
+  read_at TIMESTAMP,           -- null = non lu
+);
+```
 
+**Scheduler :**
 ```typescript
-// apps/agent/src/scheduler/jobs.ts
-export const SCHEDULED_JOBS: ScheduledJob[] = [
-  {
-    name: "morning-brief",
-    cron: "0 8 * * 1-5",  // Lundi-vendredi 8h
-    execute: async (agent, channels) => {
-      const brief = await agent.callTool("generate_brief", {});
-      channels.broadcast(`## Brief du jour\n\n${brief}`);
-    },
-  },
-  {
-    name: "weekly-review",
-    cron: "0 19 * * 0",   // Dimanche 19h
-    execute: async (agent, channels) => {
-      const review = await agent.callTool("get_weekly_review", { week: currentISOWeek() });
-      channels.broadcast(formatWeeklyReview(review));
-    },
-  },
-  {
-    name: "streak-nudge",
-    cron: "0 17 * * 1-5",  // 17h jours ouvres
-    execute: async (agent, channels) => {
-      const streak = await agent.callTool("get_streak", {});
-      const today = await agent.callTool("get_analytics", { from: today(), to: today() });
-      if (streak.currentStreak > 0 && today.focus.totalSeconds === 0) {
-        channels.broadcast(`Ton streak de ${streak.currentStreak} jours est en danger ! Lance un pomodoro ?`);
-      }
-    },
-  },
-  {
-    name: "inbox-alert",
-    cron: "0 */2 * * *",   // Toutes les 2h
-    execute: async (agent, channels) => {
-      const count = await agent.callTool("get_unread_count", {});
-      if (count > 20) {
-        channels.broadcast(`Tu as ${count} emails non lus. Digest ?`);
-      }
-    },
-  },
-];
+// apps/api/src/application/agent/scheduler.ts
+import * as cron from "node-cron";
+
+export class AgentScheduler {
+  constructor(
+    private agentService: AgentService,
+    private pushRepo: PushNotificationRepository,
+  ) {}
+
+  start() {
+    // Brief du matin (lun-ven 8h)
+    cron.schedule("0 8 * * 1-5", () => this.morningBrief());
+
+    // Weekly review (dimanche 19h)
+    cron.schedule("0 19 * * 0", () => this.weeklyReview());
+
+    // Streak nudge (lun-ven 17h)
+    cron.schedule("0 17 * * 1-5", () => this.streakNudge());
+
+    // Inbox check (toutes les 2h)
+    cron.schedule("0 */2 * * *", () => this.inboxAlert());
+  }
+
+  private async morningBrief() {
+    const brief = await this.agentService.generateBrief();
+    await this.pushRepo.create({
+      type: "brief",
+      title: "Brief du jour",
+      body: brief,
+    });
+  }
+
+  private async streakNudge() {
+    const streak = await this.agentService.getStreak();
+    const todayStats = await this.agentService.getTodayStats();
+    if (streak.currentStreak > 0 && todayStats.totalSeconds === 0) {
+      await this.pushRepo.create({
+        type: "streak",
+        title: "Streak en danger !",
+        body: `Ton streak de ${streak.currentStreak} jours va se briser. Lance un pomodoro ?`,
+      });
+    }
+  }
+  // ...
+}
+```
+
+**Routes :**
+```
+GET  /api/push/pending              → notifications non lues
+GET  /api/push                       → toutes (avec pagination)
+POST /api/push/:id/read             → marquer comme lu
+GET  /api/push/stream               → SSE pour push temps reel
 ```
 
 **Fichiers :**
 
 | Action | Fichier |
 |--------|---------|
-| Creer | `apps/agent/src/scheduler/scheduler.ts` — moteur cron |
-| Creer | `apps/agent/src/scheduler/jobs.ts` — definition des jobs |
-| Creer | `apps/agent/src/channels/broadcast.ts` — envoyer sur tous les canaux |
+| Creer | Migration `push_notifications` table |
+| Creer | `apps/api/src/domain/push/push-notification.entity.ts` |
+| Creer | `apps/api/src/domain/push/push-notification.repository.ts` |
+| Creer | `apps/api/src/infrastructure/repositories/push-notification.repository.impl.ts` |
+| Creer | `apps/api/src/application/agent/scheduler.ts` |
+| Creer | `apps/api/src/presentation/routes/push.routes.ts` |
+| Modifier | `apps/api/src/index.ts` — wiring scheduler + push routes |
+| Modifier | `apps/api/src/infrastructure/database/schema.ts` — push table |
 
-**Valeur :** L'app devient proactive — elle ne se contente plus d'attendre que tu l'ouvres.
+---
+
+### Phase 3 — App mobile (Kotlin + Jetpack Compose)
+
+**Objectif :** Interface mobile legere pour le chat agent + notifications.
+
+S'aligne avec les specs mobile existantes (`docs/mobile/`) et la stack deja prevue (Kotlin + Compose + Material 3).
+
+**3 ecrans seulement :**
+
+#### Ecran 1 : Chat Agent (ecran principal)
+
+```
+┌─────────────────────────────┐
+│  Magick Cookie        [⚙️]  │
+├─────────────────────────────┤
+│                             │
+│  [Agent] Bonjour ! Tu as   │
+│  3 taches prio aujourd'hui  │
+│  et un streak de 12 jours.  │
+│                             │
+│         [Toi] Brief         │
+│                             │
+│  [Agent] ## Hier            │
+│  - 3h20 focus, 6 pomodoros  │
+│  - Trie 4 taches           │
+│  ## Aujourd'hui             │
+│  - 2 reunions (14h, 16h30) │
+│  - 15 emails non lus       │
+│                             │
+│     [Toi] Lance un pomo    │
+│           sur le projet API │
+│                             │
+│  [Agent] ✅ Pomodoro        │
+│  demarre (25 min) - API    │
+│                             │
+├─────────────────────────────┤
+│  [Message...]        [Envoyer] │
+├─────────────────────────────┤
+│  💬 Chat   📊 Accueil  🔔 Notifs │
+└─────────────────────────────┘
+```
+
+- Appelle `POST /api/agent/chat`
+- Markdown rendu (gras, listes, titres)
+- Boutons rapides en haut : "Brief", "Taches prio", "Streak"
+
+#### Ecran 2 : Dashboard compact
+
+```
+┌─────────────────────────────┐
+│  Mardi 17 mars 2026         │
+├─────────────────────────────┤
+│  🔥 Streak : 12 jours       │
+│  ⏱️ Focus : 2h15 aujourd'hui │
+│  📋 3 taches prioritaires   │
+│  📧 15 emails non lus       │
+├─────────────────────────────┤
+│  Prochain event             │
+│  14h00 — Reunion equipe     │
+├─────────────────────────────┤
+│  Brief du jour              │
+│  [Voir le brief complet →]  │
+├─────────────────────────────┤
+│  💬 Chat   📊 Accueil  🔔 Notifs │
+└─────────────────────────────┘
+```
+
+- Appelle `/analytics/streak`, `/timer-sessions/stats/today`, `/triage?status=priority`, `/emails/unread-count`, `/events` (today)
+
+#### Ecran 3 : Notifications
+
+```
+┌─────────────────────────────┐
+│  Notifications               │
+├─────────────────────────────┤
+│  🔥 Streak en danger !       │
+│  17 mars, 17h00              │
+│  Ton streak de 12 jours...  │
+├─────────────────────────────┤
+│  📋 Brief du jour            │
+│  17 mars, 08h00              │
+│  3h focus hier, 2 reunions..│
+├─────────────────────────────┤
+│  📧 Inbox deborde            │
+│  16 mars, 14h00              │
+│  Tu as 23 emails non lus... │
+├─────────────────────────────┤
+│  💬 Chat   📊 Accueil  🔔 Notifs │
+└─────────────────────────────┘
+```
+
+- Appelle `GET /api/push/pending`
+- Poll en background avec WorkManager (toutes les 15-30 min)
+- Affiche une notification Android locale quand il y a du nouveau
+
+**Structure du projet mobile :**
+
+```
+apps/mobile/
+├── app/
+│   ├── build.gradle.kts
+│   └── src/main/
+│       ├── AndroidManifest.xml
+│       ├── java/com/magickcookie/
+│       │   ├── MainActivity.kt
+│       │   ├── data/
+│       │   │   ├── api/
+│       │   │   │   ├── ApiClient.kt           # Retrofit client
+│       │   │   │   ├── AgentApi.kt            # POST /agent/chat
+│       │   │   │   ├── AnalyticsApi.kt        # GET /analytics/*
+│       │   │   │   └── PushApi.kt             # GET /push/*
+│       │   │   └── model/
+│       │   │       ├── ChatMessage.kt
+│       │   │       ├── StreakData.kt
+│       │   │       ├── PushNotification.kt
+│       │   │       └── DashboardData.kt
+│       │   ├── ui/
+│       │   │   ├── theme/
+│       │   │   │   └── Theme.kt               # Dark/Light/Cookie (memes couleurs)
+│       │   │   ├── chat/
+│       │   │   │   └── ChatScreen.kt          # Ecran chat agent
+│       │   │   ├── dashboard/
+│       │   │   │   └── DashboardScreen.kt     # Ecran accueil compact
+│       │   │   ├── notifications/
+│       │   │   │   └── NotificationsScreen.kt # Historique notifs
+│       │   │   └── settings/
+│       │   │       └── SettingsScreen.kt      # Config URL API
+│       │   └── worker/
+│       │       └── PushPollWorker.kt          # WorkManager background poll
+│       └── res/
+│           └── ...
+├── build.gradle.kts
+└── settings.gradle.kts
+```
+
+**Dependances :**
+- `retrofit2` + `moshi` — appels API
+- `androidx.compose.*` — UI
+- `androidx.work` — WorkManager pour le polling background
+- `androidx.navigation.compose` — navigation 3 tabs
+- `io.coil-kt:coil-compose` — images (optionnel)
+
+**Pas de dependances tierces pour les notifications** — on utilise `NotificationManager` d'Android directement, declenche par le `PushPollWorker`.
+
+**Settings :**
+- URL de l'API (ex: `http://192.168.1.42:47300`)
+- Intervalle de poll des notifications (15/30/60 min)
+- Theme (dark/light/cookie)
 
 ---
 
@@ -338,90 +494,61 @@ ${preferences.map(p => `- ${p.content}`).join("\n")}
 | Action | Fichier |
 |--------|---------|
 | Creer | Migration `agent_memory` table |
-| Creer | `apps/agent/src/memory/memory.service.ts` |
-| Creer | `apps/agent/src/memory/context-builder.ts` — construit le prompt enrichi |
-| Modifier | `apps/agent/src/core/agent.ts` — injecter le contexte |
+| Creer | `apps/api/src/domain/agent-memory/agent-memory.entity.ts` |
+| Creer | `apps/api/src/domain/agent-memory/agent-memory.repository.ts` |
+| Creer | `apps/api/src/infrastructure/repositories/agent-memory.repository.impl.ts` |
+| Creer | `apps/api/src/application/agent/memory.service.ts` |
+| Creer | `apps/api/src/application/agent/context-builder.ts` — construit le prompt enrichi |
+| Modifier | `apps/api/src/application/agent/agent.service.ts` — injecter le contexte |
 
 ---
-
-### Phase 5 — Connecteur Discord (optionnel)
-
-Meme pattern que Telegram, avec `discord.js`. Utile si tu es deja sur un serveur Discord.
-
----
-
-## Structure du dossier apps/agent
-
-```
-apps/agent/
-├── package.json
-├── tsconfig.json
-├── src/
-│   ├── index.ts                    # Point d'entree, demarre agent + channels + scheduler
-│   ├── core/
-│   │   ├── agent.ts                # Orchestrateur principal (LLM + tools)
-│   │   ├── tool-registry.ts        # Registre des tools disponibles
-│   │   └── api-client.ts           # Client HTTP vers l'API locale
-│   ├── tools/
-│   │   ├── analytics.tools.ts      # get_analytics, get_streak, get_patterns...
-│   │   ├── timer.tools.ts          # start_pomodoro, stop_timer...
-│   │   ├── task.tools.ts           # get_tasks, create_task, triage...
-│   │   ├── email.tools.ts          # get_emails, summarize, sync...
-│   │   ├── calendar.tools.ts       # get_events, create_event...
-│   │   ├── brief.tools.ts          # generate_brief, get_weekly_review...
-│   │   ├── bookmark.tools.ts       # create_bookmark, list_bookmarks...
-│   │   ├── project.tools.ts        # list_projects, create_project...
-│   │   └── vps.tools.ts            # get_health, get_alerts...
-│   ├── channels/
-│   │   ├── channel.interface.ts    # Interface commune
-│   │   ├── telegram.ts             # Bot Telegram
-│   │   ├── discord.ts              # Bot Discord (phase 5)
-│   │   └── broadcast.ts            # Envoyer sur tous les canaux
-│   ├── scheduler/
-│   │   ├── scheduler.ts            # Moteur cron (node-cron)
-│   │   └── jobs.ts                 # Definitions des jobs proactifs
-│   └── memory/
-│       ├── memory.service.ts       # CRUD memoire agent
-│       └── context-builder.ts      # Construit le system prompt enrichi
-```
-
-## Dependances
-
-```json
-{
-  "dependencies": {
-    "node-telegram-bot-api": "^0.66.0",
-    "node-cron": "^3.0.3",
-    "discord.js": "^14.16.0"
-  }
-}
-```
 
 ## Ordre d'implementation
 
 ```
-Phase 1 — Agent Core + Chat intelligent        (priorite haute, fondation)
-Phase 2 — Connecteur Telegram                   (valeur immediate, acces mobile)
-Phase 3 — Actions proactives                    (game changer, l'app vient a toi)
-Phase 4 — Memoire contextuelle                  (polish, personnalisation)
-Phase 5 — Discord                               (optionnel, si besoin)
+Phase 1 — Agent Core (tool-calling)             ← fondation, enrichit le chat desktop
+Phase 2 — Scheduler + Push Queue                ← l'agent devient proactif
+Phase 3 — App mobile                            ← acces depuis le telephone
+Phase 4 — Memoire contextuelle                  ← personnalisation
 ```
+
+Les phases 1 et 2 apportent de la valeur sur le desktop immediatement.
+La phase 3 (mobile) peut commencer en parallele de la phase 2.
+
+---
+
+## Acces reseau mobile → API
+
+L'API tourne sur ton PC (port 47300). Le mobile doit y acceder.
+
+| Methode | Setup | Hors du reseau local |
+|---------|-------|---------------------|
+| **WiFi local** | Rien a faire, meme reseau | Non |
+| **Tailscale** | Installer Tailscale sur PC + mobile (gratuit, zero config, P2P chiffre) | Oui |
+| **WireGuard** | Config VPN maison sur ton routeur ou VPS | Oui |
+| **Reverse proxy** | Nginx sur VPS + HTTPS + auth token | Oui |
+
+**Recommandation :** WiFi local pour commencer (zero config), Tailscale si tu veux l'acces hors de chez toi (c'est du P2P chiffre, pas de serveur tiers qui voit tes donnees).
+
+---
 
 ## Differences avec OpenClaw
 
 | Aspect | OpenClaw | Magick Cookie Agent |
 |--------|----------|---------------------|
-| Scope | Acces complet au systeme (fichiers, shell, navigateur) | Acces aux donnees de productivite uniquement (via API) |
-| Securite | Sandbox + permissions granulaires | Pas de sandbox necessaire (API REST = safe by design) |
-| Multi-user | Support multi-tenant, pairing | Single-user (toi), chat_id verification |
-| Canaux | 24+ (WhatsApp, Signal, Matrix...) | 2-3 (chat interne, Telegram, Discord) |
-| Skills | Marketplace communautaire (ClawHub) | Tools fixes lies a l'API Magick Cookie |
-| Complexite | Elevee (Gateway WebSocket, RPC, device nodes) | Faible (HTTP client + LLM + polling bot) |
-| Modele IA | Claude/GPT/local | Reutilise le LLM deja configure dans l'app |
+| Scope | Acces complet au systeme (fichiers, shell, navigateur) | Donnees de productivite uniquement |
+| Securite | Sandbox + permissions granulaires | API REST = safe by design |
+| Canaux | 24+ services tiers (WhatsApp, Signal...) | App mobile maison + desktop (zero tiers) |
+| Notifications | Via services de messagerie tiers | Push queue locale + notification Android native |
+| Multi-user | Multi-tenant, pairing | Single-user |
+| Skills | Marketplace communautaire | Tools fixes lies a l'API |
+| Complexite | Gateway WebSocket, RPC, device nodes | HTTP client + LLM + poll |
+| Modele IA | Claude/GPT/local | LLM local (Ollama) — tout reste chez toi |
+| Donnees | Transitent par les services de messagerie | Restent sur ton reseau local |
 
 ## Notes
 
-- **Pas de gateway WebSocket complexe** — on reutilise l'API HTTP existante, c'est suffisant.
-- **LLM : privilegier le tool-calling natif** — Ollama et les providers OpenAI-compatible supportent les function calls. Sinon, fallback sur du prompt engineering avec format JSON.
-- **Single process** — L'agent tourne dans le meme process que l'API (ou en sidecar). Pas besoin d'une archi distribuee pour un usage personnel.
-- **Le chat desktop existant devient le premier "canal"** — Pas besoin de refactorer, juste d'enrichir le ChatService avec le tool-calling.
+- **LLM : privilegier le tool-calling natif** — Ollama supporte le function calling depuis v0.4+. Sinon, fallback sur du prompt engineering avec format JSON.
+- **L'app mobile est un MVP** — 3 ecrans, pas une replique du desktop. Le desktop reste l'interface principale.
+- **Pas de Firebase/APNs** — Les notifications sont gerees par polling + WorkManager. C'est un peu moins instantane (15-30s de latence) mais zero dependance Google.
+- **Toutes les specs mobile existantes (`docs/mobile/`) restent valides** — Elles decrivent une app mobile complete (calendrier, notes, triage, etc.). Ce plan-ci decrit un **MVP agent-first** qui peut evoluer vers l'app complete.
