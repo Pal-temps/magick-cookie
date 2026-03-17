@@ -1,6 +1,7 @@
 import { For, Show, createMemo } from "solid-js";
 import { useTaskStore } from "../../../application/stores/taskStore";
 import { useTriageStore, type TriageStatus } from "../../../application/stores/triageStore";
+import { CookieLoader } from "../common/CookieLoader";
 import type { Task } from "../../../domain/models/Task";
 
 function priorityColor(priority: string | null): string | null {
@@ -20,7 +21,7 @@ const TRIAGE_GROUPS: { status: TriageStatus | null; label: string; color: string
 ];
 
 export function UnscheduledTasks() {
-  const { tasks: unscheduledTasks, openTaskDetail } = useTaskStore();
+  const { tasks: unscheduledTasks, openTaskDetail, syncConnector, isSyncing } = useTaskStore();
   const triage = useTriageStore();
 
   const grouped = createMemo(() => {
@@ -38,6 +39,40 @@ export function UnscheduledTasks() {
 
   return (
     <div style={{ display: "flex", "flex-direction": "column", gap: "0px" }}>
+      {/* ClickUp sync header */}
+      <div style={{
+        display: "flex",
+        "align-items": "center",
+        "justify-content": "space-between",
+        padding: "2px 4px 6px",
+      }}>
+        <span style={{ "font-size": "10px", color: "var(--text-muted)", display: "flex", "align-items": "center", gap: "4px" }}>
+          <span style={{ "font-weight": "600" }}>ClickUp</span>
+          <Show when={isSyncing()}>
+            <CookieLoader size={16} />
+          </Show>
+        </span>
+        <button
+          onClick={() => syncConnector("clickup")}
+          disabled={isSyncing()}
+          style={{
+            "font-size": "10px",
+            color: isSyncing() ? "var(--text-muted)" : "var(--accent-primary)",
+            background: "none",
+            border: "none",
+            cursor: isSyncing() ? "default" : "pointer",
+            padding: "2px 6px",
+            "border-radius": "var(--radius-sm)",
+            opacity: isSyncing() ? "0.5" : "1",
+            transition: "background 0.15s",
+          }}
+          onMouseEnter={(e) => { if (!isSyncing()) e.currentTarget.style.background = "var(--bg-elevated)"; }}
+          onMouseLeave={(e) => { e.currentTarget.style.background = "none"; }}
+        >
+          {isSyncing() ? "Sync..." : "Sync"}
+        </button>
+      </div>
+
       <For each={grouped()}>
         {(group) => (
           <div>

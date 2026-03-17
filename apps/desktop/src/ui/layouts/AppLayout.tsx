@@ -110,15 +110,6 @@ export function AppLayout(props: AppLayoutProps) {
             <Button variant="primary" onClick={openCreateForm} style={{ flex: "1" }} size="sm">
               + Evenement
             </Button>
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => syncConnector("clickup")}
-              disabled={isSyncing()}
-              style={{ "flex-shrink": "0", "font-size": "11px" }}
-            >
-              {isSyncing() ? "..." : "Sync"}
-            </Button>
           </div>
 
           {/* Mini calendar */}
