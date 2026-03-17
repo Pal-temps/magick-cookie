@@ -25,7 +25,7 @@ const [error, setError] = createSignal<string | null>(null);
 export function useChatStore() {
   async function fetchConversations() {
     try {
-      const data = await api.get<Conversation[]>("/chat");
+      const data = await api.get<Conversation[]>("/agent");
       setConversations(data);
     } catch (e: any) {
       console.error("Failed to fetch conversations:", e);
@@ -34,7 +34,7 @@ export function useChatStore() {
 
   async function createConversation() {
     try {
-      const data = await api.post<Conversation>("/chat", {});
+      const data = await api.post<Conversation>("/agent", {});
       setConversations((prev) => [data, ...prev]);
       await selectConversation(data.id);
     } catch (e: any) {
@@ -46,7 +46,7 @@ export function useChatStore() {
     setActiveConversationId(id);
     setError(null);
     try {
-      const data = await api.get<ChatMessage[]>(`/chat/${id}/messages`);
+      const data = await api.get<ChatMessage[]>(`/agent/${id}/messages`);
       setMessages(data);
     } catch (e: any) {
       console.error("Failed to fetch messages:", e);
@@ -71,9 +71,9 @@ export function useChatStore() {
     setMessages((prev) => [...prev, tempUserMsg]);
 
     try {
-      const assistantMsg = await api.post<ChatMessage>(`/chat/${convId}/messages`, { content: content.trim() });
+      const assistantMsg = await api.post<ChatMessage>(`/agent/${convId}/messages`, { message: content.trim() });
       // Replace temp user message and add assistant message by re-fetching
-      const data = await api.get<ChatMessage[]>(`/chat/${convId}/messages`);
+      const data = await api.get<ChatMessage[]>(`/agent/${convId}/messages`);
       setMessages(data);
       // Refresh conversations list (title may have been auto-generated)
       await fetchConversations();
@@ -88,7 +88,7 @@ export function useChatStore() {
 
   async function deleteConversation(id: string) {
     try {
-      await api.delete(`/chat/${id}`);
+      await api.delete(`/agent/${id}`);
       setConversations((prev) => prev.filter((c) => c.id !== id));
       if (activeConversationId() === id) {
         setActiveConversationId(null);
