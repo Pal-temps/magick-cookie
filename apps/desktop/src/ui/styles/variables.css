@@ -12,6 +12,7 @@
 
   --accent-primary: #7c6bf5;
   --accent-primary-hover: #9584ff;
+  --accent-primary-text: #ffffff;
   --accent-secondary: #f5a623;
 
   --text-primary: #e6e6f0;
@@ -52,6 +53,7 @@
 
   --accent-primary: #5b4cd4;
   --accent-primary-hover: #4a3cb8;
+  --accent-primary-text: #ffffff;
   --accent-secondary: #e6930e;
 
   --text-primary: #1a1a2e;
@@ -85,6 +87,7 @@
 
   --accent-primary: #e8a54b;
   --accent-primary-hover: #f0b85e;
+  --accent-primary-text: #2c1e14;
   --accent-secondary: #c46a2c;
 
   --text-primary: #f5e6d3;

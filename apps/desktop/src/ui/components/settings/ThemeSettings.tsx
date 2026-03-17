@@ -1,23 +1,30 @@
 import { Show } from "solid-js";
 import { useThemeStore, type Theme, type ThemeMode } from "../../../application/stores/themeStore";
 
-const modeOptions: { value: ThemeMode; label: string; desc: string }[] = [
-  { value: "dark", label: "Toujours sombre", desc: "Le theme sombre est applique en permanence" },
-  { value: "light", label: "Toujours clair", desc: "Le theme clair est applique en permanence" },
-  { value: "auto-system", label: "Suivre le systeme", desc: "S'adapte au theme de votre systeme d'exploitation" },
-  { value: "auto-schedule", label: "Horaire automatique", desc: "Bascule entre clair et sombre selon un horaire defini" },
+const themeVariants: { value: Theme; label: string; icon: string; desc: string }[] = [
+  { value: "dark", label: "Sombre", icon: "\u{1F319}", desc: "Fond sombre, texte clair" },
+  { value: "light", label: "Clair", icon: "\u2600", desc: "Fond clair, texte sombre" },
+  { value: "cookie", label: "Cookie", icon: "\u{1F36A}", desc: "Tons chauds brun et orange" },
 ];
 
-const themeVariants: { value: Theme; label: string; icon: string }[] = [
-  { value: "dark", label: "Sombre", icon: "\u{1F319}" },
-  { value: "light", label: "Clair", icon: "\u2600" },
-  { value: "cookie", label: "Cookie", icon: "\u{1F36A}" },
+const autoModes: { value: ThemeMode; label: string; desc: string }[] = [
+  { value: "auto-system", label: "Suivre le systeme", desc: "Bascule clair/sombre selon votre OS" },
+  { value: "auto-schedule", label: "Horaire automatique", desc: "Bascule selon un horaire defini" },
 ];
 
 export function ThemeSettings() {
   const { theme, setTheme, themeMode, setMode, schedule, setSchedule } = useThemeStore();
 
-  const isManualMode = () => themeMode() === "dark" || themeMode() === "light";
+  const isAutoMode = () => themeMode() !== "manual";
+
+  function toggleAutoMode(m: ThemeMode) {
+    if (themeMode() === m) {
+      // Deselect → back to manual
+      setMode("manual");
+    } else {
+      setMode(m);
+    }
+  }
 
   const inputStyle = {
     width: "60px",
@@ -35,7 +42,7 @@ export function ThemeSettings() {
     "font-size": "12px",
     "font-weight": "500" as const,
     color: "var(--text-muted)",
-    "margin-bottom": "4px",
+    "margin-bottom": "8px",
     display: "block",
   };
 
@@ -55,16 +62,51 @@ export function ThemeSettings() {
         Apparence
       </h2>
       <p style={{ margin: "0 0 24px", "font-size": "13px", color: "var(--text-muted)" }}>
-        Configurez le theme et le mode d'affichage de l'application
+        Choisissez le theme de l'application
       </p>
 
-      {/* Mode selector */}
+      {/* Theme picker */}
       <div style={sectionStyle}>
-        <label style={labelStyle}>Mode du theme</label>
-        <div style={{ display: "flex", "flex-direction": "column", gap: "2px" }}>
-          {modeOptions.map((opt) => (
+        <label style={labelStyle}>Theme</label>
+        <div style={{ display: "flex", gap: "8px" }}>
+          {themeVariants.map((v) => (
             <button
-              onClick={() => setMode(opt.value)}
+              onClick={() => setTheme(v.value)}
+              style={{
+                display: "flex",
+                "flex-direction": "column",
+                "align-items": "center",
+                gap: "6px",
+                padding: "14px 20px",
+                "border-radius": "var(--radius-md)",
+                border: theme() === v.value ? "2px solid var(--accent-primary)" : "1px solid var(--border-color)",
+                background: theme() === v.value ? "var(--bg-elevated)" : "transparent",
+                color: "var(--text-primary)",
+                cursor: "pointer",
+                "min-width": "90px",
+                opacity: isAutoMode() ? "0.5" : "1",
+              }}
+            >
+              <span style={{ "font-size": "24px" }}>{v.icon}</span>
+              <span style={{ "font-size": "12px", "font-weight": theme() === v.value ? "600" : "400" }}>{v.label}</span>
+              <span style={{ "font-size": "10px", color: "var(--text-muted)" }}>{v.desc}</span>
+            </button>
+          ))}
+        </div>
+        <Show when={isAutoMode()}>
+          <div style={helpStyle}>
+            Le theme est gere automatiquement. Choisir un theme desactive le mode auto.
+          </div>
+        </Show>
+      </div>
+
+      {/* Auto switching */}
+      <div style={sectionStyle}>
+        <label style={labelStyle}>Basculement automatique</label>
+        <div style={{ display: "flex", "flex-direction": "column", gap: "2px" }}>
+          {autoModes.map((opt) => (
+            <button
+              onClick={() => toggleAutoMode(opt.value)}
               style={{
                 display: "flex",
                 "align-items": "center",
@@ -123,36 +165,6 @@ export function ThemeSettings() {
           </div>
           <div style={helpStyle}>
             Le theme sombre sera actif de {schedule().darkStart}h00 a {schedule().darkEnd}h00
-          </div>
-        </div>
-      </Show>
-
-      {/* Theme variant — only for manual modes */}
-      <Show when={isManualMode()}>
-        <div style={sectionStyle}>
-          <label style={labelStyle}>Variante de theme</label>
-          <div style={{ display: "flex", gap: "8px" }}>
-            {themeVariants.map((v) => (
-              <button
-                onClick={() => setTheme(v.value)}
-                style={{
-                  display: "flex",
-                  "flex-direction": "column",
-                  "align-items": "center",
-                  gap: "6px",
-                  padding: "12px 20px",
-                  "border-radius": "var(--radius-md)",
-                  border: theme() === v.value ? "2px solid var(--accent-primary)" : "1px solid var(--border-color)",
-                  background: theme() === v.value ? "var(--bg-elevated)" : "transparent",
-                  color: "var(--text-primary)",
-                  cursor: "pointer",
-                  "min-width": "80px",
-                }}
-              >
-                <span style={{ "font-size": "20px" }}>{v.icon}</span>
-                <span style={{ "font-size": "12px", "font-weight": theme() === v.value ? "600" : "400" }}>{v.label}</span>
-              </button>
-            ))}
           </div>
         </div>
       </Show>

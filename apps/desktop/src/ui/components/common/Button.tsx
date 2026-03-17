@@ -35,7 +35,9 @@ export function Button(props: ButtonProps) {
         background: variant() === "primary" ? "var(--accent-primary)" :
                     variant() === "danger" ? "var(--cal-red)" :
                     variant() === "ghost" ? "transparent" : "var(--bg-elevated)",
-        color: variant() === "ghost" ? "var(--text-secondary)" : "var(--text-primary)",
+        color: variant() === "primary" ? "var(--accent-primary-text)" :
+               variant() === "danger" ? "#ffffff" :
+               variant() === "ghost" ? "var(--text-secondary)" : "var(--text-primary)",
         border: variant() === "ghost" ? "none" : "1px solid var(--border-color)",
         opacity: props.disabled ? "0.5" : "1",
         cursor: props.disabled ? "not-allowed" : "pointer",
