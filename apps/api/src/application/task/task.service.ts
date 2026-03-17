@@ -1,11 +1,15 @@
 import type { TaskRepository } from "../../domain/task/task.repository";
-import type { Task, TaskSource } from "../../domain/task/task.entity";
+import type { Task, TaskSource, CreateTaskInput } from "../../domain/task/task.entity";
 
 export class TaskService {
   constructor(private repo: TaskRepository) {}
 
   async getAll(): Promise<Task[]> {
     return this.repo.findAll();
+  }
+
+  async create(input: CreateTaskInput): Promise<Task> {
+    return this.repo.create(input);
   }
 
   async getBySource(source: TaskSource): Promise<Task[]> {

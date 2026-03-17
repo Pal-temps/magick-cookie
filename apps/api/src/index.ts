@@ -45,6 +45,12 @@ import { VpsProxyService } from "./application/vps/vps-proxy.service";
 import { BookmarkService } from "./application/bookmark/bookmark.service";
 import { ProjectService } from "./application/project/project.service";
 import { SmartReminderService } from "./application/smart-reminder/smart-reminder.service";
+import { AgentService } from "./application/agent/agent.service";
+import { ToolRegistry } from "./application/agent/tool-registry";
+import { createAnalyticsTools } from "./application/agent/tools/analytics.tools";
+import { createTaskTools } from "./application/agent/tools/task.tools";
+import { createTimerTools } from "./application/agent/tools/timer.tools";
+import { createBriefTools, createEmailTools, createCalendarTools, createBookmarkTools, createProjectTools } from "./application/agent/tools/brief.tools";
 
 // Connectors
 import { ClickUpApiClient } from "./infrastructure/connectors/clickup-api.client";
@@ -76,6 +82,7 @@ import { createVpsRoutes } from "./presentation/routes/vps.routes";
 import { createBookmarkRoutes } from "./presentation/routes/bookmark.routes";
 import { createProjectRoutes } from "./presentation/routes/project.routes";
 import { createSmartReminderRoutes } from "./presentation/routes/smart-reminder.routes";
+import { createAgentRoutes } from "./presentation/routes/agent.routes";
 
 // Jobs
 import { startReminderChecker } from "./infrastructure/jobs/reminder-checker";
@@ -124,6 +131,18 @@ const bookmarkService = new BookmarkService(bookmarkRepo);
 const projectService = new ProjectService(projectRepo);
 const smartReminderService = new SmartReminderService(triageRepo, taskRepo, emailRepo);
 
+// Agent (tool-calling chat)
+const toolRegistry = new ToolRegistry();
+toolRegistry.registerAll(createAnalyticsTools(analyticsService));
+toolRegistry.registerAll(createTaskTools(taskService, triageService));
+toolRegistry.registerAll(createTimerTools(timerSessionService));
+toolRegistry.registerAll(createBriefTools(briefService));
+toolRegistry.registerAll(createEmailTools(emailService));
+toolRegistry.registerAll(createCalendarTools(eventService));
+toolRegistry.registerAll(createBookmarkTools(bookmarkService));
+toolRegistry.registerAll(createProjectTools(projectService));
+const agentService = new AgentService(chatRepo, llmService, toolRegistry);
+
 const clickUpApiClient = new ClickUpApiClient(config.clickupApiToken);
 const clickUpSyncService = new ClickUpSyncService(clickUpApiClient, calendarService, eventRepo, taskRepo);
 
@@ -164,6 +183,7 @@ app.route("/api/vps", createVpsRoutes(vpsProxyService));
 app.route("/api/bookmarks", createBookmarkRoutes(bookmarkService));
 app.route("/api/projects", createProjectRoutes(projectService));
 app.route("/api/smart-reminders", createSmartReminderRoutes(smartReminderService));
+app.route("/api/agent", createAgentRoutes(agentService));
 
 // Start reminder checker — pushes to SSE, does NOT mark as sent
 startReminderChecker(reminderService, eventRepo, reminderEmitter);
