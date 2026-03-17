@@ -39,6 +39,12 @@ export function createTriageRoutes(triageService: TriageService) {
     return c.json({ data: { saved: valid.length } });
   });
 
+  // POST /api/triage/suggest — LLM auto-triage suggestions
+  app.post("/suggest", async (c) => {
+    const suggestions = await triageService.suggestTriage();
+    return c.json({ data: suggestions });
+  });
+
   // DELETE /api/triage/:taskId — reset single task triage
   app.delete("/:taskId", async (c) => {
     const taskId = c.req.param("taskId");

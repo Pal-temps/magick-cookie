@@ -23,6 +23,16 @@ const [currentIndex, setCurrentIndex] = createSignal(0);
 const [isTriaging, setIsTriaging] = createSignal(false);
 const [isSaving, setIsSaving] = createSignal(false);
 
+export interface TriageSuggestion {
+  taskId: string;
+  taskTitle: string;
+  suggestedStatus: "priority" | "later" | "archived";
+  reason: string;
+}
+
+const [suggestions, setSuggestions] = createSignal<TriageSuggestion[]>([]);
+const [suggestLoading, setSuggestLoading] = createSignal(false);
+
 export function useTriageStore() {
   async function fetchTriage() {
     const data = await api.get<TaskTriage[]>("/triage");
@@ -116,6 +126,22 @@ export function useTriageStore() {
     return allTasks.filter((t) => !map.has(t.id));
   }
 
+  async function fetchSuggestions() {
+    setSuggestLoading(true);
+    try {
+      const data = await api.post<TriageSuggestion[]>("/triage/suggest", {});
+      setSuggestions(data);
+    } catch (e) {
+      console.error("Failed to fetch suggestions:", e);
+    } finally {
+      setSuggestLoading(false);
+    }
+  }
+
+  function clearSuggestions() {
+    setSuggestions([]);
+  }
+
   async function moveTask(taskId: string, newStatus: TriageStatus) {
     // Update local map immediately
     setTriageMap((prev) => {
@@ -130,8 +156,10 @@ export function useTriageStore() {
   return {
     triageMap, pendingDecisions, triageQueue, currentIndex,
     isTriaging, isSaving,
+    suggestions, suggestLoading,
     fetchTriage, startTriage, currentTask, remainingCount,
     swipe, undoLast, saveTriage, stopTriage, finishTriage,
     getTaskStatus, getTasksByStatus, getUntriagedTasks, moveTask,
+    fetchSuggestions, clearSuggestions,
   };
 }

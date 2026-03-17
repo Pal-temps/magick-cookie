@@ -1,5 +1,5 @@
 import { onMount, Show, For, createMemo, createSignal } from "solid-js";
-import { useTriageStore, type TriageStatus } from "../../../application/stores/triageStore";
+import { useTriageStore, type TriageStatus, type TriageSuggestion } from "../../../application/stores/triageStore";
 import { useTaskStore } from "../../../application/stores/taskStore";
 import type { Task } from "../../../domain/models/Task";
 import { SwipeCard } from "./SwipeCard";
@@ -155,6 +155,42 @@ interface TriageDashboardProps {
 }
 
 function TriageDashboard(props: TriageDashboardProps) {
+  const triage = useTriageStore();
+
+  async function handleAutoTriage() {
+    await triage.fetchSuggestions();
+  }
+
+  async function applySuggestion(suggestion: TriageSuggestion) {
+    await triage.moveTask(suggestion.taskId, suggestion.suggestedStatus);
+    // Remove from suggestions list
+    triage.clearSuggestions();
+    // Re-fetch to update (without the applied one)
+  }
+
+  async function applyAllSuggestions() {
+    const items = triage.suggestions().map(s => ({
+      taskId: s.taskId,
+      triageStatus: s.suggestedStatus as TriageStatus,
+    }));
+    for (const item of items) {
+      await triage.moveTask(item.taskId, item.triageStatus);
+    }
+    triage.clearSuggestions();
+  }
+
+  const statusColors: Record<string, string> = {
+    priority: "#ef4444",
+    later: "#3b82f6",
+    archived: "#8b5cf6",
+  };
+
+  const statusLabels: Record<string, string> = {
+    priority: "Prioritaire",
+    later: "Plus tard",
+    archived: "Archive",
+  };
+
   return (
     <div style={{ height: "100%", "overflow-y": "auto", padding: "20px", position: "relative" }}>
       {/* Drag ghost */}
@@ -195,11 +231,101 @@ function TriageDashboard(props: TriageDashboardProps) {
           </p>
         </div>
         <div style={{ display: "flex", gap: "8px" }}>
+          <Button size="sm" variant="secondary" onClick={handleAutoTriage} disabled={triage.suggestLoading()}>
+            {triage.suggestLoading() ? "Analyse en cours..." : "Auto-triage (IA)"}
+          </Button>
           <Button size="sm" variant="secondary" onClick={props.onSync} disabled={props.isSyncing}>
             {props.isSyncing ? "..." : "Sync ClickUp"}
           </Button>
         </div>
       </div>
+
+      {/* Suggestions panel */}
+      <Show when={triage.suggestLoading()}>
+        <div style={{
+          background: "var(--bg-elevated)",
+          "border-radius": "var(--radius-md)",
+          border: "1px solid var(--border-color)",
+          padding: "20px",
+          "margin-bottom": "20px",
+          "text-align": "center",
+        }}>
+          <div style={{ "font-size": "14px", color: "var(--text-secondary)", "margin-bottom": "4px" }}>
+            L'IA analyse vos taches...
+          </div>
+          <div style={{ "font-size": "11px", color: "var(--text-muted)" }}>
+            Cela peut prendre quelques secondes
+          </div>
+        </div>
+      </Show>
+
+      <Show when={!triage.suggestLoading() && triage.suggestions().length > 0}>
+        <div style={{
+          background: "var(--bg-elevated)",
+          "border-radius": "var(--radius-md)",
+          border: "1px solid var(--accent-primary)",
+          padding: "16px",
+          "margin-bottom": "20px",
+        }}>
+          <div style={{ display: "flex", "align-items": "center", "justify-content": "space-between", "margin-bottom": "12px" }}>
+            <h3 style={{ margin: "0", "font-size": "14px", "font-weight": "600", color: "var(--text-primary)" }}>
+              Suggestions de l'IA ({triage.suggestions().length})
+            </h3>
+            <div style={{ display: "flex", gap: "6px" }}>
+              <Button size="sm" variant="primary" onClick={applyAllSuggestions}>
+                Appliquer tout
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => triage.clearSuggestions()}>
+                Ignorer
+              </Button>
+            </div>
+          </div>
+          <div style={{ display: "flex", "flex-direction": "column", gap: "6px" }}>
+            <For each={triage.suggestions()}>
+              {(suggestion) => (
+                <div style={{
+                  display: "flex",
+                  "align-items": "center",
+                  gap: "10px",
+                  padding: "8px 12px",
+                  background: "var(--bg-surface)",
+                  "border-radius": "var(--radius-sm)",
+                  border: "1px solid var(--border-color)",
+                }}>
+                  <div style={{ flex: "1", "min-width": "0" }}>
+                    <div style={{
+                      "font-size": "12px",
+                      color: "var(--text-primary)",
+                      overflow: "hidden",
+                      "text-overflow": "ellipsis",
+                      "white-space": "nowrap",
+                    }}>
+                      {suggestion.taskTitle}
+                    </div>
+                    <div style={{ "font-size": "10px", color: "var(--text-muted)", "margin-top": "2px" }}>
+                      {suggestion.reason}
+                    </div>
+                  </div>
+                  <span style={{
+                    "font-size": "10px",
+                    padding: "2px 8px",
+                    "border-radius": "var(--radius-sm)",
+                    background: statusColors[suggestion.suggestedStatus] || "var(--bg-elevated)",
+                    color: "#fff",
+                    "white-space": "nowrap",
+                    "flex-shrink": "0",
+                  }}>
+                    {statusLabels[suggestion.suggestedStatus] || suggestion.suggestedStatus}
+                  </span>
+                  <Button size="sm" variant="secondary" onClick={() => applySuggestion(suggestion)}>
+                    Appliquer
+                  </Button>
+                </div>
+              )}
+            </For>
+          </div>
+        </div>
+      </Show>
 
       {/* Columns */}
       <div style={{ display: "grid", "grid-template-columns": "1fr 1fr 1fr", gap: "16px" }}>
