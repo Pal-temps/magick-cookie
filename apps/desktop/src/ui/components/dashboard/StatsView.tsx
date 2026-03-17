@@ -1,6 +1,9 @@
 import { createSignal, createMemo, Show, For, onMount } from "solid-js";
 import { useStatsStore } from "../../../application/stores/statsStore";
+import { useAnalyticsStore } from "../../../application/stores/analyticsStore";
 import { Button } from "../common/Button";
+import { TaskTimeChart } from "./TaskTimeChart";
+import { CookieLoader } from "../common/CookieLoader";
 
 type Tab = "timer" | "water" | "fruits_veggies";
 type Preset = "week" | "month" | "year" | "custom";
@@ -51,6 +54,7 @@ interface StatsViewProps {
 
 export function StatsView(props: StatsViewProps) {
   const { timerDailyStats, wellnessRangeLogs, statsLoading, fetchTimerStats, fetchWellnessRange } = useStatsStore();
+  const { fetchTimeByTask } = useAnalyticsStore();
 
   const [tab, setTab] = createSignal<Tab>("timer");
   const [preset, setPreset] = createSignal<Preset>("week");
@@ -68,6 +72,7 @@ export function StatsView(props: StatsViewProps) {
     const r = range();
     if (tab() === "timer") {
       fetchTimerStats(r.from, r.to);
+      fetchTimeByTask(r.from, r.to);
     } else {
       fetchWellnessRange(r.from, r.to, tab());
     }
@@ -171,7 +176,7 @@ export function StatsView(props: StatsViewProps) {
       </div>
 
       <Show when={statsLoading()}>
-        <div style={{ color: "var(--text-muted)", "font-size": "13px", padding: "20px 0" }}>Chargement...</div>
+        <CookieLoader message="Chargement..." />
       </Show>
 
       {/* Timer stats */}
@@ -250,6 +255,8 @@ export function StatsView(props: StatsViewProps) {
             Aucune session sur cette periode
           </div>
         </Show>
+
+        <TaskTimeChart />
       </Show>
 
       {/* Wellness stats (water / fruits) */}

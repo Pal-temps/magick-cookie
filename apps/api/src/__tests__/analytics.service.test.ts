@@ -6,6 +6,7 @@ import type { WellnessLogRepository } from "../domain/wellness-log/wellness-log.
 import type { TriageRepository } from "../domain/triage/triage.repository";
 import type { EmailRepository } from "../domain/email/email.repository";
 import type { EventRepository } from "../domain/event/event.repository";
+import type { TaskRepository } from "../domain/task/task.repository";
 
 function makeMockRepos() {
   const timerRepo = {
@@ -89,7 +90,20 @@ function makeMockRepos() {
     })),
   } as unknown as EventRepository;
 
-  return { timerRepo, dogWalkRepo, wellnessLogRepo, triageRepo, emailRepo, eventRepo };
+  const taskRepo = {
+    findAll: mock(() => Promise.resolve([])),
+    findById: mock(() => Promise.resolve(null)),
+    findByExternalId: mock(() => Promise.resolve(null)),
+    findBySource: mock(() => Promise.resolve([])),
+    findUnscheduled: mock(() => Promise.resolve([])),
+    upsertByExternalId: mock(() => Promise.resolve({} as any)),
+    create: mock(() => Promise.resolve({} as any)),
+    deleteBySource: mock(() => Promise.resolve()),
+    deleteNotInExternalIds: mock(() => Promise.resolve()),
+    delete: mock(() => Promise.resolve(false)),
+  } as unknown as TaskRepository;
+
+  return { timerRepo, dogWalkRepo, wellnessLogRepo, triageRepo, emailRepo, eventRepo, taskRepo };
 }
 
 describe("AnalyticsService", () => {
@@ -105,6 +119,7 @@ describe("AnalyticsService", () => {
       repos.triageRepo,
       repos.emailRepo,
       repos.eventRepo,
+      repos.taskRepo,
     );
   });
 
