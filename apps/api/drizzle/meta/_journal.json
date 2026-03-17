@@ -50,6 +50,48 @@
       "when": 1773840000000,
       "tag": "0006_task_triage",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1773926400000,
+      "tag": "0007_email_accounts",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1774012800000,
+      "tag": "0008_llm_configs",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1774099200000,
+      "tag": "0009_generic_tasks",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1774185600000,
+      "tag": "0010_time_tracking_task",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1774272000000,
+      "tag": "0011_chat",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1774358400000,
+      "tag": "0012_github",
+      "breakpoints": true
     }
   ]
 }

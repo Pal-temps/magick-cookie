@@ -69,6 +69,7 @@ export const timerSessions = pgTable("timer_sessions", {
   endedAt: timestamp("ended_at", { withTimezone: true }).notNull(),
   completed: boolean("completed").notNull().default(true),
   label: varchar("label", { length: 255 }),
+  taskId: uuid("task_id").references(() => tasks.id, { onDelete: "set null" }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
@@ -165,6 +166,49 @@ export const llmConfigs = pgTable("llm_configs", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });
+
+export const chatConversations = pgTable("chat_conversations", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  title: varchar("title", { length: 500 }).notNull().default("Nouvelle conversation"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
+});
+
+export const chatMessages = pgTable("chat_messages", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  conversationId: uuid("conversation_id").notNull().references(() => chatConversations.id, { onDelete: "cascade" }),
+  role: varchar("role", { length: 20 }).notNull(),
+  content: text("content").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  index("idx_chat_messages_conversation").on(table.conversationId, table.createdAt),
+]);
+
+export const githubConfig = pgTable("github_config", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  token: text("token").notNull(),
+  username: varchar("username", { length: 255 }).notNull(),
+  repos: text("repos").notNull().default("[]"),
+  pollIntervalSeconds: integer("poll_interval_seconds").notNull().default(300),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
+});
+
+export const githubPrs = pgTable("github_prs", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  prNumber: integer("pr_number").notNull(),
+  repo: varchar("repo", { length: 500 }).notNull(),
+  title: varchar("title", { length: 1000 }).notNull(),
+  state: varchar("state", { length: 50 }).notNull(),
+  draft: boolean("draft").notNull().default(false),
+  author: varchar("author", { length: 255 }).notNull(),
+  url: varchar("url", { length: 1000 }).notNull(),
+  reviewRequested: boolean("review_requested").notNull().default(false),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
+}, (table) => [
+  uniqueIndex("idx_github_prs_repo_number").on(table.repo, table.prNumber),
+]);
 
 export const contacts = pgTable("contacts", {
   id: uuid("id").primaryKey().defaultRandom(),
