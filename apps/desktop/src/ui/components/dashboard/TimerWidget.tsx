@@ -1,5 +1,6 @@
-import { Show, createSignal } from "solid-js";
+import { Show, For, createSignal, onMount } from "solid-js";
 import { useTimerStore } from "../../../application/stores/timerStore";
+import { useTaskStore } from "../../../application/stores/taskStore";
 import { Button } from "../common/Button";
 
 function formatTime(seconds: number): string {
@@ -12,9 +13,16 @@ export function TimerWidget() {
   const {
     timerMode, timerState, remainingSeconds, totalSeconds, pomodoroCount,
     pomodoroSettings, startPomodoro, startFreeTimer, pause, resume, stop,
+    selectedTaskId, selectedTaskTitle, selectTask,
   } = useTimerStore();
 
+  const { tasks, fetchTasks } = useTaskStore();
+
   const [freeMinutes, setFreeMinutes] = createSignal(25);
+
+  onMount(() => {
+    if (tasks().length === 0) fetchTasks();
+  });
 
   const progress = () => {
     const total = totalSeconds();
@@ -44,6 +52,34 @@ export function TimerWidget() {
 
       <Show when={timerState() === "idle"}>
         <div style={{ display: "flex", "flex-direction": "column", gap: "12px" }}>
+          {/* Task selector */}
+          <select
+            value={selectedTaskId() ?? ""}
+            onChange={(e) => {
+              const val = e.target.value;
+              if (!val) {
+                selectTask(null, null);
+              } else {
+                const task = tasks().find((t) => t.id === val);
+                selectTask(val, task?.title ?? null);
+              }
+            }}
+            style={{
+              padding: "6px 8px",
+              "border-radius": "var(--radius-md)",
+              border: "1px solid var(--border-color)",
+              background: "var(--bg-elevated)",
+              color: "var(--text-primary)",
+              "font-size": "12px",
+              width: "100%",
+            }}
+          >
+            <option value="">-- Aucune tache --</option>
+            <For each={tasks()}>
+              {(task) => <option value={task.id}>{task.title}</option>}
+            </For>
+          </select>
+
           <Button variant="primary" onClick={startPomodoro}>
             Pomodoro (25/5/15)
           </Button>
@@ -99,6 +135,12 @@ export function TimerWidget() {
               </div>
             </div>
           </div>
+
+          <Show when={selectedTaskTitle()}>
+            <div style={{ "font-size": "11px", color: "var(--accent-primary)", "margin-bottom": "4px", "max-width": "200px", overflow: "hidden", "text-overflow": "ellipsis", "white-space": "nowrap", margin: "0 auto 4px" }}>
+              {selectedTaskTitle()}
+            </div>
+          </Show>
 
           <Show when={timerMode() === "pomodoro"}>
             <div style={{ "font-size": "12px", color: "var(--text-muted)", "margin-bottom": "12px" }}>

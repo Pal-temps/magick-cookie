@@ -12,6 +12,7 @@ export interface DailyTimerStats {
 export interface TimerSessionRepository {
   findAll(from?: Date, to?: Date): Promise<TimerSession[]>;
   findById(id: string): Promise<TimerSession | null>;
+  findByTaskId(taskId: string, from?: Date, to?: Date): Promise<TimerSession[]>;
   create(input: CreateTimerSessionInput): Promise<TimerSession>;
   getTodayStats(): Promise<{ totalSeconds: number; sessionCount: number }>;
   getDailyStats(from: Date, to: Date): Promise<DailyTimerStats[]>;

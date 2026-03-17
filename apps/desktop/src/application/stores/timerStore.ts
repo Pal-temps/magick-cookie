@@ -27,6 +27,12 @@ const [totalSeconds, setTotalSeconds] = createSignal(0);
 const [pomodoroCount, setPomodoroCount] = createSignal(0);
 const [pomodoroSettings] = createSignal<PomodoroSettings>(DEFAULT_POMODORO);
 const [todayStats, setTodayStats] = createSignal<TimerStats>({ totalSeconds: 0, sessionCount: 0 });
+const [selectedTaskId, setSelectedTaskId] = createSignal<string | null>(null);
+const [selectedTaskTitle, setSelectedTaskTitle] = createSignal<string | null>(null);
+const [isFocusMode, setIsFocusMode] = createSignal(false);
+const [focusModeEnabled, setFocusModeEnabled] = createSignal(
+  localStorage.getItem("magick-cookie-focus-mode") !== "false"
+);
 
 let intervalId: ReturnType<typeof setInterval> | null = null;
 let sessionStartedAt: Date | null = null;
@@ -74,6 +80,7 @@ async function onTimerComplete() {
     );
 
     setTimerState("break");
+    setIsFocusMode(false);
     const secs = breakMin * 60;
     setTotalSeconds(secs);
     setRemainingSeconds(secs);
@@ -86,12 +93,14 @@ async function onTimerComplete() {
     setTotalSeconds(secs);
     setRemainingSeconds(secs);
     sessionStartedAt = new Date();
+    if (focusModeEnabled()) setIsFocusMode(true);
     startTickInterval();
   } else if (mode === "free") {
     await saveSession(true);
     await notify("Timer termine !", "Votre session de travail est terminee.");
     setTimerState("idle");
     setTimerMode(null);
+    setIsFocusMode(false);
   }
 }
 
@@ -101,6 +110,7 @@ async function saveSession(completed: boolean) {
   const now = new Date();
   const actualSecs = Math.round((now.getTime() - sessionStartedAt.getTime()) / 1000);
 
+  const taskId = selectedTaskId();
   try {
     await api.post("/timer-sessions", {
       mode: timerMode(),
@@ -109,6 +119,7 @@ async function saveSession(completed: boolean) {
       startedAt: sessionStartedAt.toISOString(),
       endedAt: now.toISOString(),
       completed,
+      ...(taskId ? { taskId } : {}),
     });
     await fetchTodayStats();
   } catch (e) {
@@ -128,6 +139,11 @@ async function fetchTodayStats() {
 }
 
 export function useTimerStore() {
+  function selectTask(taskId: string | null, taskTitle: string | null) {
+    setSelectedTaskId(taskId);
+    setSelectedTaskTitle(taskTitle);
+  }
+
   function startPomodoro() {
     const secs = pomodoroSettings().focusMin * 60;
     setTimerMode("pomodoro");
@@ -136,6 +152,7 @@ export function useTimerStore() {
     setRemainingSeconds(secs);
     setPomodoroCount(0);
     sessionStartedAt = new Date();
+    if (focusModeEnabled()) setIsFocusMode(true);
     startTickInterval();
   }
 
@@ -146,6 +163,7 @@ export function useTimerStore() {
     setTotalSeconds(secs);
     setRemainingSeconds(secs);
     sessionStartedAt = new Date();
+    if (focusModeEnabled()) setIsFocusMode(true);
     startTickInterval();
   }
 
@@ -172,6 +190,18 @@ export function useTimerStore() {
     setTimerMode(null);
     setRemainingSeconds(0);
     setTotalSeconds(0);
+    setSelectedTaskId(null);
+    setSelectedTaskTitle(null);
+    setIsFocusMode(false);
+  }
+
+  function toggleFocusMode() {
+    setIsFocusMode(!isFocusMode());
+  }
+
+  function setFocusModePreference(enabled: boolean) {
+    setFocusModeEnabled(enabled);
+    localStorage.setItem("magick-cookie-focus-mode", String(enabled));
   }
 
   return {
@@ -182,11 +212,18 @@ export function useTimerStore() {
     pomodoroCount,
     pomodoroSettings,
     todayStats,
+    selectedTaskId,
+    selectedTaskTitle,
+    isFocusMode,
+    focusModeEnabled,
+    selectTask,
     startPomodoro,
     startFreeTimer,
     pause,
     resume,
     stop,
+    toggleFocusMode,
+    setFocusModePreference,
     fetchTodayStats,
   };
 }

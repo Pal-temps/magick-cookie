@@ -7,6 +7,7 @@ export interface TimerSession {
   endedAt: Date;
   completed: boolean;
   label: string | null;
+  taskId: string | null;
   createdAt: Date;
 }
 
@@ -18,4 +19,5 @@ export interface CreateTimerSessionInput {
   endedAt: Date;
   completed?: boolean;
   label?: string | null;
+  taskId?: string;
 }

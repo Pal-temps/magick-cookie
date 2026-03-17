@@ -24,6 +24,19 @@ export class DrizzleTimerSessionRepository implements TimerSessionRepository {
     return rows[0] ? this.toDomain(rows[0]) : null;
   }
 
+  async findByTaskId(taskId: string, from?: Date, to?: Date): Promise<TimerSession[]> {
+    const conditions = [eq(timerSessions.taskId, taskId)];
+    if (from) conditions.push(gte(timerSessions.startedAt, from));
+    if (to) conditions.push(lte(timerSessions.startedAt, to));
+
+    const rows = await this.db
+      .select()
+      .from(timerSessions)
+      .where(and(...conditions))
+      .orderBy(timerSessions.startedAt);
+    return rows.map(this.toDomain);
+  }
+
   async create(input: CreateTimerSessionInput): Promise<TimerSession> {
     const rows = await this.db.insert(timerSessions).values({
       mode: input.mode,
@@ -33,6 +46,7 @@ export class DrizzleTimerSessionRepository implements TimerSessionRepository {
       endedAt: input.endedAt,
       completed: input.completed ?? true,
       label: input.label ?? null,
+      taskId: input.taskId ?? null,
     }).returning();
     return this.toDomain(rows[0]);
   }
@@ -97,6 +111,7 @@ export class DrizzleTimerSessionRepository implements TimerSessionRepository {
       endedAt: row.endedAt,
       completed: row.completed,
       label: row.label,
+      taskId: row.taskId,
       createdAt: row.createdAt,
     };
   }
