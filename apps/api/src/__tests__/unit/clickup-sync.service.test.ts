@@ -1,12 +1,13 @@
 import { describe, it, expect, mock, beforeEach } from "bun:test";
 import { ClickUpSyncService } from "../../application/connector/clickup-sync.service";
-import type { ClickUpTask } from "../../domain/connector/clickup.entity";
+import type { ClickUpTask } from "../../infrastructure/connectors/clickup-api.client";
 import type { CalendarEvent } from "../../domain/event/event.entity";
 import type { Calendar } from "../../domain/calendar/calendar.entity";
+import type { Task } from "../../domain/task/task.entity";
 
 // --- Helpers ---
 
-function makeTask(overrides: Partial<ClickUpTask> = {}): ClickUpTask {
+function makeClickUpTask(overrides: Partial<ClickUpTask> = {}): ClickUpTask {
   return {
     id: "task-1",
     name: "My Task",
@@ -47,7 +48,28 @@ function makeEvent(overrides: Partial<CalendarEvent> = {}): CalendarEvent {
     endAt: new Date(),
     isAllDay: false,
     recurrenceRule: null,
-    clickupTaskId: "task-1",
+    taskId: "local-task-1",
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    ...overrides,
+  };
+}
+
+function makeLocalTask(overrides: Partial<Task> = {}): Task {
+  return {
+    id: "local-task-1",
+    externalId: "task-1",
+    source: "clickup",
+    title: "My Task",
+    description: "A description",
+    status: "in progress",
+    priority: "high",
+    url: "https://app.clickup.com/t/task-1",
+    labels: ["Sprint 1"],
+    assignees: ["alice"],
+    dueDate: null,
+    startDate: null,
+    metadata: null,
     createdAt: new Date(),
     updatedAt: new Date(),
     ...overrides,
@@ -73,28 +95,35 @@ function createMocks() {
     findAll: mock(() => Promise.resolve([])),
     findByCalendarId: mock(() => Promise.resolve([])),
     findById: mock(() => Promise.resolve(null)),
-    findByClickUpTaskId: mock(() => Promise.resolve(null as CalendarEvent | null)),
+    findByTaskId: mock(() => Promise.resolve(null as CalendarEvent | null)),
     create: mock((input: any) => Promise.resolve(makeEvent(input))),
     update: mock((id: string, input: any) => Promise.resolve(makeEvent({ id, ...input }))),
     delete: mock(() => Promise.resolve(true)),
   };
 
-  const mockConnectorRepo = {
-    findUnscheduledTasks: mock(() => Promise.resolve([])),
-    upsertUnscheduledTask: mock((task: any) =>
-      Promise.resolve({ id: "unsched-1", createdAt: new Date(), updatedAt: new Date(), ...task }),
+  const mockTaskRepo = {
+    findAll: mock(() => Promise.resolve([])),
+    findById: mock(() => Promise.resolve(null)),
+    findByExternalId: mock(() => Promise.resolve(null)),
+    findBySource: mock(() => Promise.resolve([])),
+    findUnscheduled: mock(() => Promise.resolve([])),
+    upsertByExternalId: mock((input: any) =>
+      Promise.resolve(makeLocalTask({ id: `local-${input.externalId}`, externalId: input.externalId, title: input.title })),
     ),
-    deleteUnscheduledTasksNotIn: mock(() => Promise.resolve()),
+    create: mock(() => Promise.resolve(makeLocalTask())),
+    deleteBySource: mock(() => Promise.resolve()),
+    deleteNotInExternalIds: mock(() => Promise.resolve()),
+    delete: mock(() => Promise.resolve(true)),
   };
 
   const service = new ClickUpSyncService(
     mockApiClient as any,
     mockCalendarService as any,
     mockEventRepo as any,
-    mockConnectorRepo as any,
+    mockTaskRepo as any,
   );
 
-  return { service, mockApiClient, mockCalendarService, mockEventRepo, mockConnectorRepo };
+  return { service, mockApiClient, mockCalendarService, mockEventRepo, mockTaskRepo };
 }
 
 // --- Tests ---
@@ -129,34 +158,37 @@ describe("ClickUpSyncService", () => {
     expect(mockCalendarService.create).not.toHaveBeenCalled();
   });
 
-  it("should create events for tasks with due_date", async () => {
-    const { service, mockCalendarService, mockApiClient, mockEventRepo } = mocks;
+  it("should upsert tasks and create events for tasks with due_date", async () => {
+    const { service, mockCalendarService, mockApiClient, mockEventRepo, mockTaskRepo } = mocks;
     const dueDate = new Date("2026-04-01T10:00:00Z");
-    const task = makeTask({ id: "t1", dueDate, startDate: null });
+    const task = makeClickUpTask({ id: "t1", dueDate, startDate: null });
 
     mockCalendarService.getAll.mockResolvedValue([makeCalendar({ id: "cal1" })]);
     mockApiClient.fetchAllTasks.mockResolvedValue([task]);
-    mockEventRepo.findByClickUpTaskId.mockResolvedValue(null);
+    mockTaskRepo.upsertByExternalId.mockResolvedValue(makeLocalTask({ id: "local-t1", externalId: "t1" }));
+    mockEventRepo.findByTaskId.mockResolvedValue(null);
 
     await service.sync();
 
+    expect(mockTaskRepo.upsertByExternalId).toHaveBeenCalledTimes(1);
     expect(mockEventRepo.create).toHaveBeenCalledTimes(1);
     const arg = mockEventRepo.create.mock.calls[0][0];
     expect(arg.calendarId).toBe("cal1");
     expect(arg.title).toBe("My Task");
-    expect(arg.clickupTaskId).toBe("t1");
+    expect(arg.taskId).toBe("local-t1");
     expect(arg.endAt).toEqual(dueDate);
   });
 
   it("should update existing events on re-sync", async () => {
-    const { service, mockCalendarService, mockApiClient, mockEventRepo } = mocks;
+    const { service, mockCalendarService, mockApiClient, mockEventRepo, mockTaskRepo } = mocks;
     const dueDate = new Date("2026-04-01T10:00:00Z");
-    const task = makeTask({ id: "t1", dueDate });
-    const existingEvent = makeEvent({ id: "evt-existing", clickupTaskId: "t1" });
+    const task = makeClickUpTask({ id: "t1", dueDate });
+    const existingEvent = makeEvent({ id: "evt-existing", taskId: "local-t1" });
 
     mockCalendarService.getAll.mockResolvedValue([makeCalendar({ id: "cal1" })]);
     mockApiClient.fetchAllTasks.mockResolvedValue([task]);
-    mockEventRepo.findByClickUpTaskId.mockResolvedValue(existingEvent);
+    mockTaskRepo.upsertByExternalId.mockResolvedValue(makeLocalTask({ id: "local-t1", externalId: "t1" }));
+    mockEventRepo.findByTaskId.mockResolvedValue(existingEvent);
 
     await service.sync();
 
@@ -165,71 +197,79 @@ describe("ClickUpSyncService", () => {
     expect(mockEventRepo.create).not.toHaveBeenCalled();
   });
 
-  it("should upsert unscheduled tasks for tasks without due_date", async () => {
-    const { service, mockCalendarService, mockApiClient, mockConnectorRepo } = mocks;
-    const task = makeTask({ id: "t-no-due", dueDate: null, name: "No Due" });
+  it("should upsert tasks without due_date into tasks table", async () => {
+    const { service, mockCalendarService, mockApiClient, mockTaskRepo } = mocks;
+    const task = makeClickUpTask({ id: "t-no-due", dueDate: null, name: "No Due" });
 
     mockCalendarService.getAll.mockResolvedValue([makeCalendar()]);
     mockApiClient.fetchAllTasks.mockResolvedValue([task]);
 
     await service.sync();
 
-    expect(mockConnectorRepo.upsertUnscheduledTask).toHaveBeenCalledTimes(1);
-    const arg = mockConnectorRepo.upsertUnscheduledTask.mock.calls[0][0];
-    expect(arg.clickupTaskId).toBe("t-no-due");
-    expect(arg.name).toBe("No Due");
+    expect(mockTaskRepo.upsertByExternalId).toHaveBeenCalledTimes(1);
+    const arg = mockTaskRepo.upsertByExternalId.mock.calls[0][0];
+    expect(arg.externalId).toBe("t-no-due");
+    expect(arg.title).toBe("No Due");
+    expect(arg.source).toBe("clickup");
   });
 
-  it("should cleanup stale unscheduled tasks", async () => {
-    const { service, mockCalendarService, mockApiClient, mockConnectorRepo } = mocks;
-    const t1 = makeTask({ id: "u1", dueDate: null });
-    const t2 = makeTask({ id: "u2", dueDate: null });
+  it("should cleanup stale tasks", async () => {
+    const { service, mockCalendarService, mockApiClient, mockTaskRepo } = mocks;
+    const t1 = makeClickUpTask({ id: "u1", dueDate: null });
+    const t2 = makeClickUpTask({ id: "u2", dueDate: null });
 
     mockCalendarService.getAll.mockResolvedValue([makeCalendar()]);
     mockApiClient.fetchAllTasks.mockResolvedValue([t1, t2]);
 
     await service.sync();
 
-    expect(mockConnectorRepo.deleteUnscheduledTasksNotIn).toHaveBeenCalledTimes(1);
-    const callArgs = mockConnectorRepo.deleteUnscheduledTasksNotIn.mock.calls[0] as unknown[];
-    expect(callArgs[0]).toEqual(["u1", "u2"]);
+    expect(mockTaskRepo.deleteNotInExternalIds).toHaveBeenCalledTimes(1);
+    const callArgs = mockTaskRepo.deleteNotInExternalIds.mock.calls[0] as unknown[];
+    expect(callArgs[0]).toBe("clickup");
+    expect(callArgs[1]).toEqual(["u1", "u2"]);
   });
 
   it("should return correct counts", async () => {
-    const { service, mockCalendarService, mockApiClient, mockEventRepo } = mocks;
+    const { service, mockCalendarService, mockApiClient, mockEventRepo, mockTaskRepo } = mocks;
     const due1 = new Date("2026-04-01T10:00:00Z");
     const due2 = new Date("2026-04-02T10:00:00Z");
 
-    const taskNew = makeTask({ id: "new-1", dueDate: due1 });
-    const taskExisting = makeTask({ id: "existing-1", dueDate: due2 });
-    const taskNoDue = makeTask({ id: "no-due-1", dueDate: null });
+    const taskNew = makeClickUpTask({ id: "new-1", dueDate: due1 });
+    const taskExisting = makeClickUpTask({ id: "existing-1", dueDate: due2 });
+    const taskNoDue = makeClickUpTask({ id: "no-due-1", dueDate: null });
 
     mockCalendarService.getAll.mockResolvedValue([makeCalendar()]);
     mockApiClient.fetchAllTasks.mockResolvedValue([taskNew, taskExisting, taskNoDue]);
 
+    mockTaskRepo.upsertByExternalId
+      .mockResolvedValueOnce(makeLocalTask({ id: "local-new-1", externalId: "new-1" }))
+      .mockResolvedValueOnce(makeLocalTask({ id: "local-existing-1", externalId: "existing-1" }))
+      .mockResolvedValueOnce(makeLocalTask({ id: "local-no-due-1", externalId: "no-due-1" }));
+
     // First call (new-1) returns null, second call (existing-1) returns existing event
-    mockEventRepo.findByClickUpTaskId
+    mockEventRepo.findByTaskId
       .mockResolvedValueOnce(null)
-      .mockResolvedValueOnce(makeEvent({ id: "evt-x", clickupTaskId: "existing-1" }));
+      .mockResolvedValueOnce(makeEvent({ id: "evt-x", taskId: "local-existing-1" }));
 
     const result = await service.sync();
 
     expect(result).toEqual({
       eventsCreated: 1,
       eventsUpdated: 1,
-      unscheduledCount: 1,
+      tasksUpserted: 3,
     });
   });
 
   it("should handle tasks with start_date and due_date", async () => {
-    const { service, mockCalendarService, mockApiClient, mockEventRepo } = mocks;
+    const { service, mockCalendarService, mockApiClient, mockEventRepo, mockTaskRepo } = mocks;
     const startDate = new Date("2026-04-01T08:00:00Z");
     const dueDate = new Date("2026-04-01T12:00:00Z");
-    const task = makeTask({ id: "t-range", startDate, dueDate });
+    const task = makeClickUpTask({ id: "t-range", startDate, dueDate });
 
     mockCalendarService.getAll.mockResolvedValue([makeCalendar({ id: "cal1" })]);
     mockApiClient.fetchAllTasks.mockResolvedValue([task]);
-    mockEventRepo.findByClickUpTaskId.mockResolvedValue(null);
+    mockTaskRepo.upsertByExternalId.mockResolvedValue(makeLocalTask({ id: "local-t-range", externalId: "t-range" }));
+    mockEventRepo.findByTaskId.mockResolvedValue(null);
 
     await service.sync();
 
@@ -239,13 +279,14 @@ describe("ClickUpSyncService", () => {
   });
 
   it("should make 1h event when only due_date (no start_date)", async () => {
-    const { service, mockCalendarService, mockApiClient, mockEventRepo } = mocks;
+    const { service, mockCalendarService, mockApiClient, mockEventRepo, mockTaskRepo } = mocks;
     const dueDate = new Date("2026-04-01T15:00:00Z");
-    const task = makeTask({ id: "t-due-only", dueDate, startDate: null });
+    const task = makeClickUpTask({ id: "t-due-only", dueDate, startDate: null });
 
     mockCalendarService.getAll.mockResolvedValue([makeCalendar({ id: "cal1" })]);
     mockApiClient.fetchAllTasks.mockResolvedValue([task]);
-    mockEventRepo.findByClickUpTaskId.mockResolvedValue(null);
+    mockTaskRepo.upsertByExternalId.mockResolvedValue(makeLocalTask({ id: "local-t-due-only", externalId: "t-due-only" }));
+    mockEventRepo.findByTaskId.mockResolvedValue(null);
 
     await service.sync();
 

@@ -9,27 +9,35 @@ import { DrizzleCalendarRepository } from "./infrastructure/repositories/calenda
 import { DrizzleEventRepository } from "./infrastructure/repositories/event.repository.impl";
 import { DrizzleReminderRepository } from "./infrastructure/repositories/reminder.repository.impl";
 import { DrizzleContactRepository } from "./infrastructure/repositories/contact.repository.impl";
-import { DrizzleClickUpConnectorRepository } from "./infrastructure/repositories/clickup.repository.impl";
+import { DrizzleTaskRepository } from "./infrastructure/repositories/task.repository.impl";
 import { DrizzleTimerSessionRepository } from "./infrastructure/repositories/timer-session.repository.impl";
 import { DrizzleWellnessConfigRepository } from "./infrastructure/repositories/wellness-config.repository.impl";
 import { DrizzleWellnessLogRepository } from "./infrastructure/repositories/wellness-log.repository.impl";
 import { DrizzleDogWalkRepository } from "./infrastructure/repositories/dog-walk.repository.impl";
 import { DrizzleTriageRepository } from "./infrastructure/repositories/triage.repository.impl";
+import { DrizzleEmailAccountRepository } from "./infrastructure/repositories/email-account.repository.impl";
+import { DrizzleEmailRepository } from "./infrastructure/repositories/email.repository.impl";
+import { DrizzleLlmConfigRepository } from "./infrastructure/repositories/llm-config.repository.impl";
 
 // Services
 import { CalendarService } from "./application/calendar/calendar.service";
 import { EventService } from "./application/event/event.service";
 import { ReminderService } from "./application/reminder/reminder.service";
 import { ContactService } from "./application/contact/contact.service";
+import { TaskService } from "./application/task/task.service";
 import { ClickUpSyncService } from "./application/connector/clickup-sync.service";
 import { TimerSessionService } from "./application/timer-session/timer-session.service";
 import { WellnessConfigService } from "./application/wellness-config/wellness-config.service";
 import { WellnessLogService } from "./application/wellness-log/wellness-log.service";
 import { DogWalkService } from "./application/dog-walk/dog-walk.service";
 import { TriageService } from "./application/triage/triage.service";
+import { EmailService } from "./application/email/email.service";
+import { AnalyticsService } from "./application/analytics/analytics.service";
+import { LlmService } from "./application/llm/llm.service";
 
 // Connectors
 import { ClickUpApiClient } from "./infrastructure/connectors/clickup-api.client";
+import { ImapConnector } from "./infrastructure/connectors/imap.connector";
 
 // SSE
 import { InMemoryReminderEmitter } from "./infrastructure/sse/reminder-emitter.impl";
@@ -41,39 +49,52 @@ import { createReminderRoutes, createEventReminderRoutes } from "./presentation/
 import { createSSERoutes } from "./presentation/routes/sse.routes";
 import { createContactRoutes } from "./presentation/routes/contact.routes";
 import { createConnectorRoutes } from "./presentation/routes/connector.routes";
+import { createTaskRoutes } from "./presentation/routes/task.routes";
 import { createTimerSessionRoutes } from "./presentation/routes/timer-session.routes";
 import { createWellnessConfigRoutes } from "./presentation/routes/wellness-config.routes";
 import { createWellnessLogRoutes } from "./presentation/routes/wellness-log.routes";
 import { createDogWalkRoutes } from "./presentation/routes/dog-walk.routes";
 import { createTriageRoutes } from "./presentation/routes/triage.routes";
+import { createEmailRoutes, createEmailAccountRoutes } from "./presentation/routes/email.routes";
+import { createAnalyticsRoutes } from "./presentation/routes/analytics.routes";
+import { createLlmRoutes } from "./presentation/routes/llm.routes";
 
 // Jobs
 import { startReminderChecker } from "./infrastructure/jobs/reminder-checker";
+import { startEmailSyncJob } from "./infrastructure/jobs/email-sync.job";
 
 // --- DI ---
 const calendarRepo = new DrizzleCalendarRepository(db);
 const eventRepo = new DrizzleEventRepository(db);
 const reminderRepo = new DrizzleReminderRepository(db);
 const contactRepo = new DrizzleContactRepository(db);
+const taskRepo = new DrizzleTaskRepository(db);
 const timerSessionRepo = new DrizzleTimerSessionRepository(db);
 const wellnessConfigRepo = new DrizzleWellnessConfigRepository(db);
 const wellnessLogRepo = new DrizzleWellnessLogRepository(db);
 const dogWalkRepo = new DrizzleDogWalkRepository(db);
 const triageRepo = new DrizzleTriageRepository(db);
+const emailAccountRepo = new DrizzleEmailAccountRepository(db);
+const emailRepo = new DrizzleEmailRepository(db);
+const llmConfigRepo = new DrizzleLlmConfigRepository(db);
 
 const calendarService = new CalendarService(calendarRepo);
 const eventService = new EventService(eventRepo, reminderRepo);
 const reminderService = new ReminderService(reminderRepo, eventRepo);
 const contactService = new ContactService(contactRepo);
+const taskService = new TaskService(taskRepo);
 const timerSessionService = new TimerSessionService(timerSessionRepo);
 const wellnessConfigService = new WellnessConfigService(wellnessConfigRepo);
 const wellnessLogService = new WellnessLogService(wellnessLogRepo);
 const dogWalkService = new DogWalkService(dogWalkRepo);
 const triageService = new TriageService(triageRepo);
+const imapConnector = new ImapConnector();
+const emailService = new EmailService(emailAccountRepo, emailRepo, imapConnector);
+const analyticsService = new AnalyticsService(timerSessionRepo, dogWalkRepo, wellnessLogRepo, triageRepo, emailRepo, eventRepo);
+const llmService = new LlmService(llmConfigRepo);
 
-const clickUpConnectorRepo = new DrizzleClickUpConnectorRepository(db);
 const clickUpApiClient = new ClickUpApiClient(config.clickupApiToken);
-const clickUpSyncService = new ClickUpSyncService(clickUpApiClient, calendarService, eventRepo, clickUpConnectorRepo);
+const clickUpSyncService = new ClickUpSyncService(clickUpApiClient, calendarService, eventRepo, taskRepo);
 
 const reminderEmitter = new InMemoryReminderEmitter();
 
@@ -94,15 +115,23 @@ app.route("/api/reminders", createReminderRoutes(reminderService));
 app.route("/api/events/:eventId/reminders", createEventReminderRoutes(reminderService));
 app.route("/api/sse", createSSERoutes(reminderEmitter));
 app.route("/api/contacts", createContactRoutes(contactService));
-app.route("/api/connectors", createConnectorRoutes(clickUpSyncService, clickUpConnectorRepo, clickUpApiClient));
+app.route("/api/connectors", createConnectorRoutes(clickUpSyncService));
+app.route("/api/tasks", createTaskRoutes(taskService, clickUpApiClient));
 app.route("/api/timer-sessions", createTimerSessionRoutes(timerSessionService));
 app.route("/api/wellness-configs", createWellnessConfigRoutes(wellnessConfigService));
 app.route("/api/wellness-logs", createWellnessLogRoutes(wellnessLogService));
 app.route("/api/dog-walks", createDogWalkRoutes(dogWalkService));
 app.route("/api/triage", createTriageRoutes(triageService));
+app.route("/api/emails", createEmailRoutes(emailService, llmService));
+app.route("/api/email-accounts", createEmailAccountRoutes(emailService));
+app.route("/api/analytics", createAnalyticsRoutes(analyticsService));
+app.route("/api/llm", createLlmRoutes(llmService));
 
 // Start reminder checker — pushes to SSE, does NOT mark as sent
 startReminderChecker(reminderService, eventRepo, reminderEmitter);
+
+// Start email sync job
+startEmailSyncJob(emailService);
 
 // Seed default wellness configs
 wellnessConfigService.seedDefaults().catch(console.error);

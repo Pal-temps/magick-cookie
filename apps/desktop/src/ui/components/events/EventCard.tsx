@@ -7,14 +7,14 @@ interface EventCardProps {
 }
 
 const SOURCE_BADGE: Record<string, { label: string; color: string }> = {
-  clickup: { label: "CU", color: "#7B68EE" },
+  task: { label: "T", color: "#7B68EE" },
   personal: { label: "P", color: "#00b894" },
   birthday: { label: "AN", color: "#fd79a8" },
 };
 
 function getEventSource(event: CalendarEvent): string {
   if (event._isBirthday) return "birthday";
-  if (event.clickupTaskId) return "clickup";
+  if (event.taskId) return "task";
   return "personal";
 }
 
@@ -56,7 +56,7 @@ export function EventCard(props: EventCardProps) {
       }}
     >
       <span
-        title={source().label === "CU" ? "ClickUp" : source().label === "AN" ? "Anniversaire" : "Personnel"}
+        title={source().label === "T" ? "Tache" : source().label === "AN" ? "Anniversaire" : "Personnel"}
         style={{
           "font-size": "8px",
           "font-weight": "700",

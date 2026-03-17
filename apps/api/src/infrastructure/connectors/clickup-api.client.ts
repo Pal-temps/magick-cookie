@@ -1,4 +1,16 @@
-import type { ClickUpTask } from "../../domain/connector/clickup.entity";
+export interface ClickUpTask {
+  id: string;
+  name: string;
+  description: string | null;
+  status: string;
+  dueDate: Date | null;
+  startDate: Date | null;
+  url: string;
+  listName: string;
+  spaceName: string;
+  priority: string | null;
+  assignees: string[];
+}
 
 export interface ClickUpComment {
   id: string;

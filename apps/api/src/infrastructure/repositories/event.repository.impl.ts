@@ -1,4 +1,4 @@
-import { eq, and, gte, lte } from "drizzle-orm";
+import { eq, and, gte, lte, sql } from "drizzle-orm";
 import type { Database } from "../database/client";
 import { events } from "../database/schema";
 import type { EventRepository } from "../../domain/event/event.repository";
@@ -29,8 +29,8 @@ export class DrizzleEventRepository implements EventRepository {
     return rows[0] ? this.toDomain(rows[0]) : null;
   }
 
-  async findByClickUpTaskId(clickupTaskId: string): Promise<CalendarEvent | null> {
-    const rows = await this.db.select().from(events).where(eq(events.clickupTaskId, clickupTaskId));
+  async findByTaskId(taskId: string): Promise<CalendarEvent | null> {
+    const rows = await this.db.select().from(events).where(eq(events.taskId, taskId));
     return rows[0] ? this.toDomain(rows[0]) : null;
   }
 
@@ -44,7 +44,7 @@ export class DrizzleEventRepository implements EventRepository {
       endAt: input.endAt,
       isAllDay: input.isAllDay ?? false,
       recurrenceRule: input.recurrenceRule ?? null,
-      clickupTaskId: input.clickupTaskId ?? null,
+      taskId: input.taskId ?? null,
     }).returning();
     return this.toDomain(rows[0]);
   }
@@ -68,6 +68,28 @@ export class DrizzleEventRepository implements EventRepository {
     return rows.length > 0;
   }
 
+  async countByDateRange(from: Date, to: Date): Promise<{ total: number; dailyStats: { date: string; count: number }[] }> {
+    const totalRows = await this.db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(events)
+      .where(and(gte(events.startAt, from), lte(events.startAt, to)));
+
+    const dailyRows = await this.db
+      .select({
+        date: sql<string>`to_char(${events.startAt}::date, 'YYYY-MM-DD')`,
+        count: sql<number>`count(*)::int`,
+      })
+      .from(events)
+      .where(and(gte(events.startAt, from), lte(events.startAt, to)))
+      .groupBy(sql`${events.startAt}::date`)
+      .orderBy(sql`${events.startAt}::date`);
+
+    return {
+      total: Number(totalRows[0]?.count ?? 0),
+      dailyStats: dailyRows.map((r) => ({ date: r.date, count: Number(r.count) })),
+    };
+  }
+
   private toDomain(row: typeof events.$inferSelect): CalendarEvent {
     return {
       id: row.id,
@@ -79,7 +101,7 @@ export class DrizzleEventRepository implements EventRepository {
       endAt: row.endAt,
       isAllDay: row.isAllDay,
       recurrenceRule: row.recurrenceRule,
-      clickupTaskId: row.clickupTaskId,
+      taskId: row.taskId,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
     };

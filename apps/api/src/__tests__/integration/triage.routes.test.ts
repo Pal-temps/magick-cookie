@@ -11,7 +11,7 @@ import type { TaskTriage } from "../../domain/triage/triage.entity";
 function makeTriage(overrides: Partial<TaskTriage> = {}): TaskTriage {
   return {
     id: "triage-1",
-    clickupTaskId: "abc123",
+    taskId: "abc123",
     triageStatus: "priority",
     triagedAt: new Date(),
     createdAt: new Date(),
@@ -73,7 +73,7 @@ describe("Triage routes", () => {
   // ----------------------------------------------------------------
   describe("GET /api/triage", () => {
     test("returns all triage decisions", async () => {
-      const items = [makeTriage(), makeTriage({ id: "triage-2", clickupTaskId: "def456" })];
+      const items = [makeTriage(), makeTriage({ id: "triage-2", taskId: "def456" })];
       (service.getAll as ReturnType<typeof mock>).mockResolvedValue(items);
 
       const res = await request(app, "GET", "/api/triage");
@@ -114,25 +114,25 @@ describe("Triage routes", () => {
   // ----------------------------------------------------------------
   describe("POST /api/triage", () => {
     test("creates a triage decision", async () => {
-      const created = makeTriage({ clickupTaskId: "task-1", triageStatus: "priority" });
+      const created = makeTriage({ taskId: "task-1", triageStatus: "priority" });
       (service.setTriage as ReturnType<typeof mock>).mockResolvedValue(created);
 
       const res = await request(app, "POST", "/api/triage", {
-        clickupTaskId: "task-1",
+        taskId: "task-1",
         triageStatus: "priority",
       });
 
       expect(res.status).toBe(200);
       const { data } = await res.json();
-      expect(data.clickupTaskId).toBe("task-1");
+      expect(data.taskId).toBe("task-1");
       expect(data.triageStatus).toBe("priority");
       expect(service.setTriage).toHaveBeenCalledWith({
-        clickupTaskId: "task-1",
+        taskId: "task-1",
         triageStatus: "priority",
       });
     });
 
-    test("returns 400 when clickupTaskId is missing", async () => {
+    test("returns 400 when taskId is missing", async () => {
       const res = await request(app, "POST", "/api/triage", {
         triageStatus: "priority",
       });
@@ -145,7 +145,7 @@ describe("Triage routes", () => {
 
     test("returns 400 when triageStatus is invalid", async () => {
       const res = await request(app, "POST", "/api/triage", {
-        clickupTaskId: "task-1",
+        taskId: "task-1",
         triageStatus: "bogus",
       });
 
@@ -157,7 +157,7 @@ describe("Triage routes", () => {
 
     test("returns 400 when triageStatus is missing", async () => {
       const res = await request(app, "POST", "/api/triage", {
-        clickupTaskId: "task-1",
+        taskId: "task-1",
       });
 
       expect(res.status).toBe(400);
@@ -172,8 +172,8 @@ describe("Triage routes", () => {
     test("saves valid bulk entries", async () => {
       const res = await request(app, "POST", "/api/triage/bulk", {
         items: [
-          { clickupTaskId: "t1", triageStatus: "priority" },
-          { clickupTaskId: "t2", triageStatus: "later" },
+          { taskId: "t1", triageStatus: "priority" },
+          { taskId: "t2", triageStatus: "later" },
         ],
       });
 
@@ -181,18 +181,18 @@ describe("Triage routes", () => {
       const { data } = await res.json();
       expect(data.saved).toBe(2);
       expect(service.bulkSetTriage).toHaveBeenCalledWith([
-        { clickupTaskId: "t1", triageStatus: "priority" },
-        { clickupTaskId: "t2", triageStatus: "later" },
+        { taskId: "t1", triageStatus: "priority" },
+        { taskId: "t2", triageStatus: "later" },
       ]);
     });
 
     test("filters out invalid items from bulk", async () => {
       const res = await request(app, "POST", "/api/triage/bulk", {
         items: [
-          { clickupTaskId: "t1", triageStatus: "priority" },
-          { clickupTaskId: "", triageStatus: "later" },       // empty id
-          { clickupTaskId: "t3", triageStatus: "nope" },       // bad status
-          { clickupTaskId: "t4", triageStatus: "archived" },
+          { taskId: "t1", triageStatus: "priority" },
+          { taskId: "", triageStatus: "later" },       // empty id
+          { taskId: "t3", triageStatus: "nope" },       // bad status
+          { taskId: "t4", triageStatus: "archived" },
         ],
       });
 
@@ -200,8 +200,8 @@ describe("Triage routes", () => {
       const { data } = await res.json();
       expect(data.saved).toBe(2);
       expect(service.bulkSetTriage).toHaveBeenCalledWith([
-        { clickupTaskId: "t1", triageStatus: "priority" },
-        { clickupTaskId: "t4", triageStatus: "archived" },
+        { taskId: "t1", triageStatus: "priority" },
+        { taskId: "t4", triageStatus: "archived" },
       ]);
     });
 
@@ -219,7 +219,7 @@ describe("Triage routes", () => {
     test("saves zero when all items are invalid", async () => {
       const res = await request(app, "POST", "/api/triage/bulk", {
         items: [
-          { clickupTaskId: "", triageStatus: "bad" },
+          { taskId: "", triageStatus: "bad" },
         ],
       });
 
@@ -231,9 +231,9 @@ describe("Triage routes", () => {
   });
 
   // ----------------------------------------------------------------
-  // DELETE /api/triage/:clickupTaskId
+  // DELETE /api/triage/:taskId
   // ----------------------------------------------------------------
-  describe("DELETE /api/triage/:clickupTaskId", () => {
+  describe("DELETE /api/triage/:taskId", () => {
     test("resets triage for a single task", async () => {
       const res = await request(app, "DELETE", "/api/triage/task-42");
 

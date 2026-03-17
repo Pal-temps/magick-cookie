@@ -1,7 +1,6 @@
 import { createSignal } from "solid-js";
 import type { Calendar, CreateCalendarDTO, UpdateCalendarDTO } from "../../domain/models/Calendar";
 import type { CalendarEvent, CreateEventDTO, UpdateEventDTO, Contact, CreateContactDTO, UpdateContactDTO } from "../../domain/models/CalendarEvent";
-import type { UnscheduledTask, SyncResult, TaskDetailData } from "../../domain/models/ClickUpTask";
 import type { ParsedEventData } from "../services/eventParser";
 import { api } from "../../infrastructure/api/apiClient";
 
@@ -22,18 +21,11 @@ const [contacts, setContacts] = createSignal<Contact[]>([]);
 
 // --- Source filters ---
 const [showBirthdays, setShowBirthdays] = createSignal(true);
-const [showClickUp, setShowClickUp] = createSignal(true);
+const [showConnectorEvents, setShowConnectorEvents] = createSignal(true);
 const [showPersonal, setShowPersonal] = createSignal(true);
 
 // --- Speech prefill ---
 const [prefillData, setPrefillData] = createSignal<ParsedEventData | null>(null);
-
-// --- ClickUp ---
-const [unscheduledTasks, setUnscheduledTasks] = createSignal<UnscheduledTask[]>([]);
-const [isSyncing, setIsSyncing] = createSignal(false);
-const [selectedTask, setSelectedTask] = createSignal<UnscheduledTask | null>(null);
-const [taskDetail, setTaskDetail] = createSignal<TaskDetailData | null>(null);
-const [isLoadingTaskDetail, setIsLoadingTaskDetail] = createSignal(false);
 
 export function useCalendarStore() {
   // Calendar CRUD
@@ -101,9 +93,9 @@ export function useCalendarStore() {
     if (selectedEvent()?.id === id) setSelectedEvent(null);
   }
 
-  function toggleSourceFilter(source: "birthdays" | "clickup" | "personal") {
+  function toggleSourceFilter(source: "birthdays" | "connector" | "personal") {
     if (source === "birthdays") setShowBirthdays((v) => !v);
-    else if (source === "clickup") setShowClickUp((v) => !v);
+    else if (source === "connector") setShowConnectorEvents((v) => !v);
     else setShowPersonal((v) => !v);
   }
 
@@ -111,7 +103,7 @@ export function useCalendarStore() {
     const active = activeCalendarIds();
     return events().filter((e) => {
       if (e._isBirthday) return showBirthdays();
-      if (e.clickupTaskId) return showClickUp();
+      if (e.taskId) return showConnectorEvents();
       return showPersonal() && active.has(e.calendarId);
     });
   }
@@ -186,7 +178,7 @@ export function useCalendarStore() {
           endAt: endAt.toISOString(),
           isAllDay: true,
           recurrenceRule: null,
-          clickupTaskId: null,
+          taskId: null,
           createdAt: c.createdAt,
           updatedAt: c.updatedAt,
           _isBirthday: true,
@@ -194,39 +186,6 @@ export function useCalendarStore() {
       }
     }
     return result;
-  }
-
-  // ClickUp task detail
-  function openTaskDetail(task: UnscheduledTask) {
-    setSelectedTask(task);
-    setTaskDetail(null);
-    setIsLoadingTaskDetail(true);
-    api.get<TaskDetailData>(`/connectors/clickup/tasks/${task.clickupTaskId}/detail`)
-      .then((data) => setTaskDetail(data))
-      .catch(() => setTaskDetail(null))
-      .finally(() => setIsLoadingTaskDetail(false));
-  }
-
-  function closeTaskDetail() {
-    setSelectedTask(null);
-    setTaskDetail(null);
-  }
-
-  // ClickUp sync
-  async function fetchUnscheduledTasks() {
-    const data = await api.get<UnscheduledTask[]>("/connectors/clickup/tasks");
-    setUnscheduledTasks(data);
-  }
-
-  async function syncClickUp() {
-    setIsSyncing(true);
-    try {
-      await api.post<SyncResult>("/connectors/clickup/sync", {});
-      await fetchCalendars();
-      await fetchUnscheduledTasks();
-    } finally {
-      setIsSyncing(false);
-    }
   }
 
   return {
@@ -237,11 +196,9 @@ export function useCalendarStore() {
     toggleCalendarVisibility,
     fetchEvents, createEvent, updateEvent, deleteEvent,
     visibleEvents,
-    showBirthdays, showClickUp, showPersonal, toggleSourceFilter,
+    showBirthdays, showConnectorEvents, showPersonal, toggleSourceFilter,
     prefillData, setPrefillData,
     openCreateForm, openCreateFormWithData, openEditForm, closeForm,
     contacts, fetchContacts, createContact, updateContact, deleteContact, birthdayEventsForRange,
-    unscheduledTasks, isSyncing, selectedTask, taskDetail, isLoadingTaskDetail,
-    fetchUnscheduledTasks, syncClickUp, openTaskDetail, closeTaskDetail,
   };
 }

@@ -5,7 +5,7 @@ import type { TaskTriage, SetTriageInput } from "../../domain/triage/triage.enti
 
 const makeTriage = (overrides: Partial<TaskTriage> = {}): TaskTriage => ({
   id: "tri-1",
-  clickupTaskId: "task-1",
+  taskId: "task-1",
   triageStatus: "priority",
   triagedAt: new Date("2026-03-15T08:00:00Z"),
   createdAt: new Date("2026-01-01"),
@@ -21,18 +21,20 @@ describe("TriageService", () => {
     mockRepo = {
       findAll: mock(() => Promise.resolve([])),
       findByStatus: mock(() => Promise.resolve([])),
-      findByClickupTaskId: mock(() => Promise.resolve(null)),
+      findByTaskId: mock(() => Promise.resolve(null)),
       upsert: mock(() => Promise.resolve(makeTriage())),
       bulkUpsert: mock(() => Promise.resolve()),
-      deleteByClickupTaskId: mock(() => Promise.resolve()),
+      deleteByTaskId: mock(() => Promise.resolve()),
       deleteAll: mock(() => Promise.resolve()),
+      countByStatus: mock(() => Promise.resolve({})),
+      countByDateRange: mock(() => Promise.resolve(0)),
     };
     service = new TriageService(mockRepo as unknown as TriageRepository);
   });
 
   describe("getAll", () => {
     it("should return all triages from repository", async () => {
-      const triages = [makeTriage(), makeTriage({ id: "tri-2", clickupTaskId: "task-2" })];
+      const triages = [makeTriage(), makeTriage({ id: "tri-2", taskId: "task-2" })];
       mockRepo.findAll.mockReturnValue(Promise.resolve(triages));
 
       const result = await service.getAll();
@@ -69,7 +71,7 @@ describe("TriageService", () => {
 
   describe("setTriage", () => {
     it("should upsert a triage and return the result", async () => {
-      const input: SetTriageInput = { clickupTaskId: "task-1", triageStatus: "priority" };
+      const input: SetTriageInput = { taskId: "task-1", triageStatus: "priority" };
       const created = makeTriage(input);
       mockRepo.upsert.mockReturnValue(Promise.resolve(created));
 
@@ -80,7 +82,7 @@ describe("TriageService", () => {
     });
 
     it("should handle updating an existing triage to a new status", async () => {
-      const input: SetTriageInput = { clickupTaskId: "task-1", triageStatus: "dismissed" };
+      const input: SetTriageInput = { taskId: "task-1", triageStatus: "dismissed" };
       const updated = makeTriage({ ...input, updatedAt: new Date("2026-03-15") });
       mockRepo.upsert.mockReturnValue(Promise.resolve(updated));
 
@@ -94,9 +96,9 @@ describe("TriageService", () => {
   describe("bulkSetTriage", () => {
     it("should bulk upsert multiple triages", async () => {
       const inputs: SetTriageInput[] = [
-        { clickupTaskId: "task-1", triageStatus: "priority" },
-        { clickupTaskId: "task-2", triageStatus: "later" },
-        { clickupTaskId: "task-3", triageStatus: "archived" },
+        { taskId: "task-1", triageStatus: "priority" },
+        { taskId: "task-2", triageStatus: "later" },
+        { taskId: "task-3", triageStatus: "archived" },
       ];
 
       await service.bulkSetTriage(inputs);
@@ -113,11 +115,11 @@ describe("TriageService", () => {
   });
 
   describe("resetTriage", () => {
-    it("should delete triage by clickup task id", async () => {
+    it("should delete triage by task id", async () => {
       await service.resetTriage("task-1");
 
-      expect(mockRepo.deleteByClickupTaskId).toHaveBeenCalledWith("task-1");
-      expect(mockRepo.deleteByClickupTaskId).toHaveBeenCalledTimes(1);
+      expect(mockRepo.deleteByTaskId).toHaveBeenCalledWith("task-1");
+      expect(mockRepo.deleteByTaskId).toHaveBeenCalledTimes(1);
     });
   });
 

@@ -1,4 +1,4 @@
-import { pgTable, uuid, varchar, text, boolean, timestamp, integer, pgEnum, index } from "drizzle-orm/pg-core";
+import { pgTable, uuid, varchar, text, boolean, timestamp, integer, numeric, pgEnum, index, uniqueIndex } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 
 export const calendars = pgTable("calendars", {
@@ -11,6 +11,26 @@ export const calendars = pgTable("calendars", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });
 
+export const tasks = pgTable("tasks", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  externalId: varchar("external_id", { length: 255 }),
+  source: varchar("source", { length: 50 }).notNull().default("manual"),
+  title: varchar("title", { length: 500 }).notNull(),
+  description: text("description"),
+  status: varchar("status", { length: 255 }).notNull().default("open"),
+  priority: varchar("priority", { length: 50 }),
+  url: varchar("url", { length: 1000 }),
+  labels: text("labels").notNull().default("[]"),
+  assignees: text("assignees").notNull().default("[]"),
+  dueDate: timestamp("due_date", { withTimezone: true }),
+  startDate: timestamp("start_date", { withTimezone: true }),
+  metadata: text("metadata"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
+}, (table) => [
+  uniqueIndex("idx_tasks_external_source").on(table.externalId, table.source),
+]);
+
 export const events = pgTable("events", {
   id: uuid("id").primaryKey().defaultRandom(),
   calendarId: uuid("calendar_id").notNull().references(() => calendars.id, { onDelete: "cascade" }),
@@ -21,21 +41,7 @@ export const events = pgTable("events", {
   endAt: timestamp("end_at", { withTimezone: true }).notNull(),
   isAllDay: boolean("is_all_day").notNull().default(false),
   recurrenceRule: varchar("recurrence_rule", { length: 500 }),
-  clickupTaskId: varchar("clickup_task_id", { length: 255 }).unique(),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
-});
-
-export const clickupUnscheduledTasks = pgTable("clickup_unscheduled_tasks", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  clickupTaskId: varchar("clickup_task_id", { length: 255 }).notNull().unique(),
-  name: varchar("name", { length: 500 }).notNull(),
-  description: text("description"),
-  status: varchar("status", { length: 255 }).notNull(),
-  url: varchar("url", { length: 1000 }).notNull(),
-  listName: varchar("list_name", { length: 255 }).notNull(),
-  priority: varchar("priority", { length: 50 }),
-  assignees: text("assignees").notNull().default("[]"),
+  taskId: uuid("task_id").references(() => tasks.id, { onDelete: "set null" }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });
@@ -97,9 +103,65 @@ export const dogWalks = pgTable("dog_walks", {
 
 export const taskTriage = pgTable("task_triage", {
   id: uuid("id").primaryKey().defaultRandom(),
-  clickupTaskId: varchar("clickup_task_id", { length: 255 }).notNull().unique(),
+  taskId: uuid("task_id").notNull().unique().references(() => tasks.id, { onDelete: "cascade" }),
   triageStatus: varchar("triage_status", { length: 50 }).notNull(),
   triagedAt: timestamp("triaged_at", { withTimezone: true }).notNull().defaultNow(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
+});
+
+export const emailAccounts = pgTable("email_accounts", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  label: varchar("label", { length: 255 }).notNull(),
+  email: varchar("email", { length: 255 }).notNull(),
+  imapHost: varchar("imap_host", { length: 255 }).notNull(),
+  imapPort: integer("imap_port").notNull().default(993),
+  imapSecure: boolean("imap_secure").notNull().default(true),
+  smtpHost: varchar("smtp_host", { length: 255 }).notNull(),
+  smtpPort: integer("smtp_port").notNull().default(587),
+  smtpSecure: boolean("smtp_secure").notNull().default(false),
+  username: varchar("username", { length: 255 }).notNull(),
+  passwordEnc: text("password_enc").notNull(),
+  lastSyncedAt: timestamp("last_synced_at", { withTimezone: true }),
+  syncEnabled: boolean("sync_enabled").notNull().default(true),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
+});
+
+export const emails = pgTable("emails", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  accountId: uuid("account_id").notNull().references(() => emailAccounts.id, { onDelete: "cascade" }),
+  messageId: varchar("message_id", { length: 500 }).notNull(),
+  imapUid: integer("imap_uid"),
+  subject: varchar("subject", { length: 1000 }),
+  fromAddress: varchar("from_address", { length: 500 }).notNull(),
+  fromName: varchar("from_name", { length: 255 }),
+  toAddresses: text("to_addresses").notNull().default("[]"),
+  ccAddresses: text("cc_addresses"),
+  bodyText: text("body_text"),
+  bodyHtml: text("body_html"),
+  hasAttachments: boolean("has_attachments").notNull().default(false),
+  attachmentNames: text("attachment_names"),
+  isRead: boolean("is_read").notNull().default(false),
+  isStarred: boolean("is_starred").notNull().default(false),
+  isArchived: boolean("is_archived").notNull().default(false),
+  folder: varchar("folder", { length: 255 }).notNull().default("INBOX"),
+  sentAt: timestamp("sent_at", { withTimezone: true }).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  index("idx_emails_account_folder").on(table.accountId, table.folder, table.sentAt),
+  index("idx_emails_unread").on(table.accountId, table.isRead),
+]);
+
+export const llmConfigs = pgTable("llm_configs", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  provider: varchar("provider", { length: 50 }).notNull(),
+  baseUrl: varchar("base_url", { length: 500 }).notNull(),
+  model: varchar("model", { length: 255 }).notNull(),
+  apiKey: text("api_key"),
+  maxTokens: integer("max_tokens").notNull().default(2048),
+  temperature: varchar("temperature", { length: 10 }).notNull().default("0.7"),
+  enabled: boolean("enabled").notNull().default(true),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

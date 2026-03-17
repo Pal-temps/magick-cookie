@@ -14,7 +14,7 @@ const makeEvent = (overrides: Partial<CalendarEvent> = {}): CalendarEvent => ({
   endAt: new Date("2026-03-15T11:00:00Z"),
   isAllDay: false,
   recurrenceRule: null,
-  clickupTaskId: null,
+  taskId: null,
   createdAt: new Date("2026-01-01"),
   updatedAt: new Date("2026-01-01"),
   ...overrides,
@@ -30,10 +30,11 @@ describe("EventService", () => {
       findAll: mock(() => Promise.resolve([])),
       findByCalendarId: mock(() => Promise.resolve([])),
       findById: mock(() => Promise.resolve(null)),
-      findByClickUpTaskId: mock(() => Promise.resolve(null)),
+      findByTaskId: mock(() => Promise.resolve(null)),
       create: mock(() => Promise.resolve(makeEvent())),
       update: mock(() => Promise.resolve(null)),
       delete: mock(() => Promise.resolve(false)),
+      countByDateRange: mock(() => Promise.resolve({ total: 0, dailyStats: [] })),
     };
     mockReminderRepo = {
       findByEventId: mock(() => Promise.resolve([])),

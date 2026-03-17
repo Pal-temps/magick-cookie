@@ -3,7 +3,7 @@ import { useCalendarStore } from "../../../application/stores/calendarStore";
 
 const SOURCE_FILTERS = [
   { key: "personal" as const, label: "Personnel", color: "#00b894", shape: "round" },
-  { key: "clickup" as const, label: "ClickUp", color: "#7B68EE", shape: "round" },
+  { key: "connector" as const, label: "Taches", color: "#7B68EE", shape: "round" },
   { key: "birthdays" as const, label: "Anniversaires", color: "#fd79a8", shape: "round" },
 ] as const;
 
@@ -45,12 +45,12 @@ function FilterRow(props: { label: string; color: string; active: boolean; shape
 export function CalendarList() {
   const {
     calendars, activeCalendarIds, toggleCalendarVisibility,
-    showBirthdays, showClickUp, showPersonal, toggleSourceFilter,
+    showBirthdays, showConnectorEvents, showPersonal, toggleSourceFilter,
   } = useCalendarStore();
 
-  const isSourceActive = (key: "birthdays" | "clickup" | "personal") => {
+  const isSourceActive = (key: "birthdays" | "connector" | "personal") => {
     if (key === "birthdays") return showBirthdays();
-    if (key === "clickup") return showClickUp();
+    if (key === "connector") return showConnectorEvents();
     return showPersonal();
   };
 

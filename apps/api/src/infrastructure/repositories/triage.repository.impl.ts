@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { eq, and, gte, lte, sql } from "drizzle-orm";
 import type { Database } from "../database/client";
 import { taskTriage } from "../database/schema";
 import type { TriageRepository } from "../../domain/triage/triage.repository";
@@ -19,9 +19,9 @@ export class DrizzleTriageRepository implements TriageRepository {
     return rows.map(this.toDomain);
   }
 
-  async findByClickupTaskId(clickupTaskId: string): Promise<TaskTriage | null> {
+  async findByTaskId(taskId: string): Promise<TaskTriage | null> {
     const rows = await this.db.select().from(taskTriage)
-      .where(eq(taskTriage.clickupTaskId, clickupTaskId))
+      .where(eq(taskTriage.taskId, taskId))
       .limit(1);
     return rows.length > 0 ? this.toDomain(rows[0]) : null;
   }
@@ -30,12 +30,12 @@ export class DrizzleTriageRepository implements TriageRepository {
     const rows = await this.db
       .insert(taskTriage)
       .values({
-        clickupTaskId: input.clickupTaskId,
+        taskId: input.taskId,
         triageStatus: input.triageStatus,
         triagedAt: new Date(),
       })
       .onConflictDoUpdate({
-        target: taskTriage.clickupTaskId,
+        target: taskTriage.taskId,
         set: {
           triageStatus: input.triageStatus,
           triagedAt: new Date(),
@@ -53,18 +53,42 @@ export class DrizzleTriageRepository implements TriageRepository {
     }
   }
 
-  async deleteByClickupTaskId(clickupTaskId: string): Promise<void> {
-    await this.db.delete(taskTriage).where(eq(taskTriage.clickupTaskId, clickupTaskId));
+  async deleteByTaskId(taskId: string): Promise<void> {
+    await this.db.delete(taskTriage).where(eq(taskTriage.taskId, taskId));
   }
 
   async deleteAll(): Promise<void> {
     await this.db.delete(taskTriage);
   }
 
+  async countByStatus(): Promise<Record<string, number>> {
+    const rows = await this.db
+      .select({
+        status: taskTriage.triageStatus,
+        count: sql<number>`count(*)::int`,
+      })
+      .from(taskTriage)
+      .groupBy(taskTriage.triageStatus);
+
+    const result: Record<string, number> = {};
+    for (const row of rows) {
+      result[row.status] = Number(row.count);
+    }
+    return result;
+  }
+
+  async countByDateRange(from: Date, to: Date): Promise<number> {
+    const rows = await this.db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(taskTriage)
+      .where(and(gte(taskTriage.triagedAt, from), lte(taskTriage.triagedAt, to)));
+    return Number(rows[0]?.count ?? 0);
+  }
+
   private toDomain(row: typeof taskTriage.$inferSelect): TaskTriage {
     return {
       id: row.id,
-      clickupTaskId: row.clickupTaskId,
+      taskId: row.taskId,
       triageStatus: row.triageStatus as TriageStatus,
       triagedAt: row.triagedAt,
       createdAt: row.createdAt,

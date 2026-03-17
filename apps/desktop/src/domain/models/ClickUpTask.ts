@@ -1,31 +1,7 @@
-export interface UnscheduledTask {
-  id: string;
-  clickupTaskId: string;
-  name: string;
-  description: string | null;
-  status: string;
-  url: string;
-  listName: string;
-  priority: string | null;
-  assignees: string[];
-  createdAt: string;
-  updatedAt: string;
-}
+// DEPRECATED: This file is no longer used. All types have moved to Task.ts.
+// This file is kept temporarily to avoid breaking any build caches.
+// Safe to delete.
 
-export interface SyncResult {
-  eventsCreated: number;
-  eventsUpdated: number;
-  unscheduledCount: number;
-}
-
-export interface ClickUpComment {
-  id: string;
-  commentText: string;
-  user: { username: string; initials: string };
-  date: string;
-}
-
-export interface TaskDetailData {
-  description: string | null;
-  comments: ClickUpComment[];
-}
+export type { Task as UnscheduledTask } from "./Task";
+export type { TaskDetailData, SyncResult } from "./Task";
+export type { TaskComment as ClickUpComment } from "./Task";

@@ -2,7 +2,7 @@ export type TriageStatus = "priority" | "later" | "archived" | "dismissed";
 
 export interface TaskTriage {
   id: string;
-  clickupTaskId: string;
+  taskId: string;
   triageStatus: TriageStatus;
   triagedAt: Date;
   createdAt: Date;
@@ -10,6 +10,6 @@ export interface TaskTriage {
 }
 
 export interface SetTriageInput {
-  clickupTaskId: string;
+  taskId: string;
   triageStatus: TriageStatus;
 }

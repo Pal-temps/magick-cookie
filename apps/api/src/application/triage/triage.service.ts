@@ -20,8 +20,8 @@ export class TriageService {
     return this.repo.bulkUpsert(inputs);
   }
 
-  async resetTriage(clickupTaskId: string): Promise<void> {
-    return this.repo.deleteByClickupTaskId(clickupTaskId);
+  async resetTriage(taskId: string): Promise<void> {
+    return this.repo.deleteByTaskId(taskId);
   }
 
   async resetAll(): Promise<void> {

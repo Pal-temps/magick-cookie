@@ -1,24 +1,24 @@
 import { createSignal } from "solid-js";
-import type { UnscheduledTask } from "../../domain/models/ClickUpTask";
+import type { Task } from "../../domain/models/Task";
 import { api } from "../../infrastructure/api/apiClient";
 
 export type TriageStatus = "priority" | "later" | "archived" | "dismissed";
 
 export interface TaskTriage {
   id: string;
-  clickupTaskId: string;
+  taskId: string;
   triageStatus: TriageStatus;
   triagedAt: string;
 }
 
 export interface TriageDecision {
-  clickupTaskId: string;
+  taskId: string;
   triageStatus: TriageStatus;
 }
 
 const [triageMap, setTriageMap] = createSignal<Map<string, TriageStatus>>(new Map());
 const [pendingDecisions, setPendingDecisions] = createSignal<TriageDecision[]>([]);
-const [triageQueue, setTriageQueue] = createSignal<UnscheduledTask[]>([]);
+const [triageQueue, setTriageQueue] = createSignal<Task[]>([]);
 const [currentIndex, setCurrentIndex] = createSignal(0);
 const [isTriaging, setIsTriaging] = createSignal(false);
 const [isSaving, setIsSaving] = createSignal(false);
@@ -28,22 +28,22 @@ export function useTriageStore() {
     const data = await api.get<TaskTriage[]>("/triage");
     const map = new Map<string, TriageStatus>();
     for (const t of data) {
-      map.set(t.clickupTaskId, t.triageStatus);
+      map.set(t.taskId, t.triageStatus);
     }
     setTriageMap(map);
   }
 
-  function startTriage(tasks: UnscheduledTask[]) {
+  function startTriage(tasks: Task[]) {
     const map = triageMap();
     // Only queue tasks that haven't been triaged yet
-    const untriaged = tasks.filter((t) => !map.has(t.clickupTaskId));
+    const untriaged = tasks.filter((t) => !map.has(t.id));
     setTriageQueue(untriaged);
     setCurrentIndex(0);
     setPendingDecisions([]);
     setIsTriaging(true);
   }
 
-  function currentTask(): UnscheduledTask | null {
+  function currentTask(): Task | null {
     const queue = triageQueue();
     const idx = currentIndex();
     return idx < queue.length ? queue[idx] : null;
@@ -57,10 +57,10 @@ export function useTriageStore() {
     const task = currentTask();
     if (!task) return;
 
-    setPendingDecisions((prev) => [...prev, { clickupTaskId: task.clickupTaskId, triageStatus: status }]);
+    setPendingDecisions((prev) => [...prev, { taskId: task.id, triageStatus: status }]);
     setTriageMap((prev) => {
       const next = new Map(prev);
-      next.set(task.clickupTaskId, status);
+      next.set(task.id, status);
       return next;
     });
     setCurrentIndex((i) => i + 1);
@@ -74,7 +74,7 @@ export function useTriageStore() {
     setPendingDecisions((prev) => prev.slice(0, -1));
     setTriageMap((prev) => {
       const next = new Map(prev);
-      next.delete(last.clickupTaskId);
+      next.delete(last.taskId);
       return next;
     });
     setCurrentIndex((i) => Math.max(0, i - 1));
@@ -102,29 +102,29 @@ export function useTriageStore() {
     setIsTriaging(false);
   }
 
-  function getTaskStatus(clickupTaskId: string): TriageStatus | null {
-    return triageMap().get(clickupTaskId) ?? null;
+  function getTaskStatus(taskId: string): TriageStatus | null {
+    return triageMap().get(taskId) ?? null;
   }
 
-  function getTasksByStatus(status: TriageStatus, allTasks: UnscheduledTask[]): UnscheduledTask[] {
+  function getTasksByStatus(status: TriageStatus, allTasks: Task[]): Task[] {
     const map = triageMap();
-    return allTasks.filter((t) => map.get(t.clickupTaskId) === status);
+    return allTasks.filter((t) => map.get(t.id) === status);
   }
 
-  function getUntriagedTasks(allTasks: UnscheduledTask[]): UnscheduledTask[] {
+  function getUntriagedTasks(allTasks: Task[]): Task[] {
     const map = triageMap();
-    return allTasks.filter((t) => !map.has(t.clickupTaskId));
+    return allTasks.filter((t) => !map.has(t.id));
   }
 
-  async function moveTask(clickupTaskId: string, newStatus: TriageStatus) {
+  async function moveTask(taskId: string, newStatus: TriageStatus) {
     // Update local map immediately
     setTriageMap((prev) => {
       const next = new Map(prev);
-      next.set(clickupTaskId, newStatus);
+      next.set(taskId, newStatus);
       return next;
     });
     // Persist to API
-    await api.post("/triage", { clickupTaskId, triageStatus: newStatus });
+    await api.post("/triage", { taskId, triageStatus: newStatus });
   }
 
   return {

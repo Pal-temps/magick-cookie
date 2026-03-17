@@ -1,7 +1,7 @@
 import { For, Show, createMemo } from "solid-js";
-import { useCalendarStore } from "../../../application/stores/calendarStore";
+import { useTaskStore } from "../../../application/stores/taskStore";
 import { useTriageStore, type TriageStatus } from "../../../application/stores/triageStore";
-import type { UnscheduledTask } from "../../../domain/models/ClickUpTask";
+import type { Task } from "../../../domain/models/Task";
 
 function priorityColor(priority: string | null): string | null {
   switch (priority) {
@@ -20,17 +20,17 @@ const TRIAGE_GROUPS: { status: TriageStatus | null; label: string; color: string
 ];
 
 export function UnscheduledTasks() {
-  const { unscheduledTasks, openTaskDetail } = useCalendarStore();
+  const { tasks: unscheduledTasks, openTaskDetail } = useTaskStore();
   const triage = useTriageStore();
 
   const grouped = createMemo(() => {
-    const tasks = unscheduledTasks();
+    const allTasks = unscheduledTasks();
     const map = triage.triageMap();
 
     return TRIAGE_GROUPS.map((group) => ({
       ...group,
-      tasks: tasks.filter((t) => {
-        const s = map.get(t.clickupTaskId) ?? null;
+      tasks: allTasks.filter((t) => {
+        const s = map.get(t.id) ?? null;
         return s === group.status;
       }),
     })).filter((g) => g.tasks.length > 0);
@@ -90,12 +90,13 @@ export function UnscheduledTasks() {
   );
 }
 
-function TaskItem(props: { task: UnscheduledTask; onClick: () => void }) {
+function TaskItem(props: { task: Task; onClick: () => void }) {
   const pColor = () => priorityColor(props.task.priority);
 
   function handleDragStart(e: DragEvent) {
     const t = props.task;
-    const md = `- [${t.name}](${t.url}) — *${t.status}* (${t.listName})`;
+    const label = t.labels[0] ?? "";
+    const md = `- [${t.title}](${t.url ?? ""}) — *${t.status}* (${label})`;
     e.dataTransfer!.setData("application/x-magick-cookie", JSON.stringify({ type: "task", markdown: md }));
     e.dataTransfer!.setData("text/plain", md);
     e.dataTransfer!.effectAllowed = "copy";
@@ -138,7 +139,7 @@ function TaskItem(props: { task: UnscheduledTask; onClick: () => void }) {
           "text-overflow": "ellipsis",
           "white-space": "nowrap",
         }}>
-          {props.task.name}
+          {props.task.title}
         </div>
         <div style={{ display: "flex", "align-items": "center", gap: "6px", "margin-top": "1px" }}>
           <span style={{
@@ -157,7 +158,7 @@ function TaskItem(props: { task: UnscheduledTask; onClick: () => void }) {
             "text-overflow": "ellipsis",
             "white-space": "nowrap",
           }}>
-            {props.task.listName}
+            {props.task.labels[0] ?? ""}
           </span>
         </div>
       </div>

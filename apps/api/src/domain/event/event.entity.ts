@@ -8,7 +8,7 @@ export interface CalendarEvent {
   endAt: Date;
   isAllDay: boolean;
   recurrenceRule: string | null;
-  clickupTaskId: string | null;
+  taskId: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -22,7 +22,7 @@ export interface CreateEventInput {
   endAt: Date;
   isAllDay?: boolean;
   recurrenceRule?: string | null;
-  clickupTaskId?: string | null;
+  taskId?: string | null;
 }
 
 export interface UpdateEventInput {

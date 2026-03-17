@@ -1,8 +1,7 @@
 import type { ClickUpApiClient } from "../../infrastructure/connectors/clickup-api.client";
 import type { CalendarService } from "../calendar/calendar.service";
 import type { EventRepository } from "../../domain/event/event.repository";
-import type { ClickUpConnectorRepository } from "../../domain/connector/clickup.repository";
-import type { ClickUpTask } from "../../domain/connector/clickup.entity";
+import type { TaskRepository } from "../../domain/task/task.repository";
 import type { Calendar } from "../../domain/calendar/calendar.entity";
 
 const CLICKUP_CALENDAR_NAME = "ClickUp";
@@ -13,75 +12,78 @@ export class ClickUpSyncService {
     private clickUpClient: ClickUpApiClient,
     private calendarService: CalendarService,
     private eventRepo: EventRepository,
-    private connectorRepo: ClickUpConnectorRepository,
+    private taskRepo: TaskRepository,
   ) {}
 
-  async sync(): Promise<{ eventsCreated: number; eventsUpdated: number; unscheduledCount: number }> {
+  async sync(): Promise<{ eventsCreated: number; eventsUpdated: number; tasksUpserted: number }> {
     // 1. Fetch all tasks from ClickUp
     const allTasks = await this.clickUpClient.fetchAllTasks();
 
     // 2. Ensure ClickUp calendar exists
     const calendar = await this.ensureClickUpCalendar();
 
-    // 3. Split tasks
-    const withDueDate = allTasks.filter((t) => t.dueDate !== null);
-    const withoutDueDate = allTasks.filter((t) => t.dueDate === null);
-
-    // 4. Sync tasks with due dates as events
+    // 3. Upsert ALL tasks into the tasks table
+    const allExternalIds: string[] = [];
     let eventsCreated = 0;
     let eventsUpdated = 0;
 
-    for (const task of withDueDate) {
-      const existing = await this.eventRepo.findByClickUpTaskId(task.id);
-      const description = this.buildEventDescription(task);
-      const { startAt, endAt } = this.computeEventTimes(task);
+    for (const task of allTasks) {
+      allExternalIds.push(task.id);
 
-      if (existing) {
-        await this.eventRepo.update(existing.id, {
-          title: task.name,
-          description,
-          location: task.url,
-          startAt,
-          endAt,
-        });
-        eventsUpdated++;
-      } else {
-        await this.eventRepo.create({
-          calendarId: calendar.id,
-          title: task.name,
-          description,
-          location: task.url,
-          startAt,
-          endAt,
-          isAllDay: false,
-          clickupTaskId: task.id,
-        });
-        eventsCreated++;
+      // Upsert the task
+      const localTask = await this.taskRepo.upsertByExternalId({
+        externalId: task.id,
+        source: "clickup",
+        title: task.name,
+        description: task.description,
+        status: task.status,
+        priority: task.priority,
+        url: task.url,
+        labels: [task.listName],
+        assignees: task.assignees,
+        dueDate: task.dueDate,
+        startDate: task.startDate,
+        metadata: { spaceName: task.spaceName, listName: task.listName },
+      });
+
+      // 4. Sync tasks with due dates as events
+      if (task.dueDate) {
+        const existing = await this.eventRepo.findByTaskId(localTask.id);
+        const description = this.buildEventDescription(task);
+        const { startAt, endAt } = this.computeEventTimes(task);
+
+        if (existing) {
+          await this.eventRepo.update(existing.id, {
+            title: task.name,
+            description,
+            location: task.url,
+            startAt,
+            endAt,
+          });
+          eventsUpdated++;
+        } else {
+          await this.eventRepo.create({
+            calendarId: calendar.id,
+            title: task.name,
+            description,
+            location: task.url,
+            startAt,
+            endAt,
+            isAllDay: false,
+            taskId: localTask.id,
+          });
+          eventsCreated++;
+        }
       }
     }
 
-    // 5. Upsert unscheduled tasks
-    for (const task of withoutDueDate) {
-      await this.connectorRepo.upsertUnscheduledTask({
-        clickupTaskId: task.id,
-        name: task.name,
-        description: task.description,
-        status: task.status,
-        url: task.url,
-        listName: task.listName,
-        priority: task.priority,
-        assignees: task.assignees,
-      });
-    }
-
-    // 6. Clean up stale unscheduled tasks
-    const currentUnscheduledIds = withoutDueDate.map((t) => t.id);
-    await this.connectorRepo.deleteUnscheduledTasksNotIn(currentUnscheduledIds);
+    // 5. Clean up stale tasks from ClickUp source
+    await this.taskRepo.deleteNotInExternalIds("clickup", allExternalIds);
 
     return {
       eventsCreated,
       eventsUpdated,
-      unscheduledCount: withoutDueDate.length,
+      tasksUpserted: allTasks.length,
     };
   }
 
@@ -98,11 +100,11 @@ export class ClickUpSyncService {
     });
   }
 
-  private buildEventDescription(task: ClickUpTask): string {
+  private buildEventDescription(task: { status: string; listName: string; url: string; description: string | null }): string {
     return `[${task.status}] ${task.listName}\n${task.url}\n\n${task.description || ""}`;
   }
 
-  private computeEventTimes(task: ClickUpTask): { startAt: Date; endAt: Date } {
+  private computeEventTimes(task: { dueDate: Date | null; startDate: Date | null }): { startAt: Date; endAt: Date } {
     const endAt = task.dueDate!;
 
     if (task.startDate) {
