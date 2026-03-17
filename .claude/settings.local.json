@@ -115,7 +115,13 @@
       "Bash(ls:*)",
       "Bash(C:/Users/bumbl/Documents/Perso/do-it-now/apps/desktop/node_modules/.bin/tsc --noEmit --project C:/Users/bumbl/Documents/Perso/do-it-now/apps/desktop/tsconfig.json 2>&1 | grep -v \"bun:test\" | head -20)",
       "Bash(C:/Users/bumbl/Documents/Perso/do-it-now/apps/desktop/node_modules/.bin/tsc --noEmit --project C:/Users/bumbl/Documents/Perso/do-it-now/apps/desktop/tsconfig.json 2>&1 | grep -v \"bun:test\" | head -20+)",
-      "Bash(bun:*)"
+      "Bash(bun:*)",
+      "Bash(git push:*)",
+      "Bash(xargs grep:*)",
+      "Bash(./node_modules/.bin/tsc --noEmit)",
+      "Bash(cargo \")",
+      "Bash(cargo check:*)",
+      "Bash(grep -r \"clickup_task_id\\\\|clickup_unscheduled_tasks\" /c/Users/bumbl/Documents/Perso/magick-cookie/apps/api/src --include=*.ts)"
     ]
   }
 }
