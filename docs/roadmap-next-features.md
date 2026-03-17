@@ -6,9 +6,9 @@
 |---|---------|----------|------------|--------|
 | 1 | Dashboard Analytics | Haute | Moyenne | ✅ Done (overview, streak, widgets, AnalyticsWidget, StatsView) |
 | 2 | Weekly Review | Haute | Moyenne | ✅ Done (API weekly-review + WeeklyReview UI + deltas) |
-| 3 | Raccourcis clavier Email | Moyenne | Faible | ❌ A faire |
+| 3 | Raccourcis clavier Email | Moyenne | Faible | ✅ Done (j/k/Enter/Escape/e/s/r/Delete + g+i/g+s chords) |
 | 4 | Integration LLM local | Haute | Haute | ✅ Done (Ollama/LM Studio/OpenAI adapters, LlmSettings UI) |
-| 5 | Resume email par IA | Moyenne | Faible | ❌ A faire |
+| 5 | Resume email par IA | Moyenne | Faible | ✅ Done (summarize dans EmailDetail + EmailDigest hebdo) |
 
 ---
 
@@ -122,9 +122,9 @@ Navigation et actions rapides dans la vue email, style Gmail.
 
 ### Phases
 
-- [ ] Phase 1 : j/k navigation + Enter/Escape
-- [ ] Phase 2 : Actions e/s/r/# sur email focused
-- [ ] Phase 3 : Sequences g+i, g+s
+- [x] Phase 1 : j/k navigation + Enter/Escape
+- [x] Phase 2 : Actions e/s/r/Delete sur email selectionne
+- [x] Phase 3 : Sequences g+i, g+s (chord avec timeout 500ms)
 
 ---
 
@@ -227,8 +227,8 @@ Bouton "Resumer" dans `EmailDetail` qui envoie le contenu de l'email au LLM loca
 
 ### Phases
 
-- [ ] Phase 1 : Route API + integration LlmService
-- [ ] Phase 2 : UI bouton + affichage resume
+- [x] Phase 1 : Route API + integration LlmService (summarizeEmail dans emailStore)
+- [x] Phase 2 : UI bouton + affichage resume (EmailDetail + EmailDigest)
 - [ ] Phase 3 : Cache du resume en DB (colonne `summary` dans `emails`)
 - [ ] Phase 4 : Classification auto (newsletter, facture, action requise)
 
@@ -240,10 +240,14 @@ Bouton "Resumer" dans `EmailDetail` qui envoie le contenu de l'email au LLM loca
 1. ✅ Dashboard Analytics (Phase 1-4) — DONE
 2. ✅ Weekly Review (Phase 1-3)       — DONE
 3. ✅ Integration LLM local (Phase 1-3) — DONE
-4. Raccourcis clavier Email           ← prochain, rapide, QoL
-5. Resume email par IA               ← reutilise LLM existant
-6. Weekly Review Phase 4              ← resume narratif LLM
-7. LLM Phase 4                       ← methodes specialisees
+4. ✅ Raccourcis clavier Email (Phase 1-3) — DONE
+5. ✅ Resume email par IA (Phase 1-2) — DONE
+
+Restant :
+6. Resume email Phase 3 : cache summary en DB
+7. Resume email Phase 4 : classification auto
+8. Weekly Review Phase 4 : resume narratif LLM
+9. LLM Phase 4 : methodes specialisees (summarize, classify)
 ```
 
 ---

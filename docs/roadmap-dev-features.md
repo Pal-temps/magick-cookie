@@ -66,7 +66,7 @@ Organise en sprints de complexite croissante. Chaque sprint est independant mais
 | # | Feature | Statut | Notes |
 |---|---------|--------|-------|
 | 15 | GitHub PR watcher | ✅ Done | GitHubWidget + GitHubSettings |
-| 16 | Resume hebdo email | ❌ A faire | LLM + email digest |
+| 16 | Resume hebdo email | ✅ Done | EmailDigest + store summarize |
 | 17 | Clipboard history | ✅ Done | clipboardStore + command palette clip: |
 | 18 | Vue timesheet (Time Tracking phase 4) | ✅ Done | TimesheetView avec ISO weeks |
 
@@ -554,11 +554,8 @@ Organise en sprints de complexite croissante. Chaque sprint est independant mais
 
 ```
 Prochain :
-  3. Raccourcis clavier Email (roadmap-next-features #3)  ← rapide, QoL
-  5. Resume email par IA (roadmap-next-features #5)       ← reutilise LLM existant
   10. Git activity scan (Brief phase 3)                   ← enrichit le brief
   13. Auto-triage suggestions                             ← LLM + triage
-  16. Resume hebdo email                                  ← LLM + email digest
   19. Wiki-links dans les notes                           ← parser + autocomplete
 ```
 
@@ -571,9 +568,9 @@ Prochain :
 | 1 | 3 | ✅ 3/3 done |
 | 2 | 3 | ✅ 3/3 done |
 | 3 | 5 | 3/5 done (reste: git scan, auto-triage) |
-| 4 | 4 | 3/4 done (reste: resume hebdo email) |
+| 4 | 4 | ✅ 4/4 done |
 | 5 | 2 | 1/2 done (reste: wiki-links) |
-| **Total** | **17** | **13/17 done — 4 restantes** |
+| **Total** | **17** | **15/17 done — 2 restantes** (+ git scan, auto-triage) |
 
 ---
 
