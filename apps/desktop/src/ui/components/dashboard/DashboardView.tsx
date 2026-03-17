@@ -8,7 +8,12 @@ import { FruitVegTracker } from "./FruitVegTracker";
 import { StatsView } from "./StatsView";
 import { DogWalkWidget } from "./DogWalkWidget";
 import { AnalyticsWidget } from "./AnalyticsWidget";
+import { GitHubWidget } from "./GitHubWidget";
+import { StreakWidget } from "./StreakWidget";
 import { WeeklyReview } from "./WeeklyReview";
+import { BriefView } from "./BriefView";
+import { PatternsView } from "./PatternsView";
+import { TimesheetView } from "./TimesheetView";
 import { Button } from "../common/Button";
 import "../../styles/dashboard.css";
 
@@ -26,6 +31,8 @@ const ALL_WIDGETS: WidgetDef[] = [
   { id: "dog-walk", label: "Balade", component: DogWalkWidget },
   { id: "today-events", label: "Evenements", component: TodayEvents },
   { id: "wellness", label: "Bien-etre", component: WellnessStatus },
+  { id: "streak", label: "Streak", component: StreakWidget },
+  { id: "github-prs", label: "GitHub PRs", component: GitHubWidget },
   { id: "analytics", label: "Vue d'ensemble", component: AnalyticsWidget },
 ];
 
@@ -52,6 +59,9 @@ function saveOrder(ids: string[]) {
 export function DashboardView() {
   const [showStats, setShowStats] = createSignal(false);
   const [showWeeklyReview, setShowWeeklyReview] = createSignal(false);
+  const [showBrief, setShowBrief] = createSignal(false);
+  const [showPatterns, setShowPatterns] = createSignal(false);
+  const [showTimesheet, setShowTimesheet] = createSignal(false);
   const [order, setOrder] = createSignal<string[]>(loadOrder());
   const [draggedId, setDraggedId] = createSignal<string | null>(null);
   const [dropTargetId, setDropTargetId] = createSignal<string | null>(null);
@@ -127,6 +137,9 @@ export function DashboardView() {
   }
 
   return (
+    <Show when={!showTimesheet()} fallback={<TimesheetView onClose={() => setShowTimesheet(false)} />}>
+    <Show when={!showPatterns()} fallback={<PatternsView onClose={() => setShowPatterns(false)} />}>
+    <Show when={!showBrief()} fallback={<BriefView onClose={() => setShowBrief(false)} />}>
     <Show when={!showWeeklyReview()} fallback={<WeeklyReview onClose={() => setShowWeeklyReview(false)} />}>
     <Show when={!showStats()} fallback={<StatsView onClose={() => setShowStats(false)} />}>
       <div class="dashboard-container" style={{ height: "100%" }}>
@@ -142,11 +155,20 @@ export function DashboardView() {
               {today()}
             </h2>
             <div style={{ display: "flex", gap: "6px" }}>
+              <Button variant="secondary" size="sm" onClick={() => setShowBrief(true)}>
+                Brief
+              </Button>
               <Button variant="secondary" size="sm" onClick={() => setShowWeeklyReview(true)}>
                 Bilan hebdo
               </Button>
               <Button variant="secondary" size="sm" onClick={() => setShowStats(true)}>
                 Statistiques
+              </Button>
+              <Button variant="secondary" size="sm" onClick={() => setShowPatterns(true)}>
+                Patterns
+              </Button>
+              <Button variant="secondary" size="sm" onClick={() => setShowTimesheet(true)}>
+                Timesheet
               </Button>
             </div>
           </div>
@@ -176,6 +198,9 @@ export function DashboardView() {
           </div>
         </div>
       </div>
+    </Show>
+    </Show>
+    </Show>
     </Show>
     </Show>
   );
