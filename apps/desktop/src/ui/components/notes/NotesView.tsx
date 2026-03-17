@@ -3,6 +3,7 @@ import { useNotesStore, type NoteEntry, type TreeNode } from "../../../applicati
 import { useThemeStore } from "../../../application/stores/themeStore";
 import { mountExcalidraw, type ExcalidrawHandle } from "../drawings/excalidrawMount";
 import { Button } from "../common/Button";
+import { CookieLoader } from "../common/CookieLoader";
 import { ConfirmDialog, requestConfirm } from "../common/ConfirmDialog";
 import "../../styles/notes.css";
 
@@ -25,6 +26,16 @@ export function NotesView() {
   const [copied, setCopied] = createSignal(false);
   const [isLoadingExcalidraw, setIsLoadingExcalidraw] = createSignal(false);
   const [sidebarOpen, setSidebarOpen] = createSignal(false);
+
+  // ─── Wiki-link autocomplete state ───
+  const [wikiQuery, setWikiQuery] = createSignal<string | null>(null);
+  const [wikiSuggestions, setWikiSuggestions] = createSignal<NoteEntry[]>([]);
+  const [wikiSelectedIdx, setWikiSelectedIdx] = createSignal(0);
+  const [wikiPopupPos, setWikiPopupPos] = createSignal<{ top: number; left: number } | null>(null);
+  let textareaRef: HTMLTextAreaElement | undefined;
+
+  // ─── Backlinks state ───
+  const [backlinks, setBacklinks] = createSignal<NoteEntry[]>([]);
 
   const [ctxMenu, setCtxMenu] = createSignal<ContextMenuState | null>(null);
 
@@ -83,6 +94,171 @@ export function NotesView() {
       .then((h) => { excalidrawHandle = h; setIsLoadingExcalidraw(false); })
       .catch(() => setIsLoadingExcalidraw(false));
   });
+
+  // ─── Backlinks: scan all notes when active file changes ───
+  createEffect(async () => {
+    const currentFile = store.activeFile();
+    if (!currentFile || store.activeFileType() !== "md") {
+      setBacklinks([]);
+      return;
+    }
+    // Derive the note name (without extension and path) for matching [[name]]
+    const currentName = noteNameFromPath(currentFile);
+    const allMdFiles = store.allFiles().filter((f) => f.type === "md" && f.path !== currentFile);
+    const found: NoteEntry[] = [];
+    const wikiLinkPattern = /\[\[([^\]]+)\]\]/g;
+    for (const file of allMdFiles) {
+      try {
+        const content = await store.readNoteContent(file.path);
+        let match: RegExpExecArray | null;
+        wikiLinkPattern.lastIndex = 0;
+        while ((match = wikiLinkPattern.exec(content)) !== null) {
+          const linkName = match[1].trim().toLowerCase();
+          if (linkName === currentName.toLowerCase()) {
+            found.push(file);
+            break;
+          }
+        }
+      } catch { /* skip unreadable */ }
+    }
+    setBacklinks(found);
+  });
+
+  // ─── Wiki-link autocomplete helpers ───
+  function detectWikiLink(textarea: HTMLTextAreaElement): { query: string; start: number } | null {
+    const pos = textarea.selectionStart;
+    const text = textarea.value.slice(0, pos);
+    // Find last [[ that doesn't have a closing ]]
+    const lastOpen = text.lastIndexOf("[[");
+    if (lastOpen === -1) return null;
+    const afterOpen = text.slice(lastOpen + 2);
+    if (afterOpen.includes("]]")) return null;
+    // No newlines in wiki-link query
+    if (afterOpen.includes("\n")) return null;
+    return { query: afterOpen, start: lastOpen };
+  }
+
+  function updateWikiSuggestions(query: string) {
+    const q = query.toLowerCase();
+    const allMd = store.allFiles().filter((f) => f.type === "md");
+    if (!q) {
+      setWikiSuggestions(allMd.slice(0, 10));
+    } else {
+      setWikiSuggestions(allMd.filter((f) => noteNameFromPath(f.path).toLowerCase().includes(q)).slice(0, 10));
+    }
+    setWikiSelectedIdx(0);
+  }
+
+  function getTextareaCaretPosition(textarea: HTMLTextAreaElement): { top: number; left: number } {
+    // Create a mirror div to measure caret position
+    const div = document.createElement("div");
+    const style = window.getComputedStyle(textarea);
+    const props = ["font-family", "font-size", "font-weight", "line-height", "padding-top", "padding-left", "padding-right", "border-width", "box-sizing", "letter-spacing", "word-spacing", "text-indent", "white-space", "overflow-wrap", "tab-size"];
+    div.style.position = "absolute";
+    div.style.visibility = "hidden";
+    div.style.whiteSpace = "pre-wrap";
+    div.style.wordWrap = "break-word";
+    div.style.width = style.width;
+    for (const p of props) div.style.setProperty(p, style.getPropertyValue(p));
+    const text = textarea.value.slice(0, textarea.selectionStart);
+    div.textContent = text;
+    const span = document.createElement("span");
+    span.textContent = "|";
+    div.appendChild(span);
+    document.body.appendChild(div);
+    const rect = textarea.getBoundingClientRect();
+    const spanRect = span.getBoundingClientRect();
+    const divRect = div.getBoundingClientRect();
+    const top = rect.top + (spanRect.top - divRect.top) - textarea.scrollTop;
+    const left = rect.left + (spanRect.left - divRect.left) - textarea.scrollLeft;
+    document.body.removeChild(div);
+    return { top: Math.min(top + 20, rect.bottom - 10), left: Math.min(left, rect.right - 200) };
+  }
+
+  function handleTextareaInput(e: InputEvent & { currentTarget: HTMLTextAreaElement }) {
+    store.updateContent(e.currentTarget.value);
+    const result = detectWikiLink(e.currentTarget);
+    if (result) {
+      setWikiQuery(result.query);
+      updateWikiSuggestions(result.query);
+      setWikiPopupPos(getTextareaCaretPosition(e.currentTarget));
+    } else {
+      closeWikiPopup();
+    }
+  }
+
+  function handleTextareaKeyDown(e: KeyboardEvent) {
+    if (wikiQuery() !== null && wikiSuggestions().length > 0) {
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setWikiSelectedIdx((i) => Math.min(i + 1, wikiSuggestions().length - 1));
+        return;
+      }
+      if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setWikiSelectedIdx((i) => Math.max(i - 1, 0));
+        return;
+      }
+      if (e.key === "Enter" || e.key === "Tab") {
+        const selected = wikiSuggestions()[wikiSelectedIdx()];
+        if (selected) {
+          e.preventDefault();
+          insertWikiLink(selected);
+          return;
+        }
+      }
+      if (e.key === "Escape") {
+        e.preventDefault();
+        closeWikiPopup();
+        return;
+      }
+    }
+    // Existing Ctrl+S handling is on the parent div
+  }
+
+  function insertWikiLink(note: NoteEntry) {
+    if (!textareaRef) return;
+    const textarea = textareaRef;
+    const result = detectWikiLink(textarea);
+    if (!result) return;
+    const name = noteNameFromPath(note.path);
+    const before = textarea.value.slice(0, result.start);
+    const after = textarea.value.slice(textarea.selectionStart);
+    const insert = `[[${name}]]`;
+    const newContent = before + insert + after;
+    store.updateContent(newContent);
+    closeWikiPopup();
+    // Set cursor position after the inserted link
+    requestAnimationFrame(() => {
+      const pos = before.length + insert.length;
+      textarea.selectionStart = textarea.selectionEnd = pos;
+      textarea.focus();
+    });
+  }
+
+  function closeWikiPopup() {
+    setWikiQuery(null);
+    setWikiSuggestions([]);
+    setWikiPopupPos(null);
+  }
+
+  function handleWikiLinkNavigate(name: string) {
+    const allMd = store.allFiles().filter((f) => f.type === "md");
+    const target = allMd.find((f) => noteNameFromPath(f.path).toLowerCase() === name.toLowerCase());
+    if (target) {
+      store.openFile(target.path);
+      setSidebarOpen(false);
+    }
+  }
+
+  function handlePreviewClick(e: MouseEvent) {
+    const target = e.target as HTMLElement;
+    if (target.hasAttribute("data-wiki-link")) {
+      e.preventDefault();
+      const name = target.getAttribute("data-wiki-link")!;
+      handleWikiLinkNavigate(name);
+    }
+  }
 
   // ─── Settings ───
   async function handleSaveSettings() {
@@ -497,6 +673,44 @@ export function NotesView() {
     );
   }
 
+  // ─── Backlinks Component ───
+  function BacklinksSection() {
+    return (
+      <div style={{
+        "border-top": "1px solid var(--border-color)",
+        padding: "12px 20px",
+        "flex-shrink": "0",
+        background: "var(--bg-elevated)",
+      }}>
+        <div style={{ "font-size": "11px", "font-weight": "600", color: "var(--text-secondary)", "margin-bottom": "8px", "text-transform": "uppercase", "letter-spacing": "0.5px" }}>
+          Backlinks ({backlinks().length})
+        </div>
+        <div style={{ display: "flex", "flex-direction": "column", gap: "4px" }}>
+          <For each={backlinks()}>
+            {(note) => (
+              <div
+                onClick={() => { store.openFile(note.path); setSidebarOpen(false); }}
+                style={{
+                  "font-size": "12px",
+                  color: "var(--accent-primary)",
+                  cursor: "pointer",
+                  padding: "3px 6px",
+                  "border-radius": "var(--radius-sm)",
+                  transition: "background 0.1s",
+                }}
+                onMouseEnter={(e) => (e.currentTarget as HTMLElement).style.background = "var(--bg-surface)"}
+                onMouseLeave={(e) => (e.currentTarget as HTMLElement).style.background = "transparent"}
+              >
+                {noteNameFromPath(note.path)}
+                <span style={{ "font-size": "10px", color: "var(--text-muted)", "margin-left": "8px" }}>{note.path}</span>
+              </div>
+            )}
+          </For>
+        </div>
+      </div>
+    );
+  }
+
   // ─── Main View ───
   return (
     <Show when={!showSettings()} fallback={<SettingsPanel />}>
@@ -598,20 +812,88 @@ export function NotesView() {
           }>
             <Show when={store.activeFileType() === "md"}>
               <Show when={store.isPreview()} fallback={
-                <textarea
-                  class="notes-textarea"
-                  value={store.noteContent()} onInput={(e) => store.updateContent(e.currentTarget.value)}
-                  onDragOver={handleEditorDragOver} onDrop={handleEditorDrop}
-                  spellcheck={false}
-                />
+                <div style={{ flex: "1", display: "flex", "flex-direction": "column", position: "relative", overflow: "hidden" }}>
+                  <textarea
+                    ref={(el) => { textareaRef = el; }}
+                    class="notes-textarea"
+                    value={store.noteContent()}
+                    onInput={handleTextareaInput}
+                    onKeyDown={handleTextareaKeyDown}
+                    onDragOver={handleEditorDragOver}
+                    onDrop={handleEditorDrop}
+                    spellcheck={false}
+                    onClick={() => {
+                      if (textareaRef) {
+                        const result = detectWikiLink(textareaRef);
+                        if (!result) closeWikiPopup();
+                      }
+                    }}
+                  />
+                  {/* Wiki-link autocomplete popup */}
+                  <Show when={wikiQuery() !== null && wikiPopupPos()}>
+                    <div style={{
+                      position: "fixed",
+                      top: `${wikiPopupPos()!.top}px`,
+                      left: `${wikiPopupPos()!.left}px`,
+                      "min-width": "200px",
+                      "max-width": "320px",
+                      "max-height": "200px",
+                      "overflow-y": "auto",
+                      background: "var(--bg-surface)",
+                      border: "1px solid var(--border-color)",
+                      "border-radius": "var(--radius-md)",
+                      "box-shadow": "0 4px 16px rgba(0,0,0,0.3)",
+                      "z-index": "1000",
+                      padding: "4px 0",
+                    }}>
+                      <Show when={wikiSuggestions().length > 0} fallback={
+                        <div style={{ padding: "8px 12px", "font-size": "12px", color: "var(--text-muted)" }}>Aucune note trouvee</div>
+                      }>
+                        <For each={wikiSuggestions()}>
+                          {(note, idx) => (
+                            <div
+                              onClick={() => insertWikiLink(note)}
+                              onMouseEnter={() => setWikiSelectedIdx(idx())}
+                              style={{
+                                padding: "6px 12px",
+                                "font-size": "12px",
+                                cursor: "pointer",
+                                background: idx() === wikiSelectedIdx() ? "var(--accent-primary)" : "transparent",
+                                color: idx() === wikiSelectedIdx() ? "#fff" : "var(--text-primary)",
+                                display: "flex",
+                                "flex-direction": "column",
+                                gap: "1px",
+                              }}
+                            >
+                              <span style={{ "font-weight": "500" }}>{noteNameFromPath(note.path)}</span>
+                              <span style={{ "font-size": "10px", opacity: "0.7" }}>{note.path}</span>
+                            </div>
+                          )}
+                        </For>
+                      </Show>
+                    </div>
+                  </Show>
+                  {/* Backlinks section in edit mode */}
+                  <Show when={backlinks().length > 0}>
+                    <BacklinksSection />
+                  </Show>
+                </div>
               }>
-                <div class="notes-preview" innerHTML={renderMarkdown(store.noteContent())} />
+                <div style={{ flex: "1", display: "flex", "flex-direction": "column", overflow: "hidden" }}>
+                  <div class="notes-preview" innerHTML={renderMarkdown(store.noteContent(), store.allFiles())} onClick={handlePreviewClick} style={{ flex: "1", "overflow-y": "auto" }} />
+                  {/* Backlinks section in preview mode */}
+                  <Show when={backlinks().length > 0}>
+                    <BacklinksSection />
+                  </Show>
+                </div>
               </Show>
             </Show>
             <Show when={store.activeFileType() === "excalidraw"}>
               <div style={{ flex: "1", position: "relative", overflow: "hidden" }}>
                 <Show when={isLoadingExcalidraw()}>
-                  <div style={{ position: "absolute", inset: "0", display: "flex", "align-items": "center", "justify-content": "center", background: "var(--bg-base)", "z-index": "10", color: "var(--text-muted)", "font-size": "14px" }}>Chargement d'Excalidraw...</div>
+                  <div style={{ position: "absolute", inset: "0", display: "flex", "align-items": "center", "justify-content": "center", background: "var(--bg-base)", "z-index": "10" }}>
+                    <CookieLoader message="Chargement d'Excalidraw..." />
+                  </div>
                 </Show>
                 <div ref={setEditorContainer} style={{ width: "100%", height: "100%" }} />
               </div>
@@ -637,7 +919,7 @@ function inputStyle(): Record<string, string> {
   return { padding: "6px 10px", "border-radius": "var(--radius-md)", border: "1px solid var(--border-color)", background: "var(--bg-base)", color: "var(--text-primary)", "font-size": "13px", outline: "none" };
 }
 
-function renderMarkdown(text: string): string {
+function renderMarkdown(text: string, allFiles?: NoteEntry[]): string {
   let html = escapeHtml(text);
   html = html.replace(/```(\w*)\n([\s\S]*?)```/g, '<pre style="background:var(--bg-elevated);padding:12px;border-radius:var(--radius-md);overflow-x:auto;font-size:12px"><code>$2</code></pre>');
   html = html.replace(/`([^`]+)`/g, '<code style="background:var(--bg-elevated);padding:1px 4px;border-radius:3px;font-size:12px">$1</code>');
@@ -646,6 +928,15 @@ function renderMarkdown(text: string): string {
   html = html.replace(/^# (.+)$/gm, '<h1 style="font-size:22px;font-weight:700;margin:16px 0 8px">$1</h1>');
   html = html.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
   html = html.replace(/\*(.+?)\*/g, "<em>$1</em>");
+  // Wiki-links: [[note name]] → clickable link (must run before standard markdown links)
+  html = html.replace(/\[\[([^\]]+)\]\]/g, (_match, name: string) => {
+    const trimmed = name.trim();
+    const exists = allFiles ? allFiles.some((f) => f.type === "md" && noteNameFromPath(f.path).toLowerCase() === trimmed.toLowerCase()) : true;
+    if (exists) {
+      return `<span data-wiki-link="${escapeHtml(trimmed)}" style="color:var(--accent-primary);cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:2px">${escapeHtml(trimmed)}</span>`;
+    }
+    return `<span data-wiki-link="${escapeHtml(trimmed)}" style="color:var(--cal-red);cursor:pointer;opacity:0.7;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:2px" title="Note introuvable">${escapeHtml(trimmed)}</span>`;
+  });
   html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" style="color:var(--accent-primary)">$1</a>');
   html = html.replace(/^- (.+)$/gm, '<li style="margin-left:20px">$1</li>');
   html = html.replace(/^(\d+)\. (.+)$/gm, '<li style="margin-left:20px;list-style-type:decimal">$2</li>');
@@ -660,4 +951,11 @@ function renderMarkdown(text: string): string {
 
 function escapeHtml(str: string): string {
   return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+/** Extract note display name from path: "folder/My Note.md" → "My Note" */
+function noteNameFromPath(path: string): string {
+  const filename = path.includes("/") ? path.slice(path.lastIndexOf("/") + 1) : path;
+  // Remove .md extension
+  return filename.endsWith(".md") ? filename.slice(0, -3) : filename;
 }

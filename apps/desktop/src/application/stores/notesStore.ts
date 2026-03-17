@@ -351,6 +351,14 @@ export function useNotesStore() {
     return all.filter((n) => n.name.toLowerCase().includes(q) || n.path.toLowerCase().includes(q));
   }
 
+  async function readNoteContent(path: string): Promise<string> {
+    try {
+      return await invoke<string>("notes_read", { path });
+    } catch {
+      return "";
+    }
+  }
+
   return {
     notes, drawings, config, activeFile, activeFileType, noteContent, isDirty, gitStatus, isSyncing,
     isPreview, setIsPreview, searchQuery, setSearchQuery, sshKeyExists,
@@ -358,6 +366,6 @@ export function useNotesStore() {
     loadConfig, saveConfig, fetchNotes, fetchDrawings, fetchAll, allFiles, openFile, updateContent,
     saveCurrentFile, createNote, createDrawing, createFolder, renameFile, deleteFile, deleteFolder,
     refreshGitStatus, gitPull, gitPush, gitSync, filteredFiles,
-    checkSshKey, generateSshKey,
+    checkSshKey, generateSshKey, readNoteContent,
   };
 }
