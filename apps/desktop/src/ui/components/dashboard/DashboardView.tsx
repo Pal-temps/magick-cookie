@@ -7,6 +7,8 @@ import { WaterTracker } from "./WaterTracker";
 import { FruitVegTracker } from "./FruitVegTracker";
 import { StatsView } from "./StatsView";
 import { DogWalkWidget } from "./DogWalkWidget";
+import { AnalyticsWidget } from "./AnalyticsWidget";
+import { WeeklyReview } from "./WeeklyReview";
 import { Button } from "../common/Button";
 import "../../styles/dashboard.css";
 
@@ -24,6 +26,7 @@ const ALL_WIDGETS: WidgetDef[] = [
   { id: "dog-walk", label: "Balade", component: DogWalkWidget },
   { id: "today-events", label: "Evenements", component: TodayEvents },
   { id: "wellness", label: "Bien-etre", component: WellnessStatus },
+  { id: "analytics", label: "Vue d'ensemble", component: AnalyticsWidget },
 ];
 
 const STORAGE_KEY = "magick-cookie-dashboard-order";
@@ -48,6 +51,7 @@ function saveOrder(ids: string[]) {
 
 export function DashboardView() {
   const [showStats, setShowStats] = createSignal(false);
+  const [showWeeklyReview, setShowWeeklyReview] = createSignal(false);
   const [order, setOrder] = createSignal<string[]>(loadOrder());
   const [draggedId, setDraggedId] = createSignal<string | null>(null);
   const [dropTargetId, setDropTargetId] = createSignal<string | null>(null);
@@ -73,7 +77,8 @@ export function DashboardView() {
     e.preventDefault();
 
     const handle = e.currentTarget as HTMLElement;
-    handle.setPointerCapture(e.pointerId);
+    const pointerId = e.pointerId;
+    handle.setPointerCapture(pointerId);
 
     setDraggedId(id);
 
@@ -90,7 +95,7 @@ export function DashboardView() {
       }
     }
 
-    function onPointerUp() {
+    function cleanup() {
       const target = dropTargetId();
       const source = draggedId();
 
@@ -108,15 +113,21 @@ export function DashboardView() {
 
       setDraggedId(null);
       setDropTargetId(null);
+      try { handle.releasePointerCapture(pointerId); } catch {}
       handle.removeEventListener("pointermove", onPointerMove);
-      handle.removeEventListener("pointerup", onPointerUp);
+      handle.removeEventListener("pointerup", cleanup);
+      handle.removeEventListener("pointercancel", cleanup);
+      window.removeEventListener("blur", cleanup);
     }
 
     handle.addEventListener("pointermove", onPointerMove);
-    handle.addEventListener("pointerup", onPointerUp);
+    handle.addEventListener("pointerup", cleanup);
+    handle.addEventListener("pointercancel", cleanup);
+    window.addEventListener("blur", cleanup);
   }
 
   return (
+    <Show when={!showWeeklyReview()} fallback={<WeeklyReview onClose={() => setShowWeeklyReview(false)} />}>
     <Show when={!showStats()} fallback={<StatsView onClose={() => setShowStats(false)} />}>
       <div class="dashboard-container" style={{ height: "100%" }}>
         <div class="dashboard-scroll">
@@ -130,9 +141,14 @@ export function DashboardView() {
             }}>
               {today()}
             </h2>
-            <Button variant="secondary" size="sm" onClick={() => setShowStats(true)}>
-              Statistiques
-            </Button>
+            <div style={{ display: "flex", gap: "6px" }}>
+              <Button variant="secondary" size="sm" onClick={() => setShowWeeklyReview(true)}>
+                Bilan hebdo
+              </Button>
+              <Button variant="secondary" size="sm" onClick={() => setShowStats(true)}>
+                Statistiques
+              </Button>
+            </div>
           </div>
 
           <div class="dashboard-grid">
@@ -160,6 +176,7 @@ export function DashboardView() {
           </div>
         </div>
       </div>
+    </Show>
     </Show>
   );
 }
