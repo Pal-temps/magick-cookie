@@ -6,6 +6,7 @@ import { EventForm } from "./ui/components/events/EventForm";
 import { NotesView } from "./ui/components/notes/NotesView";
 import { TriageView } from "./ui/components/triage/TriageView";
 import { EmailView } from "./ui/components/email/EmailView";
+import { ChatView } from "./ui/components/chat/ChatView";
 import { SettingsView } from "./ui/components/settings/SettingsView";
 import { useCalendarStore } from "./application/stores/calendarStore";
 import { useViewStore } from "./application/stores/viewStore";
@@ -15,19 +16,28 @@ import { useDogWalkStore } from "./application/stores/dogWalkStore";
 import { useDesktopModeStore } from "./application/stores/desktopModeStore";
 import { useTriageStore } from "./application/stores/triageStore";
 import { useTaskStore } from "./application/stores/taskStore";
+import { useCommandStore } from "./application/stores/commandStore";
+import { useClipboardStore } from "./application/stores/clipboardStore";
+import { CommandPalette } from "./ui/components/common/CommandPalette";
+import { FocusOverlay } from "./ui/components/common/FocusOverlay";
+import { QuickCapture } from "./ui/components/capture/QuickCapture";
 import { initNotifications, notify } from "./infrastructure/tauri/notifications";
 import { connectSSE } from "./infrastructure/api/sseClient";
+import { listen } from "@tauri-apps/api/event";
 
 export function App() {
   const { fetchCalendars, fetchEvents, fetchContacts } = useCalendarStore();
   const { syncConnector, fetchTasks } = useTaskStore();
-  const { currentDate, viewMode } = useViewStore();
+  const { currentDate, viewMode, setViewMode } = useViewStore();
   const { fetchConfigs, startAll, stopAll, fetchTodayLogs } = useWellnessStore();
-  const { fetchTodayStats } = useTimerStore();
+  const { fetchTodayStats, timerState, startPomodoro, stop: stopTimer, isFocusMode, toggleFocusMode } = useTimerStore();
   const { fetchActive: fetchActiveWalk } = useDogWalkStore();
-  const { isDesktopMode } = useDesktopModeStore();
+  const { isDesktopMode, toggle: toggleDesktopMode } = useDesktopModeStore();
   const { fetchTriage } = useTriageStore();
+  const { open: openCommandPalette } = useCommandStore();
+  const { init: initClipboard } = useClipboardStore();
   let disconnectSSE: (() => void) | null = null;
+  let unlistenShortcuts: (() => void) | null = null;
 
   function getViewRange(): { from: Date; to: Date } {
     const d = currentDate();
@@ -38,6 +48,7 @@ export function App() {
       case "triage":
       case "notes":
       case "email":
+      case "chat":
       case "settings":
       case "dashboard": {
         const from = new Date(d);
@@ -74,7 +85,19 @@ export function App() {
     }
   }
 
+  function handleGlobalKeydown(e: KeyboardEvent) {
+    if ((e.ctrlKey || e.metaKey) && e.key === "k") {
+      e.preventDefault();
+      openCommandPalette();
+    }
+    if (e.key === "Escape" && isFocusMode()) {
+      toggleFocusMode();
+    }
+  }
+
   onMount(async () => {
+    document.addEventListener("keydown", handleGlobalKeydown);
+    initClipboard();
     await fetchCalendars();
     fetchContacts();
     syncConnector("clickup");
@@ -86,6 +109,25 @@ export function App() {
     await fetchConfigs();
     fetchTodayLogs();
     startAll();
+
+    // Listen for global shortcuts (capture is handled by QuickCapture itself)
+    unlistenShortcuts = await listen<string>("global-shortcut", (event) => {
+      switch (event.payload) {
+        case "timer":
+          if (timerState() === "idle") {
+            startPomodoro();
+          } else {
+            stopTimer();
+          }
+          break;
+        case "brief":
+          setViewMode("triage");
+          break;
+        case "desktop":
+          toggleDesktopMode();
+          break;
+      }
+    });
 
     // Connect SSE for real-time reminder notifications
     disconnectSSE = connectSSE(async (reminder) => {
@@ -104,7 +146,9 @@ export function App() {
   });
 
   onCleanup(() => {
+    document.removeEventListener("keydown", handleGlobalKeydown);
     disconnectSSE?.();
+    unlistenShortcuts?.();
     stopAll();
   });
 
@@ -114,6 +158,10 @@ export function App() {
   });
 
   return (
+    <>
+    <CommandPalette />
+    <FocusOverlay />
+    <QuickCapture />
     <Show when={!isDesktopMode()} fallback={<DesktopWidgets />}>
       <AppLayout>
         <Show when={viewMode() === "notes"}>
@@ -125,14 +173,18 @@ export function App() {
         <Show when={viewMode() === "email"}>
           <EmailView />
         </Show>
+        <Show when={viewMode() === "chat"}>
+          <ChatView />
+        </Show>
         <Show when={viewMode() === "settings"}>
           <SettingsView />
         </Show>
-        <Show when={viewMode() !== "notes" && viewMode() !== "triage" && viewMode() !== "email" && viewMode() !== "settings"}>
+        <Show when={viewMode() !== "notes" && viewMode() !== "triage" && viewMode() !== "email" && viewMode() !== "chat" && viewMode() !== "settings"}>
           <CalendarGrid />
           <EventForm />
         </Show>
       </AppLayout>
     </Show>
+    </>
   );
 }
