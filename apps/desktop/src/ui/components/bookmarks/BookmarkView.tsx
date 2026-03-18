@@ -90,11 +90,24 @@ export function BookmarkView() {
             {bookmarks().length} signet{bookmarks().length !== 1 ? "s" : ""} — {favorites().length} favori{favorites().length !== 1 ? "s" : ""}
           </p>
         </div>
-        <Show when={!creating() && !editing()}>
-          <Button variant="primary" size="sm" onClick={startCreate}>
-            + Nouveau signet
-          </Button>
-        </Show>
+        <div style={{ display: "flex", gap: "6px", "align-items": "center" }}>
+          <button
+            onClick={() => setShowTagSettings(!showTagSettings())}
+            title="Gerer les tags"
+            style={{
+              padding: "6px 8px", "border-radius": "var(--radius-sm)", "font-size": "16px", cursor: "pointer",
+              border: "1px solid var(--border-color)",
+              background: showTagSettings() ? "var(--accent-color)" : "var(--bg-surface)",
+              color: showTagSettings() ? "#fff" : "var(--text-secondary)",
+              "line-height": "1",
+            }}
+          >&#9881;</button>
+          <Show when={!creating() && !editing()}>
+            <Button variant="primary" size="sm" onClick={startCreate}>
+              + Nouveau signet
+            </Button>
+          </Show>
+        </div>
       </div>
 
       {/* Filters */}
@@ -129,17 +142,6 @@ export function BookmarkView() {
               >{t.label}</button>
             )}
           </For>
-          <button
-            onClick={() => setShowTagSettings(!showTagSettings())}
-            title="Gerer les tags"
-            style={{
-              padding: "4px 8px", "border-radius": "var(--radius-sm)", "font-size": "13px", cursor: "pointer",
-              border: "1px solid var(--border-color)",
-              background: showTagSettings() ? "var(--accent-color)" : "var(--bg-surface)",
-              color: showTagSettings() ? "#fff" : "var(--text-secondary)",
-              "line-height": "1",
-            }}
-          >&#9881;</button>
         </div>
       </div>
 
