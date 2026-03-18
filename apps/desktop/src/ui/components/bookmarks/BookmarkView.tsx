@@ -127,10 +127,6 @@ export function BookmarkView() {
           background: "var(--bg-elevated)",
         }}>
           <div style={{ display: "flex", gap: "12px", "margin-bottom": "12px", "flex-wrap": "wrap" }}>
-            <div style={{ flex: "1", "min-width": "150px" }}>
-              <label style={{ display: "block", "font-size": "12px", "font-weight": "500", color: "var(--text-secondary)", "margin-bottom": "4px" }}>Nom</label>
-              <input type="text" value={name()} onInput={(e) => setName(e.currentTarget.value)} placeholder="GitHub" style={inputStyle} />
-            </div>
             <div style={{ width: "100px", "flex-shrink": "0", position: "relative" }}>
               <label style={{ display: "block", "font-size": "12px", "font-weight": "500", color: "var(--text-secondary)", "margin-bottom": "4px" }}>Emoji</label>
               <button
@@ -206,6 +202,10 @@ export function BookmarkView() {
                   </div>
                 </div>
               </Show>
+            </div>
+            <div style={{ flex: "1", "min-width": "150px" }}>
+              <label style={{ display: "block", "font-size": "12px", "font-weight": "500", color: "var(--text-secondary)", "margin-bottom": "4px" }}>Nom</label>
+              <input type="text" value={name()} onInput={(e) => setName(e.currentTarget.value)} placeholder="GitHub" style={inputStyle} />
             </div>
           </div>
           <div style={{ "margin-bottom": "12px" }}>
