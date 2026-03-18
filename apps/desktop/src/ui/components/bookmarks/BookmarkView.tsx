@@ -202,25 +202,31 @@ export function BookmarkView() {
                   </span>
                 </Show>
               </div>
-              <div style={{ display: "flex", gap: "2px", "flex-shrink": "0" }}>
+              <div style={{ display: "flex", gap: "4px", "flex-shrink": "0" }}>
                 <button
                   onClick={(e) => { e.stopPropagation(); toggleFavorite(bookmark.id); }}
                   title={bookmark.isFavorite ? "Retirer des favoris" : "Ajouter aux favoris"}
-                  style={{ background: "none", border: "none", cursor: "pointer", "font-size": "14px", color: bookmark.isFavorite ? "var(--accent-secondary)" : "var(--text-muted)", padding: "4px" }}
+                  style={{ background: "none", border: "none", cursor: "pointer", "font-size": "18px", color: bookmark.isFavorite ? "var(--accent-secondary)" : "var(--text-muted)", padding: "6px", "border-radius": "var(--radius-sm)", transition: "background 0.15s" }}
+                  onMouseEnter={(e) => e.currentTarget.style.background = "var(--bg-elevated)"}
+                  onMouseLeave={(e) => e.currentTarget.style.background = "none"}
                 >
                   {bookmark.isFavorite ? "★" : "☆"}
                 </button>
                 <button
                   onClick={(e) => { e.stopPropagation(); startEdit(bookmark); }}
                   title="Editer"
-                  style={{ background: "none", border: "none", cursor: "pointer", "font-size": "12px", color: "var(--text-muted)", padding: "4px" }}
+                  style={{ background: "none", border: "none", cursor: "pointer", "font-size": "16px", color: "var(--text-muted)", padding: "6px", "border-radius": "var(--radius-sm)", transition: "background 0.15s" }}
+                  onMouseEnter={(e) => e.currentTarget.style.background = "var(--bg-elevated)"}
+                  onMouseLeave={(e) => e.currentTarget.style.background = "none"}
                 >
                   ✎
                 </button>
                 <button
                   onClick={(e) => { e.stopPropagation(); handleDelete(bookmark.id); }}
                   title="Supprimer"
-                  style={{ background: "none", border: "none", cursor: "pointer", "font-size": "12px", color: "var(--text-muted)", padding: "4px" }}
+                  style={{ background: "none", border: "none", cursor: "pointer", "font-size": "16px", color: "var(--text-muted)", padding: "6px", "border-radius": "var(--radius-sm)", transition: "background 0.15s" }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = "var(--bg-elevated)"; e.currentTarget.style.color = "var(--danger-color, #e74c3c)"; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = "none"; e.currentTarget.style.color = "var(--text-muted)"; }}
                 >
                   ✕
                 </button>
