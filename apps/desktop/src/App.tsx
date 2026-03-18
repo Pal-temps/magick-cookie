@@ -62,8 +62,10 @@ export function App() {
       case "chat":
       case "vps":
       case "alarms":
+      case "bookmarks":
       case "settings":
-      case "dashboard": {
+      case "dashboard":
+      default: {
         const from = new Date(d);
         from.setHours(0, 0, 0, 0);
         const to = new Date(d);
