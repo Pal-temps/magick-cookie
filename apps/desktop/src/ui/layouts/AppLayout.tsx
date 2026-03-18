@@ -128,7 +128,7 @@ export function AppLayout(props: AppLayoutProps) {
             <Show when={favorites().length > 0}>
               <CollapsibleSection
                 title="Favoris"
-                defaultOpen={true}
+                defaultOpen={false}
                 badge={
                   <span style={{ "font-size": "10px", color: "var(--text-muted)", background: "var(--bg-elevated)", padding: "1px 6px", "border-radius": "var(--radius-sm)" }}>
                     {favorites().length}
@@ -187,7 +187,7 @@ export function AppLayout(props: AppLayoutProps) {
               <div style={{ height: "1px", background: "var(--border-color)" }} />
             </Show>
 
-            <CollapsibleSection title="Filtres" defaultOpen={true}>
+            <CollapsibleSection title="Filtres" defaultOpen={false}>
               <CalendarList />
             </CollapsibleSection>
 
@@ -195,7 +195,7 @@ export function AppLayout(props: AppLayoutProps) {
 
             <CollapsibleSection
               title="Contacts"
-              defaultOpen={true}
+              defaultOpen={false}
               badge={
                 <span style={{ "font-size": "10px", color: "var(--text-muted)", background: "var(--bg-elevated)", padding: "1px 6px", "border-radius": "var(--radius-sm)" }}>
                   {contacts().length}
