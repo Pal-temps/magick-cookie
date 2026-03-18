@@ -107,6 +107,7 @@ export function AppLayout(props: AppLayoutProps) {
         { label: "Taches", action: () => setViewMode("triage"), shortcut: "Ctrl+5" },
         { label: "Email", action: () => setViewMode("email"), shortcut: "Ctrl+6" },
         { label: "Signets", action: () => setViewMode("bookmarks"), shortcut: "Ctrl+7" },
+        { label: "Chat IA", action: () => setViewMode("chat"), shortcut: "Ctrl+8" },
       ],
     },
     {
@@ -315,6 +316,13 @@ export function AppLayout(props: AppLayoutProps) {
                 onClick={() => setViewMode("bookmarks")}
               >
                 Signets
+              </Button>
+              <Button
+                variant={viewMode() === "chat" ? "primary" : "ghost"}
+                size="sm"
+                onClick={() => setViewMode("chat")}
+              >
+                Chat
               </Button>
               <Show when={["month", "week", "day"].includes(viewMode())}>
                 <div style={{ width: "1px", height: "18px", background: "var(--border-color)", margin: "0 4px" }} />
