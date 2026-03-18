@@ -2,7 +2,7 @@ import { For, createMemo } from "solid-js";
 import { useViewStore } from "../../../application/stores/viewStore";
 
 export function MiniCalendar() {
-  const { currentDate, setCurrentDate, setSelectedDate } = useViewStore();
+  const { currentDate, setCurrentDate, setSelectedDate, setViewMode } = useViewStore();
 
   const weeks = createMemo(() => {
     const d = currentDate();
@@ -72,7 +72,7 @@ export function MiniCalendar() {
             <For each={week}>
               {(cell) => (
                 <button
-                  onClick={() => { setSelectedDate(cell.date); setCurrentDate(cell.date); }}
+                  onClick={() => { setSelectedDate(cell.date); setCurrentDate(cell.date); setViewMode("day"); }}
                   style={{
                     padding: "3px",
                     "border-radius": "var(--radius-sm)",
