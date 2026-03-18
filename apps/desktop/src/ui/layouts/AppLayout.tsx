@@ -1,5 +1,5 @@
 import type { JSX } from "solid-js";
-import { Show, For } from "solid-js";
+import { Show, For, createSignal } from "solid-js";
 import { useViewStore } from "../../application/stores/viewStore";
 import { useCalendarStore } from "../../application/stores/calendarStore";
 import { useTaskStore } from "../../application/stores/taskStore";
@@ -31,6 +31,46 @@ export function AppLayout(props: AppLayoutProps) {
   const { startSpeechRecording } = useSpeechStore();
   const { startWalk, stopWalk, activeWalk } = useDogWalkStore();
   const { favorites } = useBookmarkStore();
+
+  // Sidebar section order (persisted in localStorage)
+  const STORAGE_KEY = "sidebar-section-order";
+  const DEFAULT_ORDER = ["favoris", "filtres", "contacts", "taches"];
+  const savedOrder = (() => {
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (stored) {
+        const parsed = JSON.parse(stored) as string[];
+        // Ensure all sections are present
+        const allSections = new Set(DEFAULT_ORDER);
+        const valid = parsed.filter((s) => allSections.has(s));
+        for (const s of DEFAULT_ORDER) { if (!valid.includes(s)) valid.push(s); }
+        return valid;
+      }
+    } catch { /* ignore */ }
+    return DEFAULT_ORDER;
+  })();
+  const [sectionOrder, setSectionOrder] = createSignal<string[]>(savedOrder);
+  const [draggedSection, setDraggedSection] = createSignal<string | null>(null);
+  const [dragOverSection, setDragOverSection] = createSignal<string | null>(null);
+
+  function handleDragStart(id: string) { setDraggedSection(id); }
+  function handleDragOver(e: DragEvent, id: string) { e.preventDefault(); setDragOverSection(id); }
+  function handleDragLeave() { setDragOverSection(null); }
+  function handleDrop(targetId: string) {
+    const from = draggedSection();
+    if (!from || from === targetId) { setDraggedSection(null); setDragOverSection(null); return; }
+    const order = [...sectionOrder()];
+    const fromIdx = order.indexOf(from);
+    const toIdx = order.indexOf(targetId);
+    if (fromIdx === -1 || toIdx === -1) return;
+    order.splice(fromIdx, 1);
+    order.splice(toIdx, 0, from);
+    setSectionOrder(order);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(order));
+    setDraggedSection(null);
+    setDragOverSection(null);
+  }
+  function handleDragEnd() { setDraggedSection(null); setDragOverSection(null); }
 
   const headerTitle = () => {
     const d = currentDate();
@@ -125,99 +165,99 @@ export function AppLayout(props: AppLayoutProps) {
             "overflow-y": "auto",
             "border-top": "1px solid var(--border-color)",
           }}>
-            <Show when={favorites().length > 0}>
-              <CollapsibleSection
-                title="Favoris"
-                defaultOpen={false}
-                badge={
-                  <span style={{ "font-size": "10px", color: "var(--text-muted)", background: "var(--bg-elevated)", padding: "1px 6px", "border-radius": "var(--radius-sm)" }}>
-                    {favorites().length}
-                  </span>
-                }
-              >
-                <div style={{ display: "flex", "flex-direction": "column", gap: "2px" }}>
-                  <For each={favorites()}>
-                    {(bookmark) => (
-                      <button
-                        onClick={() => openUrl(bookmark.url)}
-                        style={{
-                          display: "flex",
-                          "align-items": "center",
-                          gap: "6px",
-                          padding: "4px 0",
-                          "font-size": "12px",
-                          color: "var(--text-primary)",
-                          cursor: "pointer",
-                          background: "none",
-                          border: "none",
-                          width: "100%",
-                          "text-align": "left",
-                        }}
-                        title={bookmark.url}
-                      >
-                        <span style={{ "font-size": "13px" }}>{bookmark.emoji ?? "🔗"}</span>
-                        <span style={{ overflow: "hidden", "text-overflow": "ellipsis", "white-space": "nowrap" }}>
-                          {bookmark.name}
-                        </span>
-                      </button>
-                    )}
-                  </For>
-                  <button
-                    onClick={() => setViewMode("bookmarks")}
+            <For each={sectionOrder()}>
+              {(sectionId) => {
+                const sectionWrap = (content: JSX.Element) => (
+                  <div
+                    draggable={true}
+                    onDragStart={() => handleDragStart(sectionId)}
+                    onDragOver={(e) => handleDragOver(e, sectionId)}
+                    onDragLeave={handleDragLeave}
+                    onDrop={() => handleDrop(sectionId)}
+                    onDragEnd={handleDragEnd}
                     style={{
-                      display: "flex",
-                      "align-items": "center",
-                      gap: "6px",
-                      padding: "4px 0",
-                      "font-size": "11px",
-                      color: "var(--text-muted)",
-                      cursor: "pointer",
-                      background: "none",
-                      border: "none",
-                      width: "100%",
-                      "text-align": "left",
-                      "margin-top": "4px",
+                      "border-top": dragOverSection() === sectionId ? "2px solid var(--accent-color)" : "none",
+                      opacity: draggedSection() === sectionId ? "0.4" : "1",
+                      cursor: "grab",
                     }}
                   >
-                    Gerer les signets...
-                  </button>
-                </div>
-              </CollapsibleSection>
+                    {content}
+                    <div style={{ height: "1px", background: "var(--border-color)" }} />
+                  </div>
+                );
 
-              <div style={{ height: "1px", background: "var(--border-color)" }} />
-            </Show>
+                if (sectionId === "favoris") {
+                  return (
+                    <Show when={favorites().length > 0}>
+                      {sectionWrap(
+                        <CollapsibleSection
+                          title="Favoris"
+                          defaultOpen={false}
+                          badge={
+                            <span style={{ "font-size": "10px", color: "var(--text-muted)", background: "var(--bg-elevated)", padding: "1px 6px", "border-radius": "var(--radius-sm)" }}>
+                              {favorites().length}
+                            </span>
+                          }
+                        >
+                          <div style={{ display: "flex", "flex-direction": "column", gap: "2px" }}>
+                            <For each={favorites()}>
+                              {(bookmark) => (
+                                <button
+                                  onClick={() => openUrl(bookmark.url)}
+                                  style={{ display: "flex", "align-items": "center", gap: "6px", padding: "4px 0", "font-size": "12px", color: "var(--text-primary)", cursor: "pointer", background: "none", border: "none", width: "100%", "text-align": "left" }}
+                                  title={bookmark.url}
+                                >
+                                  <span style={{ "font-size": "13px" }}>{bookmark.emoji ?? "🔗"}</span>
+                                  <span style={{ overflow: "hidden", "text-overflow": "ellipsis", "white-space": "nowrap" }}>{bookmark.name}</span>
+                                </button>
+                              )}
+                            </For>
+                            <button
+                              onClick={() => setViewMode("bookmarks")}
+                              style={{ display: "flex", "align-items": "center", gap: "6px", padding: "4px 0", "font-size": "11px", color: "var(--text-muted)", cursor: "pointer", background: "none", border: "none", width: "100%", "text-align": "left", "margin-top": "4px" }}
+                            >Gerer les signets...</button>
+                          </div>
+                        </CollapsibleSection>
+                      )}
+                    </Show>
+                  );
+                }
 
-            <CollapsibleSection title="Filtres" defaultOpen={false}>
-              <CalendarList />
-            </CollapsibleSection>
+                if (sectionId === "filtres") {
+                  return sectionWrap(
+                    <CollapsibleSection title="Filtres" defaultOpen={false}>
+                      <CalendarList />
+                    </CollapsibleSection>
+                  );
+                }
 
-            <div style={{ height: "1px", background: "var(--border-color)" }} />
+                if (sectionId === "contacts") {
+                  return sectionWrap(
+                    <CollapsibleSection
+                      title="Contacts"
+                      defaultOpen={false}
+                      badge={<span style={{ "font-size": "10px", color: "var(--text-muted)", background: "var(--bg-elevated)", padding: "1px 6px", "border-radius": "var(--radius-sm)" }}>{contacts().length}</span>}
+                    >
+                      <ContactManager />
+                    </CollapsibleSection>
+                  );
+                }
 
-            <CollapsibleSection
-              title="Contacts"
-              defaultOpen={false}
-              badge={
-                <span style={{ "font-size": "10px", color: "var(--text-muted)", background: "var(--bg-elevated)", padding: "1px 6px", "border-radius": "var(--radius-sm)" }}>
-                  {contacts().length}
-                </span>
-              }
-            >
-              <ContactManager />
-            </CollapsibleSection>
+                if (sectionId === "taches") {
+                  return sectionWrap(
+                    <CollapsibleSection
+                      title="Taches sans date"
+                      defaultOpen={false}
+                      badge={<span style={{ "font-size": "10px", color: "var(--text-muted)", background: "var(--bg-elevated)", padding: "1px 6px", "border-radius": "var(--radius-sm)" }}>{unscheduledTasks().length}</span>}
+                    >
+                      <UnscheduledTasks />
+                    </CollapsibleSection>
+                  );
+                }
 
-            <div style={{ height: "1px", background: "var(--border-color)" }} />
-
-            <CollapsibleSection
-              title="Taches sans date"
-              defaultOpen={false}
-              badge={
-                <span style={{ "font-size": "10px", color: "var(--text-muted)", background: "var(--bg-elevated)", padding: "1px 6px", "border-radius": "var(--radius-sm)" }}>
-                  {unscheduledTasks().length}
-                </span>
-              }
-            >
-              <UnscheduledTasks />
-            </CollapsibleSection>
+                return null;
+              }}
+            </For>
           </div>
         </aside>
 
