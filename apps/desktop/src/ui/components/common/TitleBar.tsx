@@ -29,7 +29,11 @@ interface TitleBarProps {
 
 export function TitleBar(props: TitleBarProps) {
   const [openMenu, setOpenMenu] = createSignal<number | null>(null);
+  const [time, setTime] = createSignal(formatTime());
   const appWindow = getCurrentWindow();
+
+  const clockInterval = setInterval(() => setTime(formatTime()), 1000);
+  onCleanup(() => clearInterval(clockInterval));
 
   // Close menu on outside click
   function handleDocClick(e: MouseEvent) {
@@ -59,6 +63,7 @@ export function TitleBar(props: TitleBarProps) {
       display: "flex",
       "align-items": "center",
       "justify-content": "space-between",
+      position: "relative",
       background: "var(--bg-surface)",
       "border-bottom": "1px solid var(--border-color)",
       "flex-shrink": "0",
@@ -160,7 +165,18 @@ export function TitleBar(props: TitleBarProps) {
         </For>
       </div>
 
-      {/* Center: drag area (implicit via parent) */}
+      {/* Center: clock */}
+      <div style={{
+        position: "absolute",
+        left: "50%",
+        transform: "translateX(-50%)",
+        "font-size": "12px",
+        "font-weight": "500",
+        color: "var(--text-secondary)",
+        "pointer-events": "none",
+      }}>
+        {time()}
+      </div>
 
       {/* Right side: status indicators + window controls */}
       <div style={{ display: "flex", "align-items": "center", height: "100%", "-webkit-app-region": "no-drag" }}>
@@ -205,6 +221,13 @@ export function TitleBar(props: TitleBarProps) {
       </div>
     </div>
   );
+}
+
+function formatTime(): string {
+  const now = new Date();
+  const day = now.toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "short" });
+  const time = now.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+  return `${day} — ${time}`;
 }
 
 function windowBtnStyle(): Record<string, string> {
