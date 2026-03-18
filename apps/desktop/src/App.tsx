@@ -10,6 +10,7 @@ import { ChatView } from "./ui/components/chat/ChatView";
 import { VpsView } from "./ui/components/vps/VpsView";
 import { BookmarkView } from "./ui/components/bookmarks/BookmarkView";
 import { RssView } from "./ui/components/rss/RssView";
+import { SnippetView } from "./ui/components/snippets/SnippetView";
 import { AlarmView } from "./ui/components/alarm/AlarmView";
 import { SettingsView } from "./ui/components/settings/SettingsView";
 import { useCalendarStore } from "./application/stores/calendarStore";
@@ -24,6 +25,7 @@ import { useCommandStore } from "./application/stores/commandStore";
 import { useClipboardStore } from "./application/stores/clipboardStore";
 import { useBookmarkStore } from "./application/stores/bookmarkStore";
 import { useRssStore } from "./application/stores/rssStore";
+import { useSnippetStore } from "./application/stores/snippetStore";
 import { useAlarmStore } from "./application/stores/alarmStore";
 import { useProjectStore } from "./application/stores/projectStore";
 import { useSmartReminderStore } from "./application/stores/smartReminderStore";
@@ -47,6 +49,7 @@ export function App() {
   const { init: initClipboard } = useClipboardStore();
   const { fetchBookmarks } = useBookmarkStore();
   const { fetchFeeds: fetchRssFeeds, fetchUnreadCount: fetchRssUnreadCount } = useRssStore();
+  const { fetchSnippets } = useSnippetStore();
   const { fetchProjects } = useProjectStore();
   const { startSmartReminders, stopSmartReminders } = useSmartReminderStore();
   const { fetchAlarms, startAlarmChecker, stopAlarmChecker } = useAlarmStore();
@@ -66,6 +69,7 @@ export function App() {
       case "vps":
       case "alarms":
       case "bookmarks":
+      case "snippets":
       case "rss":
       case "settings":
       case "dashboard":
@@ -124,6 +128,7 @@ export function App() {
     fetchTodayStats();
     fetchActiveWalk();
     fetchBookmarks();
+    fetchSnippets();
     fetchRssFeeds();
     fetchRssUnreadCount();
     fetchAlarms().then(() => startAlarmChecker());
@@ -208,6 +213,9 @@ export function App() {
         <Show when={viewMode() === "bookmarks"}>
           <BookmarkView />
         </Show>
+        <Show when={viewMode() === "snippets"}>
+          <SnippetView />
+        </Show>
         <Show when={viewMode() === "rss"}>
           <RssView />
         </Show>
@@ -217,7 +225,7 @@ export function App() {
         <Show when={viewMode() === "settings"}>
           <SettingsView />
         </Show>
-        <Show when={viewMode() !== "notes" && viewMode() !== "triage" && viewMode() !== "email" && viewMode() !== "chat" && viewMode() !== "vps" && viewMode() !== "bookmarks" && viewMode() !== "rss" && viewMode() !== "alarms" && viewMode() !== "settings"}>
+        <Show when={viewMode() !== "notes" && viewMode() !== "triage" && viewMode() !== "email" && viewMode() !== "chat" && viewMode() !== "vps" && viewMode() !== "bookmarks" && viewMode() !== "snippets" && viewMode() !== "rss" && viewMode() !== "alarms" && viewMode() !== "settings"}>
           <CalendarGrid />
           <EventForm />
         </Show>

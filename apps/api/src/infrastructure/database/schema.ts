@@ -312,6 +312,25 @@ export const rssArticles = pgTable("rss_articles", {
   uniqueIndex("idx_rss_articles_feed_guid").on(table.feedId, table.guid),
 ]);
 
+export const snippetCategories = pgTable("snippet_categories", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  value: varchar("value", { length: 30 }).notNull().unique(),
+  label: varchar("label", { length: 100 }).notNull(),
+  sortOrder: integer("sort_order").notNull().default(0),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const snippets = pgTable("snippets", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  title: varchar("title", { length: 255 }).notNull(),
+  content: text("content").notNull(),
+  language: varchar("language", { length: 50 }).notNull().default("text"),
+  category: varchar("category", { length: 30 }).notNull().default("none"),
+  isFavorite: boolean("is_favorite").notNull().default(false),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
+});
+
 export const contacts = pgTable("contacts", {
   id: uuid("id").primaryKey().defaultRandom(),
   name: varchar("name", { length: 255 }).notNull(),

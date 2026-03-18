@@ -30,6 +30,8 @@ import { DrizzleGitHubPRRepository } from "./infrastructure/repositories/github-
 import { DrizzleAlarmRepository } from "./infrastructure/repositories/alarm.repository.impl";
 import { DrizzleRssFeedRepository } from "./infrastructure/repositories/rss-feed.repository.impl";
 import { DrizzleRssArticleRepository } from "./infrastructure/repositories/rss-article.repository.impl";
+import { DrizzleSnippetRepository } from "./infrastructure/repositories/snippet.repository.impl";
+import { DrizzleSnippetCategoryRepository } from "./infrastructure/repositories/snippet-category.repository.impl";
 
 // Services
 import { CalendarService } from "./application/calendar/calendar.service";
@@ -56,6 +58,7 @@ import { ProjectService } from "./application/project/project.service";
 import { SmartReminderService } from "./application/smart-reminder/smart-reminder.service";
 import { AlarmService } from "./application/alarm/alarm.service";
 import { RssService } from "./application/rss/rss.service";
+import { SnippetService } from "./application/snippet/snippet.service";
 import { AgentService } from "./application/agent/agent.service";
 import { ToolRegistry } from "./application/agent/tool-registry";
 import { createAnalyticsTools } from "./application/agent/tools/analytics.tools";
@@ -101,6 +104,7 @@ import { createAgentRoutes } from "./presentation/routes/agent.routes";
 import { createPushRoutes } from "./presentation/routes/push.routes";
 import { createAlarmRoutes } from "./presentation/routes/alarm.routes";
 import { createRssFeedRoutes, createRssArticleRoutes } from "./presentation/routes/rss.routes";
+import { createSnippetRoutes } from "./presentation/routes/snippet.routes";
 
 // Jobs
 import { startReminderChecker } from "./infrastructure/jobs/reminder-checker";
@@ -135,6 +139,8 @@ const githubPrRepo = new DrizzleGitHubPRRepository(db);
 const alarmRepo = new DrizzleAlarmRepository(db);
 const rssFeedRepo = new DrizzleRssFeedRepository(db);
 const rssArticleRepo = new DrizzleRssArticleRepository(db);
+const snippetRepo = new DrizzleSnippetRepository(db);
+const snippetCategoryRepo = new DrizzleSnippetCategoryRepository(db);
 
 const calendarService = new CalendarService(calendarRepo);
 const eventService = new EventService(eventRepo, reminderRepo);
@@ -162,6 +168,7 @@ const projectService = new ProjectService(projectRepo);
 const smartReminderService = new SmartReminderService(triageRepo, taskRepo, emailRepo);
 const alarmService = new AlarmService(alarmRepo);
 const rssService = new RssService(rssFeedRepo, rssArticleRepo);
+const snippetService = new SnippetService(snippetRepo, snippetCategoryRepo);
 
 // Agent (tool-calling chat)
 const toolRegistry = new ToolRegistry();
@@ -221,6 +228,7 @@ app.route("/api/push", createPushRoutes(pushRepo));
 app.route("/api/alarms", createAlarmRoutes(alarmService));
 app.route("/api/rss-feeds", createRssFeedRoutes(rssService));
 app.route("/api/rss-articles", createRssArticleRoutes(rssService));
+app.route("/api/snippets", createSnippetRoutes(snippetService));
 
 // Start reminder checker — pushes to SSE, does NOT mark as sent
 startReminderChecker(reminderService, eventRepo, reminderEmitter);
