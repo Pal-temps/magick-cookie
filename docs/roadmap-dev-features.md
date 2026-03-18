@@ -31,6 +31,7 @@ Features orientees productivite dev, a ajouter a l'app existante.
 | 21 | Scripts db:reset/db:drop | ✅ Done | Reset et drop DB en une commande |
 | 22 | Refactor GitHub (repo pattern) | ✅ Done | GitHubConfigRepository + GitHubPRRepository |
 | 23 | Refactor GitScan (port pattern) | ✅ Done | GitScanPort + GitExecAdapter |
+| 24 | Flux RSS | ✅ Done | rss-parser, sync 15min, RssView two-column, dedup guid |
 
 ---
 
@@ -562,7 +563,7 @@ Organise en sprints de complexite croissante. Chaque sprint est independant mais
 ## Ordre d'implementation — Restant
 
 ```
-✅ TOUTES LES FEATURES SONT IMPLEMENTEES (sprints 1-6).
+✅ TOUTES LES FEATURES SONT IMPLEMENTEES (sprints 1-7).
 
 Phase 4 polish egalement complete :
   - ✅ Resume email : cache summary DB + classification auto
@@ -670,6 +671,42 @@ Phase 4 polish egalement complete :
 
 ---
 
+### Sprint 7 — Flux RSS ✅ DONE
+
+| # | Feature | Statut | Notes |
+|---|---------|--------|-------|
+| 30 | Flux RSS | ✅ Done | rss_feeds + rss_articles tables, rss-parser connector, sync 15min, RssView two-column |
+
+---
+
+## Detail des features ajoutees (Sprint 7)
+
+### 30. Flux RSS
+
+**Objectif :** Lecteur RSS integre avec synchronisation automatique des articles.
+
+**Architecture :**
+- Tables : `rss_feeds` (id, url, title, siteUrl, lastFetchedAt, createdAt) + `rss_articles` (id, feedId, guid, title, link, content, pubDate, isRead, createdAt)
+- Connecteur : `rss-parser` (npm) pour fetch et parse des feeds
+- Deduplication par `guid` (ou fallback sur `link`) pour eviter les doublons
+- Background sync job : poll toutes les 15 minutes
+
+**Endpoints :**
+- `GET /api/rss/feeds` — liste des feeds
+- `POST /api/rss/feeds` — ajouter un feed
+- `PUT /api/rss/feeds/:id` — modifier
+- `DELETE /api/rss/feeds/:id` — supprimer
+- `GET /api/rss/feeds/:id/articles` — articles d'un feed
+- `GET /api/rss/articles` — tous les articles (avec filtres)
+- `PUT /api/rss/articles/:id` — marquer lu/non lu
+- `POST /api/rss/feeds/sync` — forcer un sync manuel
+
+**Frontend :**
+- `RssView.tsx` : layout deux colonnes (sidebar feeds a gauche + liste articles a droite)
+- `rssStore.ts` : gestion feeds, articles, compteurs non lus
+
+---
+
 ## Bilan
 
 | Sprint | Features | Statut |
@@ -680,7 +717,8 @@ Phase 4 polish egalement complete :
 | 4 | 4 | ✅ 4/4 done |
 | 5 | 2 | ✅ 2/2 done |
 | 6 | 9 | ✅ 9/9 done |
-| **Total** | **26** | **✅ 26/26 done** |
+| 7 | 1 | ✅ 1/1 done |
+| **Total** | **27** | **✅ 27/27 done** |
 
 ---
 

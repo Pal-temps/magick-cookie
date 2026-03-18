@@ -9,6 +9,7 @@
 | 3 | Raccourcis clavier Email | Moyenne | Faible | ✅ Done (j/k/Enter/Escape/e/s/r/Delete + g+i/g+s chords) |
 | 4 | Integration LLM local | Haute | Haute | ✅ Done (Ollama/LM Studio/OpenAI adapters, LlmSettings UI) |
 | 5 | Resume email par IA | Moyenne | Faible | ✅ Done (summarize dans EmailDetail + EmailDigest hebdo) |
+| 6 | Flux RSS | Moyenne | Moyenne | ✅ Done (rss-parser, sync 15min, RssView two-column, dedup guid) |
 
 ---
 
@@ -246,6 +247,69 @@ Bouton "Resumer" dans `EmailDetail` qui envoie le contenu de l'email au LLM loca
 
 ---
 
+## 6. Flux RSS
+
+### Objectif
+Lecteur RSS integre pour suivre des blogs, actus tech, changelogs — sans quitter l'app.
+
+### Architecture
+
+```
+api/src/
+├── domain/rss/
+│   ├── rss-feed.entity.ts          # RssFeed { id, url, title, siteUrl, lastFetchedAt }
+│   ├── rss-article.entity.ts       # RssArticle { id, feedId, guid, title, link, content, pubDate, isRead }
+│   ├── rss-feed.repository.ts      # Interface repository feeds
+│   └── rss-article.repository.ts   # Interface repository articles
+├── application/rss/
+│   └── rss.service.ts              # CRUD + sync + deduplication par guid
+├── infrastructure/
+│   ├── adapters/
+│   │   └── rss-parser.adapter.ts   # Connecteur rss-parser (npm)
+│   └── repositories/
+│       ├── rss-feed.repository.impl.ts
+│       └── rss-article.repository.impl.ts
+├── presentation/
+│   └── routes/rss.routes.ts
+
+desktop/src/
+├── application/stores/rssStore.ts  # Feeds, articles, compteurs non lus
+├── ui/components/rss/
+│   └── RssView.tsx                 # Two-column: feed sidebar + article list
+```
+
+### API
+
+```
+GET    /api/rss/feeds                # Liste des feeds
+POST   /api/rss/feeds                # Ajouter un feed
+PUT    /api/rss/feeds/:id            # Modifier un feed
+DELETE /api/rss/feeds/:id            # Supprimer un feed
+GET    /api/rss/feeds/:id/articles   # Articles d'un feed
+GET    /api/rss/articles             # Tous les articles (filtres)
+PUT    /api/rss/articles/:id         # Marquer lu/non lu
+POST   /api/rss/feeds/sync           # Forcer un sync manuel
+```
+
+### Sync job
+- Background job toutes les 15 minutes
+- Parse chaque feed via `rss-parser`
+- Deduplication par `guid` (fallback `link`) pour eviter les doublons
+- Met a jour `lastFetchedAt` sur le feed
+
+### Frontend
+- `RssView.tsx` : layout deux colonnes (sidebar feeds a gauche, liste articles a droite)
+- `rssStore.ts` : gestion CRUD feeds/articles, compteurs non lus, sync manuel
+
+### Phases
+
+- [x] Phase 1 : Tables DB (rss_feeds, rss_articles) + migration
+- [x] Phase 2 : Domain entities + repositories + service CRUD
+- [x] Phase 3 : rss-parser adapter + sync job 15min + deduplication guid
+- [x] Phase 4 : RssView (two-column) + rssStore + integration sidebar
+
+---
+
 ## Ordre d'implementation suggere
 
 ```
@@ -254,6 +318,7 @@ Bouton "Resumer" dans `EmailDetail` qui envoie le contenu de l'email au LLM loca
 3. ✅ Integration LLM local (Phase 1-4) — DONE (adapter Anthropic inclus)
 4. ✅ Raccourcis clavier Email (Phase 1-3) — DONE
 5. ✅ Resume email par IA (Phase 1-4) — DONE (cache + classification auto)
+6. ✅ Flux RSS (Phase 1-4)            — DONE (rss-parser + sync 15min + RssView)
 
 Toutes les phases sont completees ✅
 ```
