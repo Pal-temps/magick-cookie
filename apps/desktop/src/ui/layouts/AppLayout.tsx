@@ -64,7 +64,7 @@ export function AppLayout(props: AppLayoutProps) {
         { label: "Aujourd'hui", action: goToToday, shortcut: "Ctrl+T" },
         { separator: true, label: "" },
         { label: "Notes & Schemas", action: () => setViewMode("notes"), shortcut: "Ctrl+4" },
-        { label: "Triage taches", action: () => setViewMode("triage"), shortcut: "Ctrl+5" },
+        { label: "Taches", action: () => setViewMode("triage"), shortcut: "Ctrl+5" },
         { label: "Email", action: () => setViewMode("email"), shortcut: "Ctrl+6" },
         { label: "Signets", action: () => setViewMode("bookmarks"), shortcut: "Ctrl+7" },
       ],
@@ -260,7 +260,7 @@ export function AppLayout(props: AppLayoutProps) {
                 size="sm"
                 onClick={() => setViewMode("triage")}
               >
-                Triage
+                Taches
               </Button>
               <Button
                 variant={viewMode() === "email" ? "primary" : "ghost"}
