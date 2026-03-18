@@ -11,8 +11,10 @@ import { RoutineSettings } from "./RoutineSettings";
 import { WebhookSettings } from "./WebhookSettings";
 import { CalDavSettings } from "./CalDavSettings";
 import { EmailRuleSettings } from "./EmailRuleSettings";
+import { HabitSettings } from "./HabitSettings";
+import { ShortcutSettings } from "./ShortcutSettings";
 
-type SettingsTab = "theme" | "llm" | "focus" | "github" | "brief" | "vps" | "bookmarks" | "projects" | "routines" | "webhooks" | "caldav" | "email-rules";
+type SettingsTab = "theme" | "llm" | "focus" | "github" | "brief" | "vps" | "bookmarks" | "projects" | "routines" | "webhooks" | "caldav" | "email-rules" | "habits" | "shortcuts";
 
 export function SettingsView() {
   const [tab, setTab] = createSignal<SettingsTab>("theme");
@@ -26,8 +28,10 @@ export function SettingsView() {
     { id: "brief", label: "Brief" },
     { id: "caldav", label: "CalDAV" },
     { id: "email-rules", label: "Regles email" },
+    { id: "habits", label: "Habitudes" },
     { id: "routines", label: "Routines" },
     { id: "webhooks", label: "Webhooks" },
+    { id: "shortcuts", label: "Raccourcis" },
     { id: "github", label: "GitHub" },
     { id: "vps", label: "VPS" },
   ];
@@ -96,6 +100,9 @@ export function SettingsView() {
         <Show when={tab() === "github"}>
           <GitHubSettings />
         </Show>
+        <Show when={tab() === "habits"}>
+          <HabitSettings />
+        </Show>
         <Show when={tab() === "routines"}>
           <RoutineSettings />
         </Show>
@@ -107,6 +114,9 @@ export function SettingsView() {
         </Show>
         <Show when={tab() === "email-rules"}>
           <EmailRuleSettings />
+        </Show>
+        <Show when={tab() === "shortcuts"}>
+          <ShortcutSettings />
         </Show>
         <Show when={tab() === "vps"}>
           <VpsSettings />

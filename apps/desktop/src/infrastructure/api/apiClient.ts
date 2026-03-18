@@ -1,21 +1,49 @@
+import { useOfflineQueue } from "../offline/offlineQueue";
+
 const API_BASE = "http://localhost:47300/api";
 
-async function request<T>(path: string, options?: RequestInit): Promise<T> {
-  const res = await fetch(`${API_BASE}${path}`, {
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...options?.headers,
-    },
-  });
-
-  const json = await res.json();
-
-  if (!res.ok) {
-    throw new Error(json.error || `HTTP ${res.status}`);
+function isNetworkError(err: unknown): boolean {
+  if (err instanceof TypeError && (err.message.includes("fetch") || err.message.includes("network") || err.message.includes("Failed"))) {
+    return true;
   }
+  return false;
+}
 
-  return json.data as T;
+const WRITE_METHODS = ["POST", "PUT", "PATCH", "DELETE"];
+
+async function request<T>(path: string, options?: RequestInit): Promise<T> {
+  const { enqueue, setIsOnline } = useOfflineQueue();
+  const method = options?.method ?? "GET";
+  const fullUrl = `${API_BASE}${path}`;
+
+  try {
+    const res = await fetch(fullUrl, {
+      ...options,
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+      },
+    });
+
+    const json = await res.json();
+
+    if (!res.ok) {
+      throw new Error(json.error || `HTTP ${res.status}`);
+    }
+
+    return json.data as T;
+  } catch (err) {
+    if (isNetworkError(err)) {
+      setIsOnline(false);
+
+      // Queue write operations for later replay
+      if (WRITE_METHODS.includes(method)) {
+        const body = options?.body ? JSON.parse(options.body as string) : undefined;
+        enqueue(method, fullUrl, body);
+      }
+    }
+    throw err;
+  }
 }
 
 export const api = {

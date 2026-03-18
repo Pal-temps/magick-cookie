@@ -7,6 +7,7 @@ import { useDesktopModeStore } from "../../application/stores/desktopModeStore";
 import { useSpeechStore } from "../../application/stores/speechStore";
 import { useDogWalkStore } from "../../application/stores/dogWalkStore";
 import { TitleBar } from "../components/common/TitleBar";
+import { OfflineIndicator } from "../components/common/OfflineIndicator";
 import { MiniTimer } from "../components/common/MiniTimer";
 import { MiniDogWalk } from "../components/common/MiniDogWalk";
 import { MiniCalendar } from "../components/sidebar/MiniCalendar";
@@ -134,6 +135,9 @@ export function AppLayout(props: AppLayoutProps) {
 
   return (
     <div style={{ display: "flex", "flex-direction": "column", height: "100vh", background: "var(--bg-base)" }}>
+      {/* Offline indicator */}
+      <OfflineIndicator />
+
       {/* Title bar */}
       <TitleBar
         menus={menus()}

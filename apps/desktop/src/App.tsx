@@ -24,6 +24,7 @@ import { useDesktopModeStore } from "./application/stores/desktopModeStore";
 import { useTriageStore } from "./application/stores/triageStore";
 import { useTaskStore } from "./application/stores/taskStore";
 import { useCommandStore } from "./application/stores/commandStore";
+import { useShortcutStore } from "./application/stores/shortcutStore";
 import { useClipboardStore } from "./application/stores/clipboardStore";
 import { useBookmarkStore } from "./application/stores/bookmarkStore";
 import { useRssStore } from "./application/stores/rssStore";
@@ -38,17 +39,19 @@ import { QuickCapture } from "./ui/components/capture/QuickCapture";
 import { initNotifications, notify } from "./infrastructure/tauri/notifications";
 import { connectSSE } from "./infrastructure/api/sseClient";
 import { listen } from "@tauri-apps/api/event";
+import { useOfflineQueue } from "./infrastructure/offline/offlineQueue";
 
 export function App() {
-  const { fetchCalendars, fetchEvents, fetchContacts } = useCalendarStore();
+  const { fetchCalendars, fetchEvents, fetchContacts, openCreateForm } = useCalendarStore();
   const { fetchTasks } = useTaskStore();
-  const { currentDate, viewMode, setViewMode } = useViewStore();
+  const { currentDate, viewMode, setViewMode, goToToday } = useViewStore();
   const { fetchConfigs, startAll, stopAll, fetchTodayLogs } = useWellnessStore();
   const { fetchTodayStats, timerState, startPomodoro, stop: stopTimer, isFocusMode, toggleFocusMode } = useTimerStore();
   const { fetchActive: fetchActiveWalk } = useDogWalkStore();
   const { isDesktopMode, toggle: toggleDesktopMode } = useDesktopModeStore();
   const { fetchTriage } = useTriageStore();
   const { open: openCommandPalette } = useCommandStore();
+  const { matchAction } = useShortcutStore();
   const { init: initClipboard } = useClipboardStore();
   const { fetchBookmarks } = useBookmarkStore();
   const { fetchFeeds: fetchRssFeeds, fetchUnreadCount: fetchRssUnreadCount } = useRssStore();
@@ -57,6 +60,7 @@ export function App() {
   const { startSmartReminders, stopSmartReminders } = useSmartReminderStore();
   const { fetchAlarms, startAlarmChecker, stopAlarmChecker } = useAlarmStore();
   const { fetchRoutines, startRoutineChecker, stopRoutineChecker } = useRoutineStore();
+  const { startConnectivityCheck, stopConnectivityCheck } = useOfflineQueue();
   let disconnectSSE: (() => void) | null = null;
   let unlistenShortcuts: (() => void) | null = null;
 
@@ -115,12 +119,31 @@ export function App() {
   }
 
   function handleGlobalKeydown(e: KeyboardEvent) {
-    if ((e.ctrlKey || e.metaKey) && e.key === "k") {
-      e.preventDefault();
-      openCommandPalette();
-    }
+    // Escape always exits focus mode regardless of shortcuts
     if (e.key === "Escape" && isFocusMode()) {
       toggleFocusMode();
+      return;
+    }
+
+    const actionId = matchAction(e);
+    if (!actionId) return;
+
+    e.preventDefault();
+    switch (actionId) {
+      case "nav-dashboard": setViewMode("dashboard"); break;
+      case "nav-calendar": setViewMode("month"); break;
+      case "nav-notes": setViewMode("notes"); break;
+      case "nav-triage": setViewMode("triage"); break;
+      case "nav-email": setViewMode("email"); break;
+      case "nav-bookmarks": setViewMode("bookmarks"); break;
+      case "nav-chat": setViewMode("chat"); break;
+      case "nav-vps": setViewMode("vps"); break;
+      case "command-palette": openCommandPalette(); break;
+      case "settings": setViewMode("settings"); break;
+      case "start-pomodoro": startPomodoro(); break;
+      case "stop-timer": stopTimer(); break;
+      case "new-event": openCreateForm(); break;
+      case "go-today": goToToday(); break;
     }
   }
 
@@ -145,6 +168,7 @@ export function App() {
     await fetchConfigs();
     fetchTodayLogs();
     startAll();
+    startConnectivityCheck();
 
     // Listen for global shortcuts (capture is handled by QuickCapture itself)
     unlistenShortcuts = await listen<string>("global-shortcut", (event) => {
@@ -189,6 +213,7 @@ export function App() {
     stopAlarmChecker();
     stopRoutineChecker();
     stopSmartReminders();
+    stopConnectivityCheck();
   });
 
   createEffect(() => {
