@@ -1,12 +1,14 @@
-# Plan — Prochains Sprints (8-11)
+# Plan — Sprints 8-11 (COMPLETS)
 
-Features a implementer, organisees par sprint. Numerotation continue depuis le #28.
+> **Note :** Tous les sprints 8 a 11 sont implementes et livres. Ce document sert de reference pour les features #29-#42.
+
+Features implementees, organisees par sprint. Numerotation continue depuis le #28.
 
 ---
 
-## Sprint 8 — Kanban & Dashboard
+## Sprint 8 — Kanban & Dashboard ✅ DONE
 
-### #29 Kanban Board
+### #29 Kanban Board ✅
 
 **Description :** Vue visuelle des taches en colonnes drag & drop (Backlog → En cours → Done → Archive). Cartes avec titre, priorite, labels, assignee. Filtre par projet.
 
@@ -21,7 +23,7 @@ Features a implementer, organisees par sprint. Numerotation continue depuis le #
 
 ---
 
-### #30 Dashboard Widgets Configurables
+### #30 Dashboard Widgets Configurables ✅
 
 **Description :** Widgets du dashboard reordonnables par drag & drop. L'utilisateur choisit quels widgets afficher et dans quel ordre. Persistance en localStorage.
 
@@ -35,9 +37,9 @@ Features a implementer, organisees par sprint. Numerotation continue depuis le #
 
 ---
 
-## Sprint 9 — Dev Tools
+## Sprint 9 — Dev Tools ✅ DONE
 
-### #31 Snippets / Code Clipboard
+### #31 Snippets / Code Clipboard ✅
 
 **Description :** Stocker des bouts de code, commandes, templates reutilisables. Syntaxe highlighting, categories, recherche. Accessible via command palette (`snip:` prefix).
 
@@ -58,7 +60,7 @@ Features a implementer, organisees par sprint. Numerotation continue depuis le #
 
 ---
 
-### #32 Dashboard CI/CD
+### #32 Dashboard CI/CD ✅
 
 **Description :** Afficher le statut des pipelines GitHub Actions (et optionnellement GitLab CI). Derniers runs, statut (success/failure/running), lien vers le run. Widget dashboard + vue dediee.
 
@@ -75,7 +77,7 @@ Features a implementer, organisees par sprint. Numerotation continue depuis le #
 
 ---
 
-### #33 Environment Checker
+### #33 Environment Checker ✅
 
 **Description :** Verifier le statut des services locaux (Docker running, PostgreSQL up, API health, ports ouverts). Affiche un dashboard sante de l'environnement dev.
 
@@ -90,7 +92,7 @@ Features a implementer, organisees par sprint. Numerotation continue depuis le #
 
 ---
 
-### #34 Changelog Generator
+### #34 Changelog Generator ✅
 
 **Description :** Generer un changelog depuis les commits git d'un repo via le LLM. Selectionner un repo, une plage de dates, le LLM redige un changelog structure (features, fixes, breaking changes).
 
@@ -105,9 +107,9 @@ Features a implementer, organisees par sprint. Numerotation continue depuis le #
 
 ---
 
-## Sprint 10 — Calendar & Automation
+## Sprint 10 — Calendar & Automation ✅ DONE
 
-### #35 CalDAV Sync (Google Calendar / Outlook)
+### #35 CalDAV Sync (Google Calendar / Outlook) ✅
 
 **Description :** Synchroniser des calendriers externes via le protocole CalDAV. Import bidirectionnel des evenements. Support Google Calendar et Outlook via leurs URLs CalDAV.
 
@@ -126,7 +128,7 @@ Features a implementer, organisees par sprint. Numerotation continue depuis le #
 
 ---
 
-### #36 Email Rules (Auto-classification)
+### #36 Email Rules (Auto-classification) ✅
 
 **Description :** Regles automatiques sur les emails entrants. Conditions : expediteur, sujet contient, domaine. Actions : classifier, tagger, archiver. Executees a chaque sync.
 
@@ -144,7 +146,7 @@ Features a implementer, organisees par sprint. Numerotation continue depuis le #
 
 ---
 
-### #37 Routines
+### #37 Routines ✅
 
 **Description :** Sequences d'actions programmees. Ex: routine "Matin" a 8h → genere brief + sync emails + ouvre dashboard. Routine "Soir" a 17h → affiche timesheet + weekly check.
 
@@ -162,7 +164,7 @@ Features a implementer, organisees par sprint. Numerotation continue depuis le #
 
 ---
 
-### #38 Webhooks Entrants
+### #38 Webhooks Entrants ✅
 
 **Description :** Recevoir des notifications de services externes (GitHub Actions, Sentry, custom). Endpoint generique qui stocke les payloads et les affiche comme notifications.
 
@@ -180,9 +182,9 @@ Features a implementer, organisees par sprint. Numerotation continue depuis le #
 
 ---
 
-## Sprint 11 — Bien-etre & UX
+## Sprint 11 — Bien-etre & UX ✅ DONE
 
-### #39 Custom Habit Tracker
+### #39 Custom Habit Tracker ✅
 
 **Description :** Au-dela de l'eau et des fruits, tracker des habitudes personnalisees (sport, lecture, meditation, etc.) avec objectifs, streaks, et graphiques. L'utilisateur definit ses habitudes.
 
@@ -198,7 +200,7 @@ Features a implementer, organisees par sprint. Numerotation continue depuis le #
 
 ---
 
-### #40 Daily Journal
+### #40 Daily Journal ✅
 
 **Description :** Note quotidienne auto-creee dans le vault notes, pre-remplie avec les donnees du brief (focus, events, taches). Format : `journal/YYYY-MM-DD.md`.
 
@@ -214,7 +216,7 @@ Features a implementer, organisees par sprint. Numerotation continue depuis le #
 
 ---
 
-### #41 Raccourcis Globaux Personnalisables
+### #41 Raccourcis Globaux Personnalisables ✅
 
 **Description :** L'utilisateur configure ses propres raccourcis clavier pour n'importe quelle action (ouvrir une vue, lancer un pomodoro, sync, etc.). Stocke en DB ou localStorage.
 
@@ -230,7 +232,7 @@ Features a implementer, organisees par sprint. Numerotation continue depuis le #
 
 ---
 
-### #42 Mode Offline
+### #42 Mode Offline ✅
 
 **Description :** Quand l'API est inaccessible, les actions sont mises en queue localement (IndexedDB ou fichier). Au retour de la connexion, la queue est rejouee automatiquement.
 
@@ -247,14 +249,10 @@ Features a implementer, organisees par sprint. Numerotation continue depuis le #
 
 ## Resume
 
-| Sprint | Features | Complexite globale |
-|--------|----------|-------------------|
-| 8 | Kanban + Dashboard widgets | Moyenne |
-| 9 | Snippets + CI/CD + Env checker + Changelog | Moyenne |
-| 10 | CalDAV + Email rules + Routines + Webhooks | Haute |
-| 11 | Habits + Journal + Shortcuts + Offline | Moyenne |
-
-**Ordre recommande par priorite :**
-1. P1 : Kanban (#29), Snippets (#31), Habits (#39), Journal (#40)
-2. P2 : Dashboard widgets (#30), CI/CD (#32), CalDAV (#35), Email rules (#36), Shortcuts (#41)
-3. P3 : Env checker (#33), Changelog (#34), Routines (#37), Webhooks (#38), Offline (#42)
+| Sprint | Features | Statut |
+|--------|----------|--------|
+| 8 | Kanban + Dashboard widgets (2) | ✅ Done |
+| 9 | Snippets + CI/CD + Env checker + Changelog (4) | ✅ Done |
+| 10 | CalDAV + Email rules + Routines + Webhooks (4) | ✅ Done |
+| 11 | Habits + Journal + Shortcuts + Offline (4) | ✅ Done |
+| **Total** | **14 features** | **✅ 14/14 done** |

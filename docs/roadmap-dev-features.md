@@ -36,6 +36,20 @@ Features orientees productivite dev, a ajouter a l'app existante.
 | 26 | Pomodoro sound loop + waiting | ✅ Done | Son en boucle a la fin du focus, dismiss + start break manuels |
 | 27 | Mini calendar → vue jour | ✅ Done | Clic sur un jour ouvre la vue calendrier jour |
 | 28 | Horloge title bar | ✅ Done | Date + heure centree dans la barre de titre |
+| 29 | Kanban board (Tasks view) | ✅ Done | KanbanView drag & drop, colonnes triage, filtre projet |
+| 30 | Dashboard widgets configurables | ✅ Done | Widgets reordonnables, visibilite configurable, localStorage |
+| 31 | Snippets / Code clipboard | ✅ Done | CRUD snippets + syntax highlight + categories + command palette snip: |
+| 32 | CI/CD Dashboard (GitHub Actions) | ✅ Done | CiCdWidget + workflow runs via GitHub API |
+| 33 | Environment Checker | ✅ Done | EnvWidget + checks ports/processes/services |
+| 34 | Changelog Generator | ✅ Done | GitScan + LLM changelog structuré (features, fixes, breaking) |
+| 35 | CalDAV Sync | ✅ Done | caldav connector (tsdav) + sync bidirectionnel Google/Outlook |
+| 36 | Email Rules | ✅ Done | Regles auto-classification (conditions + actions) executees au sync |
+| 37 | Routines | ✅ Done | Sequences d'actions programmees (matin/soir) + checker client-side |
+| 38 | Webhooks | ✅ Done | Endpoint generique + stockage payloads + notifications |
+| 39 | Custom Habit Tracker | ✅ Done | Habitudes custom dans wellness_configs + objectifs + streaks |
+| 40 | Daily Journal | ✅ Done | Note quotidienne auto-creee journal/YYYY-MM-DD.md dans vault |
+| 41 | Raccourcis personnalisables | ✅ Done | Raccourcis clavier configurables par l'utilisateur + settings UI |
+| 42 | Mode Offline | ✅ Done | Queue offline IndexedDB + replay auto + OfflineIndicator |
 
 ---
 
@@ -567,7 +581,7 @@ Organise en sprints de complexite croissante. Chaque sprint est independant mais
 ## Ordre d'implementation — Restant
 
 ```
-✅ TOUTES LES FEATURES SONT IMPLEMENTEES (sprints 1-7).
+✅ TOUTES LES FEATURES SONT IMPLEMENTEES (sprints 1-11).
 
 Phase 4 polish egalement complete :
   - ✅ Resume email : cache summary DB + classification auto
@@ -711,6 +725,48 @@ Phase 4 polish egalement complete :
 
 ---
 
+### Sprint 8 — Kanban & Dashboard ✅ DONE
+
+| # | Feature | Statut | Notes |
+|---|---------|--------|-------|
+| 29 | Kanban Board | ✅ Done | Vue drag & drop colonnes triage, filtre par projet |
+| 30 | Dashboard Widgets Configurables | ✅ Done | Widgets reordonnables + visibilite configurable (localStorage) |
+
+---
+
+### Sprint 9 — Dev Tools ✅ DONE
+
+| # | Feature | Statut | Notes |
+|---|---------|--------|-------|
+| 31 | Snippets / Code Clipboard | ✅ Done | CRUD + syntax highlight + categories + command palette snip: |
+| 32 | CI/CD Dashboard (GitHub Actions) | ✅ Done | CiCdWidget, workflow runs via GitHub API (token existant) |
+| 33 | Environment Checker | ✅ Done | EnvWidget, checks ports/processes/services locaux |
+| 34 | Changelog Generator | ✅ Done | GitScan + LLM pour changelog structure |
+
+---
+
+### Sprint 10 — Calendar & Automation ✅ DONE
+
+| # | Feature | Statut | Notes |
+|---|---------|--------|-------|
+| 35 | CalDAV Sync | ✅ Done | tsdav connector, sync bidirectionnel Google/Outlook |
+| 36 | Email Rules | ✅ Done | Regles auto-classification, conditions + actions, executees au sync |
+| 37 | Routines | ✅ Done | Sequences d'actions programmees + checker client-side |
+| 38 | Webhooks Entrants | ✅ Done | Endpoint generique + stockage payloads + notifications |
+
+---
+
+### Sprint 11 — Bien-etre & UX ✅ DONE
+
+| # | Feature | Statut | Notes |
+|---|---------|--------|-------|
+| 39 | Custom Habit Tracker | ✅ Done | Habitudes custom wellness_configs + objectifs + streaks |
+| 40 | Daily Journal | ✅ Done | Note quotidienne auto-creee dans vault (journal/YYYY-MM-DD.md) |
+| 41 | Raccourcis Personnalisables | ✅ Done | Raccourcis configurables + shortcutStore + settings UI |
+| 42 | Mode Offline | ✅ Done | Queue IndexedDB + replay auto + OfflineIndicator |
+
+---
+
 ## Bilan
 
 | Sprint | Features | Statut |
@@ -722,7 +778,11 @@ Phase 4 polish egalement complete :
 | 5 | 2 | ✅ 2/2 done |
 | 6 | 9 | ✅ 9/9 done |
 | 7 | 1 | ✅ 1/1 done |
-| **Total** | **27** | **✅ 27/27 done** |
+| 8 | 2 | ✅ 2/2 done |
+| 9 | 4 | ✅ 4/4 done |
+| 10 | 4 | ✅ 4/4 done |
+| 11 | 4 | ✅ 4/4 done |
+| **Total** | **41** | **✅ 41/41 done** |
 
 ---
 
