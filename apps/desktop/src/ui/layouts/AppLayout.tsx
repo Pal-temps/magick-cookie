@@ -108,6 +108,7 @@ export function AppLayout(props: AppLayoutProps) {
         { label: "Email", action: () => setViewMode("email"), shortcut: "Ctrl+6" },
         { label: "Signets", action: () => setViewMode("bookmarks"), shortcut: "Ctrl+7" },
         { label: "Chat IA", action: () => setViewMode("chat"), shortcut: "Ctrl+8" },
+        { label: "VPS", action: () => setViewMode("vps"), shortcut: "Ctrl+9" },
       ],
     },
     {
@@ -323,6 +324,13 @@ export function AppLayout(props: AppLayoutProps) {
                 onClick={() => setViewMode("chat")}
               >
                 Chat
+              </Button>
+              <Button
+                variant={viewMode() === "vps" ? "primary" : "ghost"}
+                size="sm"
+                onClick={() => setViewMode("vps")}
+              >
+                VPS
               </Button>
               <Show when={["month", "week", "day"].includes(viewMode())}>
                 <div style={{ width: "1px", height: "18px", background: "var(--border-color)", margin: "0 4px" }} />
