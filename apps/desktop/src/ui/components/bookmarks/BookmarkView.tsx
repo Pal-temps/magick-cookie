@@ -128,9 +128,32 @@ export function BookmarkView() {
               <label style={{ display: "block", "font-size": "12px", "font-weight": "500", color: "var(--text-secondary)", "margin-bottom": "4px" }}>Nom</label>
               <input type="text" value={name()} onInput={(e) => setName(e.currentTarget.value)} placeholder="GitHub" style={inputStyle} />
             </div>
-            <div style={{ width: "80px" }}>
+            <div style={{ width: "200px" }}>
               <label style={{ display: "block", "font-size": "12px", "font-weight": "500", color: "var(--text-secondary)", "margin-bottom": "4px" }}>Emoji</label>
-              <input type="text" value={emoji()} onInput={(e) => setEmoji(e.currentTarget.value)} placeholder="" maxLength={4} style={{ ...inputStyle, "text-align": "center" }} />
+              <div style={{ display: "flex", "align-items": "center", gap: "6px" }}>
+                <input type="text" value={emoji()} onInput={(e) => setEmoji(e.currentTarget.value)} placeholder="" maxLength={4} style={{ ...inputStyle, width: "50px", "text-align": "center", "font-size": "18px" }} />
+                <div style={{ display: "flex", gap: "2px", "flex-wrap": "wrap" }}>
+                  <For each={["🔗", "📖", "🛠️", "📝", "🎬", "💡", "📌", "🏠", "💻", "📊", "🎨", "🔒"]}>
+                    {(e) => (
+                      <button
+                        type="button"
+                        onClick={() => setEmoji(e)}
+                        style={{
+                          background: emoji() === e ? "var(--accent-color)" : "none",
+                          border: "1px solid transparent",
+                          "border-radius": "var(--radius-sm)",
+                          cursor: "pointer",
+                          "font-size": "16px",
+                          padding: "2px 4px",
+                          transition: "background 0.1s",
+                        }}
+                        onMouseEnter={(ev) => { if (emoji() !== e) ev.currentTarget.style.background = "var(--bg-elevated)"; }}
+                        onMouseLeave={(ev) => { if (emoji() !== e) ev.currentTarget.style.background = "none"; }}
+                      >{e}</button>
+                    )}
+                  </For>
+                </div>
+              </div>
             </div>
           </div>
           <div style={{ "margin-bottom": "12px" }}>
