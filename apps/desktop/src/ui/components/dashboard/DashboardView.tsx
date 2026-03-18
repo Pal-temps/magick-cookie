@@ -16,6 +16,7 @@ import { BriefView } from "./BriefView";
 import { PatternsView } from "./PatternsView";
 import { TimesheetView } from "./TimesheetView";
 import { Button } from "../common/Button";
+import { JournalButton } from "./JournalButton";
 import { useDashboardStore, type WidgetId } from "../../../application/stores/dashboardStore";
 import "../../styles/dashboard.css";
 
@@ -171,6 +172,7 @@ export function DashboardView() {
               {today()}
             </h2>
             <div style={{ display: "flex", gap: "6px", "align-items": "center" }}>
+              <JournalButton />
               <Button variant="secondary" size="sm" onClick={() => setShowBrief(true)}>
                 Brief
               </Button>
