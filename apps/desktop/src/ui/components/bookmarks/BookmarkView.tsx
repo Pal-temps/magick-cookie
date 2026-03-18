@@ -155,7 +155,7 @@ export function BookmarkView() {
                 <div style={{
                   position: "absolute",
                   top: "100%",
-                  left: "0",
+                  right: "0",
                   "margin-top": "4px",
                   padding: "8px",
                   background: "var(--bg-surface)",
@@ -163,7 +163,7 @@ export function BookmarkView() {
                   "border-radius": "var(--radius-md)",
                   "box-shadow": "0 4px 12px rgba(0,0,0,0.15)",
                   "z-index": "100",
-                  width: "220px",
+                  width: "200px",
                 }}>
                   <div style={{ display: "grid", "grid-template-columns": "repeat(5, 1fr)", gap: "2px", "margin-bottom": "8px" }}>
                     <For each={EMOJI_PRESETS}>
