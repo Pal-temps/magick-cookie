@@ -16,7 +16,7 @@ export function CookieLoader(props: CookieLoaderProps) {
       gap: "8px",
     }}>
       <img
-        src="/loader-cookie.gif"
+        src="/gif/loader-cookie.gif"
         alt="Loading..."
         style={{
           width: `${size()}px`,
