@@ -14,6 +14,9 @@ export function BookmarkView() {
   const [isFav, setIsFav] = createSignal(false);
   const [filter, setFilter] = createSignal("");
   const [filterTag, setFilterTag] = createSignal<BookmarkTag | "all">("all");
+  const [emojiPickerOpen, setEmojiPickerOpen] = createSignal(false);
+
+  const EMOJI_PRESETS = ["🔗", "📖", "🛠️", "📝", "🎬", "💡", "📌", "🏠", "💻", "📊", "🎨", "🔒", "🎵", "📧", "🔍", "⚡", "🎯", "📁", "🌐", "🛒"];
 
   const filtered = () => {
     let list = bookmarks();
@@ -24,7 +27,7 @@ export function BookmarkView() {
   };
 
   function resetForm() {
-    setName(""); setUrl(""); setEmoji(""); setTag("none"); setIsFav(false); setEditing(null); setCreating(false);
+    setName(""); setUrl(""); setEmoji(""); setTag("none"); setIsFav(false); setEmojiPickerOpen(false); setEditing(null); setCreating(false);
   }
 
   function startCreate() { resetForm(); setCreating(true); }
@@ -128,32 +131,74 @@ export function BookmarkView() {
               <label style={{ display: "block", "font-size": "12px", "font-weight": "500", color: "var(--text-secondary)", "margin-bottom": "4px" }}>Nom</label>
               <input type="text" value={name()} onInput={(e) => setName(e.currentTarget.value)} placeholder="GitHub" style={inputStyle} />
             </div>
-            <div style={{ width: "200px" }}>
+            <div style={{ width: "100px", position: "relative" }}>
               <label style={{ display: "block", "font-size": "12px", "font-weight": "500", color: "var(--text-secondary)", "margin-bottom": "4px" }}>Emoji</label>
-              <div style={{ display: "flex", "align-items": "center", gap: "6px" }}>
-                <input type="text" value={emoji()} onInput={(e) => setEmoji(e.currentTarget.value)} placeholder="" maxLength={4} style={{ ...inputStyle, width: "50px", "text-align": "center", "font-size": "18px" }} />
-                <div style={{ display: "flex", gap: "2px", "flex-wrap": "wrap" }}>
-                  <For each={["🔗", "📖", "🛠️", "📝", "🎬", "💡", "📌", "🏠", "💻", "📊", "🎨", "🔒"]}>
-                    {(e) => (
-                      <button
-                        type="button"
-                        onClick={() => setEmoji(e)}
-                        style={{
-                          background: emoji() === e ? "var(--accent-color)" : "none",
-                          border: "1px solid transparent",
-                          "border-radius": "var(--radius-sm)",
-                          cursor: "pointer",
-                          "font-size": "16px",
-                          padding: "2px 4px",
-                          transition: "background 0.1s",
-                        }}
-                        onMouseEnter={(ev) => { if (emoji() !== e) ev.currentTarget.style.background = "var(--bg-elevated)"; }}
-                        onMouseLeave={(ev) => { if (emoji() !== e) ev.currentTarget.style.background = "none"; }}
-                      >{e}</button>
-                    )}
-                  </For>
+              <button
+                type="button"
+                onClick={() => setEmojiPickerOpen(!emojiPickerOpen())}
+                style={{
+                  ...inputStyle,
+                  "font-size": "20px",
+                  "text-align": "center",
+                  cursor: "pointer",
+                  display: "flex",
+                  "align-items": "center",
+                  "justify-content": "center",
+                  gap: "4px",
+                  height: "36px",
+                }}
+              >
+                <span>{emoji() || "🔗"}</span>
+                <span style={{ "font-size": "10px", color: "var(--text-muted)" }}>▼</span>
+              </button>
+              <Show when={emojiPickerOpen()}>
+                <div style={{
+                  position: "absolute",
+                  top: "100%",
+                  left: "0",
+                  "margin-top": "4px",
+                  padding: "8px",
+                  background: "var(--bg-surface)",
+                  border: "1px solid var(--border-color)",
+                  "border-radius": "var(--radius-md)",
+                  "box-shadow": "0 4px 12px rgba(0,0,0,0.15)",
+                  "z-index": "100",
+                  width: "220px",
+                }}>
+                  <div style={{ display: "grid", "grid-template-columns": "repeat(5, 1fr)", gap: "2px", "margin-bottom": "8px" }}>
+                    <For each={EMOJI_PRESETS}>
+                      {(e) => (
+                        <button
+                          type="button"
+                          onClick={() => { setEmoji(e); setEmojiPickerOpen(false); }}
+                          style={{
+                            background: emoji() === e ? "var(--accent-color)" : "none",
+                            border: "none",
+                            "border-radius": "var(--radius-sm)",
+                            cursor: "pointer",
+                            "font-size": "20px",
+                            padding: "6px",
+                            transition: "background 0.1s",
+                          }}
+                          onMouseEnter={(ev) => { if (emoji() !== e) ev.currentTarget.style.background = "var(--bg-elevated)"; }}
+                          onMouseLeave={(ev) => { if (emoji() !== e) ev.currentTarget.style.background = "none"; }}
+                        >{e}</button>
+                      )}
+                    </For>
+                  </div>
+                  <div style={{ "border-top": "1px solid var(--border-color)", "padding-top": "6px" }}>
+                    <input
+                      type="text"
+                      value={emoji()}
+                      onInput={(e) => setEmoji(e.currentTarget.value)}
+                      placeholder="Custom..."
+                      maxLength={4}
+                      style={{ ...inputStyle, "text-align": "center", "font-size": "16px" }}
+                      onKeyDown={(e) => { if (e.key === "Enter") setEmojiPickerOpen(false); }}
+                    />
+                  </div>
                 </div>
-              </div>
+              </Show>
             </div>
           </div>
           <div style={{ "margin-bottom": "12px" }}>
