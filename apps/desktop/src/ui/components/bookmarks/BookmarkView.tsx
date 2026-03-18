@@ -206,7 +206,7 @@ export function BookmarkView() {
                 <button
                   onClick={(e) => { e.stopPropagation(); toggleFavorite(bookmark.id); }}
                   title={bookmark.isFavorite ? "Retirer des favoris" : "Ajouter aux favoris"}
-                  style={{ background: "none", border: "none", cursor: "pointer", "font-size": "18px", color: bookmark.isFavorite ? "var(--accent-secondary)" : "var(--text-muted)", padding: "6px", "border-radius": "var(--radius-sm)", transition: "background 0.15s" }}
+                  style={{ background: "none", border: "none", cursor: "pointer", "font-size": "24px", color: bookmark.isFavorite ? "var(--accent-secondary)" : "var(--text-muted)", padding: "6px", "border-radius": "var(--radius-sm)", transition: "background 0.15s" }}
                   onMouseEnter={(e) => e.currentTarget.style.background = "var(--bg-elevated)"}
                   onMouseLeave={(e) => e.currentTarget.style.background = "none"}
                 >
@@ -215,7 +215,7 @@ export function BookmarkView() {
                 <button
                   onClick={(e) => { e.stopPropagation(); startEdit(bookmark); }}
                   title="Editer"
-                  style={{ background: "none", border: "none", cursor: "pointer", "font-size": "16px", color: "var(--text-muted)", padding: "6px", "border-radius": "var(--radius-sm)", transition: "background 0.15s" }}
+                  style={{ background: "none", border: "none", cursor: "pointer", "font-size": "22px", color: "var(--text-muted)", padding: "6px", "border-radius": "var(--radius-sm)", transition: "background 0.15s" }}
                   onMouseEnter={(e) => e.currentTarget.style.background = "var(--bg-elevated)"}
                   onMouseLeave={(e) => e.currentTarget.style.background = "none"}
                 >
@@ -224,7 +224,7 @@ export function BookmarkView() {
                 <button
                   onClick={(e) => { e.stopPropagation(); handleDelete(bookmark.id); }}
                   title="Supprimer"
-                  style={{ background: "none", border: "none", cursor: "pointer", "font-size": "16px", color: "var(--text-muted)", padding: "6px", "border-radius": "var(--radius-sm)", transition: "background 0.15s" }}
+                  style={{ background: "none", border: "none", cursor: "pointer", "font-size": "22px", color: "var(--text-muted)", padding: "6px", "border-radius": "var(--radius-sm)", transition: "background 0.15s" }}
                   onMouseEnter={(e) => { e.currentTarget.style.background = "var(--bg-elevated)"; e.currentTarget.style.color = "var(--danger-color, #e74c3c)"; }}
                   onMouseLeave={(e) => { e.currentTarget.style.background = "none"; e.currentTarget.style.color = "var(--text-muted)"; }}
                 >
