@@ -1,6 +1,7 @@
 import { createSignal } from "solid-js";
 import { api } from "../../infrastructure/api/apiClient";
 import { notify } from "../../infrastructure/tauri/notifications";
+import { playSound } from "../../infrastructure/audio/soundPlayer";
 import type { TimerStats } from "../../domain/models/TimerSession";
 
 export type TimerMode = "pomodoro" | "free";
@@ -92,11 +93,13 @@ async function onTimerComplete() {
     const isLongBreak = count % settings.sessionsBeforeLong === 0;
     const breakMin = isLongBreak ? settings.longBreakMin : settings.shortBreakMin;
 
+    playSound("focusEnd");
     await notify(
       "Pomodoro termine !",
       isLongBreak
         ? `Session ${count} terminee. Longue pause de ${breakMin} min.`
         : `Session ${count} terminee. Pause de ${breakMin} min.`,
+      { silent: true },
     );
 
     setTimerState("break");
