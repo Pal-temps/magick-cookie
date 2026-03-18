@@ -1,6 +1,7 @@
 import type { EmailAccountRepository, EmailRepository } from "../../domain/email/email.repository";
 import type { EmailAccount, Email, CreateEmailAccountInput, UpdateEmailAccountInput } from "../../domain/email/email.entity";
 import type { ImapConnector } from "../../infrastructure/connectors/imap.connector";
+import type { EmailRuleService } from "./email-rule.service";
 
 export interface EmailDigestBySender {
   sender: string;
@@ -15,11 +16,17 @@ export interface EmailDigest {
 }
 
 export class EmailService {
+  private emailRuleService?: EmailRuleService;
+
   constructor(
     private accountRepo: EmailAccountRepository,
     private emailRepo: EmailRepository,
     private imapConnector: ImapConnector,
   ) {}
+
+  setEmailRuleService(service: EmailRuleService) {
+    this.emailRuleService = service;
+  }
 
   // --- Accounts ---
 
@@ -99,9 +106,36 @@ export class EmailService {
     const rawEmails = await this.imapConnector.fetchNewEmails(account, password, "INBOX", maxUid ?? undefined);
     const newEmails = await this.emailRepo.bulkCreate(rawEmails);
 
+    // Apply email rules to newly imported emails
+    if (this.emailRuleService && newEmails > 0) {
+      await this.applyRulesToRecent(accountId, newEmails);
+    }
+
     await this.accountRepo.updateLastSyncedAt(accountId, new Date());
 
     return { newEmails };
+  }
+
+  private async applyRulesToRecent(accountId: string, count: number): Promise<void> {
+    if (!this.emailRuleService) return;
+    try {
+      const recentEmails = await this.emailRepo.findByAccount(accountId, { limit: count });
+      for (const email of recentEmails) {
+        const result = await this.emailRuleService.applyRules(email);
+        const flags: { isStarred?: boolean; isArchived?: boolean } = {};
+        if (result.isStarred !== undefined) flags.isStarred = result.isStarred;
+        if (result.isArchived !== undefined) flags.isArchived = result.isArchived;
+
+        if (Object.keys(flags).length > 0) {
+          await this.emailRepo.updateFlags(email.id, flags);
+        }
+        if (result.classification) {
+          await this.emailRepo.updateSummary(email.id, email.summary || "", result.classification);
+        }
+      }
+    } catch (err) {
+      console.error("[email-rules] Failed to apply rules:", err);
+    }
   }
 
   // --- Digest ---
