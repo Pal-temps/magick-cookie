@@ -30,7 +30,7 @@ export function AppLayout(props: AppLayoutProps) {
   const { enterDesktop } = useDesktopModeStore();
   const { startSpeechRecording } = useSpeechStore();
   const { startWalk, stopWalk, activeWalk } = useDogWalkStore();
-  const { bookmarks, favorites } = useBookmarkStore();
+  const { favorites } = useBookmarkStore();
 
   const headerTitle = () => {
     const d = currentDate();
@@ -125,18 +125,18 @@ export function AppLayout(props: AppLayoutProps) {
             "overflow-y": "auto",
             "border-top": "1px solid var(--border-color)",
           }}>
-            <Show when={bookmarks().length > 0}>
+            <Show when={favorites().length > 0}>
               <CollapsibleSection
-                title="Signets"
+                title="Favoris"
                 defaultOpen={true}
                 badge={
                   <span style={{ "font-size": "10px", color: "var(--text-muted)", background: "var(--bg-elevated)", padding: "1px 6px", "border-radius": "var(--radius-sm)" }}>
-                    {bookmarks().length}
+                    {favorites().length}
                   </span>
                 }
               >
                 <div style={{ display: "flex", "flex-direction": "column", gap: "2px" }}>
-                  <For each={bookmarks()}>
+                  <For each={favorites()}>
                     {(bookmark) => (
                       <button
                         onClick={() => openUrl(bookmark.url)}
@@ -159,9 +159,6 @@ export function AppLayout(props: AppLayoutProps) {
                         <span style={{ overflow: "hidden", "text-overflow": "ellipsis", "white-space": "nowrap" }}>
                           {bookmark.name}
                         </span>
-                        <Show when={bookmark.isFavorite}>
-                          <span style={{ "font-size": "10px", color: "var(--accent-secondary)", "margin-left": "auto", "flex-shrink": "0" }}>★</span>
-                        </Show>
                       </button>
                     )}
                   </For>

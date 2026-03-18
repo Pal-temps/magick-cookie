@@ -11,6 +11,7 @@ export function BookmarkView() {
   const [url, setUrl] = createSignal("");
   const [emoji, setEmoji] = createSignal("");
   const [tag, setTag] = createSignal<BookmarkTag>("none");
+  const [isFav, setIsFav] = createSignal(false);
   const [filter, setFilter] = createSignal("");
   const [filterTag, setFilterTag] = createSignal<BookmarkTag | "all">("all");
 
@@ -23,20 +24,20 @@ export function BookmarkView() {
   };
 
   function resetForm() {
-    setName(""); setUrl(""); setEmoji(""); setTag("none"); setEditing(null); setCreating(false);
+    setName(""); setUrl(""); setEmoji(""); setTag("none"); setIsFav(false); setEditing(null); setCreating(false);
   }
 
   function startCreate() { resetForm(); setCreating(true); }
 
   function startEdit(b: Bookmark) {
-    setName(b.name); setUrl(b.url); setEmoji(b.emoji ?? ""); setTag(b.tag); setEditing(b.id); setCreating(false);
+    setName(b.name); setUrl(b.url); setEmoji(b.emoji ?? ""); setTag(b.tag); setIsFav(b.isFavorite); setEditing(b.id); setCreating(false);
   }
 
   async function handleSave() {
     const n = name().trim();
     const u = url().trim();
     if (!n || !u) return;
-    const input: CreateBookmarkInput = { name: n, url: u, emoji: emoji().trim() || null, tag: tag() };
+    const input: CreateBookmarkInput = { name: n, url: u, emoji: emoji().trim() || null, tag: tag(), isFavorite: isFav() };
     if (creating()) await createBookmark(input);
     else if (editing()) await updateBookmark(editing()!, input);
     resetForm();
@@ -148,9 +149,20 @@ export function BookmarkView() {
               </For>
             </select>
           </div>
-          <div style={{ display: "flex", gap: "8px", "justify-content": "flex-end" }}>
-            <Button variant="ghost" size="sm" onClick={resetForm}>Annuler</Button>
-            <Button variant="primary" size="sm" onClick={handleSave}>{creating() ? "Creer" : "Enregistrer"}</Button>
+          <div style={{ display: "flex", "align-items": "center", "justify-content": "space-between", "margin-top": "4px" }}>
+            <label style={{ display: "flex", "align-items": "center", gap: "6px", "font-size": "12px", color: "var(--text-secondary)", cursor: "pointer" }}>
+              <input
+                type="checkbox"
+                checked={isFav()}
+                onChange={(e) => setIsFav(e.currentTarget.checked)}
+                style={{ cursor: "pointer" }}
+              />
+              Favori (visible dans la sidebar)
+            </label>
+            <div style={{ display: "flex", gap: "8px" }}>
+              <Button variant="ghost" size="sm" onClick={resetForm}>Annuler</Button>
+              <Button variant="primary" size="sm" onClick={handleSave}>{creating() ? "Creer" : "Enregistrer"}</Button>
+            </div>
           </div>
         </div>
       </Show>
