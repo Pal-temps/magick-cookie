@@ -276,70 +276,41 @@ export function AppLayout(props: AppLayoutProps) {
             "border-bottom": "1px solid var(--border-color)",
             "flex-shrink": "0",
           }}>
-            <div style={{ display: "flex", "align-items": "center", gap: "8px" }}>
-              <Button
-                variant={viewMode() === "dashboard" ? "primary" : "ghost"}
-                size="sm"
-                onClick={() => setViewMode("dashboard")}
-              >
-                Accueil
-              </Button>
-              <Button
-                variant={["month", "week", "day"].includes(viewMode()) ? "primary" : "ghost"}
-                size="sm"
-                onClick={() => setViewMode("month")}
-              >
-                Calendrier
-              </Button>
-              <Button
-                variant={viewMode() === "notes" ? "primary" : "ghost"}
-                size="sm"
-                onClick={() => setViewMode("notes")}
-              >
-                Notes
-              </Button>
-              <Button
-                variant={viewMode() === "triage" ? "primary" : "ghost"}
-                size="sm"
-                onClick={() => setViewMode("triage")}
-              >
-                Taches
-              </Button>
-              <Button
-                variant={viewMode() === "email" ? "primary" : "ghost"}
-                size="sm"
-                onClick={() => setViewMode("email")}
-              >
-                Email
-              </Button>
-              <Button
-                variant={viewMode() === "bookmarks" ? "primary" : "ghost"}
-                size="sm"
-                onClick={() => setViewMode("bookmarks")}
-              >
-                Signets
-              </Button>
-              <Button
-                variant={viewMode() === "chat" ? "primary" : "ghost"}
-                size="sm"
-                onClick={() => setViewMode("chat")}
-              >
-                Chat
-              </Button>
-              <Button
-                variant={viewMode() === "alarms" ? "primary" : "ghost"}
-                size="sm"
-                onClick={() => setViewMode("alarms")}
-              >
-                Alarmes
-              </Button>
-              <Button
-                variant={viewMode() === "vps" ? "primary" : "ghost"}
-                size="sm"
-                onClick={() => setViewMode("vps")}
-              >
-                Serveurs
-              </Button>
+            <div style={{ display: "flex", "align-items": "center", gap: "4px", "min-width": "0", flex: "1", "overflow-x": "auto", "overflow-y": "hidden", "scrollbar-width": "none" }}>
+              <For each={[
+                { id: "dashboard", label: "Accueil", match: (v: string) => v === "dashboard" },
+                { id: "month", label: "Calendrier", match: (v: string) => ["month", "week", "day"].includes(v) },
+                { id: "notes", label: "Notes", match: (v: string) => v === "notes" },
+                { id: "triage", label: "Taches", match: (v: string) => v === "triage" },
+                { id: "email", label: "Email", match: (v: string) => v === "email" },
+                { id: "bookmarks", label: "Signets", match: (v: string) => v === "bookmarks" },
+                { id: "chat", label: "Chat", match: (v: string) => v === "chat" },
+                { id: "alarms", label: "Alarmes", match: (v: string) => v === "alarms" },
+                { id: "vps", label: "Serveurs", match: (v: string) => v === "vps" },
+              ] as const}>
+                {(item) => (
+                  <button
+                    onClick={() => setViewMode(item.id as any)}
+                    style={{
+                      padding: "4px 8px",
+                      "border-radius": "var(--radius-sm)",
+                      "font-size": "12px",
+                      "white-space": "nowrap",
+                      "flex-shrink": "0",
+                      border: "none",
+                      cursor: "pointer",
+                      background: item.match(viewMode()) ? "var(--accent-color)" : "transparent",
+                      color: item.match(viewMode()) ? "#fff" : "var(--text-secondary)",
+                      "font-weight": item.match(viewMode()) ? "600" : "normal",
+                      transition: "background 0.1s",
+                    }}
+                    onMouseEnter={(e) => { if (!item.match(viewMode())) e.currentTarget.style.background = "var(--bg-elevated)"; }}
+                    onMouseLeave={(e) => { if (!item.match(viewMode())) e.currentTarget.style.background = "transparent"; }}
+                  >
+                    {item.label}
+                  </button>
+                )}
+              </For>
               <Show when={["month", "week", "day"].includes(viewMode())}>
                 <div style={{ width: "1px", height: "18px", background: "var(--border-color)", margin: "0 4px" }} />
                 <Button variant="ghost" onClick={navigatePrev}>&lt;</Button>
