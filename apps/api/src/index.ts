@@ -27,6 +27,8 @@ import { DrizzleAgentMemoryRepository } from "./infrastructure/repositories/agen
 import { DrizzleGitHubConfigRepository } from "./infrastructure/repositories/github-config.repository.impl";
 import { DrizzleGitHubPRRepository } from "./infrastructure/repositories/github-pr.repository.impl";
 import { DrizzleAlarmRepository } from "./infrastructure/repositories/alarm.repository.impl";
+import { DrizzleRssFeedRepository } from "./infrastructure/repositories/rss-feed.repository.impl";
+import { DrizzleRssArticleRepository } from "./infrastructure/repositories/rss-article.repository.impl";
 
 // Services
 import { CalendarService } from "./application/calendar/calendar.service";
@@ -52,6 +54,7 @@ import { BookmarkService } from "./application/bookmark/bookmark.service";
 import { ProjectService } from "./application/project/project.service";
 import { SmartReminderService } from "./application/smart-reminder/smart-reminder.service";
 import { AlarmService } from "./application/alarm/alarm.service";
+import { RssService } from "./application/rss/rss.service";
 import { AgentService } from "./application/agent/agent.service";
 import { ToolRegistry } from "./application/agent/tool-registry";
 import { createAnalyticsTools } from "./application/agent/tools/analytics.tools";
@@ -96,12 +99,14 @@ import { createSmartReminderRoutes } from "./presentation/routes/smart-reminder.
 import { createAgentRoutes } from "./presentation/routes/agent.routes";
 import { createPushRoutes } from "./presentation/routes/push.routes";
 import { createAlarmRoutes } from "./presentation/routes/alarm.routes";
+import { createRssFeedRoutes, createRssArticleRoutes } from "./presentation/routes/rss.routes";
 
 // Jobs
 import { startReminderChecker } from "./infrastructure/jobs/reminder-checker";
 import { startEmailSyncJob } from "./infrastructure/jobs/email-sync.job";
 import { startGitHubSyncJob } from "./infrastructure/jobs/github-sync.job";
 import { startAgentScheduler } from "./infrastructure/jobs/agent-scheduler";
+import { startRssSyncJob } from "./infrastructure/jobs/rss-sync.job";
 
 // --- DI ---
 const calendarRepo = new DrizzleCalendarRepository(db);
@@ -126,6 +131,8 @@ const agentMemoryRepo = new DrizzleAgentMemoryRepository(db);
 const githubConfigRepo = new DrizzleGitHubConfigRepository(db);
 const githubPrRepo = new DrizzleGitHubPRRepository(db);
 const alarmRepo = new DrizzleAlarmRepository(db);
+const rssFeedRepo = new DrizzleRssFeedRepository(db);
+const rssArticleRepo = new DrizzleRssArticleRepository(db);
 
 const calendarService = new CalendarService(calendarRepo);
 const eventService = new EventService(eventRepo, reminderRepo);
@@ -152,6 +159,7 @@ const bookmarkService = new BookmarkService(bookmarkRepo, bookmarkTagRepo);
 const projectService = new ProjectService(projectRepo);
 const smartReminderService = new SmartReminderService(triageRepo, taskRepo, emailRepo);
 const alarmService = new AlarmService(alarmRepo);
+const rssService = new RssService(rssFeedRepo, rssArticleRepo);
 
 // Agent (tool-calling chat)
 const toolRegistry = new ToolRegistry();
@@ -209,6 +217,8 @@ app.route("/api/smart-reminders", createSmartReminderRoutes(smartReminderService
 app.route("/api/agent", createAgentRoutes(agentService));
 app.route("/api/push", createPushRoutes(pushRepo));
 app.route("/api/alarms", createAlarmRoutes(alarmService));
+app.route("/api/rss-feeds", createRssFeedRoutes(rssService));
+app.route("/api/rss-articles", createRssArticleRoutes(rssService));
 
 // Start reminder checker — pushes to SSE, does NOT mark as sent
 startReminderChecker(reminderService, eventRepo, reminderEmitter);
@@ -228,6 +238,9 @@ startAgentScheduler({
   emailService,
   timerService: timerSessionService,
 });
+
+// Start RSS sync job
+startRssSyncJob(rssService);
 
 // Seed default wellness configs
 wellnessConfigService.seedDefaults().catch(console.error);

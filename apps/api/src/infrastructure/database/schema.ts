@@ -272,6 +272,37 @@ export const alarms = pgTable("alarms", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });
 
+export const rssFeeds = pgTable("rss_feeds", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  label: varchar("label", { length: 255 }).notNull(),
+  url: varchar("url", { length: 1000 }).notNull(),
+  category: varchar("category", { length: 100 }),
+  siteUrl: varchar("site_url", { length: 1000 }),
+  lastSyncedAt: timestamp("last_synced_at", { withTimezone: true }),
+  syncEnabled: boolean("sync_enabled").notNull().default(true),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
+});
+
+export const rssArticles = pgTable("rss_articles", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  feedId: uuid("feed_id").notNull().references(() => rssFeeds.id, { onDelete: "cascade" }),
+  guid: varchar("guid", { length: 1000 }).notNull(),
+  title: varchar("title", { length: 1000 }),
+  link: varchar("link", { length: 1000 }),
+  description: text("description"),
+  content: text("content"),
+  author: varchar("author", { length: 500 }),
+  publishedAt: timestamp("published_at", { withTimezone: true }),
+  isRead: boolean("is_read").notNull().default(false),
+  isStarred: boolean("is_starred").notNull().default(false),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  index("idx_rss_articles_feed_published").on(table.feedId, table.publishedAt),
+  index("idx_rss_articles_unread").on(table.feedId, table.isRead),
+  uniqueIndex("idx_rss_articles_feed_guid").on(table.feedId, table.guid),
+]);
+
 export const contacts = pgTable("contacts", {
   id: uuid("id").primaryKey().defaultRandom(),
   name: varchar("name", { length: 255 }).notNull(),
