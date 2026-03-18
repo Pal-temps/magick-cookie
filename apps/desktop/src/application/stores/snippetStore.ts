@@ -1,4 +1,5 @@
 import { createSignal, createMemo } from "solid-js";
+import { invoke } from "@tauri-apps/api/core";
 import { api } from "../../infrastructure/api/apiClient";
 
 export interface Snippet {
@@ -89,6 +90,7 @@ export function useSnippetStore() {
       if (params.length > 0) url += "?" + params.join("&");
       const data = await api.get<Snippet[]>(url);
       setSnippets(data);
+      syncSnippetsToVault();
     } catch (e) {
       console.error("Failed to fetch snippets:", e);
     }
@@ -98,6 +100,7 @@ export function useSnippetStore() {
     try {
       const snippet = await api.post<Snippet>("/snippets", input);
       setSnippets((prev) => [...prev, snippet]);
+      syncSnippetsToVault();
       return snippet;
     } catch (e) {
       console.error("Failed to create snippet:", e);
@@ -109,6 +112,7 @@ export function useSnippetStore() {
       const snippet = await api.put<Snippet>(`/snippets/${id}`, input);
       setSnippets((prev) => prev.map((s) => (s.id === id ? snippet : s)));
       if (selectedSnippet()?.id === id) setSelectedSnippet(snippet);
+      syncSnippetsToVault();
       return snippet;
     } catch (e) {
       console.error("Failed to update snippet:", e);
@@ -120,6 +124,7 @@ export function useSnippetStore() {
       await api.delete(`/snippets/${id}`);
       setSnippets((prev) => prev.filter((s) => s.id !== id));
       if (selectedSnippet()?.id === id) setSelectedSnippet(null);
+      syncSnippetsToVault();
     } catch (e) {
       console.error("Failed to delete snippet:", e);
     }
@@ -129,6 +134,44 @@ export function useSnippetStore() {
     const snippet = snippets().find((s) => s.id === id);
     if (snippet) {
       await updateSnippet(id, { isFavorite: !snippet.isFavorite });
+    }
+  }
+
+  async function syncSnippetsToVault() {
+    try {
+      const all = snippets();
+      if (all.length === 0) {
+        await invoke("notes_save", { path: "_snippets/snippets.md", content: "# Snippets\n\nAucun snippet.\n" });
+        return;
+      }
+
+      const cats = categories();
+      const catLabels: Record<string, string> = { none: "Sans categorie" };
+      for (const c of cats) catLabels[c.value] = c.label;
+
+      const grouped = new Map<string, Snippet[]>();
+      for (const s of all) {
+        const key = s.category || "none";
+        if (!grouped.has(key)) grouped.set(key, []);
+        grouped.get(key)!.push(s);
+      }
+
+      const lines: string[] = ["# Snippets", ""];
+
+      for (const [cat, items] of grouped) {
+        lines.push(`## ${catLabels[cat] || cat}`, "");
+        for (const s of items) {
+          const fav = s.isFavorite ? " ★" : "";
+          lines.push(`### ${s.title}${fav}`, "");
+          lines.push(`\`\`\`${s.language}`);
+          lines.push(s.content);
+          lines.push("```", "");
+        }
+      }
+
+      await invoke("notes_save", { path: "_snippets/snippets.md", content: lines.join("\n") });
+    } catch {
+      // Vault not configured — skip
     }
   }
 
@@ -147,5 +190,6 @@ export function useSnippetStore() {
     createCategory,
     updateCategory,
     deleteCategory,
+    syncSnippetsToVault,
   };
 }
