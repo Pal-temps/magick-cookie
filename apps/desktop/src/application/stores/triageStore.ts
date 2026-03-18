@@ -153,6 +153,21 @@ export function useTriageStore() {
     await api.post("/triage", { taskId, triageStatus: newStatus });
   }
 
+  async function untriagedMove(taskId: string) {
+    // Remove from local map immediately
+    setTriageMap((prev) => {
+      const next = new Map(prev);
+      next.delete(taskId);
+      return next;
+    });
+    // Persist to API
+    try {
+      await api.delete(`/triage/${taskId}`);
+    } catch (e) {
+      console.error("Failed to remove triage decision:", e);
+    }
+  }
+
   return {
     triageMap, pendingDecisions, triageQueue, currentIndex,
     isTriaging, isSaving,
@@ -160,6 +175,6 @@ export function useTriageStore() {
     fetchTriage, startTriage, currentTask, remainingCount,
     swipe, undoLast, saveTriage, stopTriage, finishTriage,
     getTaskStatus, getTasksByStatus, getUntriagedTasks, moveTask,
-    fetchSuggestions, clearSuggestions,
+    fetchSuggestions, clearSuggestions, untriagedMove,
   };
 }

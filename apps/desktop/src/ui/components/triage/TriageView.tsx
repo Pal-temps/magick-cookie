@@ -8,7 +8,10 @@ import { Button } from "../common/Button";
 // --- Module-level drag state (ephemeral, no persistence needed) ---
 const [activeDrag, setActiveDrag] = createSignal<{ id: string; name: string } | null>(null);
 const [ghostPos, setGhostPos] = createSignal({ x: 0, y: 0 });
-const [dropTarget, setDropTarget] = createSignal<TriageStatus | null>(null);
+const [dropTarget, setDropTarget] = createSignal<TriageStatus | "untriaged" | null>(null);
+
+// --- View mode toggle ---
+const [viewType, setViewType] = createSignal<"triage" | "kanban">("kanban");
 
 export function TriageView() {
   const triage = useTriageStore();
@@ -45,20 +48,45 @@ export function TriageView() {
     }
   }
 
+  function handleMoveTask(taskId: string, newStatus: TriageStatus | "untriaged") {
+    if (newStatus === "untriaged") {
+      triage.untriagedMove(taskId);
+    } else {
+      triage.moveTask(taskId, newStatus);
+    }
+  }
+
   return (
     <div style={{ height: "100%", display: "flex", "flex-direction": "column", overflow: "hidden" }} tabIndex={0} onKeyDown={handleKeyboard}>
-      <Show when={triage.isTriaging()} fallback={<TriageDashboard
-        priorityTasks={priorityTasks()}
-        laterTasks={laterTasks()}
-        archivedTasks={archivedTasks()}
-        untriagedTasks={untriagedTasks()}
-        totalCount={unscheduledTasks().length}
-        onStartTriage={handleStartTriage}
-        onSync={() => syncConnector("clickup")}
-        isSyncing={isSyncing()}
-        onClickTask={openTaskDetail}
-        onMoveTask={(id, status) => triage.moveTask(id, status)}
-      />}>
+      <Show when={triage.isTriaging()} fallback={
+        <Show when={viewType() === "kanban"} fallback={
+          <TriageDashboard
+            priorityTasks={priorityTasks()}
+            laterTasks={laterTasks()}
+            archivedTasks={archivedTasks()}
+            untriagedTasks={untriagedTasks()}
+            totalCount={unscheduledTasks().length}
+            onStartTriage={handleStartTriage}
+            onSync={() => syncConnector("clickup")}
+            isSyncing={isSyncing()}
+            onClickTask={openTaskDetail}
+            onMoveTask={(id, status) => triage.moveTask(id, status)}
+          />
+        }>
+          <KanbanBoard
+            priorityTasks={priorityTasks()}
+            laterTasks={laterTasks()}
+            archivedTasks={archivedTasks()}
+            untriagedTasks={untriagedTasks()}
+            totalCount={unscheduledTasks().length}
+            onStartTriage={handleStartTriage}
+            onSync={() => syncConnector("clickup")}
+            isSyncing={isSyncing()}
+            onClickTask={openTaskDetail}
+            onMoveTask={handleMoveTask}
+          />
+        </Show>
+      }>
         <div style={{
           flex: "1",
           display: "flex",
@@ -139,7 +167,493 @@ export function TriageView() {
   );
 }
 
-// --- Dashboard ---
+// --- View toggle (like calendar Month/Week/Day) ---
+
+function ViewToggle() {
+  const modes: Array<{ key: "triage" | "kanban"; label: string }> = [
+    { key: "kanban", label: "Kanban" },
+    { key: "triage", label: "Triage" },
+  ];
+
+  return (
+    <div style={{ display: "flex", gap: "4px" }}>
+      <For each={modes}>
+        {(mode) => (
+          <Button
+            variant={viewType() === mode.key ? "primary" : "secondary"}
+            size="sm"
+            onClick={() => setViewType(mode.key)}
+          >
+            {mode.label}
+          </Button>
+        )}
+      </For>
+    </div>
+  );
+}
+
+// --- Kanban Board ---
+
+interface KanbanBoardProps {
+  priorityTasks: Task[];
+  laterTasks: Task[];
+  archivedTasks: Task[];
+  untriagedTasks: Task[];
+  totalCount: number;
+  onStartTriage: () => void;
+  onSync: () => void;
+  isSyncing: boolean;
+  onClickTask: (task: Task) => void;
+  onMoveTask: (taskId: string, newStatus: TriageStatus | "untriaged") => void;
+}
+
+function KanbanBoard(props: KanbanBoardProps) {
+  const triage = useTriageStore();
+
+  async function handleAutoTriage() {
+    await triage.fetchSuggestions();
+  }
+
+  async function applySuggestion(suggestion: TriageSuggestion) {
+    await triage.moveTask(suggestion.taskId, suggestion.suggestedStatus);
+    triage.clearSuggestions();
+  }
+
+  async function applyAllSuggestions() {
+    const items = triage.suggestions().map(s => ({
+      taskId: s.taskId,
+      triageStatus: s.suggestedStatus as TriageStatus,
+    }));
+    for (const item of items) {
+      await triage.moveTask(item.taskId, item.triageStatus);
+    }
+    triage.clearSuggestions();
+  }
+
+  const statusColors: Record<string, string> = {
+    priority: "#ef4444",
+    later: "#3b82f6",
+    archived: "#8b5cf6",
+  };
+
+  const statusLabels: Record<string, string> = {
+    priority: "Prioritaire",
+    later: "Plus tard",
+    archived: "Archive",
+  };
+
+  return (
+    <div style={{ height: "100%", display: "flex", "flex-direction": "column", overflow: "hidden" }}>
+      {/* Drag ghost */}
+      <Show when={activeDrag()}>
+        <div
+          id="triage-ghost"
+          style={{
+            position: "fixed",
+            left: ghostPos().x + "px",
+            top: ghostPos().y + "px",
+            transform: "translate(-50%, -50%) rotate(2deg)",
+            background: "var(--bg-elevated)",
+            border: "1px solid var(--border-color)",
+            "border-radius": "var(--radius-sm)",
+            padding: "6px 12px",
+            "font-size": "12px",
+            color: "var(--text-primary)",
+            "pointer-events": "none",
+            "z-index": "9999",
+            "box-shadow": "0 4px 16px rgba(0,0,0,0.3)",
+            "max-width": "200px",
+            "white-space": "nowrap",
+            overflow: "hidden",
+            "text-overflow": "ellipsis",
+            opacity: "0.95",
+          }}
+        >
+          {activeDrag()!.name}
+        </div>
+      </Show>
+
+      {/* Header bar */}
+      <div style={{
+        display: "flex",
+        "align-items": "center",
+        "justify-content": "space-between",
+        padding: "16px 20px 12px",
+        "flex-shrink": "0",
+      }}>
+        <div>
+          <h2 style={{ "font-size": "20px", "font-weight": "600", color: "var(--text-primary)", margin: "0" }}>Triage des taches</h2>
+          <p style={{ "font-size": "12px", color: "var(--text-muted)", "margin-top": "4px", margin: "4px 0 0 0" }}>
+            {props.totalCount} tache(s) au total — {props.untriagedTasks.length} non triee(s)
+          </p>
+        </div>
+        <div style={{ display: "flex", gap: "8px", "align-items": "center" }}>
+          <ViewToggle />
+          <Button size="sm" variant="secondary" onClick={handleAutoTriage} disabled={triage.suggestLoading()}>
+            {triage.suggestLoading() ? "Analyse..." : "Auto-triage (IA)"}
+          </Button>
+          <Button size="sm" variant="secondary" onClick={props.onSync} disabled={props.isSyncing}>
+            {props.isSyncing ? "..." : "Sync ClickUp"}
+          </Button>
+          <Button size="sm" variant="primary" onClick={props.onStartTriage}>
+            Trier &#10022; {props.untriagedTasks.length}
+          </Button>
+        </div>
+      </div>
+
+      {/* Suggestions panel */}
+      <Show when={triage.suggestLoading()}>
+        <div style={{
+          background: "var(--bg-elevated)",
+          "border-radius": "var(--radius-md)",
+          border: "1px solid var(--border-color)",
+          padding: "16px",
+          margin: "0 20px 12px",
+          "text-align": "center",
+        }}>
+          <div style={{ "font-size": "14px", color: "var(--text-secondary)" }}>
+            L'IA analyse vos taches...
+          </div>
+        </div>
+      </Show>
+
+      <Show when={!triage.suggestLoading() && triage.suggestions().length > 0}>
+        <div style={{
+          background: "var(--bg-elevated)",
+          "border-radius": "var(--radius-md)",
+          border: "1px solid var(--accent-primary)",
+          padding: "16px",
+          margin: "0 20px 12px",
+        }}>
+          <div style={{ display: "flex", "align-items": "center", "justify-content": "space-between", "margin-bottom": "12px" }}>
+            <h3 style={{ margin: "0", "font-size": "14px", "font-weight": "600", color: "var(--text-primary)" }}>
+              Suggestions de l'IA ({triage.suggestions().length})
+            </h3>
+            <div style={{ display: "flex", gap: "6px" }}>
+              <Button size="sm" variant="primary" onClick={applyAllSuggestions}>
+                Appliquer tout
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => triage.clearSuggestions()}>
+                Ignorer
+              </Button>
+            </div>
+          </div>
+          <div style={{ display: "flex", "flex-direction": "column", gap: "6px" }}>
+            <For each={triage.suggestions()}>
+              {(suggestion) => (
+                <div style={{
+                  display: "flex",
+                  "align-items": "center",
+                  gap: "10px",
+                  padding: "8px 12px",
+                  background: "var(--bg-surface)",
+                  "border-radius": "var(--radius-sm)",
+                  border: "1px solid var(--border-color)",
+                }}>
+                  <div style={{ flex: "1", "min-width": "0" }}>
+                    <div style={{
+                      "font-size": "12px",
+                      color: "var(--text-primary)",
+                      overflow: "hidden",
+                      "text-overflow": "ellipsis",
+                      "white-space": "nowrap",
+                    }}>
+                      {suggestion.taskTitle}
+                    </div>
+                    <div style={{ "font-size": "10px", color: "var(--text-muted)", "margin-top": "2px" }}>
+                      {suggestion.reason}
+                    </div>
+                  </div>
+                  <span style={{
+                    "font-size": "10px",
+                    padding: "2px 8px",
+                    "border-radius": "var(--radius-sm)",
+                    background: statusColors[suggestion.suggestedStatus] || "var(--bg-elevated)",
+                    color: "#fff",
+                    "white-space": "nowrap",
+                    "flex-shrink": "0",
+                  }}>
+                    {statusLabels[suggestion.suggestedStatus] || suggestion.suggestedStatus}
+                  </span>
+                  <Button size="sm" variant="secondary" onClick={() => applySuggestion(suggestion)}>
+                    Appliquer
+                  </Button>
+                </div>
+              )}
+            </For>
+          </div>
+        </div>
+      </Show>
+
+      {/* 4-column Kanban board */}
+      <div style={{
+        flex: "1",
+        display: "grid",
+        "grid-template-columns": "1fr 1fr 1fr 1fr",
+        gap: "12px",
+        padding: "0 20px 20px",
+        "min-height": "0",
+        overflow: "hidden",
+      }}>
+        <KanbanColumn
+          title="Non trie"
+          status="untriaged"
+          color="#6b7280"
+          tasks={props.untriagedTasks}
+          onClickTask={props.onClickTask}
+          onMoveTask={props.onMoveTask}
+        />
+        <KanbanColumn
+          title="Prioritaire"
+          status="priority"
+          color="#ef4444"
+          tasks={props.priorityTasks}
+          onClickTask={props.onClickTask}
+          onMoveTask={props.onMoveTask}
+        />
+        <KanbanColumn
+          title="Plus tard"
+          status="later"
+          color="#3b82f6"
+          tasks={props.laterTasks}
+          onClickTask={props.onClickTask}
+          onMoveTask={props.onMoveTask}
+        />
+        <KanbanColumn
+          title="Archive"
+          status="archived"
+          color="#8b5cf6"
+          tasks={props.archivedTasks}
+          onClickTask={props.onClickTask}
+          onMoveTask={props.onMoveTask}
+        />
+      </div>
+    </div>
+  );
+}
+
+// --- Kanban Column ---
+
+interface KanbanColumnProps {
+  title: string;
+  status: TriageStatus | "untriaged";
+  color: string;
+  tasks: Task[];
+  onClickTask: (task: Task) => void;
+  onMoveTask: (taskId: string, newStatus: TriageStatus | "untriaged") => void;
+}
+
+function KanbanColumn(props: KanbanColumnProps) {
+  const isDropTarget = () => activeDrag() !== null && dropTarget() === props.status;
+
+  return (
+    <div
+      data-triage-status={props.status}
+      style={{
+        display: "flex",
+        "flex-direction": "column",
+        background: isDropTarget() ? `${props.color}15` : "var(--bg-surface)",
+        "border-radius": "var(--radius-md)",
+        border: `2px ${isDropTarget() ? "dashed" : "solid"} ${isDropTarget() ? props.color : "var(--border-color)"}`,
+        overflow: "hidden",
+        transition: "background 0.15s, border-color 0.15s",
+        "min-height": "0",
+      }}
+    >
+      {/* Column header with colored top border */}
+      <div style={{
+        padding: "10px 14px",
+        display: "flex",
+        "align-items": "center",
+        "justify-content": "space-between",
+        "border-top": `3px solid ${props.color}`,
+        "border-bottom": "1px solid var(--border-color)",
+        "flex-shrink": "0",
+      }}>
+        <span style={{ "font-size": "13px", "font-weight": "600", color: "var(--text-primary)" }}>
+          {props.title}
+        </span>
+        <span style={{
+          "font-size": "11px",
+          padding: "1px 8px",
+          "border-radius": "var(--radius-sm)",
+          background: props.color,
+          color: "#fff",
+        }}>
+          {props.tasks.length}
+        </span>
+      </div>
+
+      {/* Scrollable card list */}
+      <div style={{ flex: "1", "overflow-y": "auto", padding: "6px" }}>
+        <For each={props.tasks}>
+          {(task) => (
+            <KanbanCard task={task} onMoveTask={props.onMoveTask} onClick={() => props.onClickTask(task)} />
+          )}
+        </For>
+        <Show when={props.tasks.length === 0}>
+          <div style={{
+            padding: "24px 12px",
+            "text-align": "center",
+            "font-size": "11px",
+            color: isDropTarget() ? props.color : "var(--text-muted)",
+            transition: "color 0.15s",
+          }}>
+            {isDropTarget() ? "Deposer ici" : "Aucune tache"}
+          </div>
+        </Show>
+      </div>
+    </div>
+  );
+}
+
+// --- Kanban Card ---
+
+const sourceIcons: Record<string, string> = {
+  clickup: "\u{1F4CB}",
+  manual: "\u{270F}",
+};
+
+const priorityColors: Record<string, string> = {
+  urgent: "#ef4444",
+  high: "#f97316",
+  normal: "#3b82f6",
+  low: "#6b7280",
+};
+
+interface KanbanCardProps {
+  task: Task;
+  onClick: () => void;
+  onMoveTask: (taskId: string, newStatus: TriageStatus | "untriaged") => void;
+}
+
+function KanbanCard(props: KanbanCardProps) {
+  const isDragging = () => activeDrag()?.id === props.task.id;
+
+  function handlePointerDown(e: PointerEvent) {
+    if (e.button !== 0) return;
+    e.preventDefault();
+
+    const el = e.currentTarget as HTMLElement;
+    const pointerId = e.pointerId;
+    el.setPointerCapture(pointerId);
+
+    setActiveDrag({ id: props.task.id, name: props.task.title });
+    setGhostPos({ x: e.clientX, y: e.clientY });
+    setDropTarget(null);
+
+    function onMove(ev: PointerEvent) {
+      setGhostPos({ x: ev.clientX, y: ev.clientY });
+      const under = document.elementFromPoint(ev.clientX, ev.clientY);
+      const col = under?.closest("[data-triage-status]") as HTMLElement | null;
+      setDropTarget((col?.dataset.triageStatus as TriageStatus | "untriaged") ?? null);
+    }
+
+    function cleanup() {
+      el.removeEventListener("pointermove", onMove);
+      el.removeEventListener("pointerup", cleanup);
+      el.removeEventListener("pointercancel", cleanup);
+      window.removeEventListener("blur", cleanup);
+      try { el.releasePointerCapture(pointerId); } catch {}
+
+      const status = dropTarget();
+      setActiveDrag(null);
+      setDropTarget(null);
+
+      if (status) {
+        props.onMoveTask(props.task.id, status);
+      }
+    }
+
+    el.addEventListener("pointermove", onMove);
+    el.addEventListener("pointerup", cleanup);
+    el.addEventListener("pointercancel", cleanup);
+    window.addEventListener("blur", cleanup);
+  }
+
+  function handleClick(e: MouseEvent) {
+    if (!activeDrag()) props.onClick();
+  }
+
+  const label = () => props.task.labels[0] ?? null;
+  const prio = () => props.task.priority;
+
+  return (
+    <div
+      onPointerDown={handlePointerDown}
+      onClick={handleClick}
+      style={{
+        padding: "8px 10px",
+        "margin-bottom": "6px",
+        background: "var(--bg-elevated)",
+        border: "1px solid var(--border-color)",
+        "border-radius": "var(--radius-sm)",
+        cursor: isDragging() ? "grabbing" : "grab",
+        transition: "opacity 0.1s, box-shadow 0.15s",
+        opacity: isDragging() ? "0.3" : "1",
+        "user-select": "none",
+        "box-sizing": "border-box",
+      }}
+      onMouseEnter={(e) => { if (!isDragging()) e.currentTarget.style["box-shadow"] = "0 2px 8px rgba(0,0,0,0.15)"; }}
+      onMouseLeave={(e) => { e.currentTarget.style["box-shadow"] = "none"; }}
+    >
+      {/* Title */}
+      <div style={{
+        "font-size": "12px",
+        color: "var(--text-primary)",
+        overflow: "hidden",
+        "text-overflow": "ellipsis",
+        "white-space": "nowrap",
+        "margin-bottom": "4px",
+        "font-weight": "500",
+      }}>
+        {props.task.title}
+      </div>
+
+      {/* Meta row: label, priority, source */}
+      <div style={{ display: "flex", "align-items": "center", gap: "6px", "flex-wrap": "wrap" }}>
+        <Show when={label()}>
+          <span style={{
+            "font-size": "10px",
+            padding: "1px 6px",
+            "border-radius": "var(--radius-sm)",
+            background: "var(--bg-surface)",
+            border: "1px solid var(--border-color)",
+            color: "var(--text-secondary)",
+            "white-space": "nowrap",
+            overflow: "hidden",
+            "text-overflow": "ellipsis",
+            "max-width": "100px",
+          }}>
+            {label()}
+          </span>
+        </Show>
+        <Show when={prio()}>
+          <span style={{
+            "font-size": "9px",
+            padding: "1px 5px",
+            "border-radius": "2px",
+            background: priorityColors[prio()!] || "var(--bg-elevated)",
+            color: "#fff",
+            "text-transform": "capitalize",
+            "white-space": "nowrap",
+          }}>
+            {prio()}
+          </span>
+        </Show>
+        <span style={{
+          "font-size": "10px",
+          "margin-left": "auto",
+          "flex-shrink": "0",
+        }}>
+          {sourceIcons[props.task.source] || ""}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+// --- Legacy Dashboard (triage mode fallback) ---
 
 interface TriageDashboardProps {
   priorityTasks: Task[];
@@ -163,9 +677,7 @@ function TriageDashboard(props: TriageDashboardProps) {
 
   async function applySuggestion(suggestion: TriageSuggestion) {
     await triage.moveTask(suggestion.taskId, suggestion.suggestedStatus);
-    // Remove from suggestions list
     triage.clearSuggestions();
-    // Re-fetch to update (without the applied one)
   }
 
   async function applyAllSuggestions() {
@@ -230,7 +742,8 @@ function TriageDashboard(props: TriageDashboardProps) {
             {props.totalCount} tache(s) au total — {props.untriagedTasks.length} non triee(s)
           </p>
         </div>
-        <div style={{ display: "flex", gap: "8px" }}>
+        <div style={{ display: "flex", gap: "8px", "align-items": "center" }}>
+          <ViewToggle />
           <Button size="sm" variant="secondary" onClick={handleAutoTriage} disabled={triage.suggestLoading()}>
             {triage.suggestLoading() ? "Analyse en cours..." : "Auto-triage (IA)"}
           </Button>
@@ -368,7 +881,7 @@ function TriageDashboard(props: TriageDashboardProps) {
   );
 }
 
-// --- Columns ---
+// --- Legacy Columns ---
 
 interface TaskColumnProps {
   title: string;
@@ -509,7 +1022,7 @@ function UntriagedSection(props: UntriagedSectionProps) {
   );
 }
 
-// --- Draggable item (pointer events, Tauri-safe) ---
+// --- Draggable item (pointer events, Tauri-safe) — used by legacy dashboard ---
 
 interface DraggableTaskItemProps {
   task: Task;
@@ -554,7 +1067,7 @@ function DraggableTaskItem(props: DraggableTaskItemProps) {
       setDropTarget(null);
 
       if (status) {
-        props.onMoveTask(props.task.id, status);
+        props.onMoveTask(props.task.id, status as TriageStatus);
       }
     }
 
