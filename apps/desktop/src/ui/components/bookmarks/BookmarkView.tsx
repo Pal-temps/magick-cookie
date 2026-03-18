@@ -1,5 +1,5 @@
 import { createSignal, For, Show } from "solid-js";
-import { useBookmarkStore, type Bookmark, type CreateBookmarkInput } from "../../../application/stores/bookmarkStore";
+import { useBookmarkStore, BOOKMARK_TAGS, type Bookmark, type BookmarkTag, type CreateBookmarkInput } from "../../../application/stores/bookmarkStore";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { Button } from "../common/Button";
 
@@ -10,31 +10,33 @@ export function BookmarkView() {
   const [name, setName] = createSignal("");
   const [url, setUrl] = createSignal("");
   const [emoji, setEmoji] = createSignal("");
+  const [tag, setTag] = createSignal<BookmarkTag>("none");
   const [filter, setFilter] = createSignal("");
+  const [filterTag, setFilterTag] = createSignal<BookmarkTag | "all">("all");
 
   const filtered = () => {
+    let list = bookmarks();
+    if (filterTag() !== "all") list = list.filter((b) => b.tag === filterTag());
     const q = filter().toLowerCase();
-    if (!q) return bookmarks();
-    return bookmarks().filter((b) =>
-      b.name.toLowerCase().includes(q) || b.url.toLowerCase().includes(q),
-    );
+    if (q) list = list.filter((b) => b.name.toLowerCase().includes(q) || b.url.toLowerCase().includes(q));
+    return list;
   };
 
   function resetForm() {
-    setName(""); setUrl(""); setEmoji(""); setEditing(null); setCreating(false);
+    setName(""); setUrl(""); setEmoji(""); setTag("none"); setEditing(null); setCreating(false);
   }
 
   function startCreate() { resetForm(); setCreating(true); }
 
   function startEdit(b: Bookmark) {
-    setName(b.name); setUrl(b.url); setEmoji(b.emoji ?? ""); setEditing(b.id); setCreating(false);
+    setName(b.name); setUrl(b.url); setEmoji(b.emoji ?? ""); setTag(b.tag); setEditing(b.id); setCreating(false);
   }
 
   async function handleSave() {
     const n = name().trim();
     const u = url().trim();
     if (!n || !u) return;
-    const input: CreateBookmarkInput = { name: n, url: u, emoji: emoji().trim() || null };
+    const input: CreateBookmarkInput = { name: n, url: u, emoji: emoji().trim() || null, tag: tag() };
     if (creating()) await createBookmark(input);
     else if (editing()) await updateBookmark(editing()!, input);
     resetForm();
@@ -76,15 +78,39 @@ export function BookmarkView() {
         </Show>
       </div>
 
-      {/* Search filter */}
-      <div style={{ "margin-bottom": "16px" }}>
+      {/* Filters */}
+      <div style={{ display: "flex", gap: "10px", "align-items": "center", "margin-bottom": "16px", "flex-wrap": "wrap" }}>
         <input
           type="text"
           placeholder="Filtrer les signets..."
           value={filter()}
           onInput={(e) => setFilter(e.currentTarget.value)}
-          style={{ ...inputStyle, "max-width": "400px" }}
+          style={{ ...inputStyle, "max-width": "300px" }}
         />
+        <div style={{ display: "flex", gap: "4px", "flex-wrap": "wrap" }}>
+          <button
+            onClick={() => setFilterTag("all")}
+            style={{
+              padding: "4px 10px", "border-radius": "var(--radius-sm)", "font-size": "11px", cursor: "pointer",
+              border: "1px solid var(--border-color)",
+              background: filterTag() === "all" ? "var(--accent-color)" : "var(--bg-surface)",
+              color: filterTag() === "all" ? "#fff" : "var(--text-secondary)",
+            }}
+          >Tous</button>
+          <For each={BOOKMARK_TAGS.filter((t) => t.value !== "none")}>
+            {(t) => (
+              <button
+                onClick={() => setFilterTag(t.value)}
+                style={{
+                  padding: "4px 10px", "border-radius": "var(--radius-sm)", "font-size": "11px", cursor: "pointer",
+                  border: "1px solid var(--border-color)",
+                  background: filterTag() === t.value ? "var(--accent-color)" : "var(--bg-surface)",
+                  color: filterTag() === t.value ? "#fff" : "var(--text-secondary)",
+                }}
+              >{t.label}</button>
+            )}
+          </For>
+        </div>
       </div>
 
       {/* Create/Edit form */}
@@ -109,6 +135,18 @@ export function BookmarkView() {
           <div style={{ "margin-bottom": "12px" }}>
             <label style={{ display: "block", "font-size": "12px", "font-weight": "500", color: "var(--text-secondary)", "margin-bottom": "4px" }}>URL</label>
             <input type="url" value={url()} onInput={(e) => setUrl(e.currentTarget.value)} placeholder="https://github.com" style={inputStyle} />
+          </div>
+          <div style={{ "margin-bottom": "12px" }}>
+            <label style={{ display: "block", "font-size": "12px", "font-weight": "500", color: "var(--text-secondary)", "margin-bottom": "4px" }}>Tag</label>
+            <select
+              value={tag()}
+              onChange={(e) => setTag(e.currentTarget.value as BookmarkTag)}
+              style={{ ...inputStyle, cursor: "pointer" }}
+            >
+              <For each={BOOKMARK_TAGS}>
+                {(t) => <option value={t.value}>{t.label}</option>}
+              </For>
+            </select>
           </div>
           <div style={{ display: "flex", gap: "8px", "justify-content": "flex-end" }}>
             <Button variant="ghost" size="sm" onClick={resetForm}>Annuler</Button>
@@ -142,6 +180,15 @@ export function BookmarkView() {
                 <div style={{ "font-size": "11px", color: "var(--text-muted)", "white-space": "nowrap", overflow: "hidden", "text-overflow": "ellipsis", "margin-top": "2px" }}>
                   {bookmark.url}
                 </div>
+                <Show when={bookmark.tag && bookmark.tag !== "none"}>
+                  <span style={{
+                    display: "inline-block", "margin-top": "3px", padding: "1px 6px",
+                    "font-size": "10px", "border-radius": "var(--radius-sm)",
+                    background: "var(--bg-elevated)", color: "var(--text-secondary)",
+                  }}>
+                    {BOOKMARK_TAGS.find((t) => t.value === bookmark.tag)?.label ?? bookmark.tag}
+                  </span>
+                </Show>
               </div>
               <div style={{ display: "flex", gap: "2px", "flex-shrink": "0" }}>
                 <button

@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm";
 import type { Database } from "../database/client";
 import { bookmarks } from "../database/schema";
 import type { BookmarkRepository } from "../../domain/bookmark/bookmark.repository";
-import type { Bookmark, CreateBookmarkInput, UpdateBookmarkInput } from "../../domain/bookmark/bookmark.entity";
+import type { Bookmark, BookmarkTag, CreateBookmarkInput, UpdateBookmarkInput } from "../../domain/bookmark/bookmark.entity";
 
 export class DrizzleBookmarkRepository implements BookmarkRepository {
   constructor(private db: Database) {}
@@ -22,6 +22,7 @@ export class DrizzleBookmarkRepository implements BookmarkRepository {
       name: input.name,
       url: input.url,
       emoji: input.emoji ?? null,
+      tag: input.tag ?? "none",
       isFavorite: input.isFavorite ?? false,
       sortOrder: input.sortOrder ?? 0,
     }).returning();
@@ -34,6 +35,7 @@ export class DrizzleBookmarkRepository implements BookmarkRepository {
     if (input.url !== undefined) values.url = input.url;
     if (input.emoji !== undefined) values.emoji = input.emoji;
     if (input.isFavorite !== undefined) values.isFavorite = input.isFavorite;
+    if (input.tag !== undefined) values.tag = input.tag;
     if (input.sortOrder !== undefined) values.sortOrder = input.sortOrder;
 
     const rows = await this.db.update(bookmarks).set(values).where(eq(bookmarks.id, id)).returning();
@@ -51,6 +53,7 @@ export class DrizzleBookmarkRepository implements BookmarkRepository {
       name: row.name,
       url: row.url,
       emoji: row.emoji,
+      tag: (row.tag ?? "none") as BookmarkTag,
       isFavorite: row.isFavorite,
       sortOrder: row.sortOrder,
       createdAt: row.createdAt,

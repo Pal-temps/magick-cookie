@@ -218,6 +218,7 @@ export const bookmarks = pgTable("bookmarks", {
   name: varchar("name", { length: 255 }).notNull(),
   url: varchar("url", { length: 1000 }).notNull(),
   emoji: varchar("emoji", { length: 10 }),
+  tag: varchar("tag", { length: 30 }).notNull().default("none"),
   isFavorite: boolean("is_favorite").notNull().default(false),
   sortOrder: integer("sort_order").notNull().default(0),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
