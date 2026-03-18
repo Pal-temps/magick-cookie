@@ -153,19 +153,22 @@ export function BookmarkView() {
               </button>
               <Show when={emojiPickerOpen()}>
                 <div style={{
-                  position: "absolute",
-                  top: "100%",
-                  right: "0",
-                  "margin-top": "4px",
-                  padding: "8px",
+                  position: "fixed",
+                  top: "50%",
+                  left: "50%",
+                  transform: "translate(-50%, -50%)",
+                  padding: "16px",
                   background: "var(--bg-surface)",
                   border: "1px solid var(--border-color)",
                   "border-radius": "var(--radius-md)",
-                  "box-shadow": "0 4px 12px rgba(0,0,0,0.15)",
-                  "z-index": "100",
-                  width: "200px",
+                  "box-shadow": "0 8px 24px rgba(0,0,0,0.2)",
+                  "z-index": "1000",
+                  "max-width": "90vw",
+                  "max-height": "90vh",
+                  overflow: "auto",
                 }}>
-                  <div style={{ display: "grid", "grid-template-columns": "repeat(5, 1fr)", gap: "2px", "margin-bottom": "8px" }}>
+                  <div style={{ "font-size": "12px", "font-weight": "500", color: "var(--text-secondary)", "margin-bottom": "10px" }}>Choisir un emoji</div>
+                  <div style={{ display: "flex", "flex-wrap": "wrap", gap: "4px", "margin-bottom": "12px" }}>
                     <For each={EMOJI_PRESETS}>
                       {(e) => (
                         <button
@@ -176,8 +179,8 @@ export function BookmarkView() {
                             border: "none",
                             "border-radius": "var(--radius-sm)",
                             cursor: "pointer",
-                            "font-size": "20px",
-                            padding: "6px",
+                            "font-size": "22px",
+                            padding: "8px",
                             transition: "background 0.1s",
                           }}
                           onMouseEnter={(ev) => { if (emoji() !== e) ev.currentTarget.style.background = "var(--bg-elevated)"; }}
@@ -186,18 +189,24 @@ export function BookmarkView() {
                       )}
                     </For>
                   </div>
-                  <div style={{ "border-top": "1px solid var(--border-color)", "padding-top": "6px" }}>
+                  <div style={{ "border-top": "1px solid var(--border-color)", "padding-top": "8px", display: "flex", gap: "8px", "align-items": "center" }}>
                     <input
                       type="text"
                       value={emoji()}
                       onInput={(e) => setEmoji(e.currentTarget.value)}
                       placeholder="Custom..."
                       maxLength={4}
-                      style={{ ...inputStyle, "text-align": "center", "font-size": "16px" }}
+                      style={{ ...inputStyle, flex: "1", "text-align": "center", "font-size": "16px" }}
                       onKeyDown={(e) => { if (e.key === "Enter") setEmojiPickerOpen(false); }}
                     />
+                    <Button variant="ghost" size="sm" onClick={() => setEmojiPickerOpen(false)}>OK</Button>
                   </div>
                 </div>
+                {/* Backdrop */}
+                <div
+                  onClick={() => setEmojiPickerOpen(false)}
+                  style={{ position: "fixed", inset: "0", "z-index": "999", background: "rgba(0,0,0,0.1)" }}
+                />
               </Show>
             </div>
           </div>
