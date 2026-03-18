@@ -64,7 +64,7 @@ export function BookmarkView() {
   };
 
   return (
-    <div style={{ height: "100%", overflow: "auto", padding: "24px 32px" }}>
+    <div style={{ height: "100%", overflow: "auto", "overflow-x": "hidden", padding: "24px 32px" }}>
       {/* Header */}
       <div style={{ display: "flex", "align-items": "center", "justify-content": "space-between", "margin-bottom": "20px" }}>
         <div>
@@ -89,7 +89,7 @@ export function BookmarkView() {
           placeholder="Filtrer les signets..."
           value={filter()}
           onInput={(e) => setFilter(e.currentTarget.value)}
-          style={{ ...inputStyle, "max-width": "300px" }}
+          style={{ ...inputStyle, flex: "1", "min-width": "150px", "max-width": "300px" }}
         />
         <div style={{ display: "flex", gap: "4px", "flex-wrap": "wrap" }}>
           <button
@@ -126,12 +126,12 @@ export function BookmarkView() {
           border: "1px solid var(--accent-color)",
           background: "var(--bg-elevated)",
         }}>
-          <div style={{ display: "flex", gap: "12px", "margin-bottom": "12px" }}>
-            <div style={{ flex: "1" }}>
+          <div style={{ display: "flex", gap: "12px", "margin-bottom": "12px", "flex-wrap": "wrap" }}>
+            <div style={{ flex: "1", "min-width": "150px" }}>
               <label style={{ display: "block", "font-size": "12px", "font-weight": "500", color: "var(--text-secondary)", "margin-bottom": "4px" }}>Nom</label>
               <input type="text" value={name()} onInput={(e) => setName(e.currentTarget.value)} placeholder="GitHub" style={inputStyle} />
             </div>
-            <div style={{ width: "100px", position: "relative" }}>
+            <div style={{ width: "100px", "flex-shrink": "0", position: "relative" }}>
               <label style={{ display: "block", "font-size": "12px", "font-weight": "500", color: "var(--text-secondary)", "margin-bottom": "4px" }}>Emoji</label>
               <button
                 type="button"
@@ -236,26 +236,25 @@ export function BookmarkView() {
       </Show>
 
       {/* Bookmark list */}
-      <div style={{ display: "flex", "flex-direction": "column" }}>
+      <div style={{ display: "flex", "flex-direction": "column", "min-width": "0" }}>
         {/* Table header */}
         <div style={{
-          display: "flex", "align-items": "center", gap: "8px", padding: "8px 12px",
+          display: "flex", "align-items": "center", padding: "8px 12px",
           "font-size": "11px", "font-weight": "600", color: "var(--text-muted)", "text-transform": "uppercase",
           "border-bottom": "2px solid var(--border-color)",
         }}>
-          <span style={{ width: "28px", "flex-shrink": "0" }} />
+          <span style={{ width: "32px", "flex-shrink": "0" }} />
           <span style={{ flex: "2", "min-width": "0" }}>Nom</span>
           <span style={{ flex: "3", "min-width": "0" }}>URL</span>
-          <span style={{ width: "90px", "flex-shrink": "0" }}>Tag</span>
-          <span style={{ width: "30px", "flex-shrink": "0", "text-align": "center" }}>Fav</span>
-          <span style={{ width: "100px", "flex-shrink": "0", "text-align": "right" }}>Actions</span>
+          <span style={{ flex: "1", "min-width": "0" }}>Tag</span>
+          <span style={{ width: "80px", "flex-shrink": "0", "text-align": "right" }} />
         </div>
 
         <For each={filtered()}>
           {(bookmark) => (
             <div
               style={{
-                display: "flex", "align-items": "center", gap: "8px", padding: "8px 12px",
+                display: "flex", "align-items": "center", padding: "8px 12px",
                 "border-bottom": "1px solid var(--border-color)",
                 background: editing() === bookmark.id ? "var(--bg-elevated)" : "transparent",
                 cursor: "pointer", transition: "background 0.1s",
@@ -264,34 +263,37 @@ export function BookmarkView() {
               onMouseEnter={(e) => { if (editing() !== bookmark.id) e.currentTarget.style.background = "var(--bg-surface)"; }}
               onMouseLeave={(e) => { if (editing() !== bookmark.id) e.currentTarget.style.background = "transparent"; }}
             >
-              <span style={{ "font-size": "16px", width: "28px", "flex-shrink": "0", "text-align": "center" }}>{bookmark.emoji ?? "🔗"}</span>
-              <span style={{ flex: "2", "min-width": "0", "font-size": "13px", "font-weight": "500", color: "var(--text-primary)", "white-space": "nowrap", overflow: "hidden", "text-overflow": "ellipsis" }}>
+              <span style={{ "font-size": "16px", width: "32px", "flex-shrink": "0", "text-align": "center" }}>{bookmark.emoji ?? "🔗"}</span>
+              <span style={{ flex: "2", "min-width": "0", "font-size": "13px", "font-weight": "500", color: "var(--text-primary)", "white-space": "nowrap", overflow: "hidden", "text-overflow": "ellipsis", "padding-right": "8px" }}>
                 {bookmark.name}
+                <Show when={bookmark.isFavorite}>
+                  <span style={{ "margin-left": "6px", "font-size": "12px", color: "var(--accent-secondary)" }}>★</span>
+                </Show>
               </span>
-              <span style={{ flex: "3", "min-width": "0", "font-size": "12px", color: "var(--text-muted)", "white-space": "nowrap", overflow: "hidden", "text-overflow": "ellipsis" }}>
+              <span style={{ flex: "3", "min-width": "0", "font-size": "12px", color: "var(--text-muted)", "white-space": "nowrap", overflow: "hidden", "text-overflow": "ellipsis", "padding-right": "8px" }}>
                 {bookmark.url}
               </span>
-              <span style={{ width: "90px", "flex-shrink": "0" }}>
+              <span style={{ flex: "1", "min-width": "0" }}>
                 <Show when={bookmark.tag && bookmark.tag !== "none"}>
-                  <span style={{ padding: "2px 6px", "font-size": "10px", "border-radius": "var(--radius-sm)", background: "var(--bg-elevated)", color: "var(--text-secondary)" }}>
+                  <span style={{ padding: "2px 6px", "font-size": "10px", "border-radius": "var(--radius-sm)", background: "var(--bg-elevated)", color: "var(--text-secondary)", "white-space": "nowrap" }}>
                     {BOOKMARK_TAGS.find((t) => t.value === bookmark.tag)?.label ?? bookmark.tag}
                   </span>
                 </Show>
               </span>
-              <span style={{ width: "30px", "flex-shrink": "0", "text-align": "center" }}>
+              <span style={{ width: "80px", "flex-shrink": "0", display: "flex", gap: "4px", "justify-content": "flex-end" }}>
                 <button
                   onClick={(e) => { e.stopPropagation(); toggleFavorite(bookmark.id); }}
                   title={bookmark.isFavorite ? "Retirer des favoris" : "Ajouter aux favoris"}
-                  style={{ background: "none", border: "none", cursor: "pointer", "font-size": "18px", color: bookmark.isFavorite ? "var(--accent-secondary)" : "var(--text-muted)", padding: "2px" }}
+                  style={{ background: "none", border: "none", cursor: "pointer", "font-size": "18px", color: bookmark.isFavorite ? "var(--accent-secondary)" : "var(--text-muted)", padding: "2px", "border-radius": "var(--radius-sm)", transition: "background 0.15s" }}
+                  onMouseEnter={(e) => e.currentTarget.style.background = "var(--bg-elevated)"}
+                  onMouseLeave={(e) => e.currentTarget.style.background = "none"}
                 >
                   {bookmark.isFavorite ? "★" : "☆"}
                 </button>
-              </span>
-              <span style={{ width: "100px", "flex-shrink": "0", display: "flex", gap: "4px", "justify-content": "flex-end" }}>
                 <button
                   onClick={(e) => { e.stopPropagation(); startEdit(bookmark); }}
                   title="Editer"
-                  style={{ background: "none", border: "none", cursor: "pointer", "font-size": "16px", color: "var(--text-muted)", padding: "4px", "border-radius": "var(--radius-sm)", transition: "background 0.15s" }}
+                  style={{ background: "none", border: "none", cursor: "pointer", "font-size": "16px", color: "var(--text-muted)", padding: "2px", "border-radius": "var(--radius-sm)", transition: "background 0.15s" }}
                   onMouseEnter={(e) => e.currentTarget.style.background = "var(--bg-elevated)"}
                   onMouseLeave={(e) => e.currentTarget.style.background = "none"}
                 >
@@ -300,7 +302,7 @@ export function BookmarkView() {
                 <button
                   onClick={(e) => { e.stopPropagation(); handleDelete(bookmark.id); }}
                   title="Supprimer"
-                  style={{ background: "none", border: "none", cursor: "pointer", "font-size": "16px", color: "var(--text-muted)", padding: "4px", "border-radius": "var(--radius-sm)", transition: "background 0.15s" }}
+                  style={{ background: "none", border: "none", cursor: "pointer", "font-size": "16px", color: "var(--text-muted)", padding: "2px", "border-radius": "var(--radius-sm)", transition: "background 0.15s" }}
                   onMouseEnter={(e) => { e.currentTarget.style.background = "var(--bg-elevated)"; e.currentTarget.style.color = "var(--danger-color, #e74c3c)"; }}
                   onMouseLeave={(e) => { e.currentTarget.style.background = "none"; e.currentTarget.style.color = "var(--text-muted)"; }}
                 >
