@@ -82,6 +82,10 @@ export class EmailService {
     return this.emailRepo.countUnread(accountId);
   }
 
+  async updateSummary(id: string, summary: string, classification?: string): Promise<Email | null> {
+    return this.emailRepo.updateSummary(id, summary, classification);
+  }
+
   // --- Sync ---
 
   async syncAccount(accountId: string): Promise<{ newEmails: number }> {

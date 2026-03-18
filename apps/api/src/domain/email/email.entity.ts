@@ -33,6 +33,8 @@ export interface Email {
   isStarred: boolean;
   isArchived: boolean;
   folder: string;
+  summary: string | null;
+  classification: string | null;
   sentAt: Date;
   createdAt: Date;
 }

@@ -1,9 +1,12 @@
 import type { AgentTool } from "../tool-registry";
 import type { BriefService } from "../../brief/brief.service";
 import type { EmailService } from "../../email/email.service";
+import type { LlmService } from "../../llm/llm.service";
 import type { EventService } from "../../event/event.service";
 import type { BookmarkService } from "../../bookmark/bookmark.service";
 import type { ProjectService } from "../../project/project.service";
+
+const EMAIL_CATEGORIES = ["newsletter", "facture", "action_requise", "personnel", "notification", "autre"];
 
 export function createBriefTools(briefService: BriefService): AgentTool[] {
   return [
@@ -21,7 +24,7 @@ export function createBriefTools(briefService: BriefService): AgentTool[] {
   ];
 }
 
-export function createEmailTools(emailService: EmailService): AgentTool[] {
+export function createEmailTools(emailService: EmailService, llmService?: LlmService): AgentTool[] {
   return [
     {
       name: "get_unread_email_count",
@@ -39,6 +42,32 @@ export function createEmailTools(emailService: EmailService): AgentTool[] {
       execute: async () => {
         await emailService.syncAll();
         return { success: true, message: "Synchronisation lancee" };
+      },
+    },
+    {
+      name: "classify_email",
+      description: "Classe un email dans une categorie (newsletter, facture, action_requise, personnel, notification, autre)",
+      parameters: {
+        emailId: { type: "string", description: "ID de l'email a classifier", required: true },
+      },
+      execute: async (params) => {
+        if (!llmService) return { error: "LLM non configure" };
+        const email = await emailService.getEmailById(params.emailId as string);
+        if (!email) return { error: "Email non trouve" };
+        if (email.classification) return { classification: email.classification, cached: true };
+
+        let text = email.bodyText || "";
+        if (!text && email.bodyHtml) {
+          text = email.bodyHtml.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+        }
+        if (!text) return { error: "Email sans contenu" };
+
+        const classification = await llmService.classify(
+          `Sujet: ${email.subject || "(sans sujet)"}\nDe: ${email.fromName || email.fromAddress}\n\n${text.substring(0, 1000)}`,
+          EMAIL_CATEGORIES,
+        );
+        await emailService.updateSummary(email.id, email.summary || "", classification);
+        return { classification, cached: false };
       },
     },
   ];

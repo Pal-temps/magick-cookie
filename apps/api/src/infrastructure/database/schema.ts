@@ -148,6 +148,8 @@ export const emails = pgTable("emails", {
   isStarred: boolean("is_starred").notNull().default(false),
   isArchived: boolean("is_archived").notNull().default(false),
   folder: varchar("folder", { length: 255 }).notNull().default("INBOX"),
+  summary: text("summary"),
+  classification: varchar("classification", { length: 50 }),
   sentAt: timestamp("sent_at", { withTimezone: true }).notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [
@@ -238,6 +240,16 @@ export const pushNotifications = pgTable("push_notifications", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   readAt: timestamp("read_at", { withTimezone: true }),
 });
+
+export const agentMemory = pgTable("agent_memory", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  type: varchar("type", { length: 20 }).notNull(),
+  content: text("content").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }),
+}, (table) => [
+  index("idx_agent_memory_type").on(table.type),
+]);
 
 export const contacts = pgTable("contacts", {
   id: uuid("id").primaryKey().defaultRandom(),

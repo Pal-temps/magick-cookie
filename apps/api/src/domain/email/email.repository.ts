@@ -22,4 +22,5 @@ export interface EmailRepository {
   delete(id: string): Promise<boolean>;
   countUnread(accountId?: string): Promise<number>;
   countByDateRange(from: Date, to: Date): Promise<{ total: number; unread: number; dailyStats: { date: string; count: number }[] }>;
+  updateSummary(id: string, summary: string, classification?: string): Promise<Email | null>;
 }

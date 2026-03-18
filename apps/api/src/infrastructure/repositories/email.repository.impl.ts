@@ -113,6 +113,17 @@ export class DrizzleEmailRepository implements EmailRepository {
     return Number(rows[0]?.count ?? 0);
   }
 
+  async updateSummary(id: string, summary: string, classification?: string): Promise<Email | null> {
+    const updates: Record<string, unknown> = { summary };
+    if (classification !== undefined) updates.classification = classification;
+
+    const rows = await this.db.update(emails)
+      .set(updates)
+      .where(eq(emails.id, id))
+      .returning();
+    return rows.length > 0 ? this.toDomain(rows[0]) : null;
+  }
+
   async countByDateRange(from: Date, to: Date): Promise<{ total: number; unread: number; dailyStats: { date: string; count: number }[] }> {
     const totalRows = await this.db
       .select({ count: sql<number>`count(*)::int` })
@@ -160,6 +171,8 @@ export class DrizzleEmailRepository implements EmailRepository {
       isStarred: row.isStarred,
       isArchived: row.isArchived,
       folder: row.folder,
+      summary: row.summary ?? null,
+      classification: row.classification ?? null,
       sentAt: row.sentAt,
       createdAt: row.createdAt!,
     };

@@ -8,6 +8,8 @@ import {
   emailQuerySchema,
 } from "../validators/email.validator";
 
+const EMAIL_CATEGORIES = ["newsletter", "facture", "action_requise", "personnel", "notification", "autre"];
+
 export function createEmailRoutes(emailService: EmailService, llmService?: LlmService) {
   const app = new Hono();
 
@@ -72,6 +74,11 @@ export function createEmailRoutes(emailService: EmailService, llmService?: LlmSe
     const email = await emailService.getEmailById(c.req.param("id"));
     if (!email) return c.json({ error: "Email not found" }, 404);
 
+    // Return cached summary if available
+    if (email.summary) {
+      return c.json({ data: { summary: email.summary, classification: email.classification, cached: true } });
+    }
+
     let text = email.bodyText || "";
     if (!text && email.bodyHtml) {
       text = email.bodyHtml.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
@@ -84,7 +91,51 @@ export function createEmailRoutes(emailService: EmailService, llmService?: LlmSe
       "Resume cet email en 2-3 phrases en francais. Extrais les actions requises s'il y en a.",
     );
 
-    return c.json({ data: { summary } });
+    // Auto-classify alongside summarize
+    let classification = "autre";
+    try {
+      classification = await llmService.classify(
+        `Sujet: ${email.subject || "(sans sujet)"}\nDe: ${email.fromName || email.fromAddress}\n\n${text.substring(0, 1000)}`,
+        EMAIL_CATEGORIES,
+      );
+    } catch {
+      // Classification failed — keep default
+    }
+
+    // Cache in DB
+    await emailService.updateSummary(email.id, summary, classification);
+
+    return c.json({ data: { summary, classification, cached: false } });
+  });
+
+  // POST /api/emails/:id/classify
+  app.post("/:id/classify", async (c) => {
+    if (!llmService) return c.json({ error: "LLM not configured" }, 400);
+
+    const email = await emailService.getEmailById(c.req.param("id"));
+    if (!email) return c.json({ error: "Email not found" }, 404);
+
+    // Return cached classification if available
+    if (email.classification) {
+      return c.json({ data: { classification: email.classification, cached: true } });
+    }
+
+    let text = email.bodyText || "";
+    if (!text && email.bodyHtml) {
+      text = email.bodyHtml.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+    }
+
+    if (!text) return c.json({ error: "Email has no content" }, 400);
+
+    const classification = await llmService.classify(
+      `Sujet: ${email.subject || "(sans sujet)"}\nDe: ${email.fromName || email.fromAddress}\n\n${text.substring(0, 1000)}`,
+      EMAIL_CATEGORIES,
+    );
+
+    // Cache in DB
+    await emailService.updateSummary(email.id, email.summary || "", classification);
+
+    return c.json({ data: { classification, cached: false } });
   });
 
   return app;
