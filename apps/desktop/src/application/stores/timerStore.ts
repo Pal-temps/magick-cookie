@@ -1,11 +1,11 @@
 import { createSignal } from "solid-js";
 import { api } from "../../infrastructure/api/apiClient";
 import { notify } from "../../infrastructure/tauri/notifications";
-import { playSound } from "../../infrastructure/audio/soundPlayer";
+import { playSoundLoop, stopSoundLoop } from "../../infrastructure/audio/soundPlayer";
 import type { TimerStats } from "../../domain/models/TimerSession";
 
 export type TimerMode = "pomodoro" | "free";
-export type TimerState = "idle" | "focus" | "paused" | "break";
+export type TimerState = "idle" | "focus" | "paused" | "break" | "waiting";
 
 export interface PomodoroSettings {
   focusMin: number;
@@ -93,21 +93,22 @@ async function onTimerComplete() {
     const isLongBreak = count % settings.sessionsBeforeLong === 0;
     const breakMin = isLongBreak ? settings.longBreakMin : settings.shortBreakMin;
 
-    playSound("focusEnd");
+    playSoundLoop("focusEnd");
     await notify(
       "Pomodoro termine !",
       isLongBreak
-        ? `Session ${count} terminee. Longue pause de ${breakMin} min.`
-        : `Session ${count} terminee. Pause de ${breakMin} min.`,
+        ? `Session ${count} terminee. Cliquez pour lancer la pause de ${breakMin} min.`
+        : `Session ${count} terminee. Cliquez pour lancer la pause de ${breakMin} min.`,
       { silent: true },
     );
 
-    setTimerState("break");
+    // Wait for user to acknowledge before starting break
+    setTimerState("waiting");
     setIsFocusMode(false);
+    clearTickInterval();
     const secs = breakMin * 60;
     setTotalSeconds(secs);
     setRemainingSeconds(secs);
-    startTickInterval();
   } else if (mode === "pomodoro" && state === "break") {
     await notify("Pause terminee !", "C'est reparti pour une session de focus.");
 
@@ -240,6 +241,7 @@ export function useTimerStore() {
 
   async function stop() {
     clearTickInterval();
+    stopSoundLoop();
     if (timerState() !== "idle" && sessionStartedAt) {
       // Build pending session and show note prompt
       buildPendingSession(false);
@@ -281,6 +283,13 @@ export function useTimerStore() {
     setSelectedProjectId(null);
   }
 
+  function acknowledgeBreak() {
+    if (timerState() !== "waiting") return;
+    stopSoundLoop();
+    setTimerState("break");
+    startTickInterval();
+  }
+
   function toggleFocusMode() {
     setIsFocusMode(!isFocusMode());
   }
@@ -313,6 +322,7 @@ export function useTimerStore() {
     pause,
     resume,
     stop,
+    acknowledgeBreak,
     submitNote,
     skipNote,
     toggleFocusMode,

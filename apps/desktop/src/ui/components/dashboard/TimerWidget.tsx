@@ -13,7 +13,7 @@ function formatTime(seconds: number): string {
 export function TimerWidget() {
   const {
     timerMode, timerState, remainingSeconds, totalSeconds, pomodoroCount,
-    pomodoroSettings, startPomodoro, startFreeTimer, pause, resume, stop,
+    pomodoroSettings, startPomodoro, startFreeTimer, pause, resume, stop, acknowledgeBreak,
     selectedTaskId, selectedTaskTitle, selectTask,
     selectedProjectId, setSelectedProjectId,
     awaitingNote, sessionNote, setSessionNote, submitNote, skipNote,
@@ -38,6 +38,7 @@ export function TimerWidget() {
     switch (timerState()) {
       case "focus": return "Focus";
       case "break": return "Pause";
+      case "waiting": return "Cliquez pour la pause";
       case "paused": return "En pause";
       default: return "";
     }
@@ -171,7 +172,7 @@ export function TimerWidget() {
               <circle cx="70" cy="70" r="62" fill="none" stroke="var(--border-color)" stroke-width="6" />
               <circle
                 cx="70" cy="70" r="62" fill="none"
-                stroke={timerState() === "break" ? "var(--cal-green)" : "var(--accent-primary)"}
+                stroke={timerState() === "waiting" ? "var(--cal-red, #e74c3c)" : timerState() === "break" ? "var(--cal-green)" : "var(--accent-primary)"}
                 stroke-width="6"
                 stroke-dasharray={`${2 * Math.PI * 62}`}
                 stroke-dashoffset={`${2 * Math.PI * 62 * (1 - progress() / 100)}`}
@@ -204,6 +205,9 @@ export function TimerWidget() {
           </Show>
 
           <div style={{ display: "flex", gap: "8px", "justify-content": "center" }}>
+            <Show when={timerState() === "waiting"}>
+              <Button variant="primary" size="sm" onClick={acknowledgeBreak}>Lancer la pause</Button>
+            </Show>
             <Show when={timerState() === "focus" || timerState() === "break"}>
               <Button variant="secondary" size="sm" onClick={pause}>Pause</Button>
             </Show>

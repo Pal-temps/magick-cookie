@@ -9,13 +9,14 @@ function formatTime(seconds: number): string {
 }
 
 export function MiniTimer() {
-  const { timerState, remainingSeconds } = useTimerStore();
+  const { timerState, remainingSeconds, acknowledgeBreak } = useTimerStore();
   const { setViewMode } = useViewStore();
 
   const stateColor = () => {
     switch (timerState()) {
       case "focus": return "var(--accent-primary)";
       case "break": return "var(--cal-green)";
+      case "waiting": return "var(--cal-red, #e74c3c)";
       case "paused": return "var(--text-muted)";
       default: return "transparent";
     }
@@ -24,33 +25,35 @@ export function MiniTimer() {
   return (
     <Show when={timerState() !== "idle"}>
       <button
-        onClick={() => setViewMode("dashboard")}
+        onClick={() => timerState() === "waiting" ? acknowledgeBreak() : setViewMode("dashboard")}
+        title={timerState() === "waiting" ? "Cliquer pour lancer la pause" : "Voir le timer"}
         style={{
           display: "inline-flex",
           "align-items": "center",
           gap: "6px",
           padding: "3px 10px",
           "border-radius": "var(--radius-md)",
-          background: "var(--bg-elevated)",
+          background: timerState() === "waiting" ? "var(--cal-red, #e74c3c)" : "var(--bg-elevated)",
           border: `1px solid ${stateColor()}`,
           cursor: "pointer",
           transition: "var(--transition-fast)",
+          animation: timerState() === "waiting" ? "pulse 1s infinite" : "none",
         }}
       >
         <span style={{
           width: "8px",
           height: "8px",
           "border-radius": "50%",
-          background: stateColor(),
+          background: timerState() === "waiting" ? "#fff" : stateColor(),
           animation: timerState() === "focus" ? "pulse 2s infinite" : "none",
         }} />
         <span style={{
           "font-size": "13px",
           "font-weight": "600",
-          color: "var(--text-primary)",
+          color: timerState() === "waiting" ? "#fff" : "var(--text-primary)",
           "font-variant-numeric": "tabular-nums",
         }}>
-          {formatTime(remainingSeconds())}
+          {timerState() === "waiting" ? "Pause ?" : formatTime(remainingSeconds())}
         </span>
       </button>
     </Show>
