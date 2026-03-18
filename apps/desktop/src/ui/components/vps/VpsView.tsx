@@ -61,14 +61,13 @@ export function VpsView() {
     store.connect();
   });
 
-  onMount(async () => {
+  onMount(() => {
     store.connect();
-    await Promise.all([
+    Promise.all([
       store.fetchHealth(),
       store.fetchLogFiles(),
       store.fetchAlerts(),
-    ]);
-    setLoading(false);
+    ]).finally(() => setLoading(false));
   });
 
   onCleanup(() => {
