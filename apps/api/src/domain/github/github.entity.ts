@@ -21,3 +21,15 @@ export interface GitHubPR {
   createdAt: Date;
   updatedAt: Date;
 }
+
+export interface WorkflowRun {
+  id: number;
+  repo: string;
+  name: string;
+  branch: string;
+  status: string;
+  conclusion: string | null;
+  url: string;
+  createdAt: string;
+  updatedAt: string;
+}

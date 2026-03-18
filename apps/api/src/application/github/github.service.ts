@@ -1,5 +1,5 @@
 import type { GitHubConfigRepository, GitHubPRRepository } from "../../domain/github/github.repository";
-import type { GitHubConfig, GitHubPR } from "../../domain/github/github.entity";
+import type { GitHubConfig, GitHubPR, WorkflowRun } from "../../domain/github/github.entity";
 
 export class GitHubService {
   constructor(
@@ -89,6 +89,44 @@ export class GitHubService {
 
   async getPRs(): Promise<GitHubPR[]> {
     return this.prRepo.findAll();
+  }
+
+  async getWorkflowRuns(): Promise<WorkflowRun[]> {
+    const cfg = await this.getConfig();
+    if (!cfg) return [];
+    const allRuns: WorkflowRun[] = [];
+    for (const repo of cfg.repos) {
+      try {
+        const res = await fetch(
+          `https://api.github.com/repos/${repo}/actions/runs?per_page=10`,
+          {
+            headers: {
+              Authorization: `Bearer ${cfg.token}`,
+              Accept: "application/vnd.github.v3+json",
+              "User-Agent": "magick-cookie",
+            },
+          },
+        );
+        if (!res.ok) continue;
+        const json = (await res.json()) as any;
+        for (const run of json.workflow_runs || []) {
+          allRuns.push({
+            id: run.id,
+            repo,
+            name: run.name,
+            branch: run.head_branch,
+            status: run.status,
+            conclusion: run.conclusion,
+            url: run.html_url,
+            createdAt: run.created_at,
+            updatedAt: run.updated_at,
+          });
+        }
+      } catch {
+        continue;
+      }
+    }
+    return allRuns;
   }
 
   async deleteConfig(): Promise<void> {

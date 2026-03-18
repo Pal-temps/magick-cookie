@@ -34,6 +34,11 @@ export function createGitHubRoutes(githubService: GitHubService) {
     return c.json({ data: { ok: true } });
   });
 
+  app.get("/runs", async (c) => {
+    const data = await githubService.getWorkflowRuns();
+    return c.json({ data });
+  });
+
   app.get("/prs", async (c) => {
     const data = await githubService.getPRs();
     return c.json({ data });
