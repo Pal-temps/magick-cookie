@@ -331,6 +331,65 @@ export const snippets = pgTable("snippets", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });
 
+export const caldavAccounts = pgTable("caldav_accounts", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  label: varchar("label", { length: 255 }).notNull(),
+  url: varchar("url", { length: 1000 }).notNull(),
+  username: varchar("username", { length: 255 }).notNull(),
+  passwordEnc: text("password_enc").notNull(),
+  calendarId: uuid("calendar_id").references(() => calendars.id, { onDelete: "set null" }),
+  lastSyncedAt: timestamp("last_synced_at", { withTimezone: true }),
+  syncEnabled: boolean("sync_enabled").notNull().default(true),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
+});
+
+export const emailRules = pgTable("email_rules", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  name: varchar("name", { length: 255 }).notNull(),
+  conditionField: varchar("condition_field", { length: 50 }).notNull(),
+  conditionOperator: varchar("condition_operator", { length: 20 }).notNull(),
+  conditionValue: varchar("condition_value", { length: 500 }).notNull(),
+  actionType: varchar("action_type", { length: 50 }).notNull(),
+  actionValue: varchar("action_value", { length: 100 }).notNull(),
+  enabled: boolean("enabled").notNull().default(true),
+  sortOrder: integer("sort_order").notNull().default(0),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
+});
+
+export const routines = pgTable("routines", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  name: varchar("name", { length: 255 }).notNull(),
+  triggerTime: varchar("trigger_time", { length: 5 }).notNull(),
+  triggerDays: varchar("trigger_days", { length: 20 }).notNull().default("1,2,3,4,5"),
+  steps: text("steps").notNull().default("[]"),
+  enabled: boolean("enabled").notNull().default(true),
+  lastRunAt: timestamp("last_run_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
+});
+
+export const webhooks = pgTable("webhooks", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  name: varchar("name", { length: 255 }).notNull(),
+  secret: varchar("secret", { length: 255 }).notNull(),
+  source: varchar("source", { length: 100 }),
+  enabled: boolean("enabled").notNull().default(true),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
+});
+
+export const webhookEvents = pgTable("webhook_events", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  webhookId: uuid("webhook_id").notNull().references(() => webhooks.id, { onDelete: "cascade" }),
+  payload: text("payload").notNull(),
+  receivedAt: timestamp("received_at", { withTimezone: true }).notNull().defaultNow(),
+  readAt: timestamp("read_at", { withTimezone: true }),
+}, (table) => [
+  index("idx_webhook_events_webhook").on(table.webhookId, table.receivedAt),
+]);
+
 export const contacts = pgTable("contacts", {
   id: uuid("id").primaryKey().defaultRandom(),
   name: varchar("name", { length: 255 }).notNull(),

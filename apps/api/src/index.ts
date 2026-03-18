@@ -32,6 +32,10 @@ import { DrizzleRssFeedRepository } from "./infrastructure/repositories/rss-feed
 import { DrizzleRssArticleRepository } from "./infrastructure/repositories/rss-article.repository.impl";
 import { DrizzleSnippetRepository } from "./infrastructure/repositories/snippet.repository.impl";
 import { DrizzleSnippetCategoryRepository } from "./infrastructure/repositories/snippet-category.repository.impl";
+import { DrizzleCalDavAccountRepository } from "./infrastructure/repositories/caldav-account.repository.impl";
+import { DrizzleEmailRuleRepository } from "./infrastructure/repositories/email-rule.repository.impl";
+import { DrizzleRoutineRepository } from "./infrastructure/repositories/routine.repository.impl";
+import { DrizzleWebhookRepository } from "./infrastructure/repositories/webhook.repository.impl";
 
 // Services
 import { CalendarService } from "./application/calendar/calendar.service";
@@ -60,6 +64,10 @@ import { AlarmService } from "./application/alarm/alarm.service";
 import { RssService } from "./application/rss/rss.service";
 import { SnippetService } from "./application/snippet/snippet.service";
 import { ChangelogService } from "./application/changelog/changelog.service";
+import { CalDavService } from "./application/caldav/caldav.service";
+import { EmailRuleService } from "./application/email/email-rule.service";
+import { RoutineService } from "./application/routine/routine.service";
+import { WebhookService } from "./application/webhook/webhook.service";
 import { AgentService } from "./application/agent/agent.service";
 import { ToolRegistry } from "./application/agent/tool-registry";
 import { createAnalyticsTools } from "./application/agent/tools/analytics.tools";
@@ -74,6 +82,7 @@ import { GitExecAdapter } from "./infrastructure/adapters/git-exec.adapter";
 // Connectors
 import { ClickUpApiClient } from "./infrastructure/connectors/clickup-api.client";
 import { ImapConnector } from "./infrastructure/connectors/imap.connector";
+import { CalDavConnector } from "./infrastructure/connectors/caldav.connector";
 
 // SSE
 import { InMemoryReminderEmitter } from "./infrastructure/sse/reminder-emitter.impl";
@@ -107,6 +116,10 @@ import { createAlarmRoutes } from "./presentation/routes/alarm.routes";
 import { createRssFeedRoutes, createRssArticleRoutes } from "./presentation/routes/rss.routes";
 import { createSnippetRoutes } from "./presentation/routes/snippet.routes";
 import { createChangelogRoutes } from "./presentation/routes/changelog.routes";
+import { createCalDavAccountRoutes } from "./presentation/routes/caldav.routes";
+import { createEmailRuleRoutes } from "./presentation/routes/email-rule.routes";
+import { createRoutineRoutes } from "./presentation/routes/routine.routes";
+import { createWebhookRoutes } from "./presentation/routes/webhook.routes";
 
 // Jobs
 import { startReminderChecker } from "./infrastructure/jobs/reminder-checker";
@@ -114,6 +127,7 @@ import { startEmailSyncJob } from "./infrastructure/jobs/email-sync.job";
 import { startGitHubSyncJob } from "./infrastructure/jobs/github-sync.job";
 import { startAgentScheduler } from "./infrastructure/jobs/agent-scheduler";
 import { startRssSyncJob } from "./infrastructure/jobs/rss-sync.job";
+import { startCalDavSyncJob } from "./infrastructure/jobs/caldav-sync.job";
 
 // --- DI ---
 const calendarRepo = new DrizzleCalendarRepository(db);
@@ -143,6 +157,10 @@ const rssFeedRepo = new DrizzleRssFeedRepository(db);
 const rssArticleRepo = new DrizzleRssArticleRepository(db);
 const snippetRepo = new DrizzleSnippetRepository(db);
 const snippetCategoryRepo = new DrizzleSnippetCategoryRepository(db);
+const caldavAccountRepo = new DrizzleCalDavAccountRepository(db);
+const emailRuleRepo = new DrizzleEmailRuleRepository(db);
+const routineRepo = new DrizzleRoutineRepository(db);
+const webhookRepo = new DrizzleWebhookRepository(db);
 
 const calendarService = new CalendarService(calendarRepo);
 const eventService = new EventService(eventRepo, reminderRepo);
@@ -172,6 +190,12 @@ const alarmService = new AlarmService(alarmRepo);
 const rssService = new RssService(rssFeedRepo, rssArticleRepo);
 const snippetService = new SnippetService(snippetRepo, snippetCategoryRepo);
 const changelogService = new ChangelogService(gitScanService, llmService);
+const caldavConnector = new CalDavConnector();
+const caldavService = new CalDavService(caldavAccountRepo, caldavConnector, eventRepo);
+const emailRuleService = new EmailRuleService(emailRuleRepo);
+emailService.setEmailRuleService(emailRuleService);
+const routineService = new RoutineService(routineRepo);
+const webhookService = new WebhookService(webhookRepo);
 
 // Agent (tool-calling chat)
 const toolRegistry = new ToolRegistry();
@@ -233,6 +257,10 @@ app.route("/api/rss-feeds", createRssFeedRoutes(rssService));
 app.route("/api/rss-articles", createRssArticleRoutes(rssService));
 app.route("/api/snippets", createSnippetRoutes(snippetService));
 app.route("/api/changelog", createChangelogRoutes(changelogService));
+app.route("/api/caldav-accounts", createCalDavAccountRoutes(caldavService));
+app.route("/api/email-rules", createEmailRuleRoutes(emailRuleService));
+app.route("/api/routines", createRoutineRoutes(routineService));
+app.route("/api/webhooks", createWebhookRoutes(webhookService));
 
 // Start reminder checker — pushes to SSE, does NOT mark as sent
 startReminderChecker(reminderService, eventRepo, reminderEmitter);
@@ -255,6 +283,9 @@ startAgentScheduler({
 
 // Start RSS sync job
 startRssSyncJob(rssService);
+
+// Start CalDAV sync job
+startCalDavSyncJob(caldavService);
 
 // Seed default wellness configs
 wellnessConfigService.seedDefaults().catch(console.error);

@@ -7,8 +7,12 @@ import { BriefSettings } from "./BriefSettings";
 import { VpsSettings } from "./VpsSettings";
 import { BookmarkSettings } from "./BookmarkSettings";
 import { ProjectSettings } from "./ProjectSettings";
+import { RoutineSettings } from "./RoutineSettings";
+import { WebhookSettings } from "./WebhookSettings";
+import { CalDavSettings } from "./CalDavSettings";
+import { EmailRuleSettings } from "./EmailRuleSettings";
 
-type SettingsTab = "theme" | "llm" | "focus" | "github" | "brief" | "vps" | "bookmarks" | "projects";
+type SettingsTab = "theme" | "llm" | "focus" | "github" | "brief" | "vps" | "bookmarks" | "projects" | "routines" | "webhooks" | "caldav" | "email-rules";
 
 export function SettingsView() {
   const [tab, setTab] = createSignal<SettingsTab>("theme");
@@ -20,6 +24,10 @@ export function SettingsView() {
     { id: "projects", label: "Projets" },
     { id: "llm", label: "Intelligence artificielle" },
     { id: "brief", label: "Brief" },
+    { id: "caldav", label: "CalDAV" },
+    { id: "email-rules", label: "Regles email" },
+    { id: "routines", label: "Routines" },
+    { id: "webhooks", label: "Webhooks" },
     { id: "github", label: "GitHub" },
     { id: "vps", label: "VPS" },
   ];
@@ -87,6 +95,18 @@ export function SettingsView() {
         </Show>
         <Show when={tab() === "github"}>
           <GitHubSettings />
+        </Show>
+        <Show when={tab() === "routines"}>
+          <RoutineSettings />
+        </Show>
+        <Show when={tab() === "webhooks"}>
+          <WebhookSettings />
+        </Show>
+        <Show when={tab() === "caldav"}>
+          <CalDavSettings />
+        </Show>
+        <Show when={tab() === "email-rules"}>
+          <EmailRuleSettings />
         </Show>
         <Show when={tab() === "vps"}>
           <VpsSettings />

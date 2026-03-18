@@ -31,6 +31,7 @@ import { useSnippetStore } from "./application/stores/snippetStore";
 import { useAlarmStore } from "./application/stores/alarmStore";
 import { useProjectStore } from "./application/stores/projectStore";
 import { useSmartReminderStore } from "./application/stores/smartReminderStore";
+import { useRoutineStore } from "./application/stores/routineStore";
 import { CommandPalette } from "./ui/components/common/CommandPalette";
 import { FocusOverlay } from "./ui/components/common/FocusOverlay";
 import { QuickCapture } from "./ui/components/capture/QuickCapture";
@@ -55,6 +56,7 @@ export function App() {
   const { fetchProjects } = useProjectStore();
   const { startSmartReminders, stopSmartReminders } = useSmartReminderStore();
   const { fetchAlarms, startAlarmChecker, stopAlarmChecker } = useAlarmStore();
+  const { fetchRoutines, startRoutineChecker, stopRoutineChecker } = useRoutineStore();
   let disconnectSSE: (() => void) | null = null;
   let unlistenShortcuts: (() => void) | null = null;
 
@@ -136,6 +138,7 @@ export function App() {
     fetchRssFeeds();
     fetchRssUnreadCount();
     fetchAlarms().then(() => startAlarmChecker());
+    fetchRoutines().then(() => startRoutineChecker());
     fetchProjects();
     await initNotifications();
     startSmartReminders();
@@ -184,6 +187,7 @@ export function App() {
     unlistenShortcuts?.();
     stopAll();
     stopAlarmChecker();
+    stopRoutineChecker();
     stopSmartReminders();
   });
 

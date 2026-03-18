@@ -169,6 +169,20 @@
       "when": 1775308800000,
       "tag": "0023_snippets",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1775395200000,
+      "tag": "0024_caldav_email_rules",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1775481600000,
+      "tag": "0025_routines_webhooks",
+      "breakpoints": true
     }
   ]
 }
