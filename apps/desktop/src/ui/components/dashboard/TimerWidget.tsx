@@ -13,7 +13,7 @@ function formatTime(seconds: number): string {
 export function TimerWidget() {
   const {
     timerMode, timerState, remainingSeconds, totalSeconds, pomodoroCount,
-    pomodoroSettings, startPomodoro, startFreeTimer, pause, resume, stop, acknowledgeBreak,
+    pomodoroSettings, startPomodoro, startFreeTimer, pause, resume, stop, dismissSound, startBreak,
     selectedTaskId, selectedTaskTitle, selectTask,
     selectedProjectId, setSelectedProjectId,
     awaitingNote, sessionNote, setSessionNote, submitNote, skipNote,
@@ -206,7 +206,8 @@ export function TimerWidget() {
 
           <div style={{ display: "flex", gap: "8px", "justify-content": "center" }}>
             <Show when={timerState() === "waiting"}>
-              <Button variant="primary" size="sm" onClick={acknowledgeBreak}>Lancer la pause</Button>
+              <Button variant="ghost" size="sm" onClick={dismissSound}>🔇 Couper le son</Button>
+              <Button variant="primary" size="sm" onClick={startBreak}>Lancer la pause</Button>
             </Show>
             <Show when={timerState() === "focus" || timerState() === "break"}>
               <Button variant="secondary" size="sm" onClick={pause}>Pause</Button>

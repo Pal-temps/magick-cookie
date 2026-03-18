@@ -283,7 +283,11 @@ export function useTimerStore() {
     setSelectedProjectId(null);
   }
 
-  function acknowledgeBreak() {
+  function dismissSound() {
+    stopSoundLoop();
+  }
+
+  function startBreak() {
     if (timerState() !== "waiting") return;
     stopSoundLoop();
     setTimerState("break");
@@ -322,7 +326,8 @@ export function useTimerStore() {
     pause,
     resume,
     stop,
-    acknowledgeBreak,
+    dismissSound,
+    startBreak,
     submitNote,
     skipNote,
     toggleFocusMode,
