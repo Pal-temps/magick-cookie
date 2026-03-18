@@ -22,6 +22,15 @@ Features orientees productivite dev, a ajouter a l'app existante.
 | 12 | VPS Monitoring | ✅ Done | VpsWidget + VpsView + VpsSettings |
 | 13 | GitHub PR watcher | ✅ Done | GitHubWidget + GitHubSettings |
 | 14 | Chat LLM | ✅ Done | ChatView + chatStore |
+| 15 | Alarmes | ✅ Done | CRUD API + client-side checker + son alarm |
+| 16 | Bookmark tags dynamiques | ✅ Done | Tags en DB, CRUD settings, plus de hardcode |
+| 17 | Systeme de sons | ✅ Done | soundPlayer.ts (notification, focusEnd, alarm) |
+| 18 | Bookmark vault sync | ✅ Done | Export auto _bookmarks/bookmarks.md |
+| 19 | Sidebar drag & drop | ✅ Done | Sections reordonnables + localStorage |
+| 20 | Nav bar responsive | ✅ Done | Nav adaptative + CalendarSubBar |
+| 21 | Scripts db:reset/db:drop | ✅ Done | Reset et drop DB en une commande |
+| 22 | Refactor GitHub (repo pattern) | ✅ Done | GitHubConfigRepository + GitHubPRRepository |
+| 23 | Refactor GitScan (port pattern) | ✅ Done | GitScanPort + GitExecAdapter |
 
 ---
 
@@ -553,13 +562,111 @@ Organise en sprints de complexite croissante. Chaque sprint est independant mais
 ## Ordre d'implementation — Restant
 
 ```
-✅ TOUTES LES FEATURES SONT IMPLEMENTEES.
+✅ TOUTES LES FEATURES SONT IMPLEMENTEES (sprints 1-6).
 
-Reste uniquement du polish/phase 4 :
-  - Resume email : cache summary DB + classification auto
-  - Weekly Review : resume narratif LLM
-  - LLM : methodes specialisees (summarize, classify)
+Phase 4 polish egalement complete :
+  - ✅ Resume email : cache summary DB + classification auto
+  - ✅ Weekly Review : resume narratif LLM
+  - ✅ LLM : methodes specialisees (summarize, classify) + adapter Anthropic
 ```
+
+---
+
+### Sprint 6 — Nouvelles features + refactors architecturaux ✅ DONE
+
+| # | Feature | Statut | Notes |
+|---|---------|--------|-------|
+| 21 | Alarmes | ✅ Done | CRUD API + client-side checker + son alarm (cookie-boogie) |
+| 22 | Bookmark tags dynamiques | ✅ Done | Tags en DB (bookmark_tags), CRUD settings, plus de tags hardcodes |
+| 23 | Systeme de sons | ✅ Done | soundPlayer.ts : notification, focusEnd, alarm |
+| 24 | Bookmark vault sync | ✅ Done | Export auto _bookmarks/bookmarks.md dans le vault notes (git-synced) |
+| 25 | Sidebar drag & drop | ✅ Done | Toutes les sections sidebar reordonnables, persiste localStorage |
+| 26 | Nav bar responsive + calendar sub-bar | ✅ Done | Barre de nav adaptative, sous-barre calendrier pour month/week/day |
+| 27 | Scripts db:reset / db:drop | ✅ Done | `bun run db:reset` (drop + migrate), `bun run db:drop` |
+| 28 | Refactor GitHub → repository pattern | ✅ Done | GitHubConfigRepository + GitHubPRRepository (domain interfaces) |
+| 29 | Refactor GitScan → port pattern | ✅ Done | GitScanPort (domain) + GitExecAdapter (infrastructure) |
+
+---
+
+## Detail des features ajoutees (Sprint 6)
+
+### 21. Alarmes
+
+**Objectif :** Systeme d'alarmes configurable avec repetition et son.
+
+**Architecture :**
+- Entite : `Alarm { id, time, label, repeatPattern, repeatDays, enabled, lastFiredAt }`
+- Patterns de repetition : `once`, `daily`, `weekdays`, `weekends`, `custom` (jours specifiques)
+- Backend : CRUD complet + endpoint `POST /:id/fire` pour marquer une alarme comme declenchee
+- Frontend : `alarmStore.ts` avec checker client-side, joue le son `cookie-boogie.mp3`
+
+**Endpoints :**
+- `GET /api/alarms` — liste des alarmes
+- `POST /api/alarms` — creer une alarme
+- `PUT /api/alarms/:id` — modifier
+- `DELETE /api/alarms/:id` — supprimer
+- `POST /api/alarms/:id/fire` — marquer comme declenchee
+
+**Fichiers :**
+- `apps/api/src/domain/alarm/alarm.entity.ts`
+- `apps/api/src/domain/alarm/alarm.repository.ts`
+- `apps/api/src/infrastructure/repositories/alarm.repository.impl.ts`
+- `apps/api/src/application/alarm/alarm.service.ts`
+- `apps/api/src/presentation/routes/alarm.routes.ts`
+- `apps/api/src/presentation/validators/alarm.validator.ts`
+- `apps/desktop/src/application/stores/alarmStore.ts`
+
+### 22. Bookmark tags dynamiques
+
+**Objectif :** Remplacer les tags hardcodes par des tags geres en DB avec UI de gestion dans les settings.
+
+**Architecture :**
+- Entite : `BookmarkTag { id, value, label, sortOrder, createdAt }`
+- CRUD complet : creation, mise a jour du label/ordre, suppression
+- Les tags sont affiches dans les settings pour configuration par l'utilisateur
+
+**Fichiers :**
+- `apps/api/src/domain/bookmark/bookmark-tag.entity.ts`
+- `apps/api/src/domain/bookmark/bookmark-tag.repository.ts`
+- `apps/api/src/infrastructure/repositories/bookmark-tag.repository.impl.ts`
+
+### 23. Systeme de sons
+
+**Objectif :** Centraliser la lecture de sons pour les notifications, fin de focus, et alarmes.
+
+**Architecture :**
+- Module `soundPlayer.ts` avec fonction `playSound(name, volume)`
+- Sons disponibles :
+  | Nom | Fichier | Usage |
+  |-----|---------|-------|
+  | `notification` | `cookie-notification-v3.mp3` | Notification push |
+  | `focusEnd` | `put-that-cookie-down.mp3` | Fin de session pomodoro |
+  | `alarm` | `cookie-boogie.mp3` | Declenchement alarme |
+- Autres sons dans le dossier : `nom-nom.mp3`, `cookie-cockatiel.mp3`
+- Gestion gracieuse de l'autoplay bloque par le navigateur
+
+**Fichier :** `apps/desktop/src/infrastructure/audio/soundPlayer.ts`
+
+### 24-26. UX improvements
+
+- **Bookmark vault sync** : `syncBookmarksToVault()` dans `bookmarkStore.ts` ecrit `_bookmarks/bookmarks.md` dans le vault notes (git-synced) a chaque modification
+- **Sidebar drag & drop** : toutes les sections (favoris, filtres, contacts, taches) reordonnables par drag & drop, ordre persiste dans localStorage (`sidebar-section-order`)
+- **Nav bar responsive** : barre de navigation adaptative + sous-barre calendrier (`CalendarSubBar`) affichee pour les vues month/week/day
+
+### 27. Scripts DB
+
+- `bun run db:drop` — execute `src/scripts/db-drop.ts` pour supprimer toutes les tables
+- `bun run db:reset` — enchaine drop + migrate pour repartir de zero
+
+### 28-29. Refactors architecturaux
+
+**GitHub → repository pattern :**
+- Avant : service monolithique avec acces DB direct
+- Apres : interfaces `GitHubConfigRepository` et `GitHubPRRepository` dans `domain/github/github.repository.ts`, implementations Drizzle dans `infrastructure/repositories/`
+
+**GitScan → port pattern :**
+- Avant : `GitScanService` executait directement les commandes git
+- Apres : interface `GitScanPort` dans `domain/git/git-scan.port.ts`, implementation `GitExecAdapter` dans `infrastructure/adapters/git-exec.adapter.ts`
 
 ---
 
@@ -572,7 +679,8 @@ Reste uniquement du polish/phase 4 :
 | 3 | 5 | ✅ 5/5 done |
 | 4 | 4 | ✅ 4/4 done |
 | 5 | 2 | ✅ 2/2 done |
-| **Total** | **17** | **✅ 17/17 done** |
+| 6 | 9 | ✅ 9/9 done |
+| **Total** | **26** | **✅ 26/26 done** |
 
 ---
 
@@ -582,3 +690,6 @@ Reste uniquement du polish/phase 4 :
 - **Toutes les features API sont compatibles mobile** — les endpoints REST sont reutilisables
 - **LLM optionnel partout** — chaque feature avec LLM a un fallback sans LLM
 - **Pas de breaking changes DB** — toutes les migrations sont additives (ADD COLUMN, nouvelles tables)
+- **Architecture hexagonale** : les refactors GitHub (repository pattern) et GitScan (port pattern) alignent le code sur une architecture ports & adapters coherente
+- **Sons** : tous les fichiers audio sont dans `apps/desktop/src/assets/sounds/`, joues via `soundPlayer.ts`
+- **Bookmark tags** : dynamiques en DB, pas hardcodes — gestion via settings UI

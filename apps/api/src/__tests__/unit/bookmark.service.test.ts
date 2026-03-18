@@ -2,6 +2,8 @@ import { describe, it, expect, beforeEach, mock } from "bun:test";
 import { BookmarkService } from "../../application/bookmark/bookmark.service";
 import type { BookmarkRepository } from "../../domain/bookmark/bookmark.repository";
 import type { Bookmark } from "../../domain/bookmark/bookmark.entity";
+import type { BookmarkTagRepository } from "../../domain/bookmark/bookmark-tag.repository";
+import type { BookmarkTag } from "../../domain/bookmark/bookmark-tag.entity";
 
 const makeBookmark = (overrides: Partial<Bookmark> = {}): Bookmark => ({
   id: "b-1",
@@ -16,9 +18,19 @@ const makeBookmark = (overrides: Partial<Bookmark> = {}): Bookmark => ({
   ...overrides,
 });
 
+const makeTag = (overrides: Partial<BookmarkTag> = {}): BookmarkTag => ({
+  id: "t-1",
+  value: "dev",
+  label: "Development",
+  sortOrder: 0,
+  createdAt: new Date("2026-01-01"),
+  ...overrides,
+});
+
 describe("BookmarkService", () => {
   let service: BookmarkService;
   let mockRepo: Record<keyof BookmarkRepository, ReturnType<typeof mock>>;
+  let mockTagRepo: Record<keyof BookmarkTagRepository, ReturnType<typeof mock>>;
 
   beforeEach(() => {
     mockRepo = {
@@ -28,7 +40,17 @@ describe("BookmarkService", () => {
       update: mock(() => Promise.resolve(null)),
       delete: mock(() => Promise.resolve(false)),
     };
-    service = new BookmarkService(mockRepo as unknown as BookmarkRepository);
+    mockTagRepo = {
+      findAll: mock(() => Promise.resolve([])),
+      findByValue: mock(() => Promise.resolve(null)),
+      create: mock(() => Promise.resolve(makeTag())),
+      update: mock(() => Promise.resolve(null)),
+      delete: mock(() => Promise.resolve(false)),
+    };
+    service = new BookmarkService(
+      mockRepo as unknown as BookmarkRepository,
+      mockTagRepo as unknown as BookmarkTagRepository,
+    );
   });
 
   // --- getAll ---
@@ -103,6 +125,65 @@ describe("BookmarkService", () => {
 
   it("delete returns false when bookmark not found", async () => {
     const result = await service.delete("missing");
+    expect(result).toBe(false);
+  });
+
+  // --- getAllTags ---
+  it("getAllTags returns all tags", async () => {
+    const tags = [makeTag(), makeTag({ id: "t-2", value: "design", label: "Design" })];
+    mockTagRepo.findAll.mockReturnValue(Promise.resolve(tags));
+
+    const result = await service.getAllTags();
+
+    expect(result).toEqual(tags);
+    expect(mockTagRepo.findAll).toHaveBeenCalledTimes(1);
+  });
+
+  it("getAllTags returns empty array when no tags", async () => {
+    const result = await service.getAllTags();
+    expect(result).toEqual([]);
+  });
+
+  // --- createTag ---
+  it("createTag delegates to tag repo and returns tag", async () => {
+    const input = { value: "dev", label: "Development" };
+    const created = makeTag();
+    mockTagRepo.create.mockReturnValue(Promise.resolve(created));
+
+    const result = await service.createTag(input);
+
+    expect(result).toEqual(created);
+    expect(mockTagRepo.create).toHaveBeenCalledWith(input);
+  });
+
+  // --- updateTag ---
+  it("updateTag returns updated tag when found", async () => {
+    const updated = makeTag({ label: "Dev Tools" });
+    mockTagRepo.update.mockReturnValue(Promise.resolve(updated));
+
+    const result = await service.updateTag("t-1", { label: "Dev Tools" });
+
+    expect(result).toEqual(updated);
+    expect(mockTagRepo.update).toHaveBeenCalledWith("t-1", { label: "Dev Tools" });
+  });
+
+  it("updateTag returns null when tag not found", async () => {
+    const result = await service.updateTag("missing", { label: "Nope" });
+    expect(result).toBeNull();
+  });
+
+  // --- deleteTag ---
+  it("deleteTag returns true when tag deleted", async () => {
+    mockTagRepo.delete.mockReturnValue(Promise.resolve(true));
+
+    const result = await service.deleteTag("t-1");
+
+    expect(result).toBe(true);
+    expect(mockTagRepo.delete).toHaveBeenCalledWith("t-1");
+  });
+
+  it("deleteTag returns false when tag not found", async () => {
+    const result = await service.deleteTag("missing");
     expect(result).toBe(false);
   });
 });

@@ -143,10 +143,11 @@ api/src/
 ├── application/llm/
 │   └── llm.service.ts           # Orchestration, retry, fallback
 ├── infrastructure/
-│   ├── llm/
+│   ├── adapters/
 │   │   ├── ollama.adapter.ts    # Ollama REST API adapter
 │   │   ├── lmstudio.adapter.ts  # LM Studio (compatible OpenAI API)
-│   │   └── openai.adapter.ts    # OpenAI-compatible (fallback cloud)
+│   │   ├── openai.adapter.ts    # OpenAI-compatible (fallback cloud)
+│   │   └── anthropic.adapter.ts # Anthropic Messages API (system as top-level param)
 │   └── repositories/
 │       └── llm-config.repository.impl.ts
 ├── presentation/
@@ -157,6 +158,16 @@ desktop/src/
 ├── ui/components/llm/
 │   └── LlmSettings.tsx          # Config UI : provider, URL, modele, test
 ```
+
+### Adapter Anthropic
+
+L'adapter Anthropic (`anthropic.adapter.ts`) implemente `LlmPort` en utilisant l'API Messages d'Anthropic.
+Particularite : le parametre `system` est envoye en top-level (pas dans le tableau `messages`), conformement a l'API Anthropic.
+
+- Provider : `"anthropic"`
+- URL par defaut : `https://api.anthropic.com`
+- Necessite une API key (`apiKey` dans `LlmConfig`)
+- Modeles supportes : Claude Sonnet, Opus, Haiku, etc.
 
 ### Configuration (stockee en DB)
 
@@ -239,12 +250,12 @@ Bouton "Resumer" dans `EmailDetail` qui envoie le contenu de l'email au LLM loca
 
 ```
 1. ✅ Dashboard Analytics (Phase 1-4) — DONE
-2. ✅ Weekly Review (Phase 1-3)       — DONE
-3. ✅ Integration LLM local (Phase 1-3) — DONE
+2. ✅ Weekly Review (Phase 1-4)       — DONE (resume narratif LLM inclus)
+3. ✅ Integration LLM local (Phase 1-4) — DONE (adapter Anthropic inclus)
 4. ✅ Raccourcis clavier Email (Phase 1-3) — DONE
-5. ✅ Resume email par IA (Phase 1-2) — DONE
+5. ✅ Resume email par IA (Phase 1-4) — DONE (cache + classification auto)
 
-Restant : toutes les phases sont completees ✅
+Toutes les phases sont completees ✅
 ```
 
 ---
@@ -252,6 +263,8 @@ Restant : toutes les phases sont completees ✅
 ## Notes
 
 - **Charts** : privilegier `uPlot` (7kb) plutot que `chart.js` (200kb) si possible, sinon `chart.js` avec tree-shaking
-- **LLM** : Ollama est le plus simple a setup, recommander en premier. LM Studio en alternative GUI-friendly
+- **LLM** : Ollama est le plus simple a setup, recommander en premier. LM Studio en alternative GUI-friendly. Anthropic disponible pour les modeles Claude via API key
 - **Performance** : les queries analytics doivent etre rapides — prevoir des index si necessaire, possibilite de materialiser des vues
 - **Mobile** : toutes ces features sont conçues pour fonctionner aussi en mobile plus tard (voir `docs/mobile/`)
+- **Bookmark tags** : les tags de bookmarks sont dynamiques, stockes en DB (table `bookmark_tags` avec `value`, `label`, `sortOrder`), gerees via un CRUD dans les settings — pas de tags hardcodes
+- **Email classification** : les categories (`newsletter`, `facture`, `action_requise`, `personnel`, `notification`, `autre`) sont classifiees automatiquement par le LLM et cachees en DB (`summary` + `classification` dans la table `emails`)
