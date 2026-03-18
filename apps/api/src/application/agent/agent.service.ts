@@ -1,6 +1,7 @@
 import type { LlmService } from "../llm/llm.service";
 import type { ChatRepository } from "../../domain/chat/chat.repository";
 import type { ChatMessage } from "../../domain/chat/chat.entity";
+import type { AgentMemoryRepository } from "../../domain/agent-memory/agent-memory.repository";
 import { ToolRegistry } from "./tool-registry";
 
 interface ToolCall {
@@ -26,6 +27,7 @@ export class AgentService {
     private chatRepo: ChatRepository,
     private llmService: LlmService | null,
     private toolRegistry: ToolRegistry,
+    private memoryRepo?: AgentMemoryRepository,
   ) {}
 
   async listConversations() {
@@ -53,8 +55,8 @@ export class AgentService {
     // Get conversation history
     const messages = await this.chatRepo.getMessages(conversationId);
 
-    // Build the system prompt with tool descriptions
-    const systemPrompt = this.buildSystemPrompt();
+    // Build the system prompt with tool descriptions + memories
+    const systemPrompt = await this.buildSystemPromptAsync();
 
     // Tool-calling loop
     const allToolResults: ToolResult[] = [];
@@ -119,7 +121,76 @@ export class AgentService {
     return { message: assistantMsg, toolCalls: allToolResults };
   }
 
+  private async buildSystemPromptAsync(): Promise<string> {
+    const today = new Date().toISOString().split("T")[0];
+    const dayName = new Date().toLocaleDateString("fr-FR", { weekday: "long" });
+    const toolsDescription = this.toolRegistry.describeForLlm();
+
+    let memorySection = "";
+    if (this.memoryRepo) {
+      try {
+        const memories = await this.memoryRepo.findActive();
+        if (memories.length > 0) {
+          const grouped = {
+            fact: memories.filter((m) => m.type === "fact"),
+            preference: memories.filter((m) => m.type === "preference"),
+            context: memories.filter((m) => m.type === "context"),
+          };
+          const parts: string[] = [];
+          if (grouped.fact.length > 0) parts.push("**Faits :** " + grouped.fact.map((m) => m.content).join(" | "));
+          if (grouped.preference.length > 0) parts.push("**Preferences :** " + grouped.preference.map((m) => m.content).join(" | "));
+          if (grouped.context.length > 0) parts.push("**Contexte actuel :** " + grouped.context.map((m) => m.content).join(" | "));
+          memorySection = `\n\n## Ce que tu sais de l'utilisateur\n\n${parts.join("\n")}`;
+        }
+      } catch {
+        // Memory unavailable — continue without
+      }
+    }
+
+    return `Tu es l'assistant Magick Cookie, un assistant de productivite personnel.
+Nous sommes le ${dayName} ${today}.${memorySection}
+
+Tu as acces aux outils suivants pour repondre aux questions de l'utilisateur :
+
+${toolsDescription}
+
+## Comment utiliser les outils
+
+Quand tu as besoin de donnees ou d'executer une action, reponds UNIQUEMENT avec un bloc JSON dans ce format exact :
+
+\`\`\`TOOL_CALL
+{"tool": "nom_de_loutil", "params": {"param1": "valeur1"}}
+\`\`\`
+
+Tu peux appeler plusieurs outils dans une meme reponse :
+
+\`\`\`TOOL_CALL
+{"tool": "get_streak", "params": {}}
+\`\`\`
+
+\`\`\`TOOL_CALL
+{"tool": "get_today_stats", "params": {}}
+\`\`\`
+
+## Regles
+
+- Reponds TOUJOURS en francais
+- Si une question concerne tes donnees, appelle un outil — ne devine PAS
+- Si tu appelles un outil, ne mets RIEN d'autre dans ta reponse que les blocs TOOL_CALL
+- Quand tu recois les resultats des outils, formule une reponse claire et concise
+- Pour les durees, convertis les secondes en heures/minutes lisibles (ex: 7200s → 2h)
+- Sois concis et actionnable, pas de blabla
+- Tu peux executer des actions (creer tache, trier, etc.) quand l'utilisateur le demande
+- Confirme toujours apres avoir execute une action
+- Tu peux sauvegarder des informations sur l'utilisateur avec save_memory. Utilise-le quand l'utilisateur te dit quelque chose sur lui-meme ou ses preferences.`;
+  }
+
   private buildSystemPrompt(): string {
+    // Kept for backwards compatibility — sync version without memories
+    return this.buildSystemPromptSync();
+  }
+
+  private buildSystemPromptSync(): string {
     const today = new Date().toISOString().split("T")[0];
     const dayName = new Date().toLocaleDateString("fr-FR", { weekday: "long" });
     const toolsDescription = this.toolRegistry.describeForLlm();

@@ -22,6 +22,9 @@ import { DrizzleChatRepository } from "./infrastructure/repositories/chat.reposi
 import { DrizzleBookmarkRepository } from "./infrastructure/repositories/bookmark.repository.impl";
 import { DrizzleProjectRepository } from "./infrastructure/repositories/project.repository.impl";
 import { DrizzlePushNotificationRepository } from "./infrastructure/repositories/push-notification.repository.impl";
+import { DrizzleAgentMemoryRepository } from "./infrastructure/repositories/agent-memory.repository.impl";
+import { DrizzleGitHubConfigRepository } from "./infrastructure/repositories/github-config.repository.impl";
+import { DrizzleGitHubPRRepository } from "./infrastructure/repositories/github-pr.repository.impl";
 
 // Services
 import { CalendarService } from "./application/calendar/calendar.service";
@@ -52,6 +55,10 @@ import { createAnalyticsTools } from "./application/agent/tools/analytics.tools"
 import { createTaskTools } from "./application/agent/tools/task.tools";
 import { createTimerTools } from "./application/agent/tools/timer.tools";
 import { createBriefTools, createEmailTools, createCalendarTools, createBookmarkTools, createProjectTools } from "./application/agent/tools/brief.tools";
+import { createMemoryTools } from "./application/agent/tools/memory.tools";
+
+// Adapters
+import { GitExecAdapter } from "./infrastructure/adapters/git-exec.adapter";
 
 // Connectors
 import { ClickUpApiClient } from "./infrastructure/connectors/clickup-api.client";
@@ -110,6 +117,9 @@ const chatRepo = new DrizzleChatRepository(db);
 const bookmarkRepo = new DrizzleBookmarkRepository(db);
 const projectRepo = new DrizzleProjectRepository(db);
 const pushRepo = new DrizzlePushNotificationRepository(db);
+const agentMemoryRepo = new DrizzleAgentMemoryRepository(db);
+const githubConfigRepo = new DrizzleGitHubConfigRepository(db);
+const githubPrRepo = new DrizzleGitHubPRRepository(db);
 
 const calendarService = new CalendarService(calendarRepo);
 const eventService = new EventService(eventRepo, reminderRepo);
@@ -126,10 +136,11 @@ const analyticsService = new AnalyticsService(timerSessionRepo, dogWalkRepo, wel
 const llmService = new LlmService(llmConfigRepo);
 const triageService = new TriageService(triageRepo, taskRepo, llmService);
 const gitRepoPaths = process.env.GIT_SCAN_REPOS?.split(",").map((p) => p.trim()).filter(Boolean) || [];
-const gitScanService = gitRepoPaths.length > 0 ? new GitScanService(gitRepoPaths) : undefined;
+const gitExecAdapter = new GitExecAdapter();
+const gitScanService = gitRepoPaths.length > 0 ? new GitScanService(gitRepoPaths, gitExecAdapter) : undefined;
 const briefService = new BriefService(timerSessionRepo, eventRepo, taskRepo, triageRepo, emailRepo, llmService, gitScanService);
 const chatService = new ChatService(chatRepo, llmService);
-const githubService = new GitHubService(db);
+const githubService = new GitHubService(githubConfigRepo, githubPrRepo);
 const vpsProxyService = new VpsProxyService(config.vpsApiUrl, config.vpsApiToken);
 const bookmarkService = new BookmarkService(bookmarkRepo);
 const projectService = new ProjectService(projectRepo);
@@ -141,11 +152,12 @@ toolRegistry.registerAll(createAnalyticsTools(analyticsService));
 toolRegistry.registerAll(createTaskTools(taskService, triageService));
 toolRegistry.registerAll(createTimerTools(timerSessionService));
 toolRegistry.registerAll(createBriefTools(briefService));
-toolRegistry.registerAll(createEmailTools(emailService));
+toolRegistry.registerAll(createEmailTools(emailService, llmService));
 toolRegistry.registerAll(createCalendarTools(eventService));
 toolRegistry.registerAll(createBookmarkTools(bookmarkService));
 toolRegistry.registerAll(createProjectTools(projectService));
-const agentService = new AgentService(chatRepo, llmService, toolRegistry);
+toolRegistry.registerAll(createMemoryTools(agentMemoryRepo));
+const agentService = new AgentService(chatRepo, llmService, toolRegistry, agentMemoryRepo);
 
 const clickUpApiClient = new ClickUpApiClient(config.clickupApiToken);
 const clickUpSyncService = new ClickUpSyncService(clickUpApiClient, calendarService, eventRepo, taskRepo);
@@ -178,7 +190,7 @@ app.route("/api/dog-walks", createDogWalkRoutes(dogWalkService));
 app.route("/api/triage", createTriageRoutes(triageService));
 app.route("/api/emails", createEmailRoutes(emailService, llmService));
 app.route("/api/email-accounts", createEmailAccountRoutes(emailService));
-app.route("/api/analytics", createAnalyticsRoutes(analyticsService));
+app.route("/api/analytics", createAnalyticsRoutes(analyticsService, llmService));
 app.route("/api/llm", createLlmRoutes(llmService));
 app.route("/api/brief", createBriefRoutes(briefService));
 app.route("/api/chat", createChatRoutes(chatService));
@@ -202,6 +214,7 @@ startGitHubSyncJob(githubService);
 // Start agent scheduler (proactive notifications)
 startAgentScheduler({
   pushRepo,
+  agentMemoryRepo,
   analyticsService,
   briefService,
   emailService,

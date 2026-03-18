@@ -1,4 +1,5 @@
 import type { PushNotificationRepository } from "../../domain/push/push-notification.repository";
+import type { AgentMemoryRepository } from "../../domain/agent-memory/agent-memory.repository";
 import type { AnalyticsService } from "../../application/analytics/analytics.service";
 import type { BriefService } from "../../application/brief/brief.service";
 import type { EmailService } from "../../application/email/email.service";
@@ -27,6 +28,7 @@ function currentISOWeek(): string {
 
 interface SchedulerDeps {
   pushRepo: PushNotificationRepository;
+  agentMemoryRepo?: AgentMemoryRepository;
   analyticsService: AnalyticsService;
   briefService: BriefService;
   emailService: EmailService;
@@ -129,6 +131,16 @@ export function startAgentScheduler(deps: SchedulerDeps) {
     }
   }
 
+  async function cleanupExpiredMemories() {
+    if (!deps.agentMemoryRepo) return;
+    try {
+      const deleted = await deps.agentMemoryRepo.deleteExpired();
+      if (deleted > 0) console.log(`[scheduler] Cleaned up ${deleted} expired memories`);
+    } catch (e) {
+      console.error("[scheduler] Memory cleanup error:", e);
+    }
+  }
+
   async function cleanup() {
     try {
       const deleted = await pushRepo.deleteOlderThan(30);
@@ -152,12 +164,15 @@ export function startAgentScheduler(deps: SchedulerDeps) {
   // Main loop: every 15 minutes
   const mainTimer = setInterval(runAll, 15 * 60 * 1000);
 
+  // Memory cleanup: every hour
+  const memoryCleanupTimer = setInterval(cleanupExpiredMemories, 60 * 60 * 1000);
+
   // Cleanup: once a day at midnight
   const cleanupTimer = setInterval(cleanup, 24 * 60 * 60 * 1000);
 
   console.log("[scheduler] Agent scheduler started (15 min interval)");
 
-  return { mainTimer, cleanupTimer };
+  return { mainTimer, cleanupTimer, memoryCleanupTimer };
 }
 
 function formatRawBrief(rawData: any): string {
