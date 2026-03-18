@@ -311,21 +311,36 @@ export function AppLayout(props: AppLayoutProps) {
                   </button>
                 )}
               </For>
-              <Show when={["month", "week", "day"].includes(viewMode())}>
-                <div style={{ width: "1px", height: "18px", background: "var(--border-color)", margin: "0 4px", "flex-shrink": "0" }} />
-                <Button variant="ghost" onClick={navigatePrev} style={{ "flex-shrink": "0" }}>&lt;</Button>
-                <span style={{ "font-size": "14px", "font-weight": "600", "text-transform": "capitalize", "white-space": "nowrap", "flex-shrink": "0" }}>
-                  {headerTitle()}
-                </span>
-                <Button variant="ghost" onClick={navigateNext} style={{ "flex-shrink": "0" }}>&gt;</Button>
-                <Button variant="secondary" size="sm" onClick={goToToday} style={{ "flex-shrink": "0" }}>Aujourd'hui</Button>
-                <div style={{ width: "1px", height: "18px", background: "var(--border-color)", margin: "0 4px", "flex-shrink": "0" }} />
-                <Button variant={viewMode() === "month" ? "primary" : "secondary"} size="sm" onClick={() => setViewMode("month")} style={{ "flex-shrink": "0" }}>Mois</Button>
-                <Button variant={viewMode() === "week" ? "primary" : "secondary"} size="sm" onClick={() => setViewMode("week")} style={{ "flex-shrink": "0" }}>Semaine</Button>
-                <Button variant={viewMode() === "day" ? "primary" : "secondary"} size="sm" onClick={() => setViewMode("day")} style={{ "flex-shrink": "0" }}>Jour</Button>
-              </Show>
             </div>
           </header>
+
+          {/* Calendar sub-bar */}
+          <Show when={["month", "week", "day"].includes(viewMode())}>
+            <div style={{
+              display: "flex",
+              "align-items": "center",
+              "justify-content": "space-between",
+              padding: "0 16px",
+              height: "32px",
+              "border-bottom": "1px solid var(--border-color)",
+              "flex-shrink": "0",
+              background: "var(--bg-surface)",
+            }}>
+              <div style={{ display: "flex", "align-items": "center", gap: "4px" }}>
+                <Button variant="ghost" size="sm" onClick={navigatePrev}>&lt;</Button>
+                <span style={{ "font-size": "14px", "font-weight": "600", "text-transform": "capitalize", "min-width": "160px", "text-align": "center" }}>
+                  {headerTitle()}
+                </span>
+                <Button variant="ghost" size="sm" onClick={navigateNext}>&gt;</Button>
+                <Button variant="secondary" size="sm" onClick={goToToday}>Aujourd'hui</Button>
+              </div>
+              <div style={{ display: "flex", gap: "4px" }}>
+                <Button variant={viewMode() === "month" ? "primary" : "secondary"} size="sm" onClick={() => setViewMode("month")}>Mois</Button>
+                <Button variant={viewMode() === "week" ? "primary" : "secondary"} size="sm" onClick={() => setViewMode("week")}>Semaine</Button>
+                <Button variant={viewMode() === "day" ? "primary" : "secondary"} size="sm" onClick={() => setViewMode("day")}>Jour</Button>
+              </div>
+            </div>
+          </Show>
 
           {/* Content */}
           <div style={{ flex: "1", overflow: "hidden" }}>
