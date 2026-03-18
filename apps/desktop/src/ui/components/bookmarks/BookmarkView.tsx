@@ -152,61 +152,59 @@ export function BookmarkView() {
                 <span style={{ "font-size": "10px", color: "var(--text-muted)" }}>▼</span>
               </button>
               <Show when={emojiPickerOpen()}>
+                {/* Backdrop invisible pour fermer */}
+                <div onClick={() => setEmojiPickerOpen(false)} style={{ position: "fixed", inset: "0", "z-index": "99" }} />
                 <div style={{
-                  position: "fixed",
-                  top: "50%",
-                  left: "50%",
-                  transform: "translate(-50%, -50%)",
-                  padding: "16px",
+                  position: "absolute",
+                  top: "100%",
+                  left: "0",
+                  "margin-top": "4px",
+                  padding: "8px",
                   background: "var(--bg-surface)",
                   border: "1px solid var(--border-color)",
                   "border-radius": "var(--radius-md)",
-                  "box-shadow": "0 8px 24px rgba(0,0,0,0.2)",
-                  "z-index": "1000",
-                  "max-width": "90vw",
-                  "max-height": "90vh",
-                  overflow: "auto",
+                  "box-shadow": "0 4px 12px rgba(0,0,0,0.15)",
+                  "z-index": "100",
+                  display: "grid",
+                  "grid-template-columns": "repeat(5, 36px)",
+                  gap: "2px",
                 }}>
-                  <div style={{ "font-size": "12px", "font-weight": "500", color: "var(--text-secondary)", "margin-bottom": "10px" }}>Choisir un emoji</div>
-                  <div style={{ display: "flex", "flex-wrap": "wrap", gap: "4px", "margin-bottom": "12px" }}>
-                    <For each={EMOJI_PRESETS}>
-                      {(e) => (
-                        <button
-                          type="button"
-                          onClick={() => { setEmoji(e); setEmojiPickerOpen(false); }}
-                          style={{
-                            background: emoji() === e ? "var(--accent-color)" : "none",
-                            border: "none",
-                            "border-radius": "var(--radius-sm)",
-                            cursor: "pointer",
-                            "font-size": "22px",
-                            padding: "8px",
-                            transition: "background 0.1s",
-                          }}
-                          onMouseEnter={(ev) => { if (emoji() !== e) ev.currentTarget.style.background = "var(--bg-elevated)"; }}
-                          onMouseLeave={(ev) => { if (emoji() !== e) ev.currentTarget.style.background = "none"; }}
-                        >{e}</button>
-                      )}
-                    </For>
-                  </div>
-                  <div style={{ "border-top": "1px solid var(--border-color)", "padding-top": "8px", display: "flex", gap: "8px", "align-items": "center" }}>
+                  <For each={EMOJI_PRESETS}>
+                    {(e) => (
+                      <button
+                        type="button"
+                        onClick={() => { setEmoji(e); setEmojiPickerOpen(false); }}
+                        style={{
+                          background: emoji() === e ? "var(--accent-color)" : "none",
+                          border: "none",
+                          "border-radius": "var(--radius-sm)",
+                          cursor: "pointer",
+                          "font-size": "18px",
+                          width: "36px",
+                          height: "36px",
+                          display: "flex",
+                          "align-items": "center",
+                          "justify-content": "center",
+                          transition: "background 0.1s",
+                        }}
+                        onMouseEnter={(ev) => { if (emoji() !== e) ev.currentTarget.style.background = "var(--bg-elevated)"; }}
+                        onMouseLeave={(ev) => { if (emoji() !== e) ev.currentTarget.style.background = "none"; }}
+                      >{e}</button>
+                    )}
+                  </For>
+                  {/* Custom input en dernière row, pleine largeur */}
+                  <div style={{ "grid-column": "1 / -1", "border-top": "1px solid var(--border-color)", "margin-top": "4px", "padding-top": "6px" }}>
                     <input
                       type="text"
                       value={emoji()}
                       onInput={(e) => setEmoji(e.currentTarget.value)}
                       placeholder="Custom..."
                       maxLength={4}
-                      style={{ ...inputStyle, flex: "1", "text-align": "center", "font-size": "16px" }}
+                      style={{ ...inputStyle, "text-align": "center", "font-size": "14px" }}
                       onKeyDown={(e) => { if (e.key === "Enter") setEmojiPickerOpen(false); }}
                     />
-                    <Button variant="ghost" size="sm" onClick={() => setEmojiPickerOpen(false)}>OK</Button>
                   </div>
                 </div>
-                {/* Backdrop */}
-                <div
-                  onClick={() => setEmojiPickerOpen(false)}
-                  style={{ position: "fixed", inset: "0", "z-index": "999", background: "rgba(0,0,0,0.1)" }}
-                />
               </Show>
             </div>
           </div>
