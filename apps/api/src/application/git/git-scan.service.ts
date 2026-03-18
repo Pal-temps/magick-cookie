@@ -1,45 +1,19 @@
-import { exec } from "child_process";
-import { promisify } from "util";
+import type { GitScanPort, GitCommit, GitActivity } from "../../domain/git/git-scan.port";
 
-const execAsync = promisify(exec);
-
-export interface GitCommit {
-  hash: string;
-  message: string;
-  repo: string;
-}
-
-export interface GitActivity {
-  commits: GitCommit[];
-  repoCount: number;
-  totalCommits: number;
-}
+export type { GitCommit, GitActivity };
 
 export class GitScanService {
-  constructor(private repoPaths: string[]) {}
+  constructor(private repoPaths: string[], private gitScanner: GitScanPort) {}
 
   async scanSince(since: Date): Promise<GitActivity> {
     const sinceStr = since.toISOString().split("T")[0];
     const allCommits: GitCommit[] = [];
 
     for (const repoPath of this.repoPaths) {
-      try {
-        const { stdout } = await execAsync(
-          `git -C "${repoPath}" log --since="${sinceStr}" --oneline --no-merges --format="%h %s"`,
-          { timeout: 5000 },
-        );
-        const lines = stdout.trim().split("\n").filter(Boolean);
-        const repoName = repoPath.split(/[/\\]/).pop() || repoPath;
-        for (const line of lines) {
-          const spaceIdx = line.indexOf(" ");
-          allCommits.push({
-            hash: line.substring(0, spaceIdx),
-            message: line.substring(spaceIdx + 1),
-            repo: repoName,
-          });
-        }
-      } catch {
-        // Skip repos that fail (not found, not a git repo, etc.)
+      const repoName = repoPath.split(/[/\\]/).pop() || repoPath;
+      const commits = await this.gitScanner.getCommitsSince(repoPath, sinceStr);
+      for (const c of commits) {
+        allCommits.push({ ...c, repo: repoName });
       }
     }
 
