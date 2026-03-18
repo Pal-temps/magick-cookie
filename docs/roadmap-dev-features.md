@@ -32,6 +32,10 @@ Features orientees productivite dev, a ajouter a l'app existante.
 | 22 | Refactor GitHub (repo pattern) | ✅ Done | GitHubConfigRepository + GitHubPRRepository |
 | 23 | Refactor GitScan (port pattern) | ✅ Done | GitScanPort + GitExecAdapter |
 | 24 | Flux RSS | ✅ Done | rss-parser, sync 15min, RssView two-column, dedup guid |
+| 25 | Bookmark categories dynamiques | ✅ Done | Categories en DB (8 defaults), CRUD settings, filtres, badge |
+| 26 | Pomodoro sound loop + waiting | ✅ Done | Son en boucle a la fin du focus, dismiss + start break manuels |
+| 27 | Mini calendar → vue jour | ✅ Done | Clic sur un jour ouvre la vue calendrier jour |
+| 28 | Horloge title bar | ✅ Done | Date + heure centree dans la barre de titre |
 
 ---
 

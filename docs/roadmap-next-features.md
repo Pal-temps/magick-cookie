@@ -332,4 +332,5 @@ Toutes les phases sont completees ✅
 - **Performance** : les queries analytics doivent etre rapides — prevoir des index si necessaire, possibilite de materialiser des vues
 - **Mobile** : toutes ces features sont conçues pour fonctionner aussi en mobile plus tard (voir `docs/mobile/`)
 - **Bookmark tags** : les tags de bookmarks sont dynamiques, stockes en DB (table `bookmark_tags` avec `value`, `label`, `sortOrder`), gerees via un CRUD dans les settings — pas de tags hardcodes
+- **Bookmark categories** : les categories de bookmarks sont dynamiques, stockees en DB (table `bookmark_categories`, 8 defaults : Design, Composants, Open Source, Documentation, DevOps, Outils, Veille, API), gerees via le meme settings panel que les tags
 - **Email classification** : les categories (`newsletter`, `facture`, `action_requise`, `personnel`, `notification`, `autre`) sont classifiees automatiquement par le LLM et cachees en DB (`summary` + `classification` dans la table `emails`)
