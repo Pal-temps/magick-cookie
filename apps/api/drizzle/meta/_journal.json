@@ -141,6 +141,13 @@
       "when": 1774963200000,
       "tag": "0019_bookmark_tags",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1775049600000,
+      "tag": "0020_alarms",
+      "breakpoints": true
     }
   ]
 }

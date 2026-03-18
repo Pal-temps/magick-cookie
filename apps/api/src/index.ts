@@ -26,6 +26,7 @@ import { DrizzlePushNotificationRepository } from "./infrastructure/repositories
 import { DrizzleAgentMemoryRepository } from "./infrastructure/repositories/agent-memory.repository.impl";
 import { DrizzleGitHubConfigRepository } from "./infrastructure/repositories/github-config.repository.impl";
 import { DrizzleGitHubPRRepository } from "./infrastructure/repositories/github-pr.repository.impl";
+import { DrizzleAlarmRepository } from "./infrastructure/repositories/alarm.repository.impl";
 
 // Services
 import { CalendarService } from "./application/calendar/calendar.service";
@@ -50,6 +51,7 @@ import { VpsProxyService } from "./application/vps/vps-proxy.service";
 import { BookmarkService } from "./application/bookmark/bookmark.service";
 import { ProjectService } from "./application/project/project.service";
 import { SmartReminderService } from "./application/smart-reminder/smart-reminder.service";
+import { AlarmService } from "./application/alarm/alarm.service";
 import { AgentService } from "./application/agent/agent.service";
 import { ToolRegistry } from "./application/agent/tool-registry";
 import { createAnalyticsTools } from "./application/agent/tools/analytics.tools";
@@ -93,6 +95,7 @@ import { createProjectRoutes } from "./presentation/routes/project.routes";
 import { createSmartReminderRoutes } from "./presentation/routes/smart-reminder.routes";
 import { createAgentRoutes } from "./presentation/routes/agent.routes";
 import { createPushRoutes } from "./presentation/routes/push.routes";
+import { createAlarmRoutes } from "./presentation/routes/alarm.routes";
 
 // Jobs
 import { startReminderChecker } from "./infrastructure/jobs/reminder-checker";
@@ -122,6 +125,7 @@ const pushRepo = new DrizzlePushNotificationRepository(db);
 const agentMemoryRepo = new DrizzleAgentMemoryRepository(db);
 const githubConfigRepo = new DrizzleGitHubConfigRepository(db);
 const githubPrRepo = new DrizzleGitHubPRRepository(db);
+const alarmRepo = new DrizzleAlarmRepository(db);
 
 const calendarService = new CalendarService(calendarRepo);
 const eventService = new EventService(eventRepo, reminderRepo);
@@ -147,6 +151,7 @@ const vpsProxyService = new VpsProxyService(config.vpsApiUrl, config.vpsApiToken
 const bookmarkService = new BookmarkService(bookmarkRepo, bookmarkTagRepo);
 const projectService = new ProjectService(projectRepo);
 const smartReminderService = new SmartReminderService(triageRepo, taskRepo, emailRepo);
+const alarmService = new AlarmService(alarmRepo);
 
 // Agent (tool-calling chat)
 const toolRegistry = new ToolRegistry();
@@ -203,6 +208,7 @@ app.route("/api/projects", createProjectRoutes(projectService));
 app.route("/api/smart-reminders", createSmartReminderRoutes(smartReminderService));
 app.route("/api/agent", createAgentRoutes(agentService));
 app.route("/api/push", createPushRoutes(pushRepo));
+app.route("/api/alarms", createAlarmRoutes(alarmService));
 
 // Start reminder checker — pushes to SSE, does NOT mark as sent
 startReminderChecker(reminderService, eventRepo, reminderEmitter);

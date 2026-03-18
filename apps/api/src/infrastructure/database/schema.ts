@@ -260,6 +260,18 @@ export const agentMemory = pgTable("agent_memory", {
   index("idx_agent_memory_type").on(table.type),
 ]);
 
+export const alarms = pgTable("alarms", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  time: varchar("time", { length: 5 }).notNull(),
+  label: varchar("label", { length: 255 }).notNull(),
+  repeatPattern: varchar("repeat_pattern", { length: 20 }).notNull().default("once"),
+  repeatDays: varchar("repeat_days", { length: 20 }),
+  enabled: boolean("enabled").notNull().default(true),
+  lastFiredAt: timestamp("last_fired_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
+});
+
 export const contacts = pgTable("contacts", {
   id: uuid("id").primaryKey().defaultRandom(),
   name: varchar("name", { length: 255 }).notNull(),

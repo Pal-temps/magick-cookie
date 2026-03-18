@@ -9,6 +9,7 @@ import { EmailView } from "./ui/components/email/EmailView";
 import { ChatView } from "./ui/components/chat/ChatView";
 import { VpsView } from "./ui/components/vps/VpsView";
 import { BookmarkView } from "./ui/components/bookmarks/BookmarkView";
+import { AlarmView } from "./ui/components/alarm/AlarmView";
 import { SettingsView } from "./ui/components/settings/SettingsView";
 import { useCalendarStore } from "./application/stores/calendarStore";
 import { useViewStore } from "./application/stores/viewStore";
@@ -21,6 +22,7 @@ import { useTaskStore } from "./application/stores/taskStore";
 import { useCommandStore } from "./application/stores/commandStore";
 import { useClipboardStore } from "./application/stores/clipboardStore";
 import { useBookmarkStore } from "./application/stores/bookmarkStore";
+import { useAlarmStore } from "./application/stores/alarmStore";
 import { useProjectStore } from "./application/stores/projectStore";
 import { useSmartReminderStore } from "./application/stores/smartReminderStore";
 import { CommandPalette } from "./ui/components/common/CommandPalette";
@@ -44,6 +46,7 @@ export function App() {
   const { fetchBookmarks } = useBookmarkStore();
   const { fetchProjects } = useProjectStore();
   const { startSmartReminders, stopSmartReminders } = useSmartReminderStore();
+  const { fetchAlarms, startAlarmChecker, stopAlarmChecker } = useAlarmStore();
   let disconnectSSE: (() => void) | null = null;
   let unlistenShortcuts: (() => void) | null = null;
 
@@ -58,6 +61,7 @@ export function App() {
       case "email":
       case "chat":
       case "vps":
+      case "alarms":
       case "settings":
       case "dashboard": {
         const from = new Date(d);
@@ -114,6 +118,7 @@ export function App() {
     fetchTodayStats();
     fetchActiveWalk();
     fetchBookmarks();
+    fetchAlarms().then(() => startAlarmChecker());
     fetchProjects();
     await initNotifications();
     startSmartReminders();
@@ -161,6 +166,7 @@ export function App() {
     disconnectSSE?.();
     unlistenShortcuts?.();
     stopAll();
+    stopAlarmChecker();
     stopSmartReminders();
   });
 
@@ -194,10 +200,13 @@ export function App() {
         <Show when={viewMode() === "bookmarks"}>
           <BookmarkView />
         </Show>
+        <Show when={viewMode() === "alarms"}>
+          <AlarmView />
+        </Show>
         <Show when={viewMode() === "settings"}>
           <SettingsView />
         </Show>
-        <Show when={viewMode() !== "notes" && viewMode() !== "triage" && viewMode() !== "email" && viewMode() !== "chat" && viewMode() !== "vps" && viewMode() !== "bookmarks" && viewMode() !== "settings"}>
+        <Show when={viewMode() !== "notes" && viewMode() !== "triage" && viewMode() !== "email" && viewMode() !== "chat" && viewMode() !== "vps" && viewMode() !== "bookmarks" && viewMode() !== "alarms" && viewMode() !== "settings"}>
           <CalendarGrid />
           <EventForm />
         </Show>
