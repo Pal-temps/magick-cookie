@@ -15,6 +15,7 @@ export function BookmarkView() {
   const [filter, setFilter] = createSignal("");
   const [filterTag, setFilterTag] = createSignal<BookmarkTag | "all">("all");
   const [emojiPickerOpen, setEmojiPickerOpen] = createSignal(false);
+  const [tagDropdownOpen, setTagDropdownOpen] = createSignal(false);
 
   const EMOJI_PRESETS = ["🔗", "📖", "🛠️", "📝", "🎬", "💡", "📌", "🏠", "💻", "📊", "🎨", "🔒", "🎵", "📧", "🔍", "⚡", "🎯", "📁", "🌐", "🛒"];
 
@@ -27,7 +28,7 @@ export function BookmarkView() {
   };
 
   function resetForm() {
-    setName(""); setUrl(""); setEmoji(""); setTag("none"); setIsFav(false); setEmojiPickerOpen(false); setEditing(null); setCreating(false);
+    setName(""); setUrl(""); setEmoji(""); setTag("none"); setIsFav(false); setEmojiPickerOpen(false); setTagDropdownOpen(false); setEditing(null); setCreating(false);
   }
 
   function startCreate() { resetForm(); setCreating(true); }
@@ -212,17 +213,62 @@ export function BookmarkView() {
             <label style={{ display: "block", "font-size": "12px", "font-weight": "500", color: "var(--text-secondary)", "margin-bottom": "4px" }}>URL</label>
             <input type="url" value={url()} onInput={(e) => setUrl(e.currentTarget.value)} placeholder="https://github.com" style={inputStyle} />
           </div>
-          <div style={{ "margin-bottom": "12px" }}>
+          <div style={{ "margin-bottom": "12px", position: "relative" }}>
             <label style={{ display: "block", "font-size": "12px", "font-weight": "500", color: "var(--text-secondary)", "margin-bottom": "4px" }}>Tag</label>
-            <select
-              value={tag()}
-              onChange={(e) => setTag(e.currentTarget.value as BookmarkTag)}
-              style={{ ...inputStyle, cursor: "pointer" }}
+            <button
+              type="button"
+              onClick={() => setTagDropdownOpen(!tagDropdownOpen())}
+              style={{
+                ...inputStyle,
+                cursor: "pointer",
+                display: "flex",
+                "align-items": "center",
+                "justify-content": "space-between",
+                height: "34px",
+              }}
             >
-              <For each={BOOKMARK_TAGS}>
-                {(t) => <option value={t.value}>{t.label}</option>}
-              </For>
-            </select>
+              <span>{BOOKMARK_TAGS.find((t) => t.value === tag())?.label ?? "Aucun"}</span>
+              <span style={{ "font-size": "10px", color: "var(--text-muted)" }}>▼</span>
+            </button>
+            <Show when={tagDropdownOpen()}>
+              <div onClick={() => setTagDropdownOpen(false)} style={{ position: "fixed", inset: "0", "z-index": "99" }} />
+              <div style={{
+                position: "absolute",
+                top: "100%",
+                left: "0",
+                right: "0",
+                "margin-top": "4px",
+                background: "var(--bg-surface)",
+                border: "1px solid var(--border-color)",
+                "border-radius": "var(--radius-md)",
+                "box-shadow": "0 4px 12px rgba(0,0,0,0.15)",
+                "z-index": "100",
+                overflow: "hidden",
+              }}>
+                <For each={BOOKMARK_TAGS}>
+                  {(t) => (
+                    <button
+                      type="button"
+                      onClick={() => { setTag(t.value); setTagDropdownOpen(false); }}
+                      style={{
+                        display: "block",
+                        width: "100%",
+                        padding: "8px 12px",
+                        border: "none",
+                        background: tag() === t.value ? "var(--accent-color)" : "transparent",
+                        color: tag() === t.value ? "#fff" : "var(--text-primary)",
+                        "font-size": "13px",
+                        cursor: "pointer",
+                        "text-align": "left",
+                        transition: "background 0.1s",
+                      }}
+                      onMouseEnter={(e) => { if (tag() !== t.value) e.currentTarget.style.background = "var(--bg-elevated)"; }}
+                      onMouseLeave={(e) => { if (tag() !== t.value) e.currentTarget.style.background = "transparent"; }}
+                    >{t.label}</button>
+                  )}
+                </For>
+              </div>
+            </Show>
           </div>
           <div style={{ display: "flex", "align-items": "center", "justify-content": "space-between", "margin-top": "4px" }}>
             <label style={{ display: "flex", "align-items": "center", gap: "6px", "font-size": "12px", color: "var(--text-secondary)", cursor: "pointer" }}>
