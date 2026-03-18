@@ -4,6 +4,8 @@ import type { BookmarkRepository } from "../../domain/bookmark/bookmark.reposito
 import type { Bookmark } from "../../domain/bookmark/bookmark.entity";
 import type { BookmarkTagRepository } from "../../domain/bookmark/bookmark-tag.repository";
 import type { BookmarkTag } from "../../domain/bookmark/bookmark-tag.entity";
+import type { BookmarkCategoryRepository } from "../../domain/bookmark/bookmark-category.repository";
+import type { BookmarkCategory } from "../../domain/bookmark/bookmark-category.entity";
 
 const makeBookmark = (overrides: Partial<Bookmark> = {}): Bookmark => ({
   id: "b-1",
@@ -11,6 +13,7 @@ const makeBookmark = (overrides: Partial<Bookmark> = {}): Bookmark => ({
   url: "https://github.com",
   emoji: null,
   tag: "none",
+  category: "none",
   isFavorite: false,
   sortOrder: 0,
   createdAt: new Date("2026-01-01"),
@@ -31,6 +34,7 @@ describe("BookmarkService", () => {
   let service: BookmarkService;
   let mockRepo: Record<keyof BookmarkRepository, ReturnType<typeof mock>>;
   let mockTagRepo: Record<keyof BookmarkTagRepository, ReturnType<typeof mock>>;
+  let mockCategoryRepo: Record<keyof BookmarkCategoryRepository, ReturnType<typeof mock>>;
 
   beforeEach(() => {
     mockRepo = {
@@ -47,9 +51,17 @@ describe("BookmarkService", () => {
       update: mock(() => Promise.resolve(null)),
       delete: mock(() => Promise.resolve(false)),
     };
+    mockCategoryRepo = {
+      findAll: mock(() => Promise.resolve([])),
+      findByValue: mock(() => Promise.resolve(null)),
+      create: mock(() => Promise.resolve({ id: "c-1", value: "design", label: "Design", sortOrder: 0, createdAt: new Date("2026-01-01") })),
+      update: mock(() => Promise.resolve(null)),
+      delete: mock(() => Promise.resolve(false)),
+    };
     service = new BookmarkService(
       mockRepo as unknown as BookmarkRepository,
       mockTagRepo as unknown as BookmarkTagRepository,
+      mockCategoryRepo as unknown as BookmarkCategoryRepository,
     );
   });
 
@@ -185,5 +197,43 @@ describe("BookmarkService", () => {
   it("deleteTag returns false when tag not found", async () => {
     const result = await service.deleteTag("missing");
     expect(result).toBe(false);
+  });
+
+  // --- getAllCategories ---
+  it("getAllCategories returns all categories", async () => {
+    const cats = [{ id: "c-1", value: "design", label: "Design", sortOrder: 0, createdAt: new Date() }];
+    mockCategoryRepo.findAll.mockReturnValue(Promise.resolve(cats));
+    const result = await service.getAllCategories();
+    expect(result).toEqual(cats);
+  });
+
+  // --- createCategory ---
+  it("createCategory delegates to category repo", async () => {
+    const input = { value: "design", label: "Design" };
+    await service.createCategory(input);
+    expect(mockCategoryRepo.create).toHaveBeenCalledWith(input);
+  });
+
+  // --- updateCategory ---
+  it("updateCategory returns updated category when found", async () => {
+    const updated = { id: "c-1", value: "design", label: "Design UI", sortOrder: 0, createdAt: new Date() };
+    mockCategoryRepo.update.mockReturnValue(Promise.resolve(updated));
+    const result = await service.updateCategory("c-1", { label: "Design UI" });
+    expect(result).toEqual(updated);
+  });
+
+  it("updateCategory returns null when not found", async () => {
+    const result = await service.updateCategory("missing", { label: "X" });
+    expect(result).toBeNull();
+  });
+
+  // --- deleteCategory ---
+  it("deleteCategory returns true when deleted", async () => {
+    mockCategoryRepo.delete.mockReturnValue(Promise.resolve(true));
+    expect(await service.deleteCategory("c-1")).toBe(true);
+  });
+
+  it("deleteCategory returns false when not found", async () => {
+    expect(await service.deleteCategory("missing")).toBe(false);
   });
 });

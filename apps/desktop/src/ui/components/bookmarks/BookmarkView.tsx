@@ -4,28 +4,35 @@ import { openUrl } from "@tauri-apps/plugin-opener";
 import { Button } from "../common/Button";
 
 export function BookmarkView() {
-  const { bookmarks, favorites, tags, createBookmark, updateBookmark, deleteBookmark, toggleFavorite, createTag, updateTag: updateTagApi, deleteTag: deleteTagApi } = useBookmarkStore();
+  const { bookmarks, favorites, tags, categories, createBookmark, updateBookmark, deleteBookmark, toggleFavorite, createTag, updateTag: updateTagApi, deleteTag: deleteTagApi, createCategory, updateCategory: updateCategoryApi, deleteCategory: deleteCategoryApi } = useBookmarkStore();
   const [editing, setEditing] = createSignal<string | null>(null);
   const [creating, setCreating] = createSignal(false);
   const [name, setName] = createSignal("");
   const [url, setUrl] = createSignal("");
   const [emoji, setEmoji] = createSignal("");
   const [tag, setTag] = createSignal("none");
+  const [category, setCategory] = createSignal("none");
   const [isFav, setIsFav] = createSignal(false);
   const [filter, setFilter] = createSignal("");
   const [filterTag, setFilterTag] = createSignal<string>("all");
+  const [filterCategory, setFilterCategory] = createSignal<string>("all");
   const [emojiPickerOpen, setEmojiPickerOpen] = createSignal(false);
   const [tagDropdownOpen, setTagDropdownOpen] = createSignal(false);
+  const [categoryDropdownOpen, setCategoryDropdownOpen] = createSignal(false);
 
   const [showTagSettings, setShowTagSettings] = createSignal(false);
   const [editingTag, setEditingTag] = createSignal<string | null>(null);
   const [newTagValue, setNewTagValue] = createSignal("");
   const [newTagLabel, setNewTagLabel] = createSignal("");
+  const [editingCategory, setEditingCategory] = createSignal<string | null>(null);
+  const [newCategoryValue, setNewCategoryValue] = createSignal("");
+  const [newCategoryLabel, setNewCategoryLabel] = createSignal("");
 
   const EMOJI_PRESETS = ["🔗", "📖", "🛠️", "📝", "🎬", "💡", "📌", "🏠", "💻", "📊", "🎨", "🔒", "🎵", "📧", "🔍", "⚡", "🎯", "📁", "🌐", "🛒"];
 
   const filtered = () => {
     let list = bookmarks();
+    if (filterCategory() !== "all") list = list.filter((b) => b.category === filterCategory());
     if (filterTag() !== "all") list = list.filter((b) => b.tag === filterTag());
     const q = filter().toLowerCase();
     if (q) list = list.filter((b) => b.name.toLowerCase().includes(q) || b.url.toLowerCase().includes(q));
@@ -33,20 +40,20 @@ export function BookmarkView() {
   };
 
   function resetForm() {
-    setName(""); setUrl(""); setEmoji(""); setTag("none"); setIsFav(false); setEmojiPickerOpen(false); setTagDropdownOpen(false); setEditing(null); setCreating(false);
+    setName(""); setUrl(""); setEmoji(""); setTag("none"); setCategory("none"); setIsFav(false); setEmojiPickerOpen(false); setTagDropdownOpen(false); setCategoryDropdownOpen(false); setEditing(null); setCreating(false);
   }
 
   function startCreate() { resetForm(); setCreating(true); }
 
   function startEdit(b: Bookmark) {
-    setName(b.name); setUrl(b.url); setEmoji(b.emoji ?? ""); setTag(b.tag); setIsFav(b.isFavorite); setEditing(b.id); setCreating(false);
+    setName(b.name); setUrl(b.url); setEmoji(b.emoji ?? ""); setTag(b.tag); setCategory(b.category ?? "none"); setIsFav(b.isFavorite); setEditing(b.id); setCreating(false);
   }
 
   async function handleSave() {
     const n = name().trim();
     const u = url().trim();
     if (!n || !u) return;
-    const input: CreateBookmarkInput = { name: n, url: u, emoji: emoji().trim() || null, tag: tag(), isFavorite: isFav() };
+    const input: CreateBookmarkInput = { name: n, url: u, emoji: emoji().trim() || null, tag: tag(), category: category(), isFavorite: isFav() };
     if (creating()) await createBookmark(input);
     else if (editing()) await updateBookmark(editing()!, input);
     resetForm();
@@ -64,6 +71,15 @@ export function BookmarkView() {
     await createTag({ value: v, label: l });
     setNewTagValue("");
     setNewTagLabel("");
+  }
+
+  async function handleAddCategory() {
+    const v = newCategoryValue().trim();
+    const l = newCategoryLabel().trim();
+    if (!v || !l) return;
+    await createCategory({ value: v, label: l });
+    setNewCategoryValue("");
+    setNewCategoryLabel("");
   }
 
   const inputStyle = {
@@ -93,7 +109,7 @@ export function BookmarkView() {
         <div style={{ display: "flex", gap: "6px", "align-items": "center" }}>
           <button
             onClick={() => setShowTagSettings(!showTagSettings())}
-            title="Gerer les tags"
+            title="Gerer les tags et categories"
             style={{
               padding: "6px 8px", "border-radius": "var(--radius-sm)", "font-size": "16px", cursor: "pointer",
               border: "1px solid var(--border-color)",
@@ -111,15 +127,45 @@ export function BookmarkView() {
       </div>
 
       {/* Filters */}
-      <div style={{ display: "flex", gap: "10px", "align-items": "center", "margin-bottom": "16px", "flex-wrap": "wrap" }}>
-        <input
-          type="text"
-          placeholder="Filtrer les signets..."
-          value={filter()}
-          onInput={(e) => setFilter(e.currentTarget.value)}
-          style={{ ...inputStyle, flex: "1", "min-width": "150px", "max-width": "300px" }}
-        />
+      <div style={{ display: "flex", "flex-direction": "column", gap: "8px", "margin-bottom": "16px" }}>
+        <div style={{ display: "flex", gap: "10px", "align-items": "center", "flex-wrap": "wrap" }}>
+          <input
+            type="text"
+            placeholder="Filtrer les signets..."
+            value={filter()}
+            onInput={(e) => setFilter(e.currentTarget.value)}
+            style={{ ...inputStyle, flex: "1", "min-width": "150px", "max-width": "300px" }}
+          />
+        </div>
+        {/* Category filter */}
         <div style={{ display: "flex", gap: "4px", "flex-wrap": "wrap", "align-items": "center" }}>
+          <span style={{ "font-size": "10px", color: "var(--text-muted)", "text-transform": "uppercase", "font-weight": "600", "margin-right": "4px" }}>Cat.</span>
+          <button
+            onClick={() => setFilterCategory("all")}
+            style={{
+              padding: "4px 10px", "border-radius": "var(--radius-sm)", "font-size": "11px", cursor: "pointer",
+              border: "1px solid var(--border-color)",
+              background: filterCategory() === "all" ? "var(--accent-color)" : "var(--bg-surface)",
+              color: filterCategory() === "all" ? "#fff" : "var(--text-secondary)",
+            }}
+          >Toutes</button>
+          <For each={categories()}>
+            {(c) => (
+              <button
+                onClick={() => setFilterCategory(c.value)}
+                style={{
+                  padding: "4px 10px", "border-radius": "var(--radius-sm)", "font-size": "11px", cursor: "pointer",
+                  border: "1px solid var(--border-color)",
+                  background: filterCategory() === c.value ? "var(--accent-color)" : "var(--bg-surface)",
+                  color: filterCategory() === c.value ? "#fff" : "var(--text-secondary)",
+                }}
+              >{c.label}</button>
+            )}
+          </For>
+        </div>
+        {/* Tag filter */}
+        <div style={{ display: "flex", gap: "4px", "flex-wrap": "wrap", "align-items": "center" }}>
+          <span style={{ "font-size": "10px", color: "var(--text-muted)", "text-transform": "uppercase", "font-weight": "600", "margin-right": "4px" }}>Tag</span>
           <button
             onClick={() => setFilterTag("all")}
             style={{
@@ -214,6 +260,71 @@ export function BookmarkView() {
               <input type="text" placeholder="A lire" value={newTagLabel()} onInput={(e) => setNewTagLabel(e.currentTarget.value)} style={inputStyle} />
             </div>
             <Button variant="primary" size="sm" onClick={handleAddTag}>Ajouter</Button>
+          </div>
+
+          {/* Category management */}
+          <div style={{ "border-top": "1px solid var(--border-color)", "margin-top": "16px", "padding-top": "16px" }}>
+            <h3 style={{ margin: "0 0 12px", "font-size": "14px", "font-weight": "600", color: "var(--text-primary)" }}>Gestion des categories</h3>
+            <div style={{ display: "flex", "flex-direction": "column", gap: "6px", "margin-bottom": "12px" }}>
+              <For each={categories()}>
+                {(c) => (
+                  <div style={{ display: "flex", "align-items": "center", gap: "8px" }}>
+                    <span style={{ "font-size": "12px", color: "var(--text-muted)", "min-width": "100px" }}>{c.value}</span>
+                    <Show when={editingCategory() === c.id} fallback={
+                      <span
+                        style={{ flex: "1", "font-size": "13px", color: "var(--text-primary)", cursor: "pointer", padding: "4px 8px", "border-radius": "var(--radius-sm)" }}
+                        onDblClick={() => setEditingCategory(c.id)}
+                        title="Double-cliquer pour modifier"
+                      >{c.label}</span>
+                    }>
+                      <input
+                        type="text"
+                        value={c.label}
+                        style={{ ...inputStyle, flex: "1" }}
+                        onKeyDown={async (e) => {
+                          if (e.key === "Enter") {
+                            await updateCategoryApi(c.id, { label: e.currentTarget.value.trim() });
+                            setEditingCategory(null);
+                          } else if (e.key === "Escape") {
+                            setEditingCategory(null);
+                          }
+                        }}
+                        onBlur={async (e) => {
+                          const newLabel = e.currentTarget.value.trim();
+                          if (newLabel && newLabel !== c.label) {
+                            await updateCategoryApi(c.id, { label: newLabel });
+                          }
+                          setEditingCategory(null);
+                        }}
+                        ref={(el) => setTimeout(() => el.focus(), 0)}
+                      />
+                    </Show>
+                    <button
+                      onClick={() => deleteCategoryApi(c.id)}
+                      title="Supprimer cette categorie"
+                      style={{
+                        background: "none", border: "none", cursor: "pointer", "font-size": "14px",
+                        color: "var(--text-muted)", padding: "2px 4px", "border-radius": "var(--radius-sm)",
+                        transition: "color 0.15s",
+                      }}
+                      onMouseEnter={(e) => e.currentTarget.style.color = "var(--danger-color, #e74c3c)"}
+                      onMouseLeave={(e) => e.currentTarget.style.color = "var(--text-muted)"}
+                    >&#10005;</button>
+                  </div>
+                )}
+              </For>
+            </div>
+            <div style={{ display: "flex", gap: "8px", "align-items": "flex-end", "border-top": "1px solid var(--border-color)", "padding-top": "12px" }}>
+              <div style={{ flex: "1" }}>
+                <label style={{ display: "block", "font-size": "11px", color: "var(--text-muted)", "margin-bottom": "2px" }}>Valeur</label>
+                <input type="text" placeholder="dev" value={newCategoryValue()} onInput={(e) => setNewCategoryValue(e.currentTarget.value)} style={inputStyle} />
+              </div>
+              <div style={{ flex: "1" }}>
+                <label style={{ display: "block", "font-size": "11px", color: "var(--text-muted)", "margin-bottom": "2px" }}>Label</label>
+                <input type="text" placeholder="Developpement" value={newCategoryLabel()} onInput={(e) => setNewCategoryLabel(e.currentTarget.value)} style={inputStyle} />
+              </div>
+              <Button variant="primary" size="sm" onClick={handleAddCategory}>Ajouter</Button>
+            </div>
           </div>
         </div>
       </Show>
@@ -389,6 +500,82 @@ export function BookmarkView() {
               </div>
             </Show>
           </div>
+          {/* Category dropdown */}
+          <div style={{ "margin-bottom": "12px", position: "relative" }}>
+            <label style={{ display: "block", "font-size": "12px", "font-weight": "500", color: "var(--text-secondary)", "margin-bottom": "4px" }}>Categorie</label>
+            <button
+              type="button"
+              onClick={() => setCategoryDropdownOpen(!categoryDropdownOpen())}
+              style={{
+                ...inputStyle,
+                cursor: "pointer",
+                display: "flex",
+                "align-items": "center",
+                "justify-content": "space-between",
+                height: "34px",
+              }}
+            >
+              <span>{category() === "none" ? "Aucune" : (categories().find((c) => c.value === category())?.label ?? category())}</span>
+              <span style={{ "font-size": "10px", color: "var(--text-muted)" }}>&#9660;</span>
+            </button>
+            <Show when={categoryDropdownOpen()}>
+              <div onClick={() => setCategoryDropdownOpen(false)} style={{ position: "fixed", inset: "0", "z-index": "99" }} />
+              <div style={{
+                position: "absolute",
+                top: "100%",
+                left: "0",
+                right: "0",
+                "margin-top": "4px",
+                background: "var(--bg-surface)",
+                border: "1px solid var(--border-color)",
+                "border-radius": "var(--radius-md)",
+                "box-shadow": "0 4px 12px rgba(0,0,0,0.15)",
+                "z-index": "100",
+                overflow: "hidden",
+              }}>
+                <button
+                  type="button"
+                  onClick={() => { setCategory("none"); setCategoryDropdownOpen(false); }}
+                  style={{
+                    display: "block",
+                    width: "100%",
+                    padding: "8px 12px",
+                    border: "none",
+                    background: category() === "none" ? "var(--accent-color)" : "transparent",
+                    color: category() === "none" ? "#fff" : "var(--text-primary)",
+                    "font-size": "13px",
+                    cursor: "pointer",
+                    "text-align": "left",
+                    transition: "background 0.1s",
+                  }}
+                  onMouseEnter={(e) => { if (category() !== "none") e.currentTarget.style.background = "var(--bg-elevated)"; }}
+                  onMouseLeave={(e) => { if (category() !== "none") e.currentTarget.style.background = "transparent"; }}
+                >Aucune</button>
+                <For each={categories()}>
+                  {(c) => (
+                    <button
+                      type="button"
+                      onClick={() => { setCategory(c.value); setCategoryDropdownOpen(false); }}
+                      style={{
+                        display: "block",
+                        width: "100%",
+                        padding: "8px 12px",
+                        border: "none",
+                        background: category() === c.value ? "var(--accent-color)" : "transparent",
+                        color: category() === c.value ? "#fff" : "var(--text-primary)",
+                        "font-size": "13px",
+                        cursor: "pointer",
+                        "text-align": "left",
+                        transition: "background 0.1s",
+                      }}
+                      onMouseEnter={(e) => { if (category() !== c.value) e.currentTarget.style.background = "var(--bg-elevated)"; }}
+                      onMouseLeave={(e) => { if (category() !== c.value) e.currentTarget.style.background = "transparent"; }}
+                    >{c.label}</button>
+                  )}
+                </For>
+              </div>
+            </Show>
+          </div>
           <div style={{ display: "flex", "align-items": "center", "justify-content": "space-between", "margin-top": "4px" }}>
             <label style={{ display: "flex", "align-items": "center", gap: "6px", "font-size": "12px", color: "var(--text-secondary)", cursor: "pointer" }}>
               <input
@@ -418,6 +605,7 @@ export function BookmarkView() {
           <span style={{ width: "32px", "flex-shrink": "0" }} />
           <span style={{ flex: "2", "min-width": "0" }}>Nom</span>
           <span style={{ flex: "3", "min-width": "0" }}>URL</span>
+          <span style={{ flex: "1", "min-width": "0" }}>Categorie</span>
           <span style={{ flex: "1", "min-width": "0" }}>Tag</span>
           <span style={{ width: "80px", "flex-shrink": "0", "text-align": "right" }} />
         </div>
@@ -444,6 +632,13 @@ export function BookmarkView() {
               </span>
               <span style={{ flex: "3", "min-width": "0", "font-size": "12px", color: "var(--text-muted)", "white-space": "nowrap", overflow: "hidden", "text-overflow": "ellipsis", "padding-right": "8px" }}>
                 {bookmark.url}
+              </span>
+              <span style={{ flex: "1", "min-width": "0" }}>
+                <Show when={bookmark.category && bookmark.category !== "none"}>
+                  <span style={{ padding: "2px 6px", "font-size": "10px", "border-radius": "var(--radius-sm)", background: "var(--accent-color)", color: "#fff", "white-space": "nowrap", opacity: "0.8" }}>
+                    {categories().find((c) => c.value === bookmark.category)?.label ?? bookmark.category}
+                  </span>
+                </Show>
               </span>
               <span style={{ flex: "1", "min-width": "0" }}>
                 <Show when={bookmark.tag && bookmark.tag !== "none"}>

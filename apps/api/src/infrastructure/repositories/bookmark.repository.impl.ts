@@ -23,6 +23,7 @@ export class DrizzleBookmarkRepository implements BookmarkRepository {
       url: input.url,
       emoji: input.emoji ?? null,
       tag: input.tag ?? "none",
+      category: input.category ?? "none",
       isFavorite: input.isFavorite ?? false,
       sortOrder: input.sortOrder ?? 0,
     }).returning();
@@ -36,6 +37,7 @@ export class DrizzleBookmarkRepository implements BookmarkRepository {
     if (input.emoji !== undefined) values.emoji = input.emoji;
     if (input.isFavorite !== undefined) values.isFavorite = input.isFavorite;
     if (input.tag !== undefined) values.tag = input.tag;
+    if (input.category !== undefined) values.category = input.category;
     if (input.sortOrder !== undefined) values.sortOrder = input.sortOrder;
 
     const rows = await this.db.update(bookmarks).set(values).where(eq(bookmarks.id, id)).returning();
@@ -54,6 +56,7 @@ export class DrizzleBookmarkRepository implements BookmarkRepository {
       url: row.url,
       emoji: row.emoji,
       tag: row.tag ?? "none",
+      category: row.category ?? "none",
       isFavorite: row.isFavorite,
       sortOrder: row.sortOrder,
       createdAt: row.createdAt,

@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import type { BookmarkService } from "../../application/bookmark/bookmark.service";
-import { createBookmarkSchema, updateBookmarkSchema, createBookmarkTagSchema, updateBookmarkTagSchema } from "../validators/bookmark.validator";
+import { createBookmarkSchema, updateBookmarkSchema, createBookmarkTagSchema, updateBookmarkTagSchema, createBookmarkCategorySchema, updateBookmarkCategorySchema } from "../validators/bookmark.validator";
 
 export function createBookmarkRoutes(service: BookmarkService) {
   const app = new Hono();
@@ -28,6 +28,32 @@ export function createBookmarkRoutes(service: BookmarkService) {
   app.delete("/tags/:id", async (c) => {
     const deleted = await service.deleteTag(c.req.param("id"));
     if (!deleted) return c.json({ error: "Tag not found" }, 404);
+    return c.json({ data: { success: true } });
+  });
+
+  // --- Category routes (must be before /:id to avoid conflict) ---
+
+  app.get("/categories", async (c) => {
+    const categories = await service.getAllCategories();
+    return c.json({ data: categories });
+  });
+
+  app.post("/categories", async (c) => {
+    const body = createBookmarkCategorySchema.parse(await c.req.json());
+    const category = await service.createCategory(body);
+    return c.json({ data: category }, 201);
+  });
+
+  app.put("/categories/:id", async (c) => {
+    const body = updateBookmarkCategorySchema.parse(await c.req.json());
+    const category = await service.updateCategory(c.req.param("id"), body);
+    if (!category) return c.json({ error: "Category not found" }, 404);
+    return c.json({ data: category });
+  });
+
+  app.delete("/categories/:id", async (c) => {
+    const deleted = await service.deleteCategory(c.req.param("id"));
+    if (!deleted) return c.json({ error: "Category not found" }, 404);
     return c.json({ data: { success: true } });
   });
 

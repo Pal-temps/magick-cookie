@@ -15,6 +15,7 @@ export const createBookmarkSchema = z.object({
   url: safeUrl,
   emoji: z.string().max(10).nullable().optional(),
   tag: z.string().max(30).optional(),
+  category: z.string().max(30).optional(),
   isFavorite: z.boolean().optional(),
   sortOrder: z.number().int().optional(),
 });
@@ -24,6 +25,7 @@ export const updateBookmarkSchema = z.object({
   url: safeUrl.optional(),
   emoji: z.string().max(10).nullable().optional(),
   tag: z.string().max(30).optional(),
+  category: z.string().max(30).optional(),
   isFavorite: z.boolean().optional(),
   sortOrder: z.number().int().optional(),
 });
@@ -35,6 +37,17 @@ export const createBookmarkTagSchema = z.object({
 });
 
 export const updateBookmarkTagSchema = z.object({
+  label: z.string().max(100).min(1).optional(),
+  sortOrder: z.number().int().optional(),
+});
+
+export const createBookmarkCategorySchema = z.object({
+  value: z.string().max(30).min(1),
+  label: z.string().max(100).min(1),
+  sortOrder: z.number().int().optional(),
+});
+
+export const updateBookmarkCategorySchema = z.object({
   label: z.string().max(100).min(1).optional(),
   sortOrder: z.number().int().optional(),
 });
