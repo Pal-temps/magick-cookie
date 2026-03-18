@@ -2,24 +2,20 @@ import { createSignal, createMemo } from "solid-js";
 import { invoke } from "@tauri-apps/api/core";
 import { api } from "../../infrastructure/api/apiClient";
 
-export type BookmarkTag = "none" | "todo" | "toread" | "tocheck" | "towatch" | "reference" | "inspiration";
-
-export const BOOKMARK_TAGS: { value: BookmarkTag; label: string }[] = [
-  { value: "none", label: "Aucun" },
-  { value: "todo", label: "A faire" },
-  { value: "toread", label: "A lire" },
-  { value: "tocheck", label: "A verifier" },
-  { value: "towatch", label: "A regarder" },
-  { value: "reference", label: "Reference" },
-  { value: "inspiration", label: "Inspiration" },
-];
+export interface BookmarkTag {
+  id: string;
+  value: string;
+  label: string;
+  sortOrder: number;
+  createdAt: string;
+}
 
 export interface Bookmark {
   id: string;
   name: string;
   url: string;
   emoji: string | null;
-  tag: BookmarkTag;
+  tag: string;
   isFavorite: boolean;
   sortOrder: number;
   createdAt: string;
@@ -30,7 +26,7 @@ export interface CreateBookmarkInput {
   name: string;
   url: string;
   emoji?: string | null;
-  tag?: BookmarkTag;
+  tag?: string;
   isFavorite?: boolean;
   sortOrder?: number;
 }
@@ -39,18 +35,56 @@ export interface UpdateBookmarkInput {
   name?: string;
   url?: string;
   emoji?: string | null;
-  tag?: BookmarkTag;
+  tag?: string;
   isFavorite?: boolean;
   sortOrder?: number;
 }
 
 const [bookmarks, setBookmarks] = createSignal<Bookmark[]>([]);
+const [tags, setTags] = createSignal<BookmarkTag[]>([]);
 
 export function useBookmarkStore() {
   const favorites = createMemo(() => bookmarks().filter((b) => b.isFavorite));
 
+  async function fetchTags() {
+    try {
+      const data = await api.get<BookmarkTag[]>("/bookmarks/tags");
+      setTags(data);
+    } catch (e) {
+      console.error("Failed to fetch bookmark tags:", e);
+    }
+  }
+
+  async function createTag(input: { value: string; label: string }) {
+    try {
+      await api.post("/bookmarks/tags", input);
+      await fetchTags();
+    } catch (e) {
+      console.error("Failed to create tag:", e);
+    }
+  }
+
+  async function updateTag(id: string, input: { label?: string }) {
+    try {
+      await api.put(`/bookmarks/tags/${id}`, input);
+      await fetchTags();
+    } catch (e) {
+      console.error("Failed to update tag:", e);
+    }
+  }
+
+  async function deleteTag(id: string) {
+    try {
+      await api.delete(`/bookmarks/tags/${id}`);
+      await fetchTags();
+    } catch (e) {
+      console.error("Failed to delete tag:", e);
+    }
+  }
+
   async function fetchBookmarks() {
     try {
+      await fetchTags();
       const data = await api.get<Bookmark[]>("/bookmarks");
       setBookmarks(data);
       syncBookmarksToVault();
@@ -107,7 +141,12 @@ export function useBookmarkStore() {
         return;
       }
 
-      const tagLabels: Record<string, string> = { none: "Sans tag", todo: "A faire", toread: "A lire", tocheck: "A verifier", towatch: "A regarder", reference: "Reference", inspiration: "Inspiration" };
+      const currentTags = tags();
+      const tagLabels: Record<string, string> = { none: "Sans tag" };
+      for (const t of currentTags) {
+        tagLabels[t.value] = t.label;
+      }
+
       const grouped = new Map<string, typeof all>();
       for (const b of all) {
         const key = b.tag || "none";
@@ -135,11 +174,16 @@ export function useBookmarkStore() {
   return {
     bookmarks,
     favorites,
+    tags,
     fetchBookmarks,
+    fetchTags,
     createBookmark,
     updateBookmark,
     deleteBookmark,
     toggleFavorite,
     syncBookmarksToVault,
+    createTag,
+    updateTag,
+    deleteTag,
   };
 }

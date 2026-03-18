@@ -213,6 +213,14 @@ export const githubPrs = pgTable("github_prs", {
   uniqueIndex("idx_github_prs_repo_number").on(table.repo, table.prNumber),
 ]);
 
+export const bookmarkTags = pgTable("bookmark_tags", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  value: varchar("value", { length: 30 }).notNull().unique(),
+  label: varchar("label", { length: 100 }).notNull(),
+  sortOrder: integer("sort_order").notNull().default(0),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 export const bookmarks = pgTable("bookmarks", {
   id: uuid("id").primaryKey().defaultRandom(),
   name: varchar("name", { length: 255 }).notNull(),

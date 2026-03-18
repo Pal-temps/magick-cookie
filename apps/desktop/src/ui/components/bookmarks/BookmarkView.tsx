@@ -1,21 +1,26 @@
 import { createSignal, For, Show } from "solid-js";
-import { useBookmarkStore, BOOKMARK_TAGS, type Bookmark, type BookmarkTag, type CreateBookmarkInput } from "../../../application/stores/bookmarkStore";
+import { useBookmarkStore, type Bookmark, type CreateBookmarkInput } from "../../../application/stores/bookmarkStore";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { Button } from "../common/Button";
 
 export function BookmarkView() {
-  const { bookmarks, favorites, createBookmark, updateBookmark, deleteBookmark, toggleFavorite } = useBookmarkStore();
+  const { bookmarks, favorites, tags, createBookmark, updateBookmark, deleteBookmark, toggleFavorite, createTag, updateTag: updateTagApi, deleteTag: deleteTagApi } = useBookmarkStore();
   const [editing, setEditing] = createSignal<string | null>(null);
   const [creating, setCreating] = createSignal(false);
   const [name, setName] = createSignal("");
   const [url, setUrl] = createSignal("");
   const [emoji, setEmoji] = createSignal("");
-  const [tag, setTag] = createSignal<BookmarkTag>("none");
+  const [tag, setTag] = createSignal("none");
   const [isFav, setIsFav] = createSignal(false);
   const [filter, setFilter] = createSignal("");
-  const [filterTag, setFilterTag] = createSignal<BookmarkTag | "all">("all");
+  const [filterTag, setFilterTag] = createSignal<string>("all");
   const [emojiPickerOpen, setEmojiPickerOpen] = createSignal(false);
   const [tagDropdownOpen, setTagDropdownOpen] = createSignal(false);
+
+  const [showTagSettings, setShowTagSettings] = createSignal(false);
+  const [editingTag, setEditingTag] = createSignal<string | null>(null);
+  const [newTagValue, setNewTagValue] = createSignal("");
+  const [newTagLabel, setNewTagLabel] = createSignal("");
 
   const EMOJI_PRESETS = ["🔗", "📖", "🛠️", "📝", "🎬", "💡", "📌", "🏠", "💻", "📊", "🎨", "🔒", "🎵", "📧", "🔍", "⚡", "🎯", "📁", "🌐", "🛒"];
 
@@ -50,6 +55,15 @@ export function BookmarkView() {
   async function handleDelete(id: string) {
     await deleteBookmark(id);
     if (editing() === id) resetForm();
+  }
+
+  async function handleAddTag() {
+    const v = newTagValue().trim();
+    const l = newTagLabel().trim();
+    if (!v || !l) return;
+    await createTag({ value: v, label: l });
+    setNewTagValue("");
+    setNewTagLabel("");
   }
 
   const inputStyle = {
@@ -92,7 +106,7 @@ export function BookmarkView() {
           onInput={(e) => setFilter(e.currentTarget.value)}
           style={{ ...inputStyle, flex: "1", "min-width": "150px", "max-width": "300px" }}
         />
-        <div style={{ display: "flex", gap: "4px", "flex-wrap": "wrap" }}>
+        <div style={{ display: "flex", gap: "4px", "flex-wrap": "wrap", "align-items": "center" }}>
           <button
             onClick={() => setFilterTag("all")}
             style={{
@@ -102,7 +116,7 @@ export function BookmarkView() {
               color: filterTag() === "all" ? "#fff" : "var(--text-secondary)",
             }}
           >Tous</button>
-          <For each={BOOKMARK_TAGS.filter((t) => t.value !== "none")}>
+          <For each={tags()}>
             {(t) => (
               <button
                 onClick={() => setFilterTag(t.value)}
@@ -115,8 +129,92 @@ export function BookmarkView() {
               >{t.label}</button>
             )}
           </For>
+          <button
+            onClick={() => setShowTagSettings(!showTagSettings())}
+            title="Gerer les tags"
+            style={{
+              padding: "4px 8px", "border-radius": "var(--radius-sm)", "font-size": "13px", cursor: "pointer",
+              border: "1px solid var(--border-color)",
+              background: showTagSettings() ? "var(--accent-color)" : "var(--bg-surface)",
+              color: showTagSettings() ? "#fff" : "var(--text-secondary)",
+              "line-height": "1",
+            }}
+          >&#9881;</button>
         </div>
       </div>
+
+      {/* Tag settings panel */}
+      <Show when={showTagSettings()}>
+        <div style={{
+          "margin-bottom": "16px",
+          padding: "16px",
+          "border-radius": "var(--radius-md)",
+          border: "1px solid var(--border-color)",
+          background: "var(--bg-elevated)",
+        }}>
+          <h3 style={{ margin: "0 0 12px", "font-size": "14px", "font-weight": "600", color: "var(--text-primary)" }}>Gestion des tags</h3>
+          <div style={{ display: "flex", "flex-direction": "column", gap: "6px", "margin-bottom": "12px" }}>
+            <For each={tags()}>
+              {(t) => (
+                <div style={{ display: "flex", "align-items": "center", gap: "8px" }}>
+                  <span style={{ "font-size": "12px", color: "var(--text-muted)", "min-width": "100px" }}>{t.value}</span>
+                  <Show when={editingTag() === t.id} fallback={
+                    <span
+                      style={{ flex: "1", "font-size": "13px", color: "var(--text-primary)", cursor: "pointer", padding: "4px 8px", "border-radius": "var(--radius-sm)" }}
+                      onDblClick={() => setEditingTag(t.id)}
+                      title="Double-cliquer pour modifier"
+                    >{t.label}</span>
+                  }>
+                    <input
+                      type="text"
+                      value={t.label}
+                      style={{ ...inputStyle, flex: "1" }}
+                      onKeyDown={async (e) => {
+                        if (e.key === "Enter") {
+                          await updateTagApi(t.id, { label: e.currentTarget.value.trim() });
+                          setEditingTag(null);
+                        } else if (e.key === "Escape") {
+                          setEditingTag(null);
+                        }
+                      }}
+                      onBlur={async (e) => {
+                        const newLabel = e.currentTarget.value.trim();
+                        if (newLabel && newLabel !== t.label) {
+                          await updateTagApi(t.id, { label: newLabel });
+                        }
+                        setEditingTag(null);
+                      }}
+                      ref={(el) => setTimeout(() => el.focus(), 0)}
+                    />
+                  </Show>
+                  <button
+                    onClick={() => deleteTagApi(t.id)}
+                    title="Supprimer ce tag"
+                    style={{
+                      background: "none", border: "none", cursor: "pointer", "font-size": "14px",
+                      color: "var(--text-muted)", padding: "2px 4px", "border-radius": "var(--radius-sm)",
+                      transition: "color 0.15s",
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.color = "var(--danger-color, #e74c3c)"}
+                    onMouseLeave={(e) => e.currentTarget.style.color = "var(--text-muted)"}
+                  >&#10005;</button>
+                </div>
+              )}
+            </For>
+          </div>
+          <div style={{ display: "flex", gap: "8px", "align-items": "flex-end", "border-top": "1px solid var(--border-color)", "padding-top": "12px" }}>
+            <div style={{ flex: "1" }}>
+              <label style={{ display: "block", "font-size": "11px", color: "var(--text-muted)", "margin-bottom": "2px" }}>Valeur</label>
+              <input type="text" placeholder="toread" value={newTagValue()} onInput={(e) => setNewTagValue(e.currentTarget.value)} style={inputStyle} />
+            </div>
+            <div style={{ flex: "1" }}>
+              <label style={{ display: "block", "font-size": "11px", color: "var(--text-muted)", "margin-bottom": "2px" }}>Label</label>
+              <input type="text" placeholder="A lire" value={newTagLabel()} onInput={(e) => setNewTagLabel(e.currentTarget.value)} style={inputStyle} />
+            </div>
+            <Button variant="primary" size="sm" onClick={handleAddTag}>Ajouter</Button>
+          </div>
+        </div>
+      </Show>
 
       {/* Create/Edit form */}
       <Show when={creating() || editing()}>
@@ -227,7 +325,7 @@ export function BookmarkView() {
                 height: "34px",
               }}
             >
-              <span>{BOOKMARK_TAGS.find((t) => t.value === tag())?.label ?? "Aucun"}</span>
+              <span>{tag() === "none" ? "Aucun" : (tags().find((t) => t.value === tag())?.label ?? tag())}</span>
               <span style={{ "font-size": "10px", color: "var(--text-muted)" }}>▼</span>
             </button>
             <Show when={tagDropdownOpen()}>
@@ -245,7 +343,26 @@ export function BookmarkView() {
                 "z-index": "100",
                 overflow: "hidden",
               }}>
-                <For each={BOOKMARK_TAGS}>
+                {/* Hardcoded "none" option */}
+                <button
+                  type="button"
+                  onClick={() => { setTag("none"); setTagDropdownOpen(false); }}
+                  style={{
+                    display: "block",
+                    width: "100%",
+                    padding: "8px 12px",
+                    border: "none",
+                    background: tag() === "none" ? "var(--accent-color)" : "transparent",
+                    color: tag() === "none" ? "#fff" : "var(--text-primary)",
+                    "font-size": "13px",
+                    cursor: "pointer",
+                    "text-align": "left",
+                    transition: "background 0.1s",
+                  }}
+                  onMouseEnter={(e) => { if (tag() !== "none") e.currentTarget.style.background = "var(--bg-elevated)"; }}
+                  onMouseLeave={(e) => { if (tag() !== "none") e.currentTarget.style.background = "transparent"; }}
+                >Aucun</button>
+                <For each={tags()}>
                   {(t) => (
                     <button
                       type="button"
@@ -329,7 +446,7 @@ export function BookmarkView() {
               <span style={{ flex: "1", "min-width": "0" }}>
                 <Show when={bookmark.tag && bookmark.tag !== "none"}>
                   <span style={{ padding: "2px 6px", "font-size": "10px", "border-radius": "var(--radius-sm)", background: "var(--bg-elevated)", color: "var(--text-secondary)", "white-space": "nowrap" }}>
-                    {BOOKMARK_TAGS.find((t) => t.value === bookmark.tag)?.label ?? bookmark.tag}
+                    {tags().find((t) => t.value === bookmark.tag)?.label ?? bookmark.tag}
                   </span>
                 </Show>
               </span>

@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm";
 import type { Database } from "../database/client";
 import { bookmarks } from "../database/schema";
 import type { BookmarkRepository } from "../../domain/bookmark/bookmark.repository";
-import type { Bookmark, BookmarkTag, CreateBookmarkInput, UpdateBookmarkInput } from "../../domain/bookmark/bookmark.entity";
+import type { Bookmark, CreateBookmarkInput, UpdateBookmarkInput } from "../../domain/bookmark/bookmark.entity";
 
 export class DrizzleBookmarkRepository implements BookmarkRepository {
   constructor(private db: Database) {}
@@ -53,7 +53,7 @@ export class DrizzleBookmarkRepository implements BookmarkRepository {
       name: row.name,
       url: row.url,
       emoji: row.emoji,
-      tag: (row.tag ?? "none") as BookmarkTag,
+      tag: row.tag ?? "none",
       isFavorite: row.isFavorite,
       sortOrder: row.sortOrder,
       createdAt: row.createdAt,

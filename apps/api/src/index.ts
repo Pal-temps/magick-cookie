@@ -20,6 +20,7 @@ import { DrizzleEmailRepository } from "./infrastructure/repositories/email.repo
 import { DrizzleLlmConfigRepository } from "./infrastructure/repositories/llm-config.repository.impl";
 import { DrizzleChatRepository } from "./infrastructure/repositories/chat.repository.impl";
 import { DrizzleBookmarkRepository } from "./infrastructure/repositories/bookmark.repository.impl";
+import { DrizzleBookmarkTagRepository } from "./infrastructure/repositories/bookmark-tag.repository.impl";
 import { DrizzleProjectRepository } from "./infrastructure/repositories/project.repository.impl";
 import { DrizzlePushNotificationRepository } from "./infrastructure/repositories/push-notification.repository.impl";
 import { DrizzleAgentMemoryRepository } from "./infrastructure/repositories/agent-memory.repository.impl";
@@ -115,6 +116,7 @@ const emailRepo = new DrizzleEmailRepository(db);
 const llmConfigRepo = new DrizzleLlmConfigRepository(db);
 const chatRepo = new DrizzleChatRepository(db);
 const bookmarkRepo = new DrizzleBookmarkRepository(db);
+const bookmarkTagRepo = new DrizzleBookmarkTagRepository(db);
 const projectRepo = new DrizzleProjectRepository(db);
 const pushRepo = new DrizzlePushNotificationRepository(db);
 const agentMemoryRepo = new DrizzleAgentMemoryRepository(db);
@@ -142,7 +144,7 @@ const briefService = new BriefService(timerSessionRepo, eventRepo, taskRepo, tri
 const chatService = new ChatService(chatRepo, llmService);
 const githubService = new GitHubService(githubConfigRepo, githubPrRepo);
 const vpsProxyService = new VpsProxyService(config.vpsApiUrl, config.vpsApiToken);
-const bookmarkService = new BookmarkService(bookmarkRepo);
+const bookmarkService = new BookmarkService(bookmarkRepo, bookmarkTagRepo);
 const projectService = new ProjectService(projectRepo);
 const smartReminderService = new SmartReminderService(triageRepo, taskRepo, emailRepo);
 
