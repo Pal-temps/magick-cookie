@@ -8,6 +8,7 @@ import { TriageView } from "./ui/components/triage/TriageView";
 import { EmailView } from "./ui/components/email/EmailView";
 import { ChatView } from "./ui/components/chat/ChatView";
 import { VpsView } from "./ui/components/vps/VpsView";
+import { BookmarkView } from "./ui/components/bookmarks/BookmarkView";
 import { SettingsView } from "./ui/components/settings/SettingsView";
 import { useCalendarStore } from "./application/stores/calendarStore";
 import { useViewStore } from "./application/stores/viewStore";
@@ -31,7 +32,7 @@ import { listen } from "@tauri-apps/api/event";
 
 export function App() {
   const { fetchCalendars, fetchEvents, fetchContacts } = useCalendarStore();
-  const { syncConnector, fetchTasks } = useTaskStore();
+  const { fetchTasks } = useTaskStore();
   const { currentDate, viewMode, setViewMode } = useViewStore();
   const { fetchConfigs, startAll, stopAll, fetchTodayLogs } = useWellnessStore();
   const { fetchTodayStats, timerState, startPomodoro, stop: stopTimer, isFocusMode, toggleFocusMode } = useTimerStore();
@@ -190,10 +191,13 @@ export function App() {
         <Show when={viewMode() === "vps"}>
           <VpsView />
         </Show>
+        <Show when={viewMode() === "bookmarks"}>
+          <BookmarkView />
+        </Show>
         <Show when={viewMode() === "settings"}>
           <SettingsView />
         </Show>
-        <Show when={viewMode() !== "notes" && viewMode() !== "triage" && viewMode() !== "email" && viewMode() !== "chat" && viewMode() !== "vps" && viewMode() !== "settings"}>
+        <Show when={viewMode() !== "notes" && viewMode() !== "triage" && viewMode() !== "email" && viewMode() !== "chat" && viewMode() !== "vps" && viewMode() !== "bookmarks" && viewMode() !== "settings"}>
           <CalendarGrid />
           <EventForm />
         </Show>

@@ -30,7 +30,7 @@ export function AppLayout(props: AppLayoutProps) {
   const { enterDesktop } = useDesktopModeStore();
   const { startSpeechRecording } = useSpeechStore();
   const { startWalk, stopWalk, activeWalk } = useDogWalkStore();
-  const { favorites } = useBookmarkStore();
+  const { bookmarks, favorites } = useBookmarkStore();
 
   const headerTitle = () => {
     const d = currentDate();
@@ -66,6 +66,7 @@ export function AppLayout(props: AppLayoutProps) {
         { label: "Notes & Schemas", action: () => setViewMode("notes"), shortcut: "Ctrl+4" },
         { label: "Triage taches", action: () => setViewMode("triage"), shortcut: "Ctrl+5" },
         { label: "Email", action: () => setViewMode("email"), shortcut: "Ctrl+6" },
+        { label: "Signets", action: () => setViewMode("bookmarks"), shortcut: "Ctrl+7" },
       ],
     },
     {
@@ -124,18 +125,18 @@ export function AppLayout(props: AppLayoutProps) {
             "overflow-y": "auto",
             "border-top": "1px solid var(--border-color)",
           }}>
-            <Show when={favorites().length > 0}>
+            <Show when={bookmarks().length > 0}>
               <CollapsibleSection
-                title="Favoris"
+                title="Signets"
                 defaultOpen={true}
                 badge={
                   <span style={{ "font-size": "10px", color: "var(--text-muted)", background: "var(--bg-elevated)", padding: "1px 6px", "border-radius": "var(--radius-sm)" }}>
-                    {favorites().length}
+                    {bookmarks().length}
                   </span>
                 }
               >
                 <div style={{ display: "flex", "flex-direction": "column", gap: "2px" }}>
-                  <For each={favorites()}>
+                  <For each={bookmarks()}>
                     {(bookmark) => (
                       <button
                         onClick={() => openUrl(bookmark.url)}
@@ -158,9 +159,31 @@ export function AppLayout(props: AppLayoutProps) {
                         <span style={{ overflow: "hidden", "text-overflow": "ellipsis", "white-space": "nowrap" }}>
                           {bookmark.name}
                         </span>
+                        <Show when={bookmark.isFavorite}>
+                          <span style={{ "font-size": "10px", color: "var(--accent-secondary)", "margin-left": "auto", "flex-shrink": "0" }}>★</span>
+                        </Show>
                       </button>
                     )}
                   </For>
+                  <button
+                    onClick={() => setViewMode("bookmarks")}
+                    style={{
+                      display: "flex",
+                      "align-items": "center",
+                      gap: "6px",
+                      padding: "4px 0",
+                      "font-size": "11px",
+                      color: "var(--text-muted)",
+                      cursor: "pointer",
+                      background: "none",
+                      border: "none",
+                      width: "100%",
+                      "text-align": "left",
+                      "margin-top": "4px",
+                    }}
+                  >
+                    Gerer les signets...
+                  </button>
                 </div>
               </CollapsibleSection>
 
@@ -248,6 +271,13 @@ export function AppLayout(props: AppLayoutProps) {
                 onClick={() => setViewMode("email")}
               >
                 Email
+              </Button>
+              <Button
+                variant={viewMode() === "bookmarks" ? "primary" : "ghost"}
+                size="sm"
+                onClick={() => setViewMode("bookmarks")}
+              >
+                Signets
               </Button>
               <Show when={["month", "week", "day"].includes(viewMode())}>
                 <div style={{ width: "1px", height: "18px", background: "var(--border-color)", margin: "0 4px" }} />

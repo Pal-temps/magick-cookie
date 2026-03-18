@@ -1,4 +1,5 @@
 import { createSignal, createMemo } from "solid-js";
+import { invoke } from "@tauri-apps/api/core";
 import { api } from "../../infrastructure/api/apiClient";
 
 export interface Bookmark {
@@ -37,6 +38,7 @@ export function useBookmarkStore() {
     try {
       const data = await api.get<Bookmark[]>("/bookmarks");
       setBookmarks(data);
+      syncBookmarksToVault();
     } catch (e) {
       console.error("Failed to fetch bookmarks:", e);
     }
@@ -46,6 +48,7 @@ export function useBookmarkStore() {
     try {
       const bookmark = await api.post<Bookmark>("/bookmarks", input);
       setBookmarks((prev) => [...prev, bookmark]);
+      syncBookmarksToVault();
       return bookmark;
     } catch (e) {
       console.error("Failed to create bookmark:", e);
@@ -56,6 +59,7 @@ export function useBookmarkStore() {
     try {
       const bookmark = await api.put<Bookmark>(`/bookmarks/${id}`, input);
       setBookmarks((prev) => prev.map((b) => (b.id === id ? bookmark : b)));
+      syncBookmarksToVault();
       return bookmark;
     } catch (e) {
       console.error("Failed to update bookmark:", e);
@@ -66,6 +70,7 @@ export function useBookmarkStore() {
     try {
       await api.delete(`/bookmarks/${id}`);
       setBookmarks((prev) => prev.filter((b) => b.id !== id));
+      syncBookmarksToVault();
     } catch (e) {
       console.error("Failed to delete bookmark:", e);
     }
@@ -78,6 +83,42 @@ export function useBookmarkStore() {
     }
   }
 
+  /** Write a _bookmarks/bookmarks.md file in the notes vault (git-synced) */
+  async function syncBookmarksToVault() {
+    try {
+      const all = bookmarks();
+      if (all.length === 0) {
+        await invoke("notes_save", { path: "_bookmarks/bookmarks.md", content: "# Signets\n\nAucun signet.\n" });
+        return;
+      }
+
+      const favs = all.filter((b) => b.isFavorite);
+      const others = all.filter((b) => !b.isFavorite);
+
+      const lines: string[] = ["# Signets", ""];
+
+      if (favs.length > 0) {
+        lines.push("## Favoris", "");
+        for (const b of favs) {
+          lines.push(`- ${b.emoji ? b.emoji + " " : ""}[${b.name}](${b.url})`);
+        }
+        lines.push("");
+      }
+
+      if (others.length > 0) {
+        lines.push("## Autres", "");
+        for (const b of others) {
+          lines.push(`- ${b.emoji ? b.emoji + " " : ""}[${b.name}](${b.url})`);
+        }
+        lines.push("");
+      }
+
+      await invoke("notes_save", { path: "_bookmarks/bookmarks.md", content: lines.join("\n") });
+    } catch {
+      // Vault not configured — silently skip
+    }
+  }
+
   return {
     bookmarks,
     favorites,
@@ -86,5 +127,6 @@ export function useBookmarkStore() {
     updateBookmark,
     deleteBookmark,
     toggleFavorite,
+    syncBookmarksToVault,
   };
 }
