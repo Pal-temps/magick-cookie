@@ -12,7 +12,9 @@ import { BookmarkView } from "./ui/components/bookmarks/BookmarkView";
 import { RssView } from "./ui/components/rss/RssView";
 import { SnippetView } from "./ui/components/snippets/SnippetView";
 import { AlarmView } from "./ui/components/alarm/AlarmView";
+import { CiCdView } from "./ui/components/github/CiCdView";
 import { SettingsView } from "./ui/components/settings/SettingsView";
+import { ToolsView } from "./ui/components/tools/ToolsView";
 import { useCalendarStore } from "./application/stores/calendarStore";
 import { useViewStore } from "./application/stores/viewStore";
 import { useWellnessStore } from "./application/stores/wellnessStore";
@@ -67,6 +69,8 @@ export function App() {
       case "email":
       case "chat":
       case "vps":
+      case "cicd":
+      case "tools":
       case "alarms":
       case "bookmarks":
       case "snippets":
@@ -219,13 +223,19 @@ export function App() {
         <Show when={viewMode() === "rss"}>
           <RssView />
         </Show>
+        <Show when={viewMode() === "cicd"}>
+          <CiCdView />
+        </Show>
         <Show when={viewMode() === "alarms"}>
           <AlarmView />
         </Show>
         <Show when={viewMode() === "settings"}>
           <SettingsView />
         </Show>
-        <Show when={viewMode() !== "notes" && viewMode() !== "triage" && viewMode() !== "email" && viewMode() !== "chat" && viewMode() !== "vps" && viewMode() !== "bookmarks" && viewMode() !== "snippets" && viewMode() !== "rss" && viewMode() !== "alarms" && viewMode() !== "settings"}>
+        <Show when={viewMode() === "tools"}>
+          <ToolsView />
+        </Show>
+        <Show when={viewMode() !== "notes" && viewMode() !== "triage" && viewMode() !== "email" && viewMode() !== "chat" && viewMode() !== "vps" && viewMode() !== "cicd" && viewMode() !== "bookmarks" && viewMode() !== "snippets" && viewMode() !== "rss" && viewMode() !== "alarms" && viewMode() !== "settings" && viewMode() !== "tools"}>
           <CalendarGrid />
           <EventForm />
         </Show>

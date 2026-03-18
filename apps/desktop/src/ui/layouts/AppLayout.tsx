@@ -111,7 +111,9 @@ export function AppLayout(props: AppLayoutProps) {
         { label: "Snippets", action: () => setViewMode("snippets") },
         { label: "Alarmes", action: () => setViewMode("alarms") },
         { label: "Chat IA", action: () => setViewMode("chat"), shortcut: "Ctrl+8" },
+        { label: "CI/CD", action: () => setViewMode("cicd") },
         { label: "Serveurs", action: () => setViewMode("vps"), shortcut: "Ctrl+9" },
+        { label: "Outils", action: () => setViewMode("tools") },
       ],
     },
     {
@@ -123,6 +125,7 @@ export function AppLayout(props: AppLayoutProps) {
         },
         { separator: true, label: "" },
         { label: "Statistiques", action: () => setViewMode("dashboard") },
+        { label: "Env & Changelog", action: () => setViewMode("tools") },
         { separator: true, label: "" },
         { label: "Parametres", action: () => setViewMode("settings"), shortcut: "Ctrl+," },
       ],
@@ -290,7 +293,9 @@ export function AppLayout(props: AppLayoutProps) {
                 { id: "snippets", label: "Snippets", match: (v: string) => v === "snippets" },
                 { id: "chat", label: "Chat", match: (v: string) => v === "chat" },
                 { id: "alarms", label: "Alarmes", match: (v: string) => v === "alarms" },
+                { id: "cicd", label: "CI/CD", match: (v: string) => v === "cicd" },
                 { id: "vps", label: "Serveurs", match: (v: string) => v === "vps" },
+                { id: "tools", label: "Outils", match: (v: string) => v === "tools" },
               ] as const}>
                 {(item) => (
                   <button

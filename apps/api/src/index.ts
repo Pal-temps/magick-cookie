@@ -59,6 +59,7 @@ import { SmartReminderService } from "./application/smart-reminder/smart-reminde
 import { AlarmService } from "./application/alarm/alarm.service";
 import { RssService } from "./application/rss/rss.service";
 import { SnippetService } from "./application/snippet/snippet.service";
+import { ChangelogService } from "./application/changelog/changelog.service";
 import { AgentService } from "./application/agent/agent.service";
 import { ToolRegistry } from "./application/agent/tool-registry";
 import { createAnalyticsTools } from "./application/agent/tools/analytics.tools";
@@ -105,6 +106,7 @@ import { createPushRoutes } from "./presentation/routes/push.routes";
 import { createAlarmRoutes } from "./presentation/routes/alarm.routes";
 import { createRssFeedRoutes, createRssArticleRoutes } from "./presentation/routes/rss.routes";
 import { createSnippetRoutes } from "./presentation/routes/snippet.routes";
+import { createChangelogRoutes } from "./presentation/routes/changelog.routes";
 
 // Jobs
 import { startReminderChecker } from "./infrastructure/jobs/reminder-checker";
@@ -169,6 +171,7 @@ const smartReminderService = new SmartReminderService(triageRepo, taskRepo, emai
 const alarmService = new AlarmService(alarmRepo);
 const rssService = new RssService(rssFeedRepo, rssArticleRepo);
 const snippetService = new SnippetService(snippetRepo, snippetCategoryRepo);
+const changelogService = new ChangelogService(gitScanService, llmService);
 
 // Agent (tool-calling chat)
 const toolRegistry = new ToolRegistry();
@@ -229,6 +232,7 @@ app.route("/api/alarms", createAlarmRoutes(alarmService));
 app.route("/api/rss-feeds", createRssFeedRoutes(rssService));
 app.route("/api/rss-articles", createRssArticleRoutes(rssService));
 app.route("/api/snippets", createSnippetRoutes(snippetService));
+app.route("/api/changelog", createChangelogRoutes(changelogService));
 
 // Start reminder checker — pushes to SSE, does NOT mark as sent
 startReminderChecker(reminderService, eventRepo, reminderEmitter);
