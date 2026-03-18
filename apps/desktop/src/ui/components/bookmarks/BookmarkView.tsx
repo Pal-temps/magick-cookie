@@ -167,55 +167,63 @@ export function BookmarkView() {
         </div>
       </Show>
 
-      {/* Bookmark grid */}
-      <div style={{ display: "grid", "grid-template-columns": "repeat(auto-fill, minmax(280px, 1fr))", gap: "10px" }}>
+      {/* Bookmark list */}
+      <div style={{ display: "flex", "flex-direction": "column" }}>
+        {/* Table header */}
+        <div style={{
+          display: "flex", "align-items": "center", gap: "8px", padding: "8px 12px",
+          "font-size": "11px", "font-weight": "600", color: "var(--text-muted)", "text-transform": "uppercase",
+          "border-bottom": "2px solid var(--border-color)",
+        }}>
+          <span style={{ width: "28px", "flex-shrink": "0" }} />
+          <span style={{ flex: "2", "min-width": "0" }}>Nom</span>
+          <span style={{ flex: "3", "min-width": "0" }}>URL</span>
+          <span style={{ width: "90px", "flex-shrink": "0" }}>Tag</span>
+          <span style={{ width: "30px", "flex-shrink": "0", "text-align": "center" }}>Fav</span>
+          <span style={{ width: "100px", "flex-shrink": "0", "text-align": "right" }}>Actions</span>
+        </div>
+
         <For each={filtered()}>
           {(bookmark) => (
-            <div style={{
-              display: "flex",
-              "align-items": "center",
-              gap: "10px",
-              padding: "12px 14px",
-              "border-radius": "var(--radius-md)",
-              border: editing() === bookmark.id ? "1px solid var(--accent-color)" : "1px solid var(--border-color)",
-              background: editing() === bookmark.id ? "var(--bg-elevated)" : "var(--bg-surface)",
-              cursor: "pointer",
-              transition: "border-color 0.15s",
-            }}
+            <div
+              style={{
+                display: "flex", "align-items": "center", gap: "8px", padding: "8px 12px",
+                "border-bottom": "1px solid var(--border-color)",
+                background: editing() === bookmark.id ? "var(--bg-elevated)" : "transparent",
+                cursor: "pointer", transition: "background 0.1s",
+              }}
               onDblClick={() => openUrl(bookmark.url)}
+              onMouseEnter={(e) => { if (editing() !== bookmark.id) e.currentTarget.style.background = "var(--bg-surface)"; }}
+              onMouseLeave={(e) => { if (editing() !== bookmark.id) e.currentTarget.style.background = "transparent"; }}
             >
-              <span style={{ "font-size": "20px", "flex-shrink": "0" }}>{bookmark.emoji ?? "🔗"}</span>
-              <div style={{ flex: "1", "min-width": "0" }}>
-                <div style={{ "font-size": "13px", "font-weight": "500", color: "var(--text-primary)", "white-space": "nowrap", overflow: "hidden", "text-overflow": "ellipsis" }}>
-                  {bookmark.name}
-                </div>
-                <div style={{ "font-size": "11px", color: "var(--text-muted)", "white-space": "nowrap", overflow: "hidden", "text-overflow": "ellipsis", "margin-top": "2px" }}>
-                  {bookmark.url}
-                </div>
+              <span style={{ "font-size": "16px", width: "28px", "flex-shrink": "0", "text-align": "center" }}>{bookmark.emoji ?? "🔗"}</span>
+              <span style={{ flex: "2", "min-width": "0", "font-size": "13px", "font-weight": "500", color: "var(--text-primary)", "white-space": "nowrap", overflow: "hidden", "text-overflow": "ellipsis" }}>
+                {bookmark.name}
+              </span>
+              <span style={{ flex: "3", "min-width": "0", "font-size": "12px", color: "var(--text-muted)", "white-space": "nowrap", overflow: "hidden", "text-overflow": "ellipsis" }}>
+                {bookmark.url}
+              </span>
+              <span style={{ width: "90px", "flex-shrink": "0" }}>
                 <Show when={bookmark.tag && bookmark.tag !== "none"}>
-                  <span style={{
-                    display: "inline-block", "margin-top": "3px", padding: "1px 6px",
-                    "font-size": "10px", "border-radius": "var(--radius-sm)",
-                    background: "var(--bg-elevated)", color: "var(--text-secondary)",
-                  }}>
+                  <span style={{ padding: "2px 6px", "font-size": "10px", "border-radius": "var(--radius-sm)", background: "var(--bg-elevated)", color: "var(--text-secondary)" }}>
                     {BOOKMARK_TAGS.find((t) => t.value === bookmark.tag)?.label ?? bookmark.tag}
                   </span>
                 </Show>
-              </div>
-              <div style={{ display: "flex", gap: "4px", "flex-shrink": "0" }}>
+              </span>
+              <span style={{ width: "30px", "flex-shrink": "0", "text-align": "center" }}>
                 <button
                   onClick={(e) => { e.stopPropagation(); toggleFavorite(bookmark.id); }}
                   title={bookmark.isFavorite ? "Retirer des favoris" : "Ajouter aux favoris"}
-                  style={{ background: "none", border: "none", cursor: "pointer", "font-size": "24px", color: bookmark.isFavorite ? "var(--accent-secondary)" : "var(--text-muted)", padding: "6px", "border-radius": "var(--radius-sm)", transition: "background 0.15s" }}
-                  onMouseEnter={(e) => e.currentTarget.style.background = "var(--bg-elevated)"}
-                  onMouseLeave={(e) => e.currentTarget.style.background = "none"}
+                  style={{ background: "none", border: "none", cursor: "pointer", "font-size": "18px", color: bookmark.isFavorite ? "var(--accent-secondary)" : "var(--text-muted)", padding: "2px" }}
                 >
                   {bookmark.isFavorite ? "★" : "☆"}
                 </button>
+              </span>
+              <span style={{ width: "100px", "flex-shrink": "0", display: "flex", gap: "4px", "justify-content": "flex-end" }}>
                 <button
                   onClick={(e) => { e.stopPropagation(); startEdit(bookmark); }}
                   title="Editer"
-                  style={{ background: "none", border: "none", cursor: "pointer", "font-size": "18px", color: "var(--text-muted)", padding: "6px", "border-radius": "var(--radius-sm)", transition: "background 0.15s" }}
+                  style={{ background: "none", border: "none", cursor: "pointer", "font-size": "16px", color: "var(--text-muted)", padding: "4px", "border-radius": "var(--radius-sm)", transition: "background 0.15s" }}
                   onMouseEnter={(e) => e.currentTarget.style.background = "var(--bg-elevated)"}
                   onMouseLeave={(e) => e.currentTarget.style.background = "none"}
                 >
@@ -224,13 +232,13 @@ export function BookmarkView() {
                 <button
                   onClick={(e) => { e.stopPropagation(); handleDelete(bookmark.id); }}
                   title="Supprimer"
-                  style={{ background: "none", border: "none", cursor: "pointer", "font-size": "18px", color: "var(--text-muted)", padding: "6px", "border-radius": "var(--radius-sm)", transition: "background 0.15s" }}
+                  style={{ background: "none", border: "none", cursor: "pointer", "font-size": "16px", color: "var(--text-muted)", padding: "4px", "border-radius": "var(--radius-sm)", transition: "background 0.15s" }}
                   onMouseEnter={(e) => { e.currentTarget.style.background = "var(--bg-elevated)"; e.currentTarget.style.color = "var(--danger-color, #e74c3c)"; }}
                   onMouseLeave={(e) => { e.currentTarget.style.background = "none"; e.currentTarget.style.color = "var(--text-muted)"; }}
                 >
                   ✕
                 </button>
-              </div>
+              </span>
             </div>
           )}
         </For>
