@@ -21,7 +21,7 @@ L'agent ne controle pas ton PC — il a acces a tes donnees de productivite et p
 | 1 | ✅ Done | Agent Core — tool-calling dans le chat |
 | 2 | ✅ Done | Scheduler + Push Queue — notifications proactives |
 | 3 | ❌ A faire | App mobile (voir `docs/mobile/agent-chat-mobile.md`) |
-| 4 | ❌ A faire | Memoire contextuelle |
+| 4 | ✅ Done | Memoire contextuelle |
 
 ---
 
@@ -104,18 +104,24 @@ L'agent ne controle pas ton PC — il a acces a tes donnees de productivite et p
 
 **Scheduler :** Interval 15 min, chaque job verifie l'heure + jour + "deja envoye aujourd'hui". Cleanup auto 30j.
 
-### Phase 4 — Memoire contextuelle (❌ A faire)
+### Phase 4 — Memoire contextuelle (✅ Done)
 
 L'agent maintient un "profil de travail" :
-- Horaires de travail habituels (deduits des patterns)
-- Projets actifs et leur priorite
-- Preferences ("je prefere les briefs courts")
-- Contexte recent ("ce matin tu bossais sur le refacto auth")
+- Faits permanents (ex: "utilisateur est dev backend")
+- Preferences permanentes (ex: "prefere les briefs courts")
+- Contexte temporaire expire 24h (ex: "ce matin travaille sur le refacto auth")
 
-**Implementation prevue :**
-- Table `agent_memory` : `{ id, type, content, createdAt, expiresAt }`
-- Types : `fact` (permanent), `context` (expire 24h), `preference` (permanent)
-- System prompt enrichi avec le contexte pertinent
+**Fichiers crees :**
+- `apps/api/src/domain/agent-memory/agent-memory.entity.ts` — types `fact`, `context`, `preference`
+- `apps/api/src/domain/agent-memory/agent-memory.repository.ts` — interface du repo
+- `apps/api/src/infrastructure/repositories/agent-memory.repository.impl.ts` — implementation Drizzle
+- `apps/api/src/infrastructure/database/schema.ts` — table `agent_memory`
+- `apps/api/drizzle/0017_agent_memory.sql` — migration
+- `apps/api/src/application/agent/tools/memory.tools.ts` — 3 tools : `save_memory`, `get_memories`, `delete_memory`
+
+**Integration :**
+- `agent.service.ts` : `buildSystemPromptAsync()` injecte les memoires actives (facts, preferences, contexte) dans le system prompt
+- `agent-scheduler.ts` : cleanup horaire des memoires `context` expirees
 
 ---
 
@@ -126,5 +132,5 @@ L'agent maintient un "profil de travail" :
 | Scope | Acces complet au systeme | Donnees de productivite uniquement |
 | Canaux | 24+ services tiers | Chat desktop + push locale (zero tiers) |
 | Notifications | Via messagerie tierce | Push queue locale + SSE |
-| Modele IA | Claude/GPT/local | LLM local (Ollama) — tout reste chez toi |
+| Modele IA | Claude/GPT/local | LLM local (Ollama) par defaut, Anthropic/OpenAI-compatible en option |
 | Donnees | Transitent par des tiers | Restent sur ton reseau local |

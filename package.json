@@ -9,6 +9,8 @@
     "desktop:dev": "bun run --filter desktop tauri:dev",
     "db:migrate": "bun run --filter api db:migrate",
     "db:generate": "bun run --filter api db:generate",
+    "db:reset": "bun run --filter api db:reset",
+    "db:drop": "bun run --filter api db:drop",
     "db:studio": "bun run --filter api db:studio",
     "test": "bun run --filter api test",
     "test:integration": "bun run --filter api test:integration",

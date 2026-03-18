@@ -108,7 +108,6 @@ export function App() {
     initClipboard();
     await fetchCalendars();
     fetchContacts();
-    syncConnector("clickup");
     fetchTasks();
     fetchTriage();
     fetchTodayStats();

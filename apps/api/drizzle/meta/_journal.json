@@ -92,6 +92,41 @@
       "when": 1774358400000,
       "tag": "0012_github",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1774444800000,
+      "tag": "0013_bookmarks",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1774531200000,
+      "tag": "0014_projects",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1774617600000,
+      "tag": "0015_push_notifications",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1774704000000,
+      "tag": "0016_email_summary_classification",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1774790400000,
+      "tag": "0017_agent_memory",
+      "breakpoints": true
     }
   ]
 }

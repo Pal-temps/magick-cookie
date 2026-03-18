@@ -90,7 +90,7 @@ Chaque dimanche (ou a la demande), generer un resume de la semaine : ce qui a et
 - [x] Phase 1 : Endpoint API weekly review (reutilise analytics)
 - [x] Phase 2 : UI cards de review dans le dashboard (WeeklyReview.tsx)
 - [x] Phase 3 : Comparaison semaine precedente (deltas avec pctDelta)
-- [ ] Phase 4 : Resume narratif via LLM local (#4)
+- [x] Phase 4 : Resume narratif via LLM local (#4)
 
 ---
 
@@ -163,7 +163,7 @@ desktop/src/
 ```typescript
 interface LlmConfig {
   id: string;
-  provider: "ollama" | "lmstudio" | "openai-compatible";
+  provider: "ollama" | "lmstudio" | "openai-compatible" | "anthropic";
   baseUrl: string;           // ex: http://localhost:11434
   model: string;             // ex: llama3.2, mistral, phi-3
   apiKey: string | null;     // null pour Ollama local
@@ -192,13 +192,14 @@ Tous implementent la meme interface `LlmPort` :
 | Ollama | `POST /api/generate` ou `/api/chat` | `http://localhost:11434` |
 | LM Studio | OpenAI-compatible `POST /v1/chat/completions` | `http://localhost:1234` |
 | OpenAI-compatible | Idem LM Studio | Configurable |
+| Anthropic | `POST /v1/messages` | `https://api.anthropic.com` |
 
 ### Phases
 
 - [x] Phase 1 : Entites, port, adapter Ollama, route `/llm/chat` + `/llm/test`
 - [x] Phase 2 : UI settings (LlmSettings.tsx — provider, URL, modele, test)
 - [x] Phase 3 : Adapter OpenAI-compatible (couvre LM Studio aussi)
-- [ ] Phase 4 : Methodes specialisees (`summarize`, `classify`) avec prompts optimises
+- [x] Phase 4 : Methodes specialisees (`classify`, `generateNarrative`) + adapter Anthropic
 
 ---
 
@@ -229,8 +230,8 @@ Bouton "Resumer" dans `EmailDetail` qui envoie le contenu de l'email au LLM loca
 
 - [x] Phase 1 : Route API + integration LlmService (summarizeEmail dans emailStore)
 - [x] Phase 2 : UI bouton + affichage resume (EmailDetail + EmailDigest)
-- [ ] Phase 3 : Cache du resume en DB (colonne `summary` dans `emails`)
-- [ ] Phase 4 : Classification auto (newsletter, facture, action requise)
+- [x] Phase 3 : Cache du resume en DB (colonne `summary` + `classification` dans `emails`)
+- [x] Phase 4 : Classification auto (newsletter, facture, action_requise, personnel, notification, autre)
 
 ---
 
@@ -243,11 +244,7 @@ Bouton "Resumer" dans `EmailDetail` qui envoie le contenu de l'email au LLM loca
 4. ✅ Raccourcis clavier Email (Phase 1-3) — DONE
 5. ✅ Resume email par IA (Phase 1-2) — DONE
 
-Restant :
-6. Resume email Phase 3 : cache summary en DB
-7. Resume email Phase 4 : classification auto
-8. Weekly Review Phase 4 : resume narratif LLM
-9. LLM Phase 4 : methodes specialisees (summarize, classify)
+Restant : toutes les phases sont completees ✅
 ```
 
 ---
