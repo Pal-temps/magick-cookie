@@ -1,8 +1,9 @@
 import { Hono } from "hono";
 import type { AnalyticsService } from "../../application/analytics/analytics.service";
+import type { LlmService } from "../../application/llm/llm.service";
 import { analyticsQuerySchema, weeklyReviewQuerySchema } from "../validators/analytics.validator";
 
-export function createAnalyticsRoutes(analyticsService: AnalyticsService) {
+export function createAnalyticsRoutes(analyticsService: AnalyticsService, llmService?: LlmService) {
   const app = new Hono();
 
   // GET /api/analytics?from=YYYY-MM-DD&to=YYYY-MM-DD
@@ -18,10 +19,23 @@ export function createAnalyticsRoutes(analyticsService: AnalyticsService) {
     return c.json({ data });
   });
 
-  // GET /api/analytics/weekly-review?week=2026-W12
+  // GET /api/analytics/weekly-review?week=2026-W12&narrative=true
   app.get("/weekly-review", async (c) => {
     const { week } = weeklyReviewQuerySchema.parse(c.req.query());
     const data = await analyticsService.getWeeklyReview(week);
+
+    if (c.req.query("narrative") === "true" && llmService) {
+      try {
+        const narrativeData = analyticsService.buildNarrativeData(data);
+        data.narrative = await llmService.generateNarrative(
+          narrativeData,
+          `Voici les stats de productivite de la semaine ${week}. Redige un bilan en 5-8 lignes en francais, mentionne les points forts, les alertes, et les comparaisons avec la semaine precedente (deltas en %). Sois concis et motivant.`,
+        );
+      } catch {
+        // LLM not available — skip narrative
+      }
+    }
+
     return c.json({ data });
   });
 

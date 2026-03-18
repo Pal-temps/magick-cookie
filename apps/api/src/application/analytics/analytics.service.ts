@@ -37,6 +37,7 @@ export interface WeeklyReview {
     eventsTotal: number | null;
     dogWalks: number | null;
   };
+  narrative?: string;
 }
 
 function pctDelta(current: number, previous: number): number | null {
@@ -233,6 +234,24 @@ export class AnalyticsService {
         dogWalks: pctDelta(current.dogWalk.totalWalks, previous.dogWalk.totalWalks),
       },
     };
+  }
+
+  buildNarrativeData(review: WeeklyReview): string {
+    const c = review.current;
+    const d = review.deltas;
+    const focusH = Math.floor(c.focus.totalSeconds / 3600);
+    const focusM = Math.floor((c.focus.totalSeconds % 3600) / 60);
+    const dogWalkMin = Math.floor(c.dogWalk.totalSeconds / 60);
+
+    return JSON.stringify({
+      semaine: review.week,
+      focus: { heures: focusH, minutes: focusM, sessions: c.focus.sessionCount, delta: d.focusSeconds },
+      triage: { total: c.triage.totalTriaged, delta: d.totalTriaged },
+      emails: { recus: c.email.received, nonLus: c.email.unread, delta: d.emailReceived },
+      evenements: { total: c.events.total, delta: d.eventsTotal },
+      balades: { total: c.dogWalk.totalWalks, minutes: dogWalkMin, delta: d.dogWalks },
+      wellness: { eauMoyenne: c.wellness.waterAvg, fruitsMoyens: c.wellness.fruitAvg },
+    });
   }
 
   async getProductivityPatterns(from: Date, to: Date): Promise<ProductivityPatterns> {
