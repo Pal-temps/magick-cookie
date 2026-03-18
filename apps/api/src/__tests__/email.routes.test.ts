@@ -25,6 +25,8 @@ function makeEmail(overrides: Partial<Email> = {}): Email {
     isStarred: false,
     isArchived: false,
     folder: "INBOX",
+    summary: null,
+    classification: null,
     sentAt: new Date("2026-03-15T10:00:00Z"),
     createdAt: new Date("2026-03-15T10:01:00Z"),
     ...overrides,

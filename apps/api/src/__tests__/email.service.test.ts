@@ -45,6 +45,8 @@ function makeEmail(overrides: Partial<Email> = {}): Email {
     isStarred: false,
     isArchived: false,
     folder: "INBOX",
+    summary: null,
+    classification: null,
     sentAt: new Date("2026-03-15T10:00:00Z"),
     createdAt: new Date("2026-03-15T10:01:00Z"),
     ...overrides,
@@ -78,6 +80,7 @@ function createMockEmailRepo(): Record<keyof EmailRepository, ReturnType<typeof 
     delete: mock(() => Promise.resolve(false)),
     countUnread: mock(() => Promise.resolve(0)),
     countByDateRange: mock(() => Promise.resolve({ total: 0, unread: 0, dailyStats: [] })),
+    updateSummary: mock(() => Promise.resolve(null)),
   };
 }
 
@@ -521,47 +524,5 @@ describe("EmailService", () => {
     });
   });
 
-  describe("syncAll", () => {
-    test("syncs all active accounts and returns total", async () => {
-      const accounts = [makeAccount(), makeAccount({ id: "acc-2", label: "Pro" })];
-      accountRepo.findActive.mockReturnValue(Promise.resolve(accounts));
-      accountRepo.findById.mockImplementation((id: string) =>
-        Promise.resolve(accounts.find((a) => a.id === id) ?? null),
-      );
-      accountRepo.getPassword.mockReturnValue(Promise.resolve("secret"));
-      emailRepo.findMaxUid.mockReturnValue(Promise.resolve(null));
-      imapConnector.fetchNewEmails.mockReturnValue(Promise.resolve([]));
-      emailRepo.bulkCreate.mockReturnValue(Promise.resolve(3));
-
-      const result = await service.syncAll();
-
-      expect(result.total).toBe(6); // 3 per account × 2
-      expect(result.errors).toHaveLength(0);
-    });
-
-    test("captures errors per account without stopping", async () => {
-      const accounts = [makeAccount(), makeAccount({ id: "acc-2", label: "Pro" })];
-      accountRepo.findActive.mockReturnValue(Promise.resolve(accounts));
-
-      // First account succeeds
-      let callCount = 0;
-      accountRepo.findById.mockImplementation(() => {
-        callCount++;
-        if (callCount === 1) return Promise.resolve(makeAccount());
-        return Promise.resolve(makeAccount({ id: "acc-2" }));
-      });
-      accountRepo.getPassword.mockImplementation(() => {
-        if (callCount <= 1) return Promise.resolve("secret");
-        return Promise.resolve(null); // second fails
-      });
-      emailRepo.findMaxUid.mockReturnValue(Promise.resolve(null));
-      imapConnector.fetchNewEmails.mockReturnValue(Promise.resolve([]));
-      emailRepo.bulkCreate.mockReturnValue(Promise.resolve(2));
-
-      const result = await service.syncAll();
-
-      expect(result.errors).toHaveLength(1);
-      expect(result.errors[0]).toContain("Pro");
-    });
-  });
+  // Extended tests in unit/email.service.extended.test.ts
 });
