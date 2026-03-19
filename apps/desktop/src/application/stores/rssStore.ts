@@ -136,6 +136,12 @@ export function useRssStore() {
     try {
       const feed = await api.post<RssFeed>("/rss-feeds", input);
       setFeeds((prev) => [...prev, feed]);
+      // Sync immediately so articles appear right away
+      try {
+        await api.post(`/rss-feeds/${feed.id}/sync`, {});
+      } catch (e) {
+        console.error(`[rss] Initial sync failed for ${feed.label}:`, e);
+      }
       return feed;
     } catch (e) {
       console.error("Failed to add RSS feed:", e);
