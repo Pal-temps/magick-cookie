@@ -28,6 +28,7 @@ export class DrizzleWellnessConfigRepository implements WellnessConfigRepository
       label: input.label,
       intervalMinutes: input.intervalMinutes,
       enabled: input.enabled ?? true,
+      alertSound: input.alertSound ?? null,
     }).returning();
     return this.toDomain(rows[0]);
   }
@@ -37,6 +38,7 @@ export class DrizzleWellnessConfigRepository implements WellnessConfigRepository
     if (input.label !== undefined) values.label = input.label;
     if (input.intervalMinutes !== undefined) values.intervalMinutes = input.intervalMinutes;
     if (input.enabled !== undefined) values.enabled = input.enabled;
+    if (input.alertSound !== undefined) values.alertSound = input.alertSound;
 
     const rows = await this.db.update(wellnessConfigs).set(values).where(eq(wellnessConfigs.id, id)).returning();
     return rows[0] ? this.toDomain(rows[0]) : null;
@@ -54,6 +56,7 @@ export class DrizzleWellnessConfigRepository implements WellnessConfigRepository
       label: row.label,
       intervalMinutes: row.intervalMinutes,
       enabled: row.enabled,
+      alertSound: row.alertSound,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
     };

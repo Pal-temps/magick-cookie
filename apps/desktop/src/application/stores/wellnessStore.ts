@@ -3,6 +3,7 @@ import { api } from "../../infrastructure/api/apiClient";
 import type { WellnessConfig, CreateWellnessConfigDTO, UpdateWellnessConfigDTO } from "../../domain/models/WellnessConfig";
 import type { WellnessLog } from "../../domain/models/WellnessLog";
 import { notify } from "../../infrastructure/tauri/notifications";
+import type { SoundName } from "../../infrastructure/audio/soundPlayer";
 
 const [configs, setConfigs] = createSignal<WellnessConfig[]>([]);
 const [todayLogs, setTodayLogs] = createSignal<WellnessLog[]>([]);
@@ -14,7 +15,9 @@ function getTodayDate(): string {
 }
 
 async function sendWellnessNotification(config: WellnessConfig) {
-  await notify("Bien-etre", config.label);
+  await notify("Bien-etre", config.label, {
+    sound: (config.alertSound as SoundName) || undefined,
+  });
 }
 
 export function useWellnessStore() {

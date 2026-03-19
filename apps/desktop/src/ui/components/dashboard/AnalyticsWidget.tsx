@@ -112,7 +112,7 @@ export function AnalyticsWidget() {
             </div>
 
             {/* Mini bar chart for focus */}
-            <Show when={data().focus.dailyStats.length > 0}>
+            <Show when={data().focus.dailyStats.length > 0 && data().focus.totalSeconds > 0}>
               <div style={{ "font-size": "11px", color: "var(--text-muted)", "margin-bottom": "6px" }}>Focus par jour</div>
               <div style={{ display: "flex", gap: "1px", "align-items": "flex-end", height: "60px" }}>
                 <For each={data().focus.dailyStats}>

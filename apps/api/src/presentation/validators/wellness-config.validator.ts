@@ -5,10 +5,12 @@ export const createWellnessConfigSchema = z.object({
   label: z.string().min(1).max(255),
   intervalMinutes: z.number().int().min(1),
   enabled: z.boolean().optional(),
+  alertSound: z.string().max(50).nullable().optional(),
 });
 
 export const updateWellnessConfigSchema = z.object({
   label: z.string().min(1).max(255).optional(),
   intervalMinutes: z.number().int().min(1).optional(),
   enabled: z.boolean().optional(),
+  alertSound: z.string().max(50).nullable().optional(),
 });

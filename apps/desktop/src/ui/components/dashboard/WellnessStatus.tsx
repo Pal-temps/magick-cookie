@@ -1,6 +1,7 @@
 import { For, Show, createSignal } from "solid-js";
 import { useWellnessStore } from "../../../application/stores/wellnessStore";
 import { Button } from "../common/Button";
+import { SOUND_OPTIONS, playSound, type SoundName } from "../../../infrastructure/audio/soundPlayer";
 
 const ICONS: Record<string, string> = {
   water: "\u{1F4A7}",
@@ -15,16 +16,18 @@ export function WellnessStatus() {
   const [newType, setNewType] = createSignal("");
   const [newLabel, setNewLabel] = createSignal("");
   const [newInterval, setNewInterval] = createSignal(60);
+  const [newSound, setNewSound] = createSignal<string>("notification");
 
   async function handleCreate() {
     const type = newType().trim();
     const label = newLabel().trim();
     if (!type || !label || newInterval() < 1) return;
 
-    await createConfig({ type, label, intervalMinutes: newInterval(), enabled: true });
+    await createConfig({ type, label, intervalMinutes: newInterval(), enabled: true, alertSound: newSound() });
     setNewType("");
     setNewLabel("");
     setNewInterval(60);
+    setNewSound("notification");
     setShowForm(false);
   }
 
@@ -84,6 +87,28 @@ export function WellnessStatus() {
               style={{ ...inputStyle, width: "60px", "text-align": "center" }}
             />
             <span style={{ "font-size": "11px", color: "var(--text-muted)" }}>min</span>
+          </div>
+          <div style={{ display: "flex", gap: "6px", "align-items": "center" }}>
+            <span style={{ "font-size": "11px", color: "var(--text-muted)" }}>Son</span>
+            <select
+              value={newSound()}
+              onChange={(e) => setNewSound(e.currentTarget.value)}
+              style={{ ...inputStyle, flex: "1", cursor: "pointer" }}
+            >
+              <For each={SOUND_OPTIONS}>
+                {(s) => <option value={s.value}>{s.label}</option>}
+              </For>
+            </select>
+            <button
+              type="button"
+              onClick={() => playSound(newSound() as SoundName)}
+              title="Ecouter"
+              style={{
+                background: "none", border: "1px solid var(--border-color)", cursor: "pointer",
+                "border-radius": "var(--radius-md)", padding: "3px 8px", "font-size": "14px",
+                color: "var(--text-secondary)",
+              }}
+            >&#9654;</button>
             <Button variant="primary" size="sm" onClick={handleCreate} style={{ "margin-left": "auto" }}>
               Creer
             </Button>
@@ -112,8 +137,36 @@ export function WellnessStatus() {
                 <div style={{ "font-size": "13px", "font-weight": "500", color: "var(--text-primary)" }}>
                   {config.label}
                 </div>
-                <div style={{ "font-size": "11px", color: "var(--text-muted)" }}>
-                  Toutes les {config.intervalMinutes} min
+                <div style={{ display: "flex", "align-items": "center", gap: "6px", "margin-top": "2px" }}>
+                  <span style={{ "font-size": "11px", color: "var(--text-muted)" }}>
+                    Toutes les {config.intervalMinutes} min
+                  </span>
+                  <select
+                    value={config.alertSound ?? "notification"}
+                    onChange={(e) => updateConfig(config.id, { alertSound: e.currentTarget.value })}
+                    style={{
+                      padding: "1px 4px",
+                      "border-radius": "var(--radius-sm)",
+                      border: "1px solid var(--border-color)",
+                      background: "var(--bg-base)",
+                      color: "var(--text-muted)",
+                      "font-size": "10px",
+                      cursor: "pointer",
+                    }}
+                  >
+                    <For each={SOUND_OPTIONS}>
+                      {(s) => <option value={s.value}>{s.label}</option>}
+                    </For>
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => playSound((config.alertSound ?? "notification") as SoundName)}
+                    title="Ecouter"
+                    style={{
+                      background: "none", border: "none", cursor: "pointer",
+                      "font-size": "11px", color: "var(--text-muted)", padding: "0",
+                    }}
+                  >&#9654;</button>
                 </div>
               </div>
               <Show when={config.enabled}>

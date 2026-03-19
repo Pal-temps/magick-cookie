@@ -12,7 +12,7 @@ export function VpsWidget() {
   // Overall status: red if any service down, orange if degraded or alerts, green if all good
   const overallStatus = () => {
     const h = health();
-    if (!h) return "unknown";
+    if (!h || !h.services || h.services.length === 0) return "unknown";
     if (h.services.some(s => s.status === "down")) return "down";
     if (h.services.some(s => s.status === "degraded") || alertCount() > 0) return "degraded";
     return "up";
@@ -58,7 +58,7 @@ export function VpsWidget() {
       <Show when={health()}>
         {(h) => (
           <div style={{ display: "flex", "flex-direction": "column", gap: "4px" }}>
-            {h().services.map((svc) => (
+            {(h().services ?? []).map((svc) => (
               <div style={{
                 display: "flex", "align-items": "center", gap: "8px",
                 padding: "4px 8px", "border-radius": "var(--radius-md)", background: "var(--bg-elevated)",
