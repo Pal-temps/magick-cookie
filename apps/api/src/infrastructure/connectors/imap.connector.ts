@@ -433,14 +433,39 @@ export class ImapConnector {
       await this.connectWithTimeout(client);
       const lock = await client.getMailboxLock(folder);
       try {
-        await client.messageFlagsAdd({ uid: uid }, ["\\Deleted"], { uid: true });
-        await client.messageDelete({ uid: uid }, { uid: true });
+        // Gmail ignores \Deleted flag — must MOVE to Trash instead
+        const trashFolder = await this.findTrashFolder(client, account.imapHost);
+        if (trashFolder && folder !== trashFolder) {
+          await client.messageMove({ uid: uid }, trashFolder, { uid: true });
+        } else {
+          // Fallback for non-Gmail: standard delete
+          await client.messageFlagsAdd({ uid: uid }, ["\\Deleted"], { uid: true });
+          await client.messageDelete({ uid: uid }, { uid: true });
+        }
       } finally {
         lock.release();
       }
     } finally {
       await client.logout().catch(() => {});
     }
+  }
+
+  private async findTrashFolder(client: ImapFlow, host: string): Promise<string | null> {
+    try {
+      const mailboxes = await client.list();
+      // Gmail uses [Gmail]/Trash or [Gmail]/Corbeille (localized)
+      for (const mb of mailboxes) {
+        if (mb.specialUse === "\\Trash") return mb.path;
+      }
+      // Fallback: common trash folder names
+      const trashNames = ["[Gmail]/Trash", "[Gmail]/Corbeille", "Trash", "Deleted", "Deleted Items"];
+      for (const name of trashNames) {
+        if (mailboxes.some((mb) => mb.path === name)) return name;
+      }
+    } catch (err) {
+      console.error(`[imap] Failed to list mailboxes for trash detection:`, err);
+    }
+    return null;
   }
 
   async bulkDeleteMessages(account: EmailAccount, password: string, uids: number[], folder: string = "INBOX"): Promise<number> {
@@ -461,8 +486,13 @@ export class ImapConnector {
       const lock = await client.getMailboxLock(folder);
       try {
         const uidRange = uids.join(",");
-        await client.messageFlagsAdd(uidRange, ["\\Deleted"], { uid: true });
-        await client.messageDelete(uidRange, { uid: true });
+        const trashFolder = await this.findTrashFolder(client, account.imapHost);
+        if (trashFolder && folder !== trashFolder) {
+          await client.messageMove(uidRange, trashFolder, { uid: true });
+        } else {
+          await client.messageFlagsAdd(uidRange, ["\\Deleted"], { uid: true });
+          await client.messageDelete(uidRange, { uid: true });
+        }
         deleted = uids.length;
       } finally {
         lock.release();

@@ -146,9 +146,9 @@ export class EmailService {
     const email = await this.emailRepo.findById(id);
     if (!email) return false;
 
-    // Delete from IMAP first
+    // Delete from IMAP first (await to ensure it completes before DB delete)
     if (email.imapUid) {
-      this.syncDeleteToImap(email.accountId, email.imapUid, email.folder);
+      await this.syncDeleteToImap(email.accountId, email.imapUid, email.folder);
     }
 
     return this.emailRepo.delete(id);
