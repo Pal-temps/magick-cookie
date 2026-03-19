@@ -108,6 +108,14 @@ export class DrizzleRssArticleRepository implements RssArticleRepository {
     return rows.length;
   }
 
+  async updateContent(id: string, content: string): Promise<RssArticle | null> {
+    const rows = await this.db.update(rssArticles)
+      .set({ content })
+      .where(eq(rssArticles.id, id))
+      .returning();
+    return rows.length > 0 ? this.toDomain(rows[0]) : null;
+  }
+
   async deleteOlderThan(before: Date): Promise<number> {
     const rows = await this.db.delete(rssArticles)
       .where(and(

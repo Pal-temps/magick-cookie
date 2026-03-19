@@ -92,6 +92,13 @@ export function createRssArticleRoutes(service: RssService) {
     return c.json({ data: article });
   });
 
+  // GET /api/rss-articles/:id/full-content
+  app.get("/:id/full-content", async (c) => {
+    const article = await service.fetchFullContent(c.req.param("id"));
+    if (!article) return c.json({ error: "Article not found" }, 404);
+    return c.json({ data: article });
+  });
+
   // PATCH /api/rss-articles/:id
   app.patch("/:id", async (c) => {
     const flags = updateArticleFlagsSchema.parse(await c.req.json());

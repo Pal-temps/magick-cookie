@@ -1,6 +1,7 @@
 import type { RssFeedRepository, RssArticleRepository } from "../../domain/rss/rss.repository";
 import type { RssFeed, RssArticle, CreateRssFeedInput, UpdateRssFeedInput } from "../../domain/rss/rss.entity";
 import { fetchFeed } from "../../infrastructure/connectors/rss-parser.connector";
+import { extractArticleContent } from "../../infrastructure/connectors/readability.connector";
 
 export class RssService {
   constructor(
@@ -57,6 +58,28 @@ export class RssService {
 
   async markAllRead(feedId: string): Promise<number> {
     return this.articleRepo.markAllRead(feedId);
+  }
+
+  // --- Full content ---
+
+  async fetchFullContent(id: string): Promise<RssArticle | null> {
+    const article = await this.articleRepo.findById(id);
+    if (!article) return null;
+
+    // Return cached if already fetched
+    if (article.content && article.content.length > 500) {
+      return article;
+    }
+
+    if (!article.link) return article;
+
+    try {
+      const extracted = await extractArticleContent(article.link);
+      return await this.articleRepo.updateContent(id, extracted.content);
+    } catch (err) {
+      console.error(`[rss] Failed to extract full content for ${article.link}:`, err);
+      return article;
+    }
   }
 
   // --- Sync ---

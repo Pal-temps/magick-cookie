@@ -13,6 +13,12 @@ mock.module("../../infrastructure/connectors/rss-parser.connector", () => ({
   fetchFeed: (...args: any[]) => mockFetchFeed(...args),
 }));
 
+// Mock readability connector
+const mockExtractContent = mock(() => Promise.resolve({ title: "Full Title", content: "<p>Full article content here...</p>".repeat(50), textContent: "Full article", excerpt: "Excerpt" }));
+mock.module("../../infrastructure/connectors/readability.connector", () => ({
+  extractArticleContent: (...args: any[]) => mockExtractContent(...args),
+}));
+
 // Now import the service (after mocks are set up)
 const { RssService } = await import("../../application/rss/rss.service");
 
@@ -47,6 +53,7 @@ function createMockArticleRepo(): Record<keyof RssArticleRepository, ReturnType<
     markAllRead: mock(() => Promise.resolve(0)),
     delete: mock(() => Promise.resolve(false)),
     countUnread: mock(() => Promise.resolve(0)),
+    updateContent: mock(() => Promise.resolve(null)),
     deleteOlderThan: mock(() => Promise.resolve(0)),
   };
 }
@@ -62,6 +69,8 @@ describe("RssService", () => {
     service = new RssService(feedRepo as any, articleRepo as any);
     mockFetchFeed.mockReset();
     mockFetchFeed.mockImplementation(() => Promise.resolve({ siteUrl: null, items: [] }));
+    mockExtractContent.mockReset();
+    mockExtractContent.mockImplementation(() => Promise.resolve({ title: "Full Title", content: "<p>Full content</p>".repeat(50), textContent: "Full content", excerpt: "Excerpt" }));
   });
 
   // --- Feeds ---
@@ -190,5 +199,50 @@ describe("RssService", () => {
 
     const deleted = await service.cleanupOldArticles(30);
     expect(deleted).toBe(0);
+  });
+
+  // --- Full content ---
+  it("fetchFullContent returns null when article not found", async () => {
+    const result = await service.fetchFullContent("nonexistent");
+    expect(result).toBeNull();
+  });
+
+  it("fetchFullContent returns cached content if already long enough", async () => {
+    const longContent = "<p>Already fetched</p>".repeat(50);
+    articleRepo.findById.mockReturnValue(Promise.resolve(makeArticle({ content: longContent })));
+
+    const result = await service.fetchFullContent("a-1");
+    expect(result!.content).toBe(longContent);
+    expect(mockExtractContent).not.toHaveBeenCalled();
+  });
+
+  it("fetchFullContent extracts and caches content from URL", async () => {
+    const article = makeArticle({ content: null, link: "https://example.com/post" });
+    articleRepo.findById.mockReturnValue(Promise.resolve(article));
+    const updated = makeArticle({ content: "<p>Full content</p>".repeat(50) });
+    articleRepo.updateContent.mockReturnValue(Promise.resolve(updated));
+
+    const result = await service.fetchFullContent("a-1");
+    expect(mockExtractContent).toHaveBeenCalledWith("https://example.com/post");
+    expect(articleRepo.updateContent).toHaveBeenCalledTimes(1);
+    expect(result!.content!.length).toBeGreaterThan(500);
+  });
+
+  it("fetchFullContent returns original article when link is null", async () => {
+    const article = makeArticle({ content: null, link: null });
+    articleRepo.findById.mockReturnValue(Promise.resolve(article));
+
+    const result = await service.fetchFullContent("a-1");
+    expect(result).toEqual(article);
+    expect(mockExtractContent).not.toHaveBeenCalled();
+  });
+
+  it("fetchFullContent returns original article on extraction error", async () => {
+    const article = makeArticle({ content: null, link: "https://example.com/post" });
+    articleRepo.findById.mockReturnValue(Promise.resolve(article));
+    mockExtractContent.mockImplementation(() => Promise.reject(new Error("Failed")));
+
+    const result = await service.fetchFullContent("a-1");
+    expect(result).toEqual(article);
   });
 });

@@ -171,6 +171,21 @@ export function useRssStore() {
     }
   }
 
+  async function fetchFullContent(id: string): Promise<RssArticle | null> {
+    try {
+      const article = await api.get<RssArticle>(`/rss-articles/${id}/full-content`);
+      // Update in local state
+      setArticles((prev) => prev.map((a) => (a.id === id ? { ...a, content: article.content } : a)));
+      if (selectedArticle()?.id === id) {
+        setSelectedArticle((prev) => prev ? { ...prev, content: article.content } : null);
+      }
+      return article;
+    } catch (e) {
+      console.error("Failed to fetch full content:", e);
+      return null;
+    }
+  }
+
   async function fetchUnreadCount() {
     try {
       const data = await api.get<{ count: number }>("/rss-articles/unread-count");
@@ -197,6 +212,7 @@ export function useRssStore() {
     addFeed,
     updateFeed,
     removeFeed,
+    fetchFullContent,
     fetchUnreadCount,
   };
 }

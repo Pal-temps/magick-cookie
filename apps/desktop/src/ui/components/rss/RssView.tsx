@@ -8,11 +8,12 @@ export function RssView() {
   const {
     feeds, articles, selectedArticle, activeFeedId, setActiveFeedId,
     isLoading, unreadCount, fetchFeeds, fetchArticles, selectArticle,
-    toggleStar, markAllRead, syncAll, addFeed, removeFeed, fetchUnreadCount,
+    toggleStar, markAllRead, syncAll, addFeed, removeFeed, fetchFullContent, fetchUnreadCount,
   } = useRssStore();
 
   const [addingFeed, setAddingFeed] = createSignal(false);
   const [showCatalog, setShowCatalog] = createSignal(false);
+  const [loadingContent, setLoadingContent] = createSignal<string | null>(null);
   const [newUrl, setNewUrl] = createSignal("");
   const [newLabel, setNewLabel] = createSignal("");
 
@@ -371,44 +372,105 @@ export function RssView() {
                     </button>
                   </div>
 
-                  {/* Expanded description */}
+                  {/* Expanded content */}
                   <Show when={selectedArticle()?.id === article.id}>
                     <div style={{
                       padding: "12px 16px 12px 34px",
                       "border-bottom": "1px solid var(--border-color)",
                       background: "var(--bg-elevated)",
                     }}>
-                      <Show when={article.description}>
+                      {/* Show full content if available, otherwise description */}
+                      <Show when={selectedArticle()?.content && selectedArticle()!.content!.length > 500} fallback={
+                        <>
+                          <Show when={article.description}>
+                            <div
+                              style={{
+                                "font-size": "12px",
+                                color: "var(--text-secondary)",
+                                "line-height": "1.5",
+                                "margin-bottom": "10px",
+                                "max-height": "200px",
+                                "overflow-y": "auto",
+                              }}
+                              innerHTML={article.description ?? ""}
+                            />
+                          </Show>
+                          <Show when={article.link}>
+                            <div style={{ display: "flex", gap: "6px", "flex-wrap": "wrap" }}>
+                              <button
+                                onClick={async () => {
+                                  setLoadingContent(article.id);
+                                  await fetchFullContent(article.id);
+                                  setLoadingContent(null);
+                                }}
+                                disabled={loadingContent() === article.id}
+                                style={{
+                                  padding: "4px 10px",
+                                  "border-radius": "var(--radius-sm)",
+                                  border: "1px solid var(--border-color)",
+                                  background: "var(--bg-surface)",
+                                  color: "var(--accent-color)",
+                                  "font-size": "12px",
+                                  cursor: loadingContent() === article.id ? "default" : "pointer",
+                                  transition: "background 0.1s",
+                                  opacity: loadingContent() === article.id ? "0.6" : "1",
+                                }}
+                                onMouseEnter={(e) => e.currentTarget.style.background = "var(--bg-elevated)"}
+                                onMouseLeave={(e) => e.currentTarget.style.background = "var(--bg-surface)"}
+                              >
+                                {loadingContent() === article.id ? "Chargement..." : "Lire l'article"}
+                              </button>
+                              <button
+                                onClick={() => openUrl(article.link!)}
+                                style={{
+                                  padding: "4px 10px",
+                                  "border-radius": "var(--radius-sm)",
+                                  border: "1px solid var(--border-color)",
+                                  background: "var(--bg-surface)",
+                                  color: "var(--text-muted)",
+                                  "font-size": "12px",
+                                  cursor: "pointer",
+                                  transition: "background 0.1s",
+                                }}
+                                onMouseEnter={(e) => e.currentTarget.style.background = "var(--bg-elevated)"}
+                                onMouseLeave={(e) => e.currentTarget.style.background = "var(--bg-surface)"}
+                              >
+                                Ouvrir dans le navigateur
+                              </button>
+                            </div>
+                          </Show>
+                        </>
+                      }>
                         <div
                           style={{
-                            "font-size": "12px",
-                            color: "var(--text-secondary)",
-                            "line-height": "1.5",
+                            "font-size": "13px",
+                            color: "var(--text-primary)",
+                            "line-height": "1.6",
                             "margin-bottom": "10px",
-                            "max-height": "200px",
+                            "max-height": "60vh",
                             "overflow-y": "auto",
                           }}
-                          innerHTML={article.description ?? ""}
+                          innerHTML={selectedArticle()!.content!}
                         />
-                      </Show>
-                      <Show when={article.link}>
-                        <button
-                          onClick={() => openUrl(article.link!)}
-                          style={{
-                            padding: "4px 10px",
-                            "border-radius": "var(--radius-sm)",
-                            border: "1px solid var(--border-color)",
-                            background: "var(--bg-surface)",
-                            color: "var(--accent-color)",
-                            "font-size": "12px",
-                            cursor: "pointer",
-                            transition: "background 0.1s",
-                          }}
-                          onMouseEnter={(e) => e.currentTarget.style.background = "var(--bg-elevated)"}
-                          onMouseLeave={(e) => e.currentTarget.style.background = "var(--bg-surface)"}
-                        >
-                          Ouvrir dans le navigateur
-                        </button>
+                        <Show when={article.link}>
+                          <button
+                            onClick={() => openUrl(article.link!)}
+                            style={{
+                              padding: "4px 10px",
+                              "border-radius": "var(--radius-sm)",
+                              border: "1px solid var(--border-color)",
+                              background: "var(--bg-surface)",
+                              color: "var(--text-muted)",
+                              "font-size": "12px",
+                              cursor: "pointer",
+                              transition: "background 0.1s",
+                            }}
+                            onMouseEnter={(e) => e.currentTarget.style.background = "var(--bg-elevated)"}
+                            onMouseLeave={(e) => e.currentTarget.style.background = "var(--bg-surface)"}
+                          >
+                            Ouvrir dans le navigateur
+                          </button>
+                        </Show>
                       </Show>
                     </div>
                   </Show>
