@@ -21,6 +21,23 @@ export function createTaskRoutes(
     return c.json({ data });
   });
 
+  // POST /api/tasks — create manual task
+  app.post("/", async (c) => {
+    const body = await c.req.json();
+    const data = await taskService.create({
+      source: "manual",
+      title: body.title,
+      description: body.description ?? null,
+      status: body.status ?? "open",
+      priority: body.priority ?? null,
+      labels: body.labels ?? [],
+      assignees: body.assignees ?? [],
+      dueDate: body.dueDate ? new Date(body.dueDate) : null,
+      startDate: body.startDate ? new Date(body.startDate) : null,
+    });
+    return c.json({ data }, 201);
+  });
+
   // GET /api/tasks/unscheduled — tasks with no due date
   app.get("/unscheduled", async (c) => {
     const data = await taskService.getUnscheduled();

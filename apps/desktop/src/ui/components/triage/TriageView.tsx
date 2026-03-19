@@ -18,7 +18,7 @@ const [viewType, setViewType] = createSignal<"triage" | "kanban">("kanban");
 export function TriageView() {
   const triage = useTriageStore();
   const store = useTaskStore();
-  const { tasks: unscheduledTasks, fetchUnscheduledTasks, fetchConnectorConfigs, syncConnector, isSyncing, openTaskDetail, sourceFilter, setSourceFilter, isConnectorConfigured } = store;
+  const { tasks: unscheduledTasks, fetchUnscheduledTasks, fetchConnectorConfigs, syncConnector, isSyncing, openTaskDetail, sourceFilter, setSourceFilter, isConnectorConfigured, createTask } = store;
 
   onMount(async () => {
     await Promise.all([
@@ -92,6 +92,7 @@ export function TriageView() {
             sourceFilter={sourceFilter()}
             onSourceFilterChange={handleSourceChange}
             isConfigured={isConnectorConfigured(sourceFilter())}
+            onCreateTask={createTask}
           />
         }>
           <KanbanBoard
@@ -108,6 +109,7 @@ export function TriageView() {
             sourceFilter={sourceFilter()}
             onSourceFilterChange={handleSourceChange}
             isConfigured={isConnectorConfigured(sourceFilter())}
+            onCreateTask={createTask}
           />
         </Show>
       }>
@@ -483,10 +485,27 @@ interface KanbanBoardProps {
   sourceFilter: TaskSource | "all";
   onSourceFilterChange: (source: TaskSource | "all") => void;
   isConfigured: boolean;
+  onCreateTask: (title: string, description?: string) => Promise<Task>;
 }
 
 function KanbanBoard(props: KanbanBoardProps) {
   const triage = useTriageStore();
+  const [showNewTask, setShowNewTask] = createSignal(false);
+  const [newTaskTitle, setNewTaskTitle] = createSignal("");
+  const [isCreating, setIsCreating] = createSignal(false);
+
+  async function handleCreateTask() {
+    const title = newTaskTitle().trim();
+    if (!title || isCreating()) return;
+    setIsCreating(true);
+    try {
+      await props.onCreateTask(title);
+      setNewTaskTitle("");
+      setShowNewTask(false);
+    } finally {
+      setIsCreating(false);
+    }
+  }
 
   async function handleAutoTriage() {
     await triage.fetchSuggestions();
@@ -602,11 +621,49 @@ function KanbanBoard(props: KanbanBoardProps) {
                 {props.isSyncing ? "..." : syncLabel()}
               </Button>
             </Show>
+            <Button size="sm" variant="secondary" onClick={() => setShowNewTask(!showNewTask())}>
+              + Tache
+            </Button>
             <Button size="sm" variant="primary" onClick={props.onStartTriage}>
               Trier &#10022; {props.untriagedTasks.length}
             </Button>
           </div>
         </div>
+
+        {/* Quick-add task form */}
+        <Show when={showNewTask()}>
+          <div style={{
+            display: "flex",
+            gap: "8px",
+            padding: "0 20px 12px",
+            "flex-shrink": "0",
+          }}>
+            <input
+              type="text"
+              placeholder="Titre de la tache..."
+              value={newTaskTitle()}
+              onInput={(e) => setNewTaskTitle(e.currentTarget.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") handleCreateTask(); if (e.key === "Escape") { setShowNewTask(false); setNewTaskTitle(""); } }}
+              autofocus
+              style={{
+                flex: "1",
+                padding: "6px 10px",
+                "border-radius": "var(--radius-md)",
+                border: "1px solid var(--border-color)",
+                background: "var(--bg-elevated)",
+                color: "var(--text-primary)",
+                "font-size": "13px",
+                outline: "none",
+              }}
+            />
+            <Button size="sm" variant="primary" onClick={handleCreateTask} disabled={isCreating() || !newTaskTitle().trim()}>
+              {isCreating() ? "..." : "Creer"}
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => { setShowNewTask(false); setNewTaskTitle(""); }}>
+              Annuler
+            </Button>
+          </div>
+        </Show>
 
         {/* Suggestions panel */}
         <Show when={triage.suggestLoading()}>
@@ -979,6 +1036,7 @@ interface TriageDashboardProps {
   sourceFilter: TaskSource | "all";
   onSourceFilterChange: (source: TaskSource | "all") => void;
   isConfigured: boolean;
+  onCreateTask: (title: string, description?: string) => Promise<Task>;
 }
 
 function TriageDashboard(props: TriageDashboardProps) {

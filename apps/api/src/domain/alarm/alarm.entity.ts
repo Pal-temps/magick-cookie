@@ -16,7 +16,7 @@ export interface CreateAlarmInput {
   time: string;
   label: string;
   repeatPattern?: RepeatPattern;
-  repeatDays?: number[];
+  repeatDays?: number[] | null;
   enabled?: boolean;
 }
 

@@ -68,6 +68,16 @@ export function useTaskStore() {
       .finally(() => setIsLoadingTaskDetail(false));
   }
 
+  async function createTask(title: string, description?: string) {
+    const task = await api.post<Task>("/tasks", {
+      source: "manual",
+      title,
+      description: description || null,
+    });
+    setTasks((prev) => [task, ...prev]);
+    return task;
+  }
+
   function closeTaskDetail() {
     setSelectedTask(null);
     setTaskDetail(null);
@@ -84,6 +94,6 @@ export function useTaskStore() {
     configuredConnectors,
     setSelectedTask,
     fetchTasks, fetchUnscheduledTasks, fetchConnectorConfigs, syncConnector,
-    openTaskDetail, closeTaskDetail, isConnectorConfigured,
+    createTask, openTaskDetail, closeTaskDetail, isConnectorConfigured,
   };
 }
