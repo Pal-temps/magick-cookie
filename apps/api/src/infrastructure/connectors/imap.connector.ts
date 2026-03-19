@@ -10,9 +10,21 @@ interface ImapConfig {
   password: string;
 }
 
+const IMAP_TIMEOUT_MS = 15_000;
+
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(`[imap] ${label} timed out after ${ms}ms`)), ms);
+    promise.then(
+      (v) => { clearTimeout(timer); resolve(v); },
+      (e) => { clearTimeout(timer); reject(e); },
+    );
+  });
+}
+
 export class ImapConnector {
   private createClient(config: ImapConfig): ImapFlow {
-    return new ImapFlow({
+    const client = new ImapFlow({
       host: config.host,
       port: config.port,
       secure: config.secure,
@@ -26,6 +38,15 @@ export class ImapConnector {
         servername: config.host,
       },
     });
+    // Prevent unhandled 'error' event from crashing the process
+    client.on("error", (err: Error) => {
+      console.error(`[imap] Client error (${config.host}):`, err.message);
+    });
+    return client;
+  }
+
+  private async connectWithTimeout(client: ImapFlow): Promise<void> {
+    await withTimeout(client.connect(), IMAP_TIMEOUT_MS, "connect");
   }
 
   async fetchNewEmails(
@@ -45,7 +66,7 @@ export class ImapConnector {
     const results: CreateEmailInput[] = [];
 
     try {
-      await client.connect();
+      await this.connectWithTimeout(client);
       const lock = await client.getMailboxLock(folder);
 
       try {
@@ -114,7 +135,7 @@ export class ImapConnector {
   async testConnection(config: ImapConfig): Promise<boolean> {
     const client = this.createClient(config);
     try {
-      await client.connect();
+      await this.connectWithTimeout(client);
       await client.logout();
       return true;
     } catch {
@@ -132,7 +153,7 @@ export class ImapConnector {
     });
 
     try {
-      await client.connect();
+      await this.connectWithTimeout(client);
       const lock = await client.getMailboxLock(folder);
       try {
         await client.messageFlagsAdd({ uid: uid }, ["\\Seen"], { uid: true });
@@ -154,7 +175,7 @@ export class ImapConnector {
     });
 
     try {
-      await client.connect();
+      await this.connectWithTimeout(client);
       const lock = await client.getMailboxLock(folder);
       try {
         await client.messageFlagsRemove({ uid: uid }, ["\\Seen"], { uid: true });
@@ -176,7 +197,7 @@ export class ImapConnector {
     });
 
     try {
-      await client.connect();
+      await this.connectWithTimeout(client);
       const lock = await client.getMailboxLock(folder);
       try {
         await client.messageFlagsAdd({ uid: uid }, ["\\Deleted"], { uid: true });
