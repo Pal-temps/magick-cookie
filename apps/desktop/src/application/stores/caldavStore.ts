@@ -48,20 +48,39 @@ export function useCalDavStore() {
   }
 
   async function createAccount(input: CreateCalDavAccountInput) {
-    const data = await api.post<CalDavAccount>("/caldav-accounts", input);
-    setAccounts((prev) => [...prev, data]);
-    return data;
+    try {
+      const data = await api.post<CalDavAccount>("/caldav-accounts", input);
+      if (data) {
+        setAccounts((prev) => [...prev, data]);
+      }
+      return data;
+    } catch (err) {
+      console.error("[caldav] Failed to create account:", err);
+      throw err;
+    }
   }
 
   async function updateAccount(id: string, input: UpdateCalDavAccountInput) {
-    const data = await api.put<CalDavAccount>(`/caldav-accounts/${id}`, input);
-    setAccounts((prev) => prev.map((a) => (a.id === id ? data : a)));
-    return data;
+    try {
+      const data = await api.put<CalDavAccount>(`/caldav-accounts/${id}`, input);
+      if (data) {
+        setAccounts((prev) => prev.map((a) => (a.id === id ? data : a)));
+      }
+      return data;
+    } catch (err) {
+      console.error("[caldav] Failed to update account:", err);
+      throw err;
+    }
   }
 
   async function deleteAccount(id: string) {
-    await api.delete(`/caldav-accounts/${id}`);
+    // Optimistic update
     setAccounts((prev) => prev.filter((a) => a.id !== id));
+    try {
+      await api.delete(`/caldav-accounts/${id}`);
+    } catch (err) {
+      console.error("[caldav] Failed to delete account:", err);
+    }
   }
 
   async function syncAccount(id: string) {

@@ -37,20 +37,31 @@ export function useDogWalkStore() {
   }
 
   async function startWalk() {
-    const walk = await api.post<DogWalk>("/dog-walks/start", {});
-    setActiveWalk(walk);
-    startTicking(walk.startedAt);
+    try {
+      const walk = await api.post<DogWalk>("/dog-walks/start", {});
+      if (walk) {
+        setActiveWalk(walk);
+        startTicking(walk.startedAt);
+      }
+    } catch (err) {
+      console.error("[dog-walk] Failed to start walk:", err);
+    }
   }
 
   async function stopWalk() {
     const walk = activeWalk();
     if (!walk) return;
-    const stopped = await api.post<DogWalk>(`/dog-walks/${walk.id}/stop`, {});
+    // Optimistic update
     setActiveWalk(null);
     stopTicking();
     setElapsedSeconds(0);
-    await fetchTodayStats();
-    return stopped;
+    try {
+      const stopped = await api.post<DogWalk>(`/dog-walks/${walk.id}/stop`, {});
+      await fetchTodayStats();
+      return stopped;
+    } catch (err) {
+      console.error("[dog-walk] Failed to stop walk:", err);
+    }
   }
 
   async function fetchTodayStats() {

@@ -53,15 +53,27 @@ export function useGitHubStore() {
   }
 
   async function saveConfig(input: { token: string; username: string; repos: string[] }) {
-    const data = await api.put<GitHubConfig>("/github/config", input);
-    setConfig(data);
-    return data;
+    try {
+      const data = await api.put<GitHubConfig>("/github/config", input);
+      if (data) {
+        setConfig(data);
+      }
+      return data;
+    } catch (err) {
+      console.error("[github] Failed to save config:", err);
+      throw err;
+    }
   }
 
   async function deleteConfig() {
-    await api.delete("/github/config");
+    // Optimistic update
     setConfig(null);
     setPrs([]);
+    try {
+      await api.delete("/github/config");
+    } catch (err) {
+      console.error("[github] Failed to delete config:", err);
+    }
   }
 
   async function syncPRs() {

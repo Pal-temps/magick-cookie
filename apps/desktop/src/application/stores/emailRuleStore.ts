@@ -54,20 +54,39 @@ export function useEmailRuleStore() {
   }
 
   async function createRule(input: CreateEmailRuleInput) {
-    const data = await api.post<EmailRule>("/email-rules", input);
-    setRules((prev) => [...prev, data]);
-    return data;
+    try {
+      const data = await api.post<EmailRule>("/email-rules", input);
+      if (data) {
+        setRules((prev) => [...prev, data]);
+      }
+      return data;
+    } catch (err) {
+      console.error("[email-rules] Failed to create rule:", err);
+      throw err;
+    }
   }
 
   async function updateRule(id: string, input: UpdateEmailRuleInput) {
-    const data = await api.put<EmailRule>(`/email-rules/${id}`, input);
-    setRules((prev) => prev.map((r) => (r.id === id ? data : r)));
-    return data;
+    try {
+      const data = await api.put<EmailRule>(`/email-rules/${id}`, input);
+      if (data) {
+        setRules((prev) => prev.map((r) => (r.id === id ? data : r)));
+      }
+      return data;
+    } catch (err) {
+      console.error("[email-rules] Failed to update rule:", err);
+      throw err;
+    }
   }
 
   async function deleteRule(id: string) {
-    await api.delete(`/email-rules/${id}`);
+    // Optimistic update
     setRules((prev) => prev.filter((r) => r.id !== id));
+    try {
+      await api.delete(`/email-rules/${id}`);
+    } catch (err) {
+      console.error("[email-rules] Failed to delete rule:", err);
+    }
   }
 
   async function toggleRule(id: string, enabled: boolean) {

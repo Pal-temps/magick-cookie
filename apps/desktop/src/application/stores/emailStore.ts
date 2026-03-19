@@ -131,11 +131,16 @@ export function useEmailStore() {
     setEmailSummary(null);
     // Mark as read if unread
     if (!email.isRead) {
-      await api.patch<Email>(`/emails/${email.id}`, { isRead: true });
+      // Optimistic update — keep even if offline (action is queued)
       setEmails((prev) => prev.map((e) => (e.id === email.id ? { ...e, isRead: true } : e)));
       setSelectedEmail({ ...email, isRead: true });
       setUnreadCount((c) => Math.max(0, c - 1));
       persistCache();
+      try {
+        await api.patch<Email>(`/emails/${email.id}`, { isRead: true });
+      } catch (err) {
+        console.error("[email] Failed to mark as read:", err);
+      }
     }
   }
 
@@ -245,13 +250,19 @@ export function useEmailStore() {
   async function toggleReadStatus(id: string) {
     const email = emails().find((e) => e.id === id);
     if (!email) return;
-    await api.patch<Email>(`/emails/${id}`, { isRead: !email.isRead });
-    setEmails((prev) => prev.map((e) => (e.id === id ? { ...e, isRead: !email.isRead } : e)));
+    const newIsRead = !email.isRead;
+    // Optimistic update
+    setEmails((prev) => prev.map((e) => (e.id === id ? { ...e, isRead: newIsRead } : e)));
     if (selectedEmail()?.id === id) {
-      setSelectedEmail((prev) => prev ? { ...prev, isRead: !email.isRead } : null);
+      setSelectedEmail((prev) => prev ? { ...prev, isRead: newIsRead } : null);
     }
     setUnreadCount((c) => email.isRead ? c + 1 : Math.max(0, c - 1));
     persistCache();
+    try {
+      await api.patch<Email>(`/emails/${id}`, { isRead: newIsRead });
+    } catch (err) {
+      console.error("[email] Failed to toggle read status:", err);
+    }
   }
 
   // Refresh emails when coming back online
@@ -275,12 +286,17 @@ export function useEmailStore() {
   }
 
   async function bulkDeleteEmails(ids: string[]): Promise<number> {
-    const data = await api.post<{ deleted: number }>("/emails/bulk-delete", { ids });
-    // Remove from local state
+    // Optimistic update
     const idSet = new Set(ids);
     setEmails((prev) => prev.filter((e) => !idSet.has(e.id)));
     persistCache();
-    return data.deleted;
+    try {
+      const data = await api.post<{ deleted: number }>("/emails/bulk-delete", { ids });
+      return data?.deleted ?? ids.length;
+    } catch (err) {
+      console.error("[email] Failed to bulk delete:", err);
+      return ids.length;
+    }
   }
 
   async function deleteSenderFromDigest(sender: string, emailIds: string[]): Promise<void> {
@@ -299,8 +315,13 @@ export function useEmailStore() {
   }
 
   async function sendEmail(input: SendEmailDTO): Promise<Email | null> {
-    const data = await api.post<Email>("/emails/send", input);
-    return data;
+    try {
+      const data = await api.post<Email>("/emails/send", input);
+      return data ?? null;
+    } catch (err) {
+      console.error("[email] Failed to send email:", err);
+      return null;
+    }
   }
 
   async function generateReport(days: number = 7): Promise<{ markdown: string; emailCount: number }> {

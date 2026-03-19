@@ -38,7 +38,9 @@ export function useLlmStore() {
     setLlmLoading(true);
     try {
       const data = await api.put<LlmConfig>("/llm/config", input);
-      setLlmConfig(data);
+      if (data) {
+        setLlmConfig(data);
+      }
     } catch (e) {
       console.error("Failed to update LLM config:", e);
       throw e;

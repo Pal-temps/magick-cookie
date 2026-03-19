@@ -31,30 +31,47 @@ export function useWellnessStore() {
   }
 
   async function createConfig(input: CreateWellnessConfigDTO) {
-    const config = await api.post<WellnessConfig>("/wellness-configs", input);
-    setConfigs((prev) => [...prev, config]);
-    if (config.enabled) {
-      startInterval(config);
+    try {
+      const config = await api.post<WellnessConfig>("/wellness-configs", input);
+      if (config) {
+        setConfigs((prev) => [...prev, config]);
+        if (config.enabled) {
+          startInterval(config);
+        }
+      }
+      return config;
+    } catch (err) {
+      console.error("[wellness] Failed to create config:", err);
+      throw err;
     }
-    return config;
   }
 
   async function updateConfig(id: string, input: UpdateWellnessConfigDTO) {
-    const config = await api.put<WellnessConfig>(`/wellness-configs/${id}`, input);
-    setConfigs((prev) => prev.map((c) => (c.id === id ? config : c)));
-
-    // Restart interval if enabled changed or interval changed
-    stopInterval(id);
-    if (config.enabled) {
-      startInterval(config);
+    try {
+      const config = await api.put<WellnessConfig>(`/wellness-configs/${id}`, input);
+      if (config) {
+        setConfigs((prev) => prev.map((c) => (c.id === id ? config : c)));
+        stopInterval(id);
+        if (config.enabled) {
+          startInterval(config);
+        }
+      }
+      return config;
+    } catch (err) {
+      console.error("[wellness] Failed to update config:", err);
+      throw err;
     }
-    return config;
   }
 
   async function deleteConfig(id: string) {
-    await api.delete(`/wellness-configs/${id}`);
+    // Optimistic update
     stopInterval(id);
     setConfigs((prev) => prev.filter((c) => c.id !== id));
+    try {
+      await api.delete(`/wellness-configs/${id}`);
+    } catch (err) {
+      console.error("[wellness] Failed to delete config:", err);
+    }
   }
 
   function startInterval(config: WellnessConfig) {

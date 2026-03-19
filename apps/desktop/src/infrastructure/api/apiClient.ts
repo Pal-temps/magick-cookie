@@ -36,10 +36,11 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
     if (isNetworkError(err)) {
       setIsOnline(false);
 
-      // Queue write operations for later replay
+      // Queue write operations for later replay — return silently so callers don't crash
       if (WRITE_METHODS.includes(method)) {
         const body = options?.body ? JSON.parse(options.body as string) : undefined;
         enqueue(method, fullUrl, body);
+        return undefined as T;
       }
     }
     throw err;

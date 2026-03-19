@@ -69,13 +69,20 @@ export function useTaskStore() {
   }
 
   async function createTask(title: string, description?: string) {
-    const task = await api.post<Task>("/tasks", {
-      source: "manual",
-      title,
-      description: description || null,
-    });
-    setTasks((prev) => [task, ...prev]);
-    return task;
+    try {
+      const task = await api.post<Task>("/tasks", {
+        source: "manual",
+        title,
+        description: description || null,
+      });
+      if (task) {
+        setTasks((prev) => [task, ...prev]);
+      }
+      return task;
+    } catch (err) {
+      console.error("[tasks] Failed to create task:", err);
+      throw err;
+    }
   }
 
   function closeTaskDetail() {
