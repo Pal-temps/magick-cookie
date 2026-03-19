@@ -47,6 +47,7 @@ function createMockArticleRepo(): Record<keyof RssArticleRepository, ReturnType<
     markAllRead: mock(() => Promise.resolve(0)),
     delete: mock(() => Promise.resolve(false)),
     countUnread: mock(() => Promise.resolve(0)),
+    deleteOlderThan: mock(() => Promise.resolve(0)),
   };
 }
 
@@ -167,5 +168,27 @@ describe("RssService", () => {
     const result = await service.syncAll();
     expect(result.total).toBe(0);
     expect(result.errors).toHaveLength(0);
+  });
+
+  // --- Cleanup ---
+  it("cleanupOldArticles deletes old non-starred articles", async () => {
+    articleRepo.deleteOlderThan.mockReturnValue(Promise.resolve(15));
+
+    const deleted = await service.cleanupOldArticles(90);
+
+    expect(deleted).toBe(15);
+    expect(articleRepo.deleteOlderThan).toHaveBeenCalledTimes(1);
+    // Verify the date is roughly 90 days ago
+    const calledDate = (articleRepo.deleteOlderThan as any).mock.calls[0][0] as Date;
+    const daysDiff = (Date.now() - calledDate.getTime()) / (1000 * 60 * 60 * 24);
+    expect(daysDiff).toBeGreaterThan(89);
+    expect(daysDiff).toBeLessThan(91);
+  });
+
+  it("cleanupOldArticles returns 0 when nothing to delete", async () => {
+    articleRepo.deleteOlderThan.mockReturnValue(Promise.resolve(0));
+
+    const deleted = await service.cleanupOldArticles(30);
+    expect(deleted).toBe(0);
   });
 });
