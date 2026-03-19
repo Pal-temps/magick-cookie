@@ -82,9 +82,17 @@ import { createMemoryTools } from "./application/agent/tools/memory.tools";
 import { GitExecAdapter } from "./infrastructure/adapters/git-exec.adapter";
 
 // Connectors
-import { ClickUpApiClient } from "./infrastructure/connectors/clickup-api.client";
 import { ImapConnector } from "./infrastructure/connectors/imap.connector";
 import { CalDavConnector } from "./infrastructure/connectors/caldav.connector";
+
+// Connector configs
+import { DrizzleConnectorConfigRepository } from "./infrastructure/repositories/connector-config.repository.impl";
+import { ConnectorConfigService } from "./application/connector-config/connector-config.service";
+import { GitHubSyncService } from "./application/connector/github-sync.service";
+import { GitLabSyncService } from "./application/connector/gitlab-sync.service";
+import { createConnectorConfigRoutes } from "./presentation/routes/connector-config.routes";
+import { startGitHubIssueSyncJob } from "./infrastructure/jobs/github-issue-sync.job";
+import { startGitLabSyncJob } from "./infrastructure/jobs/gitlab-sync.job";
 
 // SSE
 import { InMemoryReminderEmitter } from "./infrastructure/sse/reminder-emitter.impl";
@@ -165,6 +173,7 @@ const emailRuleRepo = new DrizzleEmailRuleRepository(db);
 const routineRepo = new DrizzleRoutineRepository(db);
 const webhookRepo = new DrizzleWebhookRepository(db);
 const userPreferencesRepo = new DrizzleUserPreferencesRepository(db);
+const connectorConfigRepo = new DrizzleConnectorConfigRepository(db);
 
 const calendarService = new CalendarService(calendarRepo);
 const eventService = new EventService(eventRepo, reminderRepo);
@@ -215,8 +224,10 @@ toolRegistry.registerAll(createProjectTools(projectService));
 toolRegistry.registerAll(createMemoryTools(agentMemoryRepo));
 const agentService = new AgentService(chatRepo, llmService, toolRegistry, agentMemoryRepo);
 
-const clickUpApiClient = new ClickUpApiClient(config.clickupApiToken);
-const clickUpSyncService = new ClickUpSyncService(clickUpApiClient, calendarService, eventRepo, taskRepo);
+const clickUpSyncService = new ClickUpSyncService(connectorConfigRepo, calendarService, eventRepo, taskRepo);
+const connectorConfigService = new ConnectorConfigService(connectorConfigRepo);
+const githubSyncService = new GitHubSyncService(connectorConfigRepo, calendarService, eventRepo, taskRepo);
+const gitlabSyncService = new GitLabSyncService(connectorConfigRepo, calendarService, eventRepo, taskRepo);
 
 const reminderEmitter = new InMemoryReminderEmitter();
 
@@ -237,8 +248,9 @@ app.route("/api/reminders", createReminderRoutes(reminderService));
 app.route("/api/events/:eventId/reminders", createEventReminderRoutes(reminderService));
 app.route("/api/sse", createSSERoutes(reminderEmitter));
 app.route("/api/contacts", createContactRoutes(contactService));
-app.route("/api/connectors", createConnectorRoutes(clickUpSyncService));
-app.route("/api/tasks", createTaskRoutes(taskService, clickUpApiClient));
+app.route("/api/connectors", createConnectorRoutes({ clickup: clickUpSyncService, github: githubSyncService, gitlab: gitlabSyncService }));
+app.route("/api/tasks", createTaskRoutes(taskService, connectorConfigRepo));
+app.route("/api/connector-configs", createConnectorConfigRoutes(connectorConfigService));
 app.route("/api/timer-sessions", createTimerSessionRoutes(timerSessionService));
 app.route("/api/wellness-configs", createWellnessConfigRoutes(wellnessConfigService));
 app.route("/api/wellness-logs", createWellnessLogRoutes(wellnessLogService));
@@ -287,6 +299,12 @@ startAgentScheduler({
   timerService: timerSessionService,
 });
 
+// Start GitHub issue sync job
+startGitHubIssueSyncJob(githubSyncService);
+
+// Start GitLab sync job
+startGitLabSyncJob(gitlabSyncService);
+
 // Start RSS sync job
 startRssSyncJob(rssService);
 
@@ -295,6 +313,16 @@ startCalDavSyncJob(caldavService);
 
 // Seed default wellness configs
 wellnessConfigService.seedDefaults().catch(console.error);
+
+// Migrate legacy ClickUp token from env to connector_configs
+if (config.clickupApiToken) {
+  connectorConfigRepo.findByType("clickup").then(async (existing) => {
+    if (!existing) {
+      await connectorConfigRepo.upsert({ type: "clickup", token: config.clickupApiToken, settings: {} });
+      console.log("[migration] ClickUp token migrated from env to connector_configs");
+    }
+  }).catch((err) => console.error("[migration] ClickUp token migration failed:", err));
+}
 
 export default {
   port: config.port,

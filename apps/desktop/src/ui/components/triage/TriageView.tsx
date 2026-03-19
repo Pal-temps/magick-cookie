@@ -1,9 +1,11 @@
 import { onMount, Show, For, createMemo, createSignal } from "solid-js";
 import { useTriageStore, type TriageStatus, type TriageSuggestion } from "../../../application/stores/triageStore";
 import { useTaskStore } from "../../../application/stores/taskStore";
-import type { Task } from "../../../domain/models/Task";
+import { useViewStore } from "../../../application/stores/viewStore";
+import type { Task, TaskSource } from "../../../domain/models/Task";
 import { SwipeCard } from "./SwipeCard";
 import { Button } from "../common/Button";
+import { openUrl } from "@tauri-apps/plugin-opener";
 
 // --- Module-level drag state (ephemeral, no persistence needed) ---
 const [activeDrag, setActiveDrag] = createSignal<{ id: string; name: string } | null>(null);
@@ -15,22 +17,33 @@ const [viewType, setViewType] = createSignal<"triage" | "kanban">("kanban");
 
 export function TriageView() {
   const triage = useTriageStore();
-  const { tasks: unscheduledTasks, fetchUnscheduledTasks, syncConnector, isSyncing, openTaskDetail } = useTaskStore();
+  const store = useTaskStore();
+  const { tasks: unscheduledTasks, fetchUnscheduledTasks, fetchConnectorConfigs, syncConnector, isSyncing, openTaskDetail, sourceFilter, setSourceFilter, isConnectorConfigured } = store;
 
   onMount(async () => {
-    await triage.fetchTriage();
+    await Promise.all([
+      triage.fetchTriage(),
+      fetchConnectorConfigs(),
+    ]);
     if (unscheduledTasks().length === 0) {
       await fetchUnscheduledTasks();
     }
   });
 
-  const priorityTasks = createMemo(() => triage.getTasksByStatus("priority", unscheduledTasks()));
-  const laterTasks = createMemo(() => triage.getTasksByStatus("later", unscheduledTasks()));
-  const archivedTasks = createMemo(() => triage.getTasksByStatus("archived", unscheduledTasks()));
-  const untriagedTasks = createMemo(() => triage.getUntriagedTasks(unscheduledTasks()));
+  // Filter tasks by active source tab
+  const filteredTasks = createMemo(() => {
+    const src = sourceFilter();
+    if (src === "all") return unscheduledTasks();
+    return unscheduledTasks().filter((t) => t.source === src);
+  });
+
+  const priorityTasks = createMemo(() => triage.getTasksByStatus("priority", filteredTasks()));
+  const laterTasks = createMemo(() => triage.getTasksByStatus("later", filteredTasks()));
+  const archivedTasks = createMemo(() => triage.getTasksByStatus("archived", filteredTasks()));
+  const untriagedTasks = createMemo(() => triage.getUntriagedTasks(filteredTasks()));
 
   function handleStartTriage() {
-    triage.startTriage(unscheduledTasks());
+    triage.startTriage(filteredTasks());
   }
 
   async function handleFinish() {
@@ -56,6 +69,11 @@ export function TriageView() {
     }
   }
 
+  function handleSourceChange(src: TaskSource | "all") {
+    setSourceFilter(src);
+    fetchUnscheduledTasks();
+  }
+
   return (
     <div style={{ height: "100%", display: "flex", "flex-direction": "column", overflow: "hidden" }} tabIndex={0} onKeyDown={handleKeyboard}>
       <Show when={triage.isTriaging()} fallback={
@@ -65,12 +83,15 @@ export function TriageView() {
             laterTasks={laterTasks()}
             archivedTasks={archivedTasks()}
             untriagedTasks={untriagedTasks()}
-            totalCount={unscheduledTasks().length}
+            totalCount={filteredTasks().length}
             onStartTriage={handleStartTriage}
-            onSync={() => syncConnector("clickup")}
+            onSync={syncConnector}
             isSyncing={isSyncing()}
             onClickTask={openTaskDetail}
             onMoveTask={(id, status) => triage.moveTask(id, status)}
+            sourceFilter={sourceFilter()}
+            onSourceFilterChange={handleSourceChange}
+            isConfigured={isConnectorConfigured(sourceFilter())}
           />
         }>
           <KanbanBoard
@@ -78,12 +99,15 @@ export function TriageView() {
             laterTasks={laterTasks()}
             archivedTasks={archivedTasks()}
             untriagedTasks={untriagedTasks()}
-            totalCount={unscheduledTasks().length}
+            totalCount={filteredTasks().length}
             onStartTriage={handleStartTriage}
-            onSync={() => syncConnector("clickup")}
+            onSync={syncConnector}
             isSyncing={isSyncing()}
             onClickTask={openTaskDetail}
             onMoveTask={handleMoveTask}
+            sourceFilter={sourceFilter()}
+            onSourceFilterChange={handleSourceChange}
+            isConfigured={isConnectorConfigured(sourceFilter())}
           />
         </Show>
       }>
@@ -192,6 +216,257 @@ function ViewToggle() {
   );
 }
 
+// --- Source Tabs ---
+
+const SOURCE_TABS: { key: TaskSource | "all"; label: string; icon: string }[] = [
+  { key: "all", label: "Tout", icon: "" },
+  { key: "clickup", label: "ClickUp", icon: "\u{1F4CB}" },
+  { key: "github", label: "GitHub", icon: "\u{1F419}" },
+  { key: "gitlab", label: "GitLab", icon: "\u{1F98A}" },
+  { key: "manual", label: "Manuel", icon: "\u{270F}" },
+];
+
+function SourceTabs(props: { active: TaskSource | "all"; onChange: (key: TaskSource | "all") => void }) {
+  return (
+    <div style={{
+      display: "flex",
+      gap: "0",
+      padding: "0 20px",
+      "flex-shrink": "0",
+      "border-bottom": "1px solid var(--border-color)",
+    }}>
+      <For each={SOURCE_TABS}>
+        {(tab) => (
+          <button
+            onClick={() => props.onChange(tab.key)}
+            style={{
+              padding: "8px 16px",
+              border: "none",
+              "border-bottom": props.active === tab.key ? "2px solid var(--accent-primary)" : "2px solid transparent",
+              background: "transparent",
+              color: props.active === tab.key ? "var(--text-primary)" : "var(--text-muted)",
+              "font-size": "12px",
+              "font-weight": props.active === tab.key ? "600" : "400",
+              cursor: "pointer",
+              transition: "color 0.15s, border-color 0.15s",
+              display: "flex",
+              "align-items": "center",
+              gap: "5px",
+            }}
+          >
+            <Show when={tab.icon}><span>{tab.icon}</span></Show>
+            {tab.label}
+          </button>
+        )}
+      </For>
+    </div>
+  );
+}
+
+// --- Connector Setup Guide (shown when connector is not configured) ---
+
+interface SetupStep {
+  text: string;
+  action?: { label: string; url?: string; goSettings?: boolean };
+}
+
+interface ConnectorSetupInfo {
+  title: string;
+  description: string;
+  steps: SetupStep[];
+}
+
+const CONNECTOR_SETUP: Record<string, ConnectorSetupInfo> = {
+  clickup: {
+    title: "Configurer ClickUp",
+    description: "Synchronisez vos taches ClickUp pour les voir dans le kanban.",
+    steps: [
+      {
+        text: "Generez un token API personnel sur ClickUp",
+        action: { label: "Ouvrir ClickUp Apps", url: "https://app.clickup.com/settings/apps" },
+      },
+      {
+        text: "Configurez le connecteur dans les parametres",
+        action: { label: "Ouvrir Parametres", goSettings: true },
+      },
+      { text: "Renseignez votre token et sauvegardez" },
+      { text: "Revenez ici et cliquez sur Sync" },
+    ],
+  },
+  github: {
+    title: "Configurer GitHub",
+    description: "Synchronisez vos Issues et Pull Requests GitHub.",
+    steps: [
+      {
+        text: "Creez un Personal Access Token (permissions : repo read)",
+        action: { label: "Ouvrir GitHub Tokens", url: "https://github.com/settings/tokens/new?scopes=repo&description=magick-cookie" },
+      },
+      {
+        text: "Configurez le connecteur dans les parametres",
+        action: { label: "Ouvrir Parametres", goSettings: true },
+      },
+      { text: "Renseignez votre token, nom d'utilisateur et les repos a surveiller" },
+      { text: "Activez la synchronisation des Issues et/ou Pull Requests" },
+      { text: "Revenez ici et cliquez sur Sync" },
+    ],
+  },
+  gitlab: {
+    title: "Configurer GitLab",
+    description: "Synchronisez vos Issues GitLab avec detection automatique des colonnes de board.",
+    steps: [
+      {
+        text: "Creez un Personal Access Token (scope : read_api)",
+        action: { label: "Ouvrir GitLab Tokens", url: "https://gitlab.com/-/user_settings/personal_access_tokens" },
+      },
+      {
+        text: "Configurez le connecteur dans les parametres",
+        action: { label: "Ouvrir Parametres", goSettings: true },
+      },
+      { text: "Renseignez votre token, l'URL de base et les IDs de projets" },
+      {
+        text: "L'ID du projet se trouve dans Settings > General sur GitLab",
+      },
+      { text: "Revenez ici et cliquez sur Sync" },
+    ],
+  },
+};
+
+const stepNumberStyle = {
+  width: "22px",
+  height: "22px",
+  "border-radius": "50%",
+  background: "var(--accent-primary)",
+  color: "var(--accent-primary-text, #fff)",
+  display: "flex",
+  "align-items": "center",
+  "justify-content": "center",
+  "font-size": "11px",
+  "font-weight": "700",
+  "flex-shrink": "0",
+};
+
+const stepActionBtnStyle = {
+  padding: "4px 10px",
+  "border-radius": "var(--radius-sm)",
+  border: "1px solid var(--border-color)",
+  background: "var(--bg-elevated)",
+  color: "var(--accent-primary)",
+  "font-size": "11px",
+  "font-weight": "500",
+  cursor: "pointer",
+  "white-space": "nowrap" as const,
+  "flex-shrink": "0",
+  display: "inline-flex",
+  "align-items": "center",
+  gap: "4px",
+};
+
+function ConnectorSetupGuide(props: { source: TaskSource }) {
+  const { setViewMode } = useViewStore();
+  const setup = () => CONNECTOR_SETUP[props.source];
+
+  function handleAction(action: NonNullable<SetupStep["action"]>) {
+    if (action.url) {
+      openUrl(action.url);
+    } else if (action.goSettings) {
+      setViewMode("settings");
+    }
+  }
+
+  return (
+    <Show when={setup()} fallback={
+      <div style={{ padding: "60px 20px", "text-align": "center" }}>
+        <div style={{ "font-size": "32px", "margin-bottom": "12px" }}>{"\u{270F}"}</div>
+        <h3 style={{ "font-size": "16px", "font-weight": "600", color: "var(--text-primary)", margin: "0 0 8px" }}>
+          Taches manuelles
+        </h3>
+        <p style={{ "font-size": "13px", color: "var(--text-muted)", "max-width": "400px", margin: "0 auto" }}>
+          Les taches manuelles sont creees directement dans l'application. Aucune configuration requise.
+        </p>
+      </div>
+    }>
+      {(s) => (
+        <div style={{
+          padding: "48px 20px",
+          display: "flex",
+          "flex-direction": "column",
+          "align-items": "center",
+          flex: "1",
+        }}>
+          <div style={{
+            "max-width": "500px",
+            width: "100%",
+            background: "var(--bg-surface)",
+            "border-radius": "var(--radius-md)",
+            border: "1px solid var(--border-color)",
+            padding: "28px 32px",
+          }}>
+            <div style={{ "font-size": "28px", "margin-bottom": "12px", "text-align": "center" }}>
+              {SOURCE_TABS.find((t) => t.key === props.source)?.icon || "\u{1F50C}"}
+            </div>
+            <h3 style={{
+              "font-size": "17px",
+              "font-weight": "600",
+              color: "var(--text-primary)",
+              margin: "0 0 6px",
+              "text-align": "center",
+            }}>
+              {s().title}
+            </h3>
+            <p style={{
+              "font-size": "13px",
+              color: "var(--text-muted)",
+              margin: "0 0 24px",
+              "text-align": "center",
+              "line-height": "1.5",
+            }}>
+              {s().description}
+            </p>
+
+            <div style={{
+              display: "flex",
+              "flex-direction": "column",
+              gap: "14px",
+            }}>
+              <For each={s().steps}>
+                {(step, i) => (
+                  <div style={{
+                    display: "flex",
+                    "align-items": "flex-start",
+                    gap: "12px",
+                  }}>
+                    <div style={stepNumberStyle}>{i() + 1}</div>
+                    <div style={{ flex: "1", "min-width": "0" }}>
+                      <div style={{
+                        "font-size": "13px",
+                        color: "var(--text-secondary)",
+                        "line-height": "1.5",
+                        "margin-bottom": step.action ? "6px" : "0",
+                      }}>
+                        {step.text}
+                      </div>
+                      <Show when={step.action}>
+                        {(action) => (
+                          <button
+                            onClick={() => handleAction(action())}
+                            style={stepActionBtnStyle}
+                          >
+                            {action().url ? "\u{2197}" : "\u{2699}"} {action().label}
+                          </button>
+                        )}
+                      </Show>
+                    </div>
+                  </div>
+                )}
+              </For>
+            </div>
+          </div>
+        </div>
+      )}
+    </Show>
+  );
+}
+
 // --- Kanban Board ---
 
 interface KanbanBoardProps {
@@ -201,10 +476,13 @@ interface KanbanBoardProps {
   untriagedTasks: Task[];
   totalCount: number;
   onStartTriage: () => void;
-  onSync: () => void;
+  onSync: (source?: string) => void;
   isSyncing: boolean;
   onClickTask: (task: Task) => void;
   onMoveTask: (taskId: string, newStatus: TriageStatus | "untriaged") => void;
+  sourceFilter: TaskSource | "all";
+  onSourceFilterChange: (source: TaskSource | "all") => void;
+  isConfigured: boolean;
 }
 
 function KanbanBoard(props: KanbanBoardProps) {
@@ -242,6 +520,23 @@ function KanbanBoard(props: KanbanBoardProps) {
     archived: "Archive",
   };
 
+  const syncLabel = () => {
+    const src = props.sourceFilter;
+    if (src === "all") return "Sync All";
+    if (src === "manual") return "Sync";
+    return `Sync ${SOURCE_TABS.find(t => t.key === src)?.label || ""}`;
+  };
+
+  function handleSync() {
+    const src = props.sourceFilter;
+    if (src === "all") {
+      // Sync all configured connectors sequentially
+      props.onSync("clickup");
+    } else if (src !== "manual") {
+      props.onSync(src);
+    }
+  }
+
   return (
     <div style={{ height: "100%", display: "flex", "flex-direction": "column", overflow: "hidden" }}>
       {/* Drag ghost */}
@@ -273,161 +568,174 @@ function KanbanBoard(props: KanbanBoardProps) {
         </div>
       </Show>
 
-      {/* Header bar */}
-      <div style={{
-        display: "flex",
-        "align-items": "center",
-        "justify-content": "space-between",
-        padding: "16px 20px 12px",
-        "flex-shrink": "0",
-      }}>
-        <div>
-          <h2 style={{ "font-size": "20px", "font-weight": "600", color: "var(--text-primary)", margin: "0" }}>Triage des taches</h2>
-          <p style={{ "font-size": "12px", color: "var(--text-muted)", "margin-top": "4px", margin: "4px 0 0 0" }}>
-            {props.totalCount} tache(s) au total — {props.untriagedTasks.length} non triee(s)
-          </p>
-        </div>
-        <div style={{ display: "flex", gap: "8px", "align-items": "center" }}>
-          <ViewToggle />
-          <Button size="sm" variant="secondary" onClick={handleAutoTriage} disabled={triage.suggestLoading()}>
-            {triage.suggestLoading() ? "Analyse..." : "Auto-triage (IA)"}
-          </Button>
-          <Button size="sm" variant="secondary" onClick={props.onSync} disabled={props.isSyncing}>
-            {props.isSyncing ? "..." : "Sync ClickUp"}
-          </Button>
-          <Button size="sm" variant="primary" onClick={props.onStartTriage}>
-            Trier &#10022; {props.untriagedTasks.length}
-          </Button>
-        </div>
-      </div>
+      {/* Source filter tabs */}
+      <SourceTabs active={props.sourceFilter} onChange={props.onSourceFilterChange} />
 
-      {/* Suggestions panel */}
-      <Show when={triage.suggestLoading()}>
-        <div style={{
-          background: "var(--bg-elevated)",
-          "border-radius": "var(--radius-md)",
-          border: "1px solid var(--border-color)",
-          padding: "16px",
-          margin: "0 20px 12px",
-          "text-align": "center",
-        }}>
-          <div style={{ "font-size": "14px", color: "var(--text-secondary)" }}>
-            L'IA analyse vos taches...
-          </div>
-        </div>
+      {/* Show setup guide if connector not configured */}
+      <Show when={!props.isConfigured && props.sourceFilter !== "all"}>
+        <ConnectorSetupGuide source={props.sourceFilter as TaskSource} />
       </Show>
 
-      <Show when={!triage.suggestLoading() && triage.suggestions().length > 0}>
+      {/* Show kanban when configured (or "all" tab) */}
+      <Show when={props.isConfigured || props.sourceFilter === "all"}>
+        {/* Header bar */}
         <div style={{
-          background: "var(--bg-elevated)",
-          "border-radius": "var(--radius-md)",
-          border: "1px solid var(--accent-primary)",
-          padding: "16px",
-          margin: "0 20px 12px",
+          display: "flex",
+          "align-items": "center",
+          "justify-content": "space-between",
+          padding: "16px 20px 12px",
+          "flex-shrink": "0",
         }}>
-          <div style={{ display: "flex", "align-items": "center", "justify-content": "space-between", "margin-bottom": "12px" }}>
-            <h3 style={{ margin: "0", "font-size": "14px", "font-weight": "600", color: "var(--text-primary)" }}>
-              Suggestions de l'IA ({triage.suggestions().length})
-            </h3>
-            <div style={{ display: "flex", gap: "6px" }}>
-              <Button size="sm" variant="primary" onClick={applyAllSuggestions}>
-                Appliquer tout
+          <div>
+            <h2 style={{ "font-size": "20px", "font-weight": "600", color: "var(--text-primary)", margin: "0" }}>Triage des taches</h2>
+            <p style={{ "font-size": "12px", color: "var(--text-muted)", "margin-top": "4px", margin: "4px 0 0 0" }}>
+              {props.totalCount} tache(s) au total — {props.untriagedTasks.length} non triee(s)
+            </p>
+          </div>
+          <div style={{ display: "flex", gap: "8px", "align-items": "center" }}>
+            <ViewToggle />
+            <Button size="sm" variant="secondary" onClick={handleAutoTriage} disabled={triage.suggestLoading()}>
+              {triage.suggestLoading() ? "Analyse..." : "Auto-triage (IA)"}
+            </Button>
+            <Show when={props.sourceFilter !== "manual"}>
+              <Button size="sm" variant="secondary" onClick={handleSync} disabled={props.isSyncing}>
+                {props.isSyncing ? "..." : syncLabel()}
               </Button>
-              <Button size="sm" variant="ghost" onClick={() => triage.clearSuggestions()}>
-                Ignorer
-              </Button>
+            </Show>
+            <Button size="sm" variant="primary" onClick={props.onStartTriage}>
+              Trier &#10022; {props.untriagedTasks.length}
+            </Button>
+          </div>
+        </div>
+
+        {/* Suggestions panel */}
+        <Show when={triage.suggestLoading()}>
+          <div style={{
+            background: "var(--bg-elevated)",
+            "border-radius": "var(--radius-md)",
+            border: "1px solid var(--border-color)",
+            padding: "16px",
+            margin: "0 20px 12px",
+            "text-align": "center",
+          }}>
+            <div style={{ "font-size": "14px", color: "var(--text-secondary)" }}>
+              L'IA analyse vos taches...
             </div>
           </div>
-          <div style={{ display: "flex", "flex-direction": "column", gap: "6px" }}>
-            <For each={triage.suggestions()}>
-              {(suggestion) => (
-                <div style={{
-                  display: "flex",
-                  "align-items": "center",
-                  gap: "10px",
-                  padding: "8px 12px",
-                  background: "var(--bg-surface)",
-                  "border-radius": "var(--radius-sm)",
-                  border: "1px solid var(--border-color)",
-                }}>
-                  <div style={{ flex: "1", "min-width": "0" }}>
-                    <div style={{
-                      "font-size": "12px",
-                      color: "var(--text-primary)",
-                      overflow: "hidden",
-                      "text-overflow": "ellipsis",
-                      "white-space": "nowrap",
-                    }}>
-                      {suggestion.taskTitle}
-                    </div>
-                    <div style={{ "font-size": "10px", color: "var(--text-muted)", "margin-top": "2px" }}>
-                      {suggestion.reason}
-                    </div>
-                  </div>
-                  <span style={{
-                    "font-size": "10px",
-                    padding: "2px 8px",
+        </Show>
+
+        <Show when={!triage.suggestLoading() && triage.suggestions().length > 0}>
+          <div style={{
+            background: "var(--bg-elevated)",
+            "border-radius": "var(--radius-md)",
+            border: "1px solid var(--accent-primary)",
+            padding: "16px",
+            margin: "0 20px 12px",
+          }}>
+            <div style={{ display: "flex", "align-items": "center", "justify-content": "space-between", "margin-bottom": "12px" }}>
+              <h3 style={{ margin: "0", "font-size": "14px", "font-weight": "600", color: "var(--text-primary)" }}>
+                Suggestions de l'IA ({triage.suggestions().length})
+              </h3>
+              <div style={{ display: "flex", gap: "6px" }}>
+                <Button size="sm" variant="primary" onClick={applyAllSuggestions}>
+                  Appliquer tout
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => triage.clearSuggestions()}>
+                  Ignorer
+                </Button>
+              </div>
+            </div>
+            <div style={{ display: "flex", "flex-direction": "column", gap: "6px" }}>
+              <For each={triage.suggestions()}>
+                {(suggestion) => (
+                  <div style={{
+                    display: "flex",
+                    "align-items": "center",
+                    gap: "10px",
+                    padding: "8px 12px",
+                    background: "var(--bg-surface)",
                     "border-radius": "var(--radius-sm)",
-                    background: statusColors[suggestion.suggestedStatus] || "var(--bg-elevated)",
-                    color: "#fff",
-                    "white-space": "nowrap",
-                    "flex-shrink": "0",
+                    border: "1px solid var(--border-color)",
                   }}>
-                    {statusLabels[suggestion.suggestedStatus] || suggestion.suggestedStatus}
-                  </span>
-                  <Button size="sm" variant="secondary" onClick={() => applySuggestion(suggestion)}>
-                    Appliquer
-                  </Button>
-                </div>
-              )}
-            </For>
+                    <div style={{ flex: "1", "min-width": "0" }}>
+                      <div style={{
+                        "font-size": "12px",
+                        color: "var(--text-primary)",
+                        overflow: "hidden",
+                        "text-overflow": "ellipsis",
+                        "white-space": "nowrap",
+                      }}>
+                        {suggestion.taskTitle}
+                      </div>
+                      <div style={{ "font-size": "10px", color: "var(--text-muted)", "margin-top": "2px" }}>
+                        {suggestion.reason}
+                      </div>
+                    </div>
+                    <span style={{
+                      "font-size": "10px",
+                      padding: "2px 8px",
+                      "border-radius": "var(--radius-sm)",
+                      background: statusColors[suggestion.suggestedStatus] || "var(--bg-elevated)",
+                      color: "#fff",
+                      "white-space": "nowrap",
+                      "flex-shrink": "0",
+                    }}>
+                      {statusLabels[suggestion.suggestedStatus] || suggestion.suggestedStatus}
+                    </span>
+                    <Button size="sm" variant="secondary" onClick={() => applySuggestion(suggestion)}>
+                      Appliquer
+                    </Button>
+                  </div>
+                )}
+              </For>
+            </div>
           </div>
+        </Show>
+
+        {/* 4-column Kanban board */}
+        <div style={{
+          flex: "1",
+          display: "grid",
+          "grid-template-columns": "1fr 1fr 1fr 1fr",
+          gap: "12px",
+          padding: "0 20px 20px",
+          "min-height": "0",
+          overflow: "hidden",
+        }}>
+          <KanbanColumn
+            title="Non trie"
+            status="untriaged"
+            color="#6b7280"
+            tasks={props.untriagedTasks}
+            onClickTask={props.onClickTask}
+            onMoveTask={props.onMoveTask}
+          />
+          <KanbanColumn
+            title="Prioritaire"
+            status="priority"
+            color="#ef4444"
+            tasks={props.priorityTasks}
+            onClickTask={props.onClickTask}
+            onMoveTask={props.onMoveTask}
+          />
+          <KanbanColumn
+            title="Plus tard"
+            status="later"
+            color="#3b82f6"
+            tasks={props.laterTasks}
+            onClickTask={props.onClickTask}
+            onMoveTask={props.onMoveTask}
+          />
+          <KanbanColumn
+            title="Archive"
+            status="archived"
+            color="#8b5cf6"
+            tasks={props.archivedTasks}
+            onClickTask={props.onClickTask}
+            onMoveTask={props.onMoveTask}
+          />
         </div>
       </Show>
-
-      {/* 4-column Kanban board */}
-      <div style={{
-        flex: "1",
-        display: "grid",
-        "grid-template-columns": "1fr 1fr 1fr 1fr",
-        gap: "12px",
-        padding: "0 20px 20px",
-        "min-height": "0",
-        overflow: "hidden",
-      }}>
-        <KanbanColumn
-          title="Non trie"
-          status="untriaged"
-          color="#6b7280"
-          tasks={props.untriagedTasks}
-          onClickTask={props.onClickTask}
-          onMoveTask={props.onMoveTask}
-        />
-        <KanbanColumn
-          title="Prioritaire"
-          status="priority"
-          color="#ef4444"
-          tasks={props.priorityTasks}
-          onClickTask={props.onClickTask}
-          onMoveTask={props.onMoveTask}
-        />
-        <KanbanColumn
-          title="Plus tard"
-          status="later"
-          color="#3b82f6"
-          tasks={props.laterTasks}
-          onClickTask={props.onClickTask}
-          onMoveTask={props.onMoveTask}
-        />
-        <KanbanColumn
-          title="Archive"
-          status="archived"
-          color="#8b5cf6"
-          tasks={props.archivedTasks}
-          onClickTask={props.onClickTask}
-          onMoveTask={props.onMoveTask}
-        />
-      </div>
     </div>
   );
 }
@@ -512,6 +820,8 @@ function KanbanColumn(props: KanbanColumnProps) {
 const sourceIcons: Record<string, string> = {
   clickup: "\u{1F4CB}",
   manual: "\u{270F}",
+  github: "\u{1F419}",
+  gitlab: "\u{1F98A}",
 };
 
 const priorityColors: Record<string, string> = {
@@ -662,10 +972,13 @@ interface TriageDashboardProps {
   untriagedTasks: Task[];
   totalCount: number;
   onStartTriage: () => void;
-  onSync: () => void;
+  onSync: (source?: string) => void;
   isSyncing: boolean;
   onClickTask: (task: Task) => void;
   onMoveTask: (taskId: string, newStatus: TriageStatus) => void;
+  sourceFilter: TaskSource | "all";
+  onSourceFilterChange: (source: TaskSource | "all") => void;
+  isConfigured: boolean;
 }
 
 function TriageDashboard(props: TriageDashboardProps) {
@@ -704,178 +1017,196 @@ function TriageDashboard(props: TriageDashboardProps) {
   };
 
   return (
-    <div style={{ height: "100%", "overflow-y": "auto", padding: "20px", position: "relative" }}>
-      {/* Drag ghost */}
-      <Show when={activeDrag()}>
-        <div
-          id="triage-ghost"
-          style={{
-            position: "fixed",
-            left: ghostPos().x + "px",
-            top: ghostPos().y + "px",
-            transform: "translate(-50%, -50%) rotate(2deg)",
-            background: "var(--bg-elevated)",
-            border: "1px solid var(--border-color)",
-            "border-radius": "var(--radius-sm)",
-            padding: "6px 12px",
-            "font-size": "12px",
-            color: "var(--text-primary)",
-            "pointer-events": "none",
-            "z-index": "9999",
-            "box-shadow": "0 4px 16px rgba(0,0,0,0.3)",
-            "max-width": "200px",
-            "white-space": "nowrap",
-            overflow: "hidden",
-            "text-overflow": "ellipsis",
-            opacity: "0.95",
-          }}
-        >
-          {activeDrag()!.name}
-        </div>
+    <div style={{ height: "100%", display: "flex", "flex-direction": "column", overflow: "hidden" }}>
+      {/* Source filter tabs */}
+      <SourceTabs active={props.sourceFilter} onChange={props.onSourceFilterChange} />
+
+      {/* Show setup guide if connector not configured */}
+      <Show when={!props.isConfigured && props.sourceFilter !== "all"}>
+        <ConnectorSetupGuide source={props.sourceFilter as TaskSource} />
       </Show>
 
-      {/* Header */}
-      <div style={{ display: "flex", "align-items": "center", "justify-content": "space-between", "margin-bottom": "20px" }}>
-        <div>
-          <h2 style={{ "font-size": "20px", "font-weight": "600", color: "var(--text-primary)" }}>Triage des taches</h2>
-          <p style={{ "font-size": "12px", color: "var(--text-muted)", "margin-top": "4px" }}>
-            {props.totalCount} tache(s) au total — {props.untriagedTasks.length} non triee(s)
-          </p>
-        </div>
-        <div style={{ display: "flex", gap: "8px", "align-items": "center" }}>
-          <ViewToggle />
-          <Button size="sm" variant="secondary" onClick={handleAutoTriage} disabled={triage.suggestLoading()}>
-            {triage.suggestLoading() ? "Analyse en cours..." : "Auto-triage (IA)"}
-          </Button>
-          <Button size="sm" variant="secondary" onClick={props.onSync} disabled={props.isSyncing}>
-            {props.isSyncing ? "..." : "Sync ClickUp"}
-          </Button>
-        </div>
-      </div>
+      <Show when={props.isConfigured || props.sourceFilter === "all"}>
+        <div style={{ flex: "1", "overflow-y": "auto", padding: "20px", position: "relative" }}>
+          {/* Drag ghost */}
+          <Show when={activeDrag()}>
+            <div
+              id="triage-ghost"
+              style={{
+                position: "fixed",
+                left: ghostPos().x + "px",
+                top: ghostPos().y + "px",
+                transform: "translate(-50%, -50%) rotate(2deg)",
+                background: "var(--bg-elevated)",
+                border: "1px solid var(--border-color)",
+                "border-radius": "var(--radius-sm)",
+                padding: "6px 12px",
+                "font-size": "12px",
+                color: "var(--text-primary)",
+                "pointer-events": "none",
+                "z-index": "9999",
+                "box-shadow": "0 4px 16px rgba(0,0,0,0.3)",
+                "max-width": "200px",
+                "white-space": "nowrap",
+                overflow: "hidden",
+                "text-overflow": "ellipsis",
+                opacity: "0.95",
+              }}
+            >
+              {activeDrag()!.name}
+            </div>
+          </Show>
 
-      {/* Suggestions panel */}
-      <Show when={triage.suggestLoading()}>
-        <div style={{
-          background: "var(--bg-elevated)",
-          "border-radius": "var(--radius-md)",
-          border: "1px solid var(--border-color)",
-          padding: "20px",
-          "margin-bottom": "20px",
-          "text-align": "center",
-        }}>
-          <div style={{ "font-size": "14px", color: "var(--text-secondary)", "margin-bottom": "4px" }}>
-            L'IA analyse vos taches...
-          </div>
-          <div style={{ "font-size": "11px", color: "var(--text-muted)" }}>
-            Cela peut prendre quelques secondes
-          </div>
-        </div>
-      </Show>
-
-      <Show when={!triage.suggestLoading() && triage.suggestions().length > 0}>
-        <div style={{
-          background: "var(--bg-elevated)",
-          "border-radius": "var(--radius-md)",
-          border: "1px solid var(--accent-primary)",
-          padding: "16px",
-          "margin-bottom": "20px",
-        }}>
-          <div style={{ display: "flex", "align-items": "center", "justify-content": "space-between", "margin-bottom": "12px" }}>
-            <h3 style={{ margin: "0", "font-size": "14px", "font-weight": "600", color: "var(--text-primary)" }}>
-              Suggestions de l'IA ({triage.suggestions().length})
-            </h3>
-            <div style={{ display: "flex", gap: "6px" }}>
-              <Button size="sm" variant="primary" onClick={applyAllSuggestions}>
-                Appliquer tout
+          {/* Header */}
+          <div style={{ display: "flex", "align-items": "center", "justify-content": "space-between", "margin-bottom": "20px" }}>
+            <div>
+              <h2 style={{ "font-size": "20px", "font-weight": "600", color: "var(--text-primary)" }}>Triage des taches</h2>
+              <p style={{ "font-size": "12px", color: "var(--text-muted)", "margin-top": "4px" }}>
+                {props.totalCount} tache(s) au total — {props.untriagedTasks.length} non triee(s)
+              </p>
+            </div>
+            <div style={{ display: "flex", gap: "8px", "align-items": "center" }}>
+              <ViewToggle />
+              <Button size="sm" variant="secondary" onClick={handleAutoTriage} disabled={triage.suggestLoading()}>
+                {triage.suggestLoading() ? "Analyse en cours..." : "Auto-triage (IA)"}
               </Button>
-              <Button size="sm" variant="ghost" onClick={() => triage.clearSuggestions()}>
-                Ignorer
-              </Button>
+              <Show when={props.sourceFilter !== "manual"}>
+                <Button size="sm" variant="secondary" onClick={() => {
+                  const src = props.sourceFilter;
+                  if (src === "all") props.onSync("clickup");
+                  else props.onSync(src);
+                }} disabled={props.isSyncing}>
+                  {props.isSyncing ? "..." : "Sync"}
+                </Button>
+              </Show>
             </div>
           </div>
-          <div style={{ display: "flex", "flex-direction": "column", gap: "6px" }}>
-            <For each={triage.suggestions()}>
-              {(suggestion) => (
-                <div style={{
-                  display: "flex",
-                  "align-items": "center",
-                  gap: "10px",
-                  padding: "8px 12px",
-                  background: "var(--bg-surface)",
-                  "border-radius": "var(--radius-sm)",
-                  border: "1px solid var(--border-color)",
-                }}>
-                  <div style={{ flex: "1", "min-width": "0" }}>
-                    <div style={{
-                      "font-size": "12px",
-                      color: "var(--text-primary)",
-                      overflow: "hidden",
-                      "text-overflow": "ellipsis",
-                      "white-space": "nowrap",
-                    }}>
-                      {suggestion.taskTitle}
-                    </div>
-                    <div style={{ "font-size": "10px", color: "var(--text-muted)", "margin-top": "2px" }}>
-                      {suggestion.reason}
-                    </div>
-                  </div>
-                  <span style={{
-                    "font-size": "10px",
-                    padding: "2px 8px",
-                    "border-radius": "var(--radius-sm)",
-                    background: statusColors[suggestion.suggestedStatus] || "var(--bg-elevated)",
-                    color: "#fff",
-                    "white-space": "nowrap",
-                    "flex-shrink": "0",
-                  }}>
-                    {statusLabels[suggestion.suggestedStatus] || suggestion.suggestedStatus}
-                  </span>
-                  <Button size="sm" variant="secondary" onClick={() => applySuggestion(suggestion)}>
-                    Appliquer
+
+          {/* Suggestions panel */}
+          <Show when={triage.suggestLoading()}>
+            <div style={{
+              background: "var(--bg-elevated)",
+              "border-radius": "var(--radius-md)",
+              border: "1px solid var(--border-color)",
+              padding: "20px",
+              "margin-bottom": "20px",
+              "text-align": "center",
+            }}>
+              <div style={{ "font-size": "14px", color: "var(--text-secondary)", "margin-bottom": "4px" }}>
+                L'IA analyse vos taches...
+              </div>
+              <div style={{ "font-size": "11px", color: "var(--text-muted)" }}>
+                Cela peut prendre quelques secondes
+              </div>
+            </div>
+          </Show>
+
+          <Show when={!triage.suggestLoading() && triage.suggestions().length > 0}>
+            <div style={{
+              background: "var(--bg-elevated)",
+              "border-radius": "var(--radius-md)",
+              border: "1px solid var(--accent-primary)",
+              padding: "16px",
+              "margin-bottom": "20px",
+            }}>
+              <div style={{ display: "flex", "align-items": "center", "justify-content": "space-between", "margin-bottom": "12px" }}>
+                <h3 style={{ margin: "0", "font-size": "14px", "font-weight": "600", color: "var(--text-primary)" }}>
+                  Suggestions de l'IA ({triage.suggestions().length})
+                </h3>
+                <div style={{ display: "flex", gap: "6px" }}>
+                  <Button size="sm" variant="primary" onClick={applyAllSuggestions}>
+                    Appliquer tout
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => triage.clearSuggestions()}>
+                    Ignorer
                   </Button>
                 </div>
-              )}
-            </For>
+              </div>
+              <div style={{ display: "flex", "flex-direction": "column", gap: "6px" }}>
+                <For each={triage.suggestions()}>
+                  {(suggestion) => (
+                    <div style={{
+                      display: "flex",
+                      "align-items": "center",
+                      gap: "10px",
+                      padding: "8px 12px",
+                      background: "var(--bg-surface)",
+                      "border-radius": "var(--radius-sm)",
+                      border: "1px solid var(--border-color)",
+                    }}>
+                      <div style={{ flex: "1", "min-width": "0" }}>
+                        <div style={{
+                          "font-size": "12px",
+                          color: "var(--text-primary)",
+                          overflow: "hidden",
+                          "text-overflow": "ellipsis",
+                          "white-space": "nowrap",
+                        }}>
+                          {suggestion.taskTitle}
+                        </div>
+                        <div style={{ "font-size": "10px", color: "var(--text-muted)", "margin-top": "2px" }}>
+                          {suggestion.reason}
+                        </div>
+                      </div>
+                      <span style={{
+                        "font-size": "10px",
+                        padding: "2px 8px",
+                        "border-radius": "var(--radius-sm)",
+                        background: statusColors[suggestion.suggestedStatus] || "var(--bg-elevated)",
+                        color: "#fff",
+                        "white-space": "nowrap",
+                        "flex-shrink": "0",
+                      }}>
+                        {statusLabels[suggestion.suggestedStatus] || suggestion.suggestedStatus}
+                      </span>
+                      <Button size="sm" variant="secondary" onClick={() => applySuggestion(suggestion)}>
+                        Appliquer
+                      </Button>
+                    </div>
+                  )}
+                </For>
+              </div>
+            </div>
+          </Show>
+
+          {/* Columns */}
+          <div style={{ display: "grid", "grid-template-columns": "1fr 1fr 1fr", gap: "16px" }}>
+            <TaskColumn
+              title="Prioritaire"
+              status="priority"
+              color="#ef4444"
+              tasks={props.priorityTasks}
+              onClickTask={props.onClickTask}
+              onMoveTask={props.onMoveTask}
+            />
+            <TaskColumn
+              title="Plus tard"
+              status="later"
+              color="#3b82f6"
+              tasks={props.laterTasks}
+              onClickTask={props.onClickTask}
+              onMoveTask={props.onMoveTask}
+            />
+            <TaskColumn
+              title="Archive"
+              status="archived"
+              color="#8b5cf6"
+              tasks={props.archivedTasks}
+              onClickTask={props.onClickTask}
+              onMoveTask={props.onMoveTask}
+            />
           </div>
+
+          {/* Untriaged section */}
+          <Show when={props.untriagedTasks.length > 0}>
+            <UntriagedSection
+              tasks={props.untriagedTasks}
+              onClickTask={props.onClickTask}
+              onStartTriage={props.onStartTriage}
+              onMoveTask={props.onMoveTask}
+            />
+          </Show>
         </div>
-      </Show>
-
-      {/* Columns */}
-      <div style={{ display: "grid", "grid-template-columns": "1fr 1fr 1fr", gap: "16px" }}>
-        <TaskColumn
-          title="Prioritaire"
-          status="priority"
-          color="#ef4444"
-          tasks={props.priorityTasks}
-          onClickTask={props.onClickTask}
-          onMoveTask={props.onMoveTask}
-        />
-        <TaskColumn
-          title="Plus tard"
-          status="later"
-          color="#3b82f6"
-          tasks={props.laterTasks}
-          onClickTask={props.onClickTask}
-          onMoveTask={props.onMoveTask}
-        />
-        <TaskColumn
-          title="Archive"
-          status="archived"
-          color="#8b5cf6"
-          tasks={props.archivedTasks}
-          onClickTask={props.onClickTask}
-          onMoveTask={props.onMoveTask}
-        />
-      </div>
-
-      {/* Untriaged section */}
-      <Show when={props.untriagedTasks.length > 0}>
-        <UntriagedSection
-          tasks={props.untriagedTasks}
-          onClickTask={props.onClickTask}
-          onStartTriage={props.onStartTriage}
-          onMoveTask={props.onMoveTask}
-        />
       </Show>
     </div>
   );

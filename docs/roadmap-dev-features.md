@@ -931,6 +931,90 @@ Phase 4 polish egalement complete :
 
 ---
 
+## Sprint 14 — Multi-Connector Kanban (GitHub Issues+PRs, GitLab Issues+Boards) ✅
+
+**Objectif :** Remplacer le mono-connecteur ClickUp par un systeme multi-connecteur generique (ClickUp + GitHub + GitLab), avec tabs de filtrage dans le kanban et guide de setup integre.
+
+### 14.1 — Table connector_configs + migration ClickUp ✅
+
+- Nouvelle table `connector_configs` (type unique, token, settings JSON, enabled)
+- Domain entity/repository/service/routes/validator complets
+- Migration automatique du token ClickUp (env → connector_configs) au boot
+- `ClickUpSyncService` lit desormais le token depuis la DB
+- Migration `0027_connector_configs.sql`
+
+### 14.2 — Connecteur GitHub (Issues + PRs) ✅
+
+- `GitHubApiClient` : fetchIssues, fetchPRsAsIssues, fetchIssueDetail, fetchIssueComments
+- `GitHubSyncService` : sync issues/PRs → tasks table, events calendrier pour les milestones
+- ExternalId format : `owner/repo#123`
+- Background sync job toutes les 5 min
+- Detail dispatch dans task.routes (description + comments via API GitHub)
+
+### 14.3 — Connecteur GitLab (Issues + Boards) ✅
+
+- `GitLabApiClient` : fetchIssues (avec detection colonnes board), fetchIssueDetail, fetchIssueNotes
+- `GitLabSyncService` : sync issues → tasks, board column deduite des labels
+- ExternalId format : `project:123#iid:456`
+- Background sync job toutes les 5 min
+- Support self-hosted (baseUrl configurable)
+
+### 14.4 — Routes refactor + wiring ✅
+
+- `connector.routes.ts` : dispatch multi-source `POST /:source/sync`
+- `task.routes.ts` : detail dispatch par source (clickup/github/gitlab/manual), clients instancies a la volee depuis connector_configs
+- `index.ts` : wiring complet des 3 sync services + background jobs
+
+### 14.5 — Frontend : Tabs source + filtrage ✅
+
+- `taskStore` : signal `sourceFilter`, `configuredConnectors`, `fetchConnectorConfigs()`
+- `TriageView` : barre de tabs horizontale (Tout | ClickUp | GitHub | GitLab | Manuel)
+- Filtrage client-side des taches par source active
+- Source icons dans les KanbanCards (clipboard, octopus, fox, pencil)
+- Bouton Sync dynamique selon l'onglet actif
+- `TaskDetail` : titre modal et bouton "Ouvrir dans X" dynamiques par source
+
+### 14.6 — Guide de setup connecteurs ✅
+
+- Quand un onglet non configure est selectionne → guide etape par etape
+- Boutons d'action par etape : liens externes (GitHub tokens, GitLab tokens, ClickUp apps) + navigation vers Parametres
+- `ConnectorSettings.tsx` : page settings dediee avec cards ClickUp/GitHub/GitLab (token, settings specifiques, test, save, delete)
+
+**Fichiers crees (16) :**
+- `api/src/domain/connector-config/connector-config.entity.ts`
+- `api/src/domain/connector-config/connector-config.repository.ts`
+- `api/src/infrastructure/repositories/connector-config.repository.impl.ts`
+- `api/src/application/connector-config/connector-config.service.ts`
+- `api/src/presentation/routes/connector-config.routes.ts`
+- `api/src/presentation/validators/connector-config.validator.ts`
+- `api/src/infrastructure/connectors/github-api.client.ts`
+- `api/src/infrastructure/connectors/gitlab-api.client.ts`
+- `api/src/application/connector/github-sync.service.ts`
+- `api/src/application/connector/gitlab-sync.service.ts`
+- `api/src/infrastructure/jobs/github-issue-sync.job.ts`
+- `api/src/infrastructure/jobs/gitlab-sync.job.ts`
+- `api/drizzle/0027_connector_configs.sql`
+- `desktop/src/ui/components/settings/ConnectorSettings.tsx`
+- `api/src/__tests__/unit/connector-config.service.test.ts`
+- `api/src/__tests__/unit/connector-config.validator.test.ts`
+
+**Fichiers modifies (10) :**
+- `api/src/infrastructure/database/schema.ts` — table connector_configs
+- `api/src/domain/task/task.entity.ts` — TaskSource += github, gitlab
+- `api/src/application/connector/clickup-sync.service.ts` — lit token depuis connector_configs
+- `api/src/presentation/routes/connector.routes.ts` — multi-source dispatch
+- `api/src/presentation/routes/task.routes.ts` — detail dispatch multi-source
+- `api/src/index.ts` — wiring + migration auto token ClickUp
+- `desktop/src/domain/models/Task.ts` — TaskSource += github, gitlab
+- `desktop/src/application/stores/taskStore.ts` — sourceFilter + configuredConnectors
+- `desktop/src/ui/components/triage/TriageView.tsx` — tabs + setup guide + filtrage
+- `desktop/src/ui/components/tasks/TaskDetail.tsx` — labels dynamiques
+- `desktop/src/ui/components/settings/SettingsView.tsx` — tab Connecteurs
+
+**Tests :** 498+ tests (service + validator + sync)
+
+---
+
 ## Notes techniques
 
 - **Plugins Tauri requis** : `tauri-plugin-global-shortcut` (sprints 2), `tauri-plugin-clipboard-manager` (sprint 4)

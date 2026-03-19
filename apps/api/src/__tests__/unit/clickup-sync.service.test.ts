@@ -83,6 +83,13 @@ function createMocks() {
     fetchAllTasks: mock(() => Promise.resolve([] as ClickUpTask[])),
   };
 
+  const mockConnectorConfigRepo = {
+    findByType: mock(() => Promise.resolve(null)),
+    findAll: mock(() => Promise.resolve([])),
+    upsert: mock(() => Promise.resolve(null)),
+    delete: mock(() => Promise.resolve()),
+  };
+
   const mockCalendarService = {
     getAll: mock(() => Promise.resolve([] as Calendar[])),
     create: mock((input: any) => Promise.resolve(makeCalendar(input))),
@@ -116,14 +123,16 @@ function createMocks() {
     delete: mock(() => Promise.resolve(true)),
   };
 
+  // Pass mockApiClient as the 5th arg (clientOverride) so the service uses it directly
   const service = new ClickUpSyncService(
-    mockApiClient as any,
+    mockConnectorConfigRepo as any,
     mockCalendarService as any,
     mockEventRepo as any,
     mockTaskRepo as any,
+    mockApiClient as any,
   );
 
-  return { service, mockApiClient, mockCalendarService, mockEventRepo, mockTaskRepo };
+  return { service, mockApiClient, mockConnectorConfigRepo, mockCalendarService, mockEventRepo, mockTaskRepo };
 }
 
 // --- Tests ---
@@ -294,5 +303,29 @@ describe("ClickUpSyncService", () => {
     expect(arg.endAt).toEqual(dueDate);
     const expectedStart = new Date(dueDate.getTime() - 60 * 60 * 1000);
     expect(arg.startAt).toEqual(expectedStart);
+  });
+
+  it("should throw if connector not configured and no client override", async () => {
+    const mockConnectorConfigRepo = {
+      findByType: mock(() => Promise.resolve(null)),
+      findAll: mock(() => Promise.resolve([])),
+      upsert: mock(() => Promise.resolve(null)),
+      delete: mock(() => Promise.resolve()),
+    };
+
+    // No clientOverride → service must read from connectorConfigRepo
+    const service = new ClickUpSyncService(
+      mockConnectorConfigRepo as any,
+      {} as any,
+      {} as any,
+      {} as any,
+    );
+
+    try {
+      await service.sync();
+      expect(true).toBe(false); // should not reach
+    } catch (e: any) {
+      expect(e.message).toContain("not configured");
+    }
   });
 });

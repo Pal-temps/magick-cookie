@@ -1,4 +1,5 @@
-import type { ClickUpApiClient } from "../../infrastructure/connectors/clickup-api.client";
+import { ClickUpApiClient } from "../../infrastructure/connectors/clickup-api.client";
+import type { ConnectorConfigRepository } from "../../domain/connector-config/connector-config.repository";
 import type { CalendarService } from "../calendar/calendar.service";
 import type { EventRepository } from "../../domain/event/event.repository";
 import type { TaskRepository } from "../../domain/task/task.repository";
@@ -8,16 +9,33 @@ const CLICKUP_CALENDAR_NAME = "ClickUp";
 const CLICKUP_CALENDAR_COLOR = "#7B68EE";
 
 export class ClickUpSyncService {
+  private clientOverride?: ClickUpApiClient;
+
   constructor(
-    private clickUpClient: ClickUpApiClient,
+    private connectorConfigRepo: ConnectorConfigRepository,
     private calendarService: CalendarService,
     private eventRepo: EventRepository,
     private taskRepo: TaskRepository,
-  ) {}
+    clientOverride?: ClickUpApiClient,
+  ) {
+    this.clientOverride = clientOverride;
+  }
 
   async sync(): Promise<{ eventsCreated: number; eventsUpdated: number; tasksUpserted: number }> {
+    let clickUpClient: ClickUpApiClient;
+
+    if (this.clientOverride) {
+      clickUpClient = this.clientOverride;
+    } else {
+      const config = await this.connectorConfigRepo.findByType("clickup");
+      if (!config || !config.enabled) {
+        throw new Error("ClickUp connector not configured or disabled");
+      }
+      clickUpClient = new ClickUpApiClient(config.token);
+    }
+
     // 1. Fetch all tasks from ClickUp
-    const allTasks = await this.clickUpClient.fetchAllTasks();
+    const allTasks = await clickUpClient.fetchAllTasks();
 
     // 2. Ensure ClickUp calendar exists
     const calendar = await this.ensureClickUpCalendar();

@@ -320,6 +320,8 @@ POST   /api/rss/feeds/sync           # Forcer un sync manuel
 5. ✅ Resume email par IA (Phase 1-4) — DONE (cache + classification auto)
 6. ✅ Flux RSS (Phase 1-4)            — DONE (rss-parser + sync 15min + RssView)
 
+7. ✅ Multi-Connector Kanban             — DONE (GitHub Issues+PRs, GitLab Issues+Boards, connector_configs generique)
+
 Toutes les phases sont completees ✅
 ```
 
@@ -334,3 +336,4 @@ Toutes les phases sont completees ✅
 - **Bookmark tags** : les tags de bookmarks sont dynamiques, stockes en DB (table `bookmark_tags` avec `value`, `label`, `sortOrder`), gerees via un CRUD dans les settings — pas de tags hardcodes
 - **Bookmark categories** : les categories de bookmarks sont dynamiques, stockees en DB (table `bookmark_categories`, 8 defaults : Design, Composants, Open Source, Documentation, DevOps, Outils, Veille, API), gerees via le meme settings panel que les tags
 - **Email classification** : les categories (`newsletter`, `facture`, `action_requise`, `personnel`, `notification`, `autre`) sont classifiees automatiquement par le LLM et cachees en DB (`summary` + `classification` dans la table `emails`)
+- **Calendrier interactif** : clic sur cellules vides pour creer events/alarmes, alarmes affichees comme pseudo-events avec badge distinct, generation d'events par IA via LLM (`POST /api/llm/generate-events`)

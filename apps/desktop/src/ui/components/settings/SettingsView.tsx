@@ -14,8 +14,9 @@ import { EmailRuleSettings } from "./EmailRuleSettings";
 import { HabitSettings } from "./HabitSettings";
 import { ShortcutSettings } from "./ShortcutSettings";
 import { DataSettings } from "./DataSettings";
+import { ConnectorSettings } from "./ConnectorSettings";
 
-type SettingsTab = "theme" | "llm" | "focus" | "github" | "brief" | "vps" | "bookmarks" | "projects" | "routines" | "webhooks" | "caldav" | "email-rules" | "habits" | "shortcuts" | "data";
+type SettingsTab = "theme" | "llm" | "focus" | "connectors" | "github" | "brief" | "vps" | "bookmarks" | "projects" | "routines" | "webhooks" | "caldav" | "email-rules" | "habits" | "shortcuts" | "data";
 
 export function SettingsView() {
   const [tab, setTab] = createSignal<SettingsTab>("theme");
@@ -33,6 +34,7 @@ export function SettingsView() {
     { id: "routines", label: "Routines" },
     { id: "webhooks", label: "Webhooks" },
     { id: "shortcuts", label: "Raccourcis" },
+    { id: "connectors", label: "Connecteurs" },
     { id: "github", label: "GitHub" },
     { id: "vps", label: "VPS" },
     { id: "data", label: "Donnees" },
@@ -98,6 +100,9 @@ export function SettingsView() {
         </Show>
         <Show when={tab() === "projects"}>
           <ProjectSettings />
+        </Show>
+        <Show when={tab() === "connectors"}>
+          <ConnectorSettings />
         </Show>
         <Show when={tab() === "github"}>
           <GitHubSettings />

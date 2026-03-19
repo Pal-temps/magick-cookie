@@ -1,5 +1,8 @@
 # Spec Mobile — Connecteur ClickUp
 
+> **Note :** Ce connecteur fait desormais partie du systeme multi-connecteur generique. Voir [connecteur-multi.md](connecteur-multi.md) pour l'architecture complete (connector_configs, tabs filtrage, GitHub/GitLab).
+> Les endpoints ci-dessous restent valides mais le token est desormais stocke dans `connector_configs` (type="clickup") au lieu d'une variable d'environnement.
+
 ## Endpoints API
 
 | Methode | Route | Description |

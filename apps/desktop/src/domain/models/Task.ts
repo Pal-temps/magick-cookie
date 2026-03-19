@@ -1,4 +1,4 @@
-export type TaskSource = "clickup" | "manual";
+export type TaskSource = "clickup" | "github" | "gitlab" | "manual";
 
 export interface Task {
   id: string;

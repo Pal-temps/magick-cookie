@@ -16,6 +16,7 @@ Documentation des specifications pour l'application mobile Android (Kotlin).
 10. **[llm-integration.md](llm-integration.md)** — Configuration LLM local (Ollama/LM Studio), endpoints chat/test, DB schema
 11. **[agent-chat-mobile.md](agent-chat-mobile.md)** — App agent mobile : chat intelligent + dashboard compact + notifications push (prerequis: Phase 1-2 agent done)
 12. **[user-preferences-sync.md](user-preferences-sync.md)** — Preferences utilisateur centralisees + sync serveur (GET/PUT /api/user-preferences)
+13. **[connecteur-multi.md](connecteur-multi.md)** — Multi-connecteur Kanban (GitHub Issues+PRs, GitLab Issues+Boards, ClickUp) : table connector_configs, tabs filtrage, guide setup, settings dediees
 
 ## API de reference
 

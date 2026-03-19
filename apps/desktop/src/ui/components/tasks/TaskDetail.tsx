@@ -29,9 +29,16 @@ export function TaskDetail() {
 
   const task = () => selectedTask() as Task;
 
+  const sourceLabels: Record<string, string> = {
+    clickup: "ClickUp",
+    github: "GitHub",
+    gitlab: "GitLab",
+    manual: "Manuelle",
+  };
+
   const modalTitle = () => {
     const t = selectedTask();
-    if (t && t.source === "clickup") return "Tache ClickUp";
+    if (t) return `Tache ${sourceLabels[t.source] || ""}`;
     return "Tache";
   };
 
@@ -163,10 +170,10 @@ export function TaskDetail() {
           </Show>
 
           {/* Actions */}
-          <Show when={task().url}>
+          <Show when={task().url && task().source !== "manual"}>
             <div style={{ display: "flex", gap: "8px", "margin-top": "4px" }}>
               <Button variant="secondary" onClick={() => { if (task().url) openUrl(task().url!); }}>
-                {task().source === "clickup" ? "Ouvrir dans ClickUp" : "Ouvrir"}
+                Ouvrir dans {sourceLabels[task().source] || "navigateur"}
               </Button>
             </div>
           </Show>
