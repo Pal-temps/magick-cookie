@@ -48,13 +48,31 @@ export const RSS_CATALOG: CatalogSource[] = [
     ],
   },
   {
-    name: "Developpement & Veille Technique",
+    name: "Developpement & Veille (FR)",
     feeds: [
       { label: "Journal du Hacker", url: "https://www.journalduhacker.net/rss", category: "Dev", description: "Liens et discussions dev francophones" },
       { label: "Alsacreations", url: "https://www.alsacreations.com/rss/actualites.xml", category: "Dev", description: "Actu web, HTML, CSS, accessibilite" },
-      { label: "DEV Community", url: "https://dev.to/feed", category: "Dev", description: "Articles de developpeurs (EN)" },
-      { label: "Hacker News", url: "https://news.ycombinator.com/rss", category: "Dev", description: "Top stories Y Combinator (EN)" },
       { label: "Developpez.com", url: "https://www.developpez.com/index/rss", category: "Dev", description: "Actu dev et IT francophone" },
+    ],
+  },
+  {
+    name: "News & Aggregators (EN)",
+    feeds: [
+      { label: "Hacker News", url: "https://news.ycombinator.com/rss", category: "Dev", description: "Top stories from Y Combinator" },
+      { label: "DEV Community", url: "https://dev.to/feed", category: "Dev", description: "Developer articles and discussions" },
+      { label: "Hashnode", url: "https://hashnode.com/rss", category: "Dev", description: "Developer blogs and articles" },
+      { label: "The New Stack", url: "https://thenewstack.io/blog/feed/", category: "Dev", description: "Cloud Native, Kubernetes, architecture" },
+      { label: "InfoQ", url: "https://feed.infoq.com/", category: "Dev", description: "Enterprise architecture and software engineering" },
+    ],
+  },
+  {
+    name: "Engineering Blogs",
+    feeds: [
+      { label: "Netflix Tech Blog", url: "https://netflixtechblog.com/feed", category: "Engineering", description: "Scalability, backend, distributed systems" },
+      { label: "GitHub Engineering", url: "https://github.blog/category/engineering/feed/", category: "Engineering", description: "GitHub platform engineering" },
+      { label: "Cloudflare Blog", url: "https://blog.cloudflare.com/rss/", category: "Engineering", description: "Network, security, edge computing" },
+      { label: "Uber Engineering", url: "https://www.uber.com/en-FR/blog/engineering/rss/", category: "Engineering", description: "Large-scale systems and data" },
+      { label: "Discord Engineering", url: "https://discord.com/blog/categories/engineering/rss.xml", category: "Engineering", description: "Real-time infrastructure at scale" },
     ],
   },
   {
@@ -66,11 +84,21 @@ export const RSS_CATALOG: CatalogSource[] = [
     ],
   },
   {
-    name: "Blogs de Developpeurs",
+    name: "Developer Blogs",
     feeds: [
-      { label: "Josh W. Comeau", url: "https://www.joshwcomeau.com/rss.xml", category: "Dev", description: "Web, React, CSS — tutoriels interactifs" },
-      { label: "Overreacted (Dan Abramov)", url: "https://overreacted.io/rss.xml", category: "Dev", description: "React, JavaScript, reflexions dev" },
-      { label: "Martin Fowler", url: "https://martinfowler.com/feed.atom", category: "Dev", description: "Architecture logicielle, patterns, refactoring" },
+      { label: "Josh W. Comeau", url: "https://www.joshwcomeau.com/rss.xml", category: "Dev", description: "Web, React, CSS — interactive tutorials" },
+      { label: "Overreacted (Dan Abramov)", url: "https://overreacted.io/rss.xml", category: "Dev", description: "React, JavaScript, systems thinking" },
+      { label: "Martin Fowler", url: "https://martinfowler.com/feed.atom", category: "Dev", description: "Software architecture, patterns, refactoring" },
+      { label: "Kent C. Dodds", url: "https://kentcdodds.com/blog/rss.xml", category: "Dev", description: "Testing, JavaScript, React" },
+      { label: "Smashing Magazine", url: "https://www.smashingmagazine.com/feed/", category: "Dev", description: "Web design and front-end development" },
+    ],
+  },
+  {
+    name: "Languages",
+    feeds: [
+      { label: "Python (Official)", url: "https://www.python.org/static/community_logos/python-feed.xml", category: "Langages", description: "Python official news and releases" },
+      { label: "Rust Blog", url: "https://blog.rust-lang.org/feed.xml", category: "Langages", description: "Rust language news and releases" },
+      { label: "Go Blog", url: "https://go.dev/blog/feed.xml", category: "Langages", description: "Go language official blog" },
     ],
   },
 ];
