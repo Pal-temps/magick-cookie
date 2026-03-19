@@ -165,6 +165,10 @@ export function useSettingsStore() {
   function getSidebar() { return preferences().sidebar; }
   function patchSidebar(update: Partial<UserPreferences["sidebar"]>) { patch("sidebar", update); }
 
+  // RSS
+  function getRss() { return preferences().rss ?? { retentionDays: 90 }; }
+  function patchRss(update: Partial<UserPreferences["rss"]>) { patch("rss", update); }
+
   // Snapshot for sync
   function getSnapshot(): UserPreferences { return preferences(); }
 
@@ -183,6 +187,7 @@ export function useSettingsStore() {
     getEnv, patchEnv,
     getVps, patchVps,
     getSidebar, patchSidebar,
+    getRss, patchRss,
     getSnapshot,
     importFromSync,
   };

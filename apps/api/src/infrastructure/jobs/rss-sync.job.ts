@@ -1,5 +1,7 @@
 import type { RssService } from "../../application/rss/rss.service";
 
+const DEFAULT_RETENTION_DAYS = 90;
+
 export function startRssSyncJob(rssService: RssService, intervalMs = 15 * 60 * 1000) {
   async function run() {
     try {
@@ -10,6 +12,9 @@ export function startRssSyncJob(rssService: RssService, intervalMs = 15 * 60 * 1
       if (errors.length > 0) {
         console.warn(`[rss-sync] ${errors.length} error(s):`, errors);
       }
+
+      // Cleanup old articles after sync
+      await rssService.cleanupOldArticles(DEFAULT_RETENTION_DAYS);
     } catch (err) {
       console.error("[rss-sync] Error:", err);
     }

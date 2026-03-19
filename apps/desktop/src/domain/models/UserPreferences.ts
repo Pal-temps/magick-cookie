@@ -15,6 +15,7 @@ export interface UserPreferences {
   env: { customChecks: { name: string; url: string }[] };
   vps: { notificationsEnabled: boolean };
   sidebar: { sectionOrder: string[] };
+  rss: { retentionDays: number };
 }
 
 export const DEFAULT_PREFERENCES: UserPreferences = {
@@ -38,4 +39,5 @@ export const DEFAULT_PREFERENCES: UserPreferences = {
   env: { customChecks: [] },
   vps: { notificationsEnabled: true },
   sidebar: { sectionOrder: ["favoris", "filtres", "contacts", "taches"] },
+  rss: { retentionDays: 90 },
 };

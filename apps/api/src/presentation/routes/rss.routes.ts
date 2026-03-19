@@ -57,6 +57,14 @@ export function createRssFeedRoutes(service: RssService) {
     return c.json({ data: result });
   });
 
+  // POST /api/rss-feeds/cleanup — delete old articles
+  app.post("/cleanup", async (c) => {
+    const body = await c.req.json().catch(() => ({}));
+    const retentionDays = Number(body.retentionDays) || 90;
+    const deleted = await service.cleanupOldArticles(retentionDays);
+    return c.json({ data: { deleted, retentionDays } });
+  });
+
   return app;
 }
 

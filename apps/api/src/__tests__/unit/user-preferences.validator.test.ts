@@ -14,6 +14,7 @@ const VALID_PREFS = {
   env: { customChecks: [{ name: "API", url: "http://localhost:3000" }] },
   vps: { notificationsEnabled: true },
   sidebar: { sectionOrder: ["favoris", "filtres", "contacts", "taches"] },
+  rss: { retentionDays: 90 },
 };
 
 describe("userPreferencesSchema", () => {

@@ -15,8 +15,9 @@ import { HabitSettings } from "./HabitSettings";
 import { ShortcutSettings } from "./ShortcutSettings";
 import { DataSettings } from "./DataSettings";
 import { ConnectorSettings } from "./ConnectorSettings";
+import { RssSettings } from "./RssSettings";
 
-type SettingsTab = "theme" | "llm" | "focus" | "connectors" | "github" | "brief" | "vps" | "bookmarks" | "projects" | "routines" | "webhooks" | "caldav" | "email-rules" | "habits" | "shortcuts" | "data";
+type SettingsTab = "theme" | "llm" | "focus" | "connectors" | "github" | "brief" | "vps" | "bookmarks" | "projects" | "routines" | "webhooks" | "caldav" | "email-rules" | "habits" | "shortcuts" | "rss" | "data";
 
 export function SettingsView() {
   const [tab, setTab] = createSignal<SettingsTab>("theme");
@@ -30,6 +31,7 @@ export function SettingsView() {
     { id: "brief", label: "Brief" },
     { id: "caldav", label: "CalDAV" },
     { id: "email-rules", label: "Regles email" },
+    { id: "rss", label: "Flux RSS" },
     { id: "habits", label: "Habitudes" },
     { id: "routines", label: "Routines" },
     { id: "webhooks", label: "Webhooks" },
@@ -121,6 +123,9 @@ export function SettingsView() {
         </Show>
         <Show when={tab() === "email-rules"}>
           <EmailRuleSettings />
+        </Show>
+        <Show when={tab() === "rss"}>
+          <RssSettings />
         </Show>
         <Show when={tab() === "shortcuts"}>
           <ShortcutSettings />

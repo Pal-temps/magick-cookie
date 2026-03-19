@@ -1,4 +1,4 @@
-import { eq, and, desc, sql } from "drizzle-orm";
+import { eq, and, desc, lt, sql } from "drizzle-orm";
 import type { Database } from "../database/client";
 import { rssArticles } from "../database/schema";
 import type { RssArticleRepository } from "../../domain/rss/rss.repository";
@@ -104,6 +104,16 @@ export class DrizzleRssArticleRepository implements RssArticleRepository {
     const rows = await this.db.update(rssArticles)
       .set({ isRead: true })
       .where(and(eq(rssArticles.feedId, feedId), eq(rssArticles.isRead, false)))
+      .returning();
+    return rows.length;
+  }
+
+  async deleteOlderThan(before: Date): Promise<number> {
+    const rows = await this.db.delete(rssArticles)
+      .where(and(
+        lt(rssArticles.createdAt, before),
+        eq(rssArticles.isStarred, false),
+      ))
       .returning();
     return rows.length;
   }

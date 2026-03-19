@@ -83,6 +83,16 @@ export class RssService {
     return { newArticles };
   }
 
+  async cleanupOldArticles(retentionDays: number): Promise<number> {
+    const before = new Date();
+    before.setDate(before.getDate() - retentionDays);
+    const deleted = await this.articleRepo.deleteOlderThan(before);
+    if (deleted > 0) {
+      console.log(`[rss-cleanup] Deleted ${deleted} articles older than ${retentionDays} days (starred preserved)`);
+    }
+    return deleted;
+  }
+
   async syncAll(): Promise<{ total: number; errors: string[] }> {
     const feeds = await this.feedRepo.findActive();
     let total = 0;

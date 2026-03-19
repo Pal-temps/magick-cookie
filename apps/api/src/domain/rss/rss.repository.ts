@@ -20,4 +20,5 @@ export interface RssArticleRepository {
   delete(id: string): Promise<boolean>;
   countUnread(feedId?: string): Promise<number>;
   markAllRead(feedId: string): Promise<number>;
+  deleteOlderThan(before: Date): Promise<number>;
 }

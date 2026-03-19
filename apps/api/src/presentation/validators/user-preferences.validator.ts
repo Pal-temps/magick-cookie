@@ -40,4 +40,7 @@ export const userPreferencesSchema = z.object({
   sidebar: z.object({
     sectionOrder: z.array(z.string().max(50)),
   }),
+  rss: z.object({
+    retentionDays: z.number().int().min(7).max(365),
+  }),
 });
