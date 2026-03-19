@@ -2,6 +2,7 @@ import { createSignal, createEffect, For, Show } from "solid-js";
 import { useRssStore, type RssFeed, type RssArticle } from "../../../application/stores/rssStore";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { Button } from "../common/Button";
+import { RssCatalog } from "./RssCatalog";
 
 export function RssView() {
   const {
@@ -11,6 +12,7 @@ export function RssView() {
   } = useRssStore();
 
   const [addingFeed, setAddingFeed] = createSignal(false);
+  const [showCatalog, setShowCatalog] = createSignal(false);
   const [newUrl, setNewUrl] = createSignal("");
   const [newLabel, setNewLabel] = createSignal("");
 
@@ -236,9 +238,14 @@ export function RssView() {
         {/* Add feed form */}
         <div style={{ padding: "8px 12px", "border-top": "1px solid var(--border-color)" }}>
           <Show when={addingFeed()} fallback={
-            <Button variant="ghost" size="sm" onClick={() => setAddingFeed(true)} style={{ width: "100%" }}>
-              + Ajouter un flux
-            </Button>
+            <div style={{ display: "flex", gap: "4px" }}>
+              <Button variant="ghost" size="sm" onClick={() => setAddingFeed(true)} style={{ flex: "1" }}>
+                + Ajouter
+              </Button>
+              <Button variant="secondary" size="sm" onClick={() => setShowCatalog(true)} style={{ flex: "1" }}>
+                Catalogue
+              </Button>
+            </div>
           }>
             <div style={{ display: "flex", "flex-direction": "column", gap: "6px" }}>
               <input
@@ -267,8 +274,16 @@ export function RssView() {
         </div>
       </div>
 
-      {/* Right panel - article list */}
+      {/* Right panel - article list or catalog */}
       <div style={{ flex: "1", display: "flex", "flex-direction": "column", overflow: "hidden" }}>
+        <Show when={showCatalog()}>
+          <RssCatalog
+            existingFeeds={feeds()}
+            onAdd={async (input) => { await addFeed(input); await fetchUnreadCount(); }}
+            onClose={() => setShowCatalog(false)}
+          />
+        </Show>
+        <Show when={!showCatalog()}>
         {/* Article list header */}
         <div style={{
           padding: "12px 16px",
@@ -410,6 +425,7 @@ export function RssView() {
             </Show>
           </Show>
         </div>
+        </Show>
       </div>
     </div>
   );
