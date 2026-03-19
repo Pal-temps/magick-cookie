@@ -3,6 +3,7 @@ import { api } from "../../infrastructure/api/apiClient";
 import { notify } from "../../infrastructure/tauri/notifications";
 import { playSoundLoop, stopSoundLoop } from "../../infrastructure/audio/soundPlayer";
 import type { TimerStats } from "../../domain/models/TimerSession";
+import { useSettingsStore } from "./settingsStore";
 
 export type TimerMode = "pomodoro" | "free";
 export type TimerState = "idle" | "focus" | "paused" | "break" | "waiting";
@@ -31,8 +32,9 @@ const [todayStats, setTodayStats] = createSignal<TimerStats>({ totalSeconds: 0, 
 const [selectedTaskId, setSelectedTaskId] = createSignal<string | null>(null);
 const [selectedTaskTitle, setSelectedTaskTitle] = createSignal<string | null>(null);
 const [isFocusMode, setIsFocusMode] = createSignal(false);
+const _settings = useSettingsStore();
 const [focusModeEnabled, setFocusModeEnabled] = createSignal(
-  localStorage.getItem("magick-cookie-focus-mode") !== "false"
+  _settings.getFocus().enabled
 );
 
 // Project selection
@@ -300,7 +302,7 @@ export function useTimerStore() {
 
   function setFocusModePreference(enabled: boolean) {
     setFocusModeEnabled(enabled);
-    localStorage.setItem("magick-cookie-focus-mode", String(enabled));
+    _settings.patchFocus({ enabled });
   }
 
   return {

@@ -80,6 +80,7 @@ export const wellnessConfigs = pgTable("wellness_configs", {
   label: varchar("label", { length: 255 }).notNull(),
   intervalMinutes: integer("interval_minutes").notNull(),
   enabled: boolean("enabled").notNull().default(true),
+  alertSound: varchar("alert_sound", { length: 50 }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });
@@ -389,6 +390,13 @@ export const webhookEvents = pgTable("webhook_events", {
 }, (table) => [
   index("idx_webhook_events_webhook").on(table.webhookId, table.receivedAt),
 ]);
+
+export const userPreferences = pgTable("user_preferences", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  data: text("data").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
+});
 
 export const contacts = pgTable("contacts", {
   id: uuid("id").primaryKey().defaultRandom(),

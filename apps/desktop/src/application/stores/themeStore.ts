@@ -1,4 +1,5 @@
 import { createSignal, onCleanup } from "solid-js";
+import { useSettingsStore } from "./settingsStore";
 
 export type Theme = "dark" | "light" | "cookie";
 export type ThemeMode = "manual" | "auto-system" | "auto-schedule";
@@ -8,37 +9,10 @@ export interface ThemeSchedule {
   darkEnd: number;   // hour 0-23
 }
 
-const STORAGE_KEY = "magick-cookie-theme";
-const MODE_STORAGE_KEY = "magick-cookie-theme-mode";
-const SCHEDULE_STORAGE_KEY = "magick-cookie-theme-schedule";
-
-const DEFAULT_SCHEDULE: ThemeSchedule = { darkStart: 20, darkEnd: 7 };
-
-function loadSchedule(): ThemeSchedule {
-  try {
-    const raw = localStorage.getItem(SCHEDULE_STORAGE_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (typeof parsed.darkStart === "number" && typeof parsed.darkEnd === "number") {
-        return parsed;
-      }
-    }
-  } catch { /* ignore */ }
-  return { ...DEFAULT_SCHEDULE };
-}
-
-function loadMode(): ThemeMode {
-  const stored = localStorage.getItem(MODE_STORAGE_KEY);
-  if (stored === "manual" || stored === "auto-system" || stored === "auto-schedule") {
-    return stored;
-  }
-  // Migration from old modes: "light"/"dark" → "manual"
-  if (stored === "light" || stored === "dark") return "manual";
-  return "manual";
-}
+const settings = useSettingsStore();
 
 function getInitialTheme(): Theme {
-  const stored = localStorage.getItem(STORAGE_KEY);
+  const stored = settings.getTheme().theme;
   if (stored === "dark" || stored === "light" || stored === "cookie") return stored;
   if (window.matchMedia("(prefers-color-scheme: light)").matches) return "light";
   return "dark";
@@ -82,8 +56,8 @@ function applyTheme(theme: Theme) {
 }
 
 const [theme, setThemeSignal] = createSignal<Theme>(getInitialTheme());
-const [themeMode, setThemeModeSignal] = createSignal<ThemeMode>(loadMode());
-const [schedule, setScheduleSignal] = createSignal<ThemeSchedule>(loadSchedule());
+const [themeMode, setThemeModeSignal] = createSignal<ThemeMode>(settings.getTheme().mode);
+const [schedule, setScheduleSignal] = createSignal<ThemeSchedule>(settings.getTheme().schedule);
 
 let systemMediaQuery: MediaQueryList | null = null;
 let systemListener: ((e: MediaQueryListEvent) => void) | null = null;
@@ -130,11 +104,11 @@ export function useThemeStore() {
 
   function setTheme(t: Theme) {
     setThemeSignal(t);
-    localStorage.setItem(STORAGE_KEY, t);
+    settings.patchTheme({ theme: t });
     // Choosing a theme manually → switch to manual mode
     if (themeMode() !== "manual") {
       setThemeModeSignal("manual");
-      localStorage.setItem(MODE_STORAGE_KEY, "manual");
+      settings.patchTheme({ mode: "manual" });
       teardownAutoListeners();
     }
     applyCurrentTheme();
@@ -142,14 +116,14 @@ export function useThemeStore() {
 
   function setMode(m: ThemeMode) {
     setThemeModeSignal(m);
-    localStorage.setItem(MODE_STORAGE_KEY, m);
+    settings.patchTheme({ mode: m });
     setupAutoListeners();
     applyCurrentTheme();
   }
 
   function setSchedule(s: ThemeSchedule) {
     setScheduleSignal(s);
-    localStorage.setItem(SCHEDULE_STORAGE_KEY, JSON.stringify(s));
+    settings.patchTheme({ schedule: s });
     if (themeMode() === "auto-schedule") {
       applyCurrentTheme();
     }

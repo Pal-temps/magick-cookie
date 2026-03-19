@@ -50,6 +50,10 @@ Features orientees productivite dev, a ajouter a l'app existante.
 | 40 | Daily Journal | ✅ Done | Note quotidienne auto-creee journal/YYYY-MM-DD.md dans vault |
 | 41 | Raccourcis personnalisables | ✅ Done | Raccourcis clavier configurables par l'utilisateur + settings UI |
 | 42 | Mode Offline | ✅ Done | Queue offline IndexedDB + replay auto + OfflineIndicator |
+| 43 | Clic cellules calendrier | ✅ Done | Clic = EventForm pre-rempli, clic droit = context menu event/alarme |
+| 44 | Alarmes dans le calendrier | ✅ Done | Pseudo-events alarmes, badge "A" orange, filtre source |
+| 45 | Generation events par IA | ✅ Done | POST /llm/generate-events, AiEventGenerator modal, preview + bulk |
+| 46 | Settings centralises + sync | ✅ Done | settingsStore unifie, migration legacy, API user-preferences, sync UI |
 
 ---
 
@@ -782,7 +786,148 @@ Phase 4 polish egalement complete :
 | 9 | 4 | ✅ 4/4 done |
 | 10 | 4 | ✅ 4/4 done |
 | 11 | 4 | ✅ 4/4 done |
-| **Total** | **41** | **✅ 41/41 done** |
+| 12 | 3 | ✅ 3/3 done |
+| 13 | 1 | ✅ 1/1 done |
+| **Total** | **46** | **✅ 46/46 done** |
+
+---
+
+### Sprint 12 — Calendrier interactif & IA ✅ DONE
+
+| # | Feature | Statut | Notes |
+|---|---------|--------|-------|
+| 43 | Clic sur cellules calendrier | ✅ Done | Clic = EventForm pre-rempli, clic droit = context menu (event/alarme) |
+| 44 | Alarmes dans le calendrier | ✅ Done | Alarmes affichees comme pseudo-events, badge "A" orange, filtre source |
+| 45 | Generation d'events par IA | ✅ Done | POST /llm/generate-events, AiEventGenerator modal, preview + bulk create |
+
+---
+
+## Detail des features ajoutees (Sprint 12)
+
+### 43. Clic sur cellules calendrier
+
+**Objectif :** Rendre le calendrier interactif — creer des events ou alarmes directement depuis les cellules.
+
+**Comportement :**
+- **Clic simple** sur une cellule vide → ouvre `EventForm` pre-rempli avec la date (et l'heure pour week/day views)
+- **Clic droit** → menu contextuel (`CellContextMenu`) avec 2 options : "Nouvel evenement" / "Nouvelle alarme"
+- Les clics sur un `EventCard` existant sont interceptes (`stopPropagation`) pour ne pas declencher la creation
+
+**Architecture :**
+- Nouvelle fonction `openCreateFormAtDate(date, hour?)` dans `calendarStore.ts` — utilise `prefillData` existant
+- Nouveau composant `CellContextMenu.tsx` — position fixe au point du clic, fermeture au clic exterieur
+
+**Fichiers :**
+- `apps/desktop/src/ui/components/calendar/MonthView.tsx` — onClick + onContextMenu sur `.month-cell`
+- `apps/desktop/src/ui/components/calendar/WeekView.tsx` — idem sur `.week-day-cell`
+- `apps/desktop/src/ui/components/calendar/DayView.tsx` — idem sur `.day-events-cell`
+- `apps/desktop/src/ui/components/calendar/CellContextMenu.tsx` — **nouveau**
+- `apps/desktop/src/ui/components/events/EventCard.tsx` — `stopPropagation` sur click
+- `apps/desktop/src/application/stores/calendarStore.ts` — `openCreateFormAtDate()`
+
+### 44. Alarmes dans le calendrier
+
+**Objectif :** Afficher les alarmes comme pseudo-events dans les vues calendrier, avec un style distinct.
+
+**Architecture :**
+- Fonction `alarmEventsForRange(from, to)` dans `calendarStore.ts` convertit les alarmes en `CalendarEvent[]` virtuels
+- Conversion selon le `repeatPattern` : `daily` (tous les jours), `weekdays` (lun-ven), `weekends` (sam-dim), `custom` (jours specifiques), `once` (aujourd'hui si pas encore fired)
+- Chaque alarm-event a `_isAlarm: true`, `calendarId: "alarms"`, duree de 5 minutes
+- Integration dans `fetchEvents()` : fusion events normaux + birthdays + alarm events
+- Filtre source `showAlarms` dans `visibleEvents()` + `toggleSourceFilter("alarms")`
+- Connection inter-stores via `setAlarmGetter(alarms)` appele dans `App.tsx` onMount
+
+**Fichiers :**
+- `apps/desktop/src/domain/models/CalendarEvent.ts` — ajout `_isAlarm?: boolean`
+- `apps/desktop/src/application/stores/calendarStore.ts` — `alarmEventsForRange()`, `setAlarmGetter()`, `showAlarms`
+- `apps/desktop/src/ui/components/events/EventCard.tsx` — badge alarme `{ label: "A", color: "#e17055" }`
+- `apps/desktop/src/App.tsx` — wiring `setAlarmGetter(alarms)` au mount
+
+### 45. Generation d'events par IA
+
+**Objectif :** Generer des evenements de calendrier a partir d'un prompt en langage naturel via le LLM configure.
+
+**Architecture backend :**
+- Nouvelle route `POST /api/llm/generate-events` — recoit `{ prompt, date }`, retourne `{ events: [] }`
+- `LlmService.generateEvents(prompt, date)` — envoie un system prompt structure qui demande du JSON strict
+- Schema de sortie : `{ title, startAt, endAt, description, location, isAllDay }`
+- Parsing et validation de la reponse JSON du LLM (fallback `[]` si parse echoue)
+- Validation Zod : `generateEventsSchema` (prompt 1-2000 chars + date)
+
+**Architecture frontend :**
+- Bouton "IA" dans la sous-barre calendrier (`AppLayout.tsx`)
+- Modal `AiEventGenerator.tsx` avec :
+  - Textarea pour le prompt libre
+  - Date de reference (pre-remplie avec aujourd'hui)
+  - Selecteur de calendrier cible
+  - Preview des events generes (titres editables, supprimables)
+  - Bouton "Ajouter au calendrier" pour confirmer
+- Store : `generateEvents(prompt, date)` → appel API, `createBulkEvents(calendarId, events[])` → creation sequentielle
+
+**Endpoints :**
+- `POST /api/llm/generate-events` — generer des events depuis un prompt
+
+**Fichiers :**
+- `apps/api/src/application/llm/llm.service.ts` — methode `generateEvents()`
+- `apps/api/src/presentation/routes/llm.routes.ts` — route `POST /generate-events`
+- `apps/api/src/presentation/validators/llm.validator.ts` — `generateEventsSchema`
+- `apps/desktop/src/ui/components/calendar/AiEventGenerator.tsx` — **nouveau**
+- `apps/desktop/src/ui/layouts/AppLayout.tsx` — bouton "IA" dans la sous-barre calendrier
+- `apps/desktop/src/application/stores/calendarStore.ts` — `generateEvents()`, `createBulkEvents()`, signaux IA
+- `apps/desktop/src/App.tsx` — render `<AiEventGenerator />`
+
+---
+
+### Sprint 13 — Refactoring & Sync ✅ DONE
+
+| # | Feature | Statut | Notes |
+|---|---------|--------|-------|
+| 46 | Settings centralises + sync serveur | ✅ Done | settingsStore unifie (1 cle localStorage), migration legacy auto, API user-preferences (GET/PUT), tab "Donnees" dans settings |
+
+---
+
+## Detail des features ajoutees (Sprint 13)
+
+### 46. Settings centralises + sync serveur
+
+**Objectif :** Centraliser les 11+ cles localStorage dans un schema type unique et permettre la synchronisation entre machines.
+
+**Option A — Store centralise (defaut) :**
+- Nouveau type `UserPreferences` avec schema versionne (version: 1) couvrant : theme, focus, dashboard, shortcuts, brief, env, vps, sidebar
+- `settingsStore.ts` : cle unique `magick-cookie-preferences`, migration automatique des cles legacy au premier chargement (11 cles supprimees)
+- Chaque store domaine (themeStore, shortcutStore, etc.) delegue sa persistence au settingsStore tout en gardant son API publique identique
+- `commandStore.ts` non modifie (historique ephemere)
+
+**Option B — Sync serveur (action utilisateur) :**
+- Table `user_preferences` en DB (singleton, JSON blob)
+- Endpoints : `GET /api/user-preferences` + `PUT /api/user-preferences`
+- Validation Zod stricte (whitelist) — jamais d'API keys, tokens ou mots de passe
+- UI : tab "Donnees" dans SettingsView avec boutons "Sauvegarder sur le serveur" / "Restaurer depuis le serveur"
+- Feedback visuel succes/erreur + timestamp dernier sync
+
+**Tests :** 34 nouveaux tests (service + validator + routes)
+
+**Stores refactores :**
+- `themeStore.ts` — 3 cles → settingsStore
+- `shortcutStore.ts` — 1 cle → settingsStore
+- `timerStore.ts` — focusModeEnabled → settingsStore
+- `dashboardStore.ts` — 2 cles → settingsStore
+- `envStore.ts` — 1 cle → settingsStore
+- `briefTemplates.ts` — 2 cles → settingsStore
+- `VpsSettings.tsx` — 1 cle → settingsStore
+- `AppLayout.tsx` — sidebar-section-order → settingsStore
+
+**Fichiers crees :**
+- `desktop/src/domain/models/UserPreferences.ts`
+- `desktop/src/application/stores/settingsStore.ts`
+- `desktop/src/ui/components/settings/DataSettings.tsx`
+- `api/src/domain/user-preferences/user-preferences.entity.ts`
+- `api/src/domain/user-preferences/user-preferences.repository.ts`
+- `api/src/infrastructure/repositories/user-preferences.repository.impl.ts`
+- `api/src/application/user-preferences/user-preferences.service.ts`
+- `api/src/presentation/routes/user-preferences.routes.ts`
+- `api/src/presentation/validators/user-preferences.validator.ts`
+- Migration `0026_user_preferences.sql`
 
 ---
 

@@ -1,3 +1,5 @@
+import { useSettingsStore } from "../stores/settingsStore";
+
 export interface BriefTemplate {
   id: string;
   name: string;
@@ -5,8 +7,7 @@ export interface BriefTemplate {
   builtin?: boolean;
 }
 
-const STORAGE_KEY_TEMPLATES = "magick-cookie-brief-templates";
-const STORAGE_KEY_ACTIVE = "magick-cookie-brief-active-template";
+const settings = useSettingsStore();
 
 export const BRIEF_PRESETS: BriefTemplate[] = [
   {
@@ -72,16 +73,14 @@ Format markdown.`,
 
 export function getCustomTemplates(): BriefTemplate[] {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY_TEMPLATES);
-    if (!raw) return [];
-    return JSON.parse(raw) as BriefTemplate[];
+    return settings.getBrief().customTemplates;
   } catch {
     return [];
   }
 }
 
 export function saveCustomTemplates(templates: BriefTemplate[]): void {
-  localStorage.setItem(STORAGE_KEY_TEMPLATES, JSON.stringify(templates));
+  settings.patchBrief({ customTemplates: templates });
 }
 
 export function getAllTemplates(): BriefTemplate[] {
@@ -89,11 +88,11 @@ export function getAllTemplates(): BriefTemplate[] {
 }
 
 export function getActiveTemplateId(): string {
-  return localStorage.getItem(STORAGE_KEY_ACTIVE) || "standup-fr";
+  return settings.getBrief().activeTemplateId || "standup-fr";
 }
 
 export function setActiveTemplateId(id: string): void {
-  localStorage.setItem(STORAGE_KEY_ACTIVE, id);
+  settings.patchBrief({ activeTemplateId: id });
 }
 
 export function getTemplateById(id: string): BriefTemplate | undefined {

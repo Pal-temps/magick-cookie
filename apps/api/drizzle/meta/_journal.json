@@ -183,6 +183,13 @@
       "when": 1775481600000,
       "tag": "0025_routines_webhooks",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1775568000000,
+      "tag": "0026_user_preferences",
+      "breakpoints": true
     }
   ]
 }

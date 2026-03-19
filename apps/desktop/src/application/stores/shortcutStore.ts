@@ -1,4 +1,5 @@
 import { createSignal } from "solid-js";
+import { useSettingsStore } from "./settingsStore";
 
 export interface ShortcutAction {
   id: string;
@@ -13,7 +14,7 @@ export const ACTIONS: ShortcutAction[] = [
   { id: "nav-notes", label: "Notes", defaultShortcut: "Ctrl+4", category: "Navigation" },
   { id: "nav-triage", label: "Taches", defaultShortcut: "Ctrl+5", category: "Navigation" },
   { id: "nav-email", label: "Email", defaultShortcut: "Ctrl+6", category: "Navigation" },
-  { id: "nav-bookmarks", label: "Signets", defaultShortcut: "Ctrl+7", category: "Navigation" },
+  { id: "nav-library", label: "Bibliotheque", defaultShortcut: "Ctrl+7", category: "Navigation" },
   { id: "nav-chat", label: "Chat", defaultShortcut: "Ctrl+8", category: "Navigation" },
   { id: "nav-vps", label: "Serveurs", defaultShortcut: "Ctrl+9", category: "Navigation" },
   { id: "command-palette", label: "Command Palette", defaultShortcut: "Ctrl+K", category: "General" },
@@ -24,13 +25,11 @@ export const ACTIONS: ShortcutAction[] = [
   { id: "go-today", label: "Aujourd'hui", defaultShortcut: "Ctrl+T", category: "Actions" },
 ];
 
-const STORAGE_KEY = "magick-cookie-shortcuts";
+const settings = useSettingsStore();
 
 function loadCustomShortcuts(): Map<string, string> {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return new Map();
-    const entries = JSON.parse(raw) as [string, string][];
+    const entries = settings.getShortcuts().custom;
     return new Map(entries);
   } catch {
     return new Map();
@@ -38,7 +37,7 @@ function loadCustomShortcuts(): Map<string, string> {
 }
 
 function saveCustomShortcuts(map: Map<string, string>) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify([...map.entries()]));
+  settings.patchShortcuts({ custom: [...map.entries()] });
 }
 
 const [customShortcuts, setCustomShortcuts] = createSignal<Map<string, string>>(loadCustomShortcuts());
@@ -67,7 +66,7 @@ export function useShortcutStore() {
 
   function resetAll() {
     setCustomShortcuts(new Map());
-    localStorage.removeItem(STORAGE_KEY);
+    settings.patchShortcuts({ custom: [] });
   }
 
   function parseShortcut(shortcut: string): { ctrl: boolean; shift: boolean; alt: boolean; meta: boolean; key: string } {

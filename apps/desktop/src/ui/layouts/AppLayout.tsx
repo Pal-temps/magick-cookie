@@ -6,6 +6,7 @@ import { useTaskStore } from "../../application/stores/taskStore";
 import { useDesktopModeStore } from "../../application/stores/desktopModeStore";
 import { useSpeechStore } from "../../application/stores/speechStore";
 import { useDogWalkStore } from "../../application/stores/dogWalkStore";
+import { useSettingsStore } from "../../application/stores/settingsStore";
 import { TitleBar } from "../components/common/TitleBar";
 import { OfflineIndicator } from "../components/common/OfflineIndicator";
 import { MiniTimer } from "../components/common/MiniTimer";
@@ -26,24 +27,22 @@ interface AppLayoutProps {
 
 export function AppLayout(props: AppLayoutProps) {
   const { viewMode, setViewMode, currentDate, navigatePrev, navigateNext, goToToday } = useViewStore();
-  const { openCreateForm, contacts } = useCalendarStore();
+  const { openCreateForm, contacts, setShowAiGenerator } = useCalendarStore();
   const { syncConnector, isSyncing, tasks: unscheduledTasks } = useTaskStore();
   const { enterDesktop } = useDesktopModeStore();
   const { startSpeechRecording } = useSpeechStore();
   const { startWalk, stopWalk, activeWalk } = useDogWalkStore();
   const { favorites } = useBookmarkStore();
 
-  // Sidebar section order (persisted in localStorage)
-  const STORAGE_KEY = "sidebar-section-order";
+  // Sidebar section order (persisted via settingsStore)
+  const settingsStore = useSettingsStore();
   const DEFAULT_ORDER = ["favoris", "filtres", "contacts", "taches"];
   const savedOrder = (() => {
     try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        const parsed = JSON.parse(stored) as string[];
-        // Ensure all sections are present
+      const stored = settingsStore.getSidebar().sectionOrder;
+      if (stored.length > 0) {
         const allSections = new Set(DEFAULT_ORDER);
-        const valid = parsed.filter((s) => allSections.has(s));
+        const valid = stored.filter((s) => allSections.has(s));
         for (const s of DEFAULT_ORDER) { if (!valid.includes(s)) valid.push(s); }
         return valid;
       }
@@ -54,24 +53,68 @@ export function AppLayout(props: AppLayoutProps) {
   const [draggedSection, setDraggedSection] = createSignal<string | null>(null);
   const [dragOverSection, setDragOverSection] = createSignal<string | null>(null);
 
-  function handleDragStart(id: string) { setDraggedSection(id); }
-  function handleDragOver(e: DragEvent, id: string) { e.preventDefault(); setDragOverSection(id); }
-  function handleDragLeave() { setDragOverSection(null); }
-  function handleDrop(targetId: string) {
-    const from = draggedSection();
-    if (!from || from === targetId) { setDraggedSection(null); setDragOverSection(null); return; }
-    const order = [...sectionOrder()];
-    const fromIdx = order.indexOf(from);
-    const toIdx = order.indexOf(targetId);
-    if (fromIdx === -1 || toIdx === -1) return;
-    order.splice(fromIdx, 1);
-    order.splice(toIdx, 0, from);
-    setSectionOrder(order);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(order));
-    setDraggedSection(null);
-    setDragOverSection(null);
+  function handleSectionPointerDown(e: PointerEvent, id: string) {
+    if (e.button !== 0) return;
+    // Only initiate drag from the header zone (top 36px)
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    if (e.clientY - rect.top > 36) return;
+
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const el = e.currentTarget as HTMLElement;
+    const pointerId = e.pointerId;
+    let dragging = false;
+
+    function onPointerMove(ev: PointerEvent) {
+      // Require 5px movement to start drag (avoid interfering with click)
+      if (!dragging) {
+        const dx = ev.clientX - startX;
+        const dy = ev.clientY - startY;
+        if (Math.abs(dx) + Math.abs(dy) < 5) return;
+        dragging = true;
+        el.setPointerCapture(pointerId);
+        setDraggedSection(id);
+      }
+      const target = document.elementFromPoint(ev.clientX, ev.clientY);
+      if (!target) { setDragOverSection(null); return; }
+      const section = target.closest("[data-section-id]") as HTMLElement | null;
+      if (section && section.dataset.sectionId !== id) {
+        setDragOverSection(section.dataset.sectionId!);
+      } else {
+        setDragOverSection(null);
+      }
+    }
+
+    function cleanup() {
+      if (dragging) {
+        const from = draggedSection();
+        const target = dragOverSection();
+        if (from && target && from !== target) {
+          const order = [...sectionOrder()];
+          const fromIdx = order.indexOf(from);
+          const toIdx = order.indexOf(target);
+          if (fromIdx !== -1 && toIdx !== -1) {
+            order.splice(fromIdx, 1);
+            order.splice(toIdx, 0, from);
+            setSectionOrder(order);
+            settingsStore.patchSidebar({ sectionOrder: order });
+          }
+        }
+        setDraggedSection(null);
+        setDragOverSection(null);
+        try { el.releasePointerCapture(pointerId); } catch {}
+      }
+      el.removeEventListener("pointermove", onPointerMove);
+      el.removeEventListener("pointerup", cleanup);
+      el.removeEventListener("pointercancel", cleanup);
+      window.removeEventListener("blur", cleanup);
+    }
+
+    el.addEventListener("pointermove", onPointerMove);
+    el.addEventListener("pointerup", cleanup);
+    el.addEventListener("pointercancel", cleanup);
+    window.addEventListener("blur", cleanup);
   }
-  function handleDragEnd() { setDraggedSection(null); setDragOverSection(null); }
 
   const headerTitle = () => {
     const d = currentDate();
@@ -107,10 +150,8 @@ export function AppLayout(props: AppLayoutProps) {
         { label: "Notes & Schemas", action: () => setViewMode("notes"), shortcut: "Ctrl+4" },
         { label: "Taches", action: () => setViewMode("triage"), shortcut: "Ctrl+5" },
         { label: "Email", action: () => setViewMode("email"), shortcut: "Ctrl+6" },
-        { label: "Signets", action: () => setViewMode("bookmarks"), shortcut: "Ctrl+7" },
+        { label: "Bibliotheque", action: () => setViewMode("library"), shortcut: "Ctrl+7" },
         { label: "Flux RSS", action: () => setViewMode("rss") },
-        { label: "Snippets", action: () => setViewMode("snippets") },
-        { label: "Alarmes", action: () => setViewMode("alarms") },
         { label: "Chat IA", action: () => setViewMode("chat"), shortcut: "Ctrl+8" },
         { label: "CI/CD", action: () => setViewMode("cicd") },
         { label: "Serveurs", action: () => setViewMode("vps"), shortcut: "Ctrl+9" },
@@ -181,16 +222,18 @@ export function AppLayout(props: AppLayoutProps) {
               {(sectionId) => {
                 const sectionWrap = (content: JSX.Element) => (
                   <div
-                    draggable={true}
-                    onDragStart={() => handleDragStart(sectionId)}
-                    onDragOver={(e) => handleDragOver(e, sectionId)}
-                    onDragLeave={handleDragLeave}
-                    onDrop={() => handleDrop(sectionId)}
-                    onDragEnd={handleDragEnd}
+                    data-section-id={sectionId}
+                    onPointerDown={(e) => {
+                      // Only drag from the header area (first 36px height)
+                      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                      if (e.clientY - rect.top > 36) return;
+                      handleSectionPointerDown(e, sectionId);
+                    }}
                     style={{
-                      "border-top": dragOverSection() === sectionId ? "2px solid var(--accent-color)" : "none",
+                      "border-top": dragOverSection() === sectionId ? "2px solid var(--accent-primary)" : "2px solid transparent",
                       opacity: draggedSection() === sectionId ? "0.4" : "1",
-                      cursor: "grab",
+                      transition: "opacity 0.15s",
+                      "touch-action": "none",
                     }}
                   >
                     {content}
@@ -225,7 +268,7 @@ export function AppLayout(props: AppLayoutProps) {
                               )}
                             </For>
                             <button
-                              onClick={() => setViewMode("bookmarks")}
+                              onClick={() => setViewMode("library")}
                               style={{ display: "flex", "align-items": "center", gap: "6px", padding: "4px 0", "font-size": "11px", color: "var(--text-muted)", cursor: "pointer", background: "none", border: "none", width: "100%", "text-align": "left", "margin-top": "4px" }}
                             >Gerer les signets...</button>
                           </div>
@@ -292,11 +335,9 @@ export function AppLayout(props: AppLayoutProps) {
                 { id: "notes", label: "Notes", match: (v: string) => v === "notes" },
                 { id: "triage", label: "Taches", match: (v: string) => v === "triage" },
                 { id: "email", label: "Email", match: (v: string) => v === "email" },
-                { id: "bookmarks", label: "Signets", match: (v: string) => v === "bookmarks" },
+                { id: "library", label: "Bibliotheque", match: (v: string) => v === "library" },
                 { id: "rss", label: "Flux RSS", match: (v: string) => v === "rss" },
-                { id: "snippets", label: "Snippets", match: (v: string) => v === "snippets" },
                 { id: "chat", label: "Chat", match: (v: string) => v === "chat" },
-                { id: "alarms", label: "Alarmes", match: (v: string) => v === "alarms" },
                 { id: "cicd", label: "CI/CD", match: (v: string) => v === "cicd" },
                 { id: "vps", label: "Serveurs", match: (v: string) => v === "vps" },
                 { id: "tools", label: "Outils", match: (v: string) => v === "tools" },
@@ -348,6 +389,7 @@ export function AppLayout(props: AppLayoutProps) {
                 <Button variant="secondary" size="sm" onClick={goToToday}>Aujourd'hui</Button>
               </div>
               <div style={{ display: "flex", gap: "4px" }}>
+                <Button variant="ghost" size="sm" onClick={() => setShowAiGenerator(true)} title="Generer des evenements avec l'IA">IA</Button>
                 <Button variant={viewMode() === "month" ? "primary" : "secondary"} size="sm" onClick={() => setViewMode("month")}>Mois</Button>
                 <Button variant={viewMode() === "week" ? "primary" : "secondary"} size="sm" onClick={() => setViewMode("week")}>Semaine</Button>
                 <Button variant={viewMode() === "day" ? "primary" : "secondary"} size="sm" onClick={() => setViewMode("day")}>Jour</Button>

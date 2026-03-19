@@ -1,15 +1,15 @@
 import { createSignal, Show } from "solid-js";
 import { useVpsStore } from "../../../application/stores/vpsStore";
+import { useSettingsStore } from "../../../application/stores/settingsStore";
 import { Button } from "../common/Button";
-
-const NOTIF_KEY = "magick-cookie-vps-notifications";
 
 export function VpsSettings() {
   const { health, isConnected, fetchHealth } = useVpsStore();
+  const settings = useSettingsStore();
   const [testing, setTesting] = createSignal(false);
   const [testResult, setTestResult] = createSignal<boolean | null>(null);
   const [notificationsEnabled, setNotificationsEnabled] = createSignal(
-    localStorage.getItem(NOTIF_KEY) !== "false"
+    settings.getVps().notificationsEnabled
   );
 
   async function handleTest() {
@@ -28,7 +28,7 @@ export function VpsSettings() {
   function toggleNotifications() {
     const next = !notificationsEnabled();
     setNotificationsEnabled(next);
-    localStorage.setItem(NOTIF_KEY, String(next));
+    settings.patchVps({ notificationsEnabled: next });
   }
 
   const inputStyle = {

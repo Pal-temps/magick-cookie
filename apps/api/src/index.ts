@@ -36,6 +36,7 @@ import { DrizzleCalDavAccountRepository } from "./infrastructure/repositories/ca
 import { DrizzleEmailRuleRepository } from "./infrastructure/repositories/email-rule.repository.impl";
 import { DrizzleRoutineRepository } from "./infrastructure/repositories/routine.repository.impl";
 import { DrizzleWebhookRepository } from "./infrastructure/repositories/webhook.repository.impl";
+import { DrizzleUserPreferencesRepository } from "./infrastructure/repositories/user-preferences.repository.impl";
 
 // Services
 import { CalendarService } from "./application/calendar/calendar.service";
@@ -68,6 +69,7 @@ import { CalDavService } from "./application/caldav/caldav.service";
 import { EmailRuleService } from "./application/email/email-rule.service";
 import { RoutineService } from "./application/routine/routine.service";
 import { WebhookService } from "./application/webhook/webhook.service";
+import { UserPreferencesService } from "./application/user-preferences/user-preferences.service";
 import { AgentService } from "./application/agent/agent.service";
 import { ToolRegistry } from "./application/agent/tool-registry";
 import { createAnalyticsTools } from "./application/agent/tools/analytics.tools";
@@ -120,6 +122,7 @@ import { createCalDavAccountRoutes } from "./presentation/routes/caldav.routes";
 import { createEmailRuleRoutes } from "./presentation/routes/email-rule.routes";
 import { createRoutineRoutes } from "./presentation/routes/routine.routes";
 import { createWebhookRoutes } from "./presentation/routes/webhook.routes";
+import { createUserPreferencesRoutes } from "./presentation/routes/user-preferences.routes";
 
 // Jobs
 import { startReminderChecker } from "./infrastructure/jobs/reminder-checker";
@@ -161,6 +164,7 @@ const caldavAccountRepo = new DrizzleCalDavAccountRepository(db);
 const emailRuleRepo = new DrizzleEmailRuleRepository(db);
 const routineRepo = new DrizzleRoutineRepository(db);
 const webhookRepo = new DrizzleWebhookRepository(db);
+const userPreferencesRepo = new DrizzleUserPreferencesRepository(db);
 
 const calendarService = new CalendarService(calendarRepo);
 const eventService = new EventService(eventRepo, reminderRepo);
@@ -196,6 +200,7 @@ const emailRuleService = new EmailRuleService(emailRuleRepo);
 emailService.setEmailRuleService(emailRuleService);
 const routineService = new RoutineService(routineRepo);
 const webhookService = new WebhookService(webhookRepo);
+const userPreferencesService = new UserPreferencesService(userPreferencesRepo);
 
 // Agent (tool-calling chat)
 const toolRegistry = new ToolRegistry();
@@ -261,6 +266,7 @@ app.route("/api/caldav-accounts", createCalDavAccountRoutes(caldavService));
 app.route("/api/email-rules", createEmailRuleRoutes(emailRuleService));
 app.route("/api/routines", createRoutineRoutes(routineService));
 app.route("/api/webhooks", createWebhookRoutes(webhookService));
+app.route("/api/user-preferences", createUserPreferencesRoutes(userPreferencesService));
 
 // Start reminder checker — pushes to SSE, does NOT mark as sent
 startReminderChecker(reminderService, eventRepo, reminderEmitter);

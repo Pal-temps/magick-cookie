@@ -1,4 +1,5 @@
 import { createSignal } from "solid-js";
+import { useSettingsStore } from "./settingsStore";
 
 export const WIDGET_IDS = [
   "timer",
@@ -8,6 +9,7 @@ export const WIDGET_IDS = [
   "dog-walk",
   "today-events",
   "wellness",
+  "alarms",
   "streak",
   "github-prs",
   "vps",
@@ -16,22 +18,13 @@ export const WIDGET_IDS = [
 
 export type WidgetId = (typeof WIDGET_IDS)[number];
 
-const ORDER_KEY = "dashboard-widget-order";
-const OLD_ORDER_KEY = "magick-cookie-dashboard-order"; // legacy key migration
-const HIDDEN_KEY = "dashboard-hidden-widgets";
-
 const DEFAULT_ORDER: WidgetId[] = [...WIDGET_IDS];
+const settings = useSettingsStore();
 
 function loadOrder(): WidgetId[] {
   try {
-    const stored = localStorage.getItem(ORDER_KEY) ?? localStorage.getItem(OLD_ORDER_KEY);
-    if (stored) {
-      // migrate legacy key
-      if (!localStorage.getItem(ORDER_KEY)) {
-        localStorage.setItem(ORDER_KEY, stored);
-        localStorage.removeItem(OLD_ORDER_KEY);
-      }
-      const ids = JSON.parse(stored) as string[];
+    const ids = settings.getDashboard().widgetOrder;
+    if (ids.length > 0) {
       const known = new Set<string>(WIDGET_IDS);
       const valid = ids.filter((id) => known.has(id)) as WidgetId[];
       const missing = DEFAULT_ORDER.filter((id) => !valid.includes(id));
@@ -42,14 +35,13 @@ function loadOrder(): WidgetId[] {
 }
 
 function saveOrder(ids: WidgetId[]) {
-  localStorage.setItem(ORDER_KEY, JSON.stringify(ids));
+  settings.patchDashboard({ widgetOrder: ids });
 }
 
 function loadHidden(): Set<WidgetId> {
   try {
-    const stored = localStorage.getItem(HIDDEN_KEY);
-    if (stored) {
-      const ids = JSON.parse(stored) as string[];
+    const ids = settings.getDashboard().hiddenWidgets;
+    if (ids.length > 0) {
       const known = new Set<string>(WIDGET_IDS);
       return new Set(ids.filter((id) => known.has(id)) as WidgetId[]);
     }
@@ -58,7 +50,7 @@ function loadHidden(): Set<WidgetId> {
 }
 
 function saveHidden(hidden: Set<WidgetId>) {
-  localStorage.setItem(HIDDEN_KEY, JSON.stringify([...hidden]));
+  settings.patchDashboard({ hiddenWidgets: [...hidden] });
 }
 
 const [widgetOrder, setWidgetOrder] = createSignal<WidgetId[]>(loadOrder());
@@ -90,9 +82,9 @@ export function useDashboardStore() {
 
   function resetLayout() {
     setWidgetOrder([...DEFAULT_ORDER]);
-    setHiddenWidgets(new Set());
+    setHiddenWidgets(new Set<WidgetId>());
     saveOrder([...DEFAULT_ORDER]);
-    saveHidden(new Set());
+    saveHidden(new Set<WidgetId>());
   }
 
   return {

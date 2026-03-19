@@ -13,8 +13,9 @@ import { CalDavSettings } from "./CalDavSettings";
 import { EmailRuleSettings } from "./EmailRuleSettings";
 import { HabitSettings } from "./HabitSettings";
 import { ShortcutSettings } from "./ShortcutSettings";
+import { DataSettings } from "./DataSettings";
 
-type SettingsTab = "theme" | "llm" | "focus" | "github" | "brief" | "vps" | "bookmarks" | "projects" | "routines" | "webhooks" | "caldav" | "email-rules" | "habits" | "shortcuts";
+type SettingsTab = "theme" | "llm" | "focus" | "github" | "brief" | "vps" | "bookmarks" | "projects" | "routines" | "webhooks" | "caldav" | "email-rules" | "habits" | "shortcuts" | "data";
 
 export function SettingsView() {
   const [tab, setTab] = createSignal<SettingsTab>("theme");
@@ -34,6 +35,7 @@ export function SettingsView() {
     { id: "shortcuts", label: "Raccourcis" },
     { id: "github", label: "GitHub" },
     { id: "vps", label: "VPS" },
+    { id: "data", label: "Donnees" },
   ];
 
   return (
@@ -120,6 +122,9 @@ export function SettingsView() {
         </Show>
         <Show when={tab() === "vps"}>
           <VpsSettings />
+        </Show>
+        <Show when={tab() === "data"}>
+          <DataSettings />
         </Show>
       </div>
     </div>

@@ -1,4 +1,5 @@
 import { createSignal } from "solid-js";
+import { useSettingsStore } from "./settingsStore";
 
 export interface EnvCheck {
   name: string;
@@ -6,24 +7,20 @@ export interface EnvCheck {
   status: "up" | "down" | "checking";
 }
 
-const STORAGE_KEY = "env-custom-checks";
+const settings = useSettingsStore();
 
 function loadCustomChecks(): EnvCheck[] {
   try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      const parsed = JSON.parse(stored) as { name: string; url: string }[];
-      return parsed.map((c) => ({ name: c.name, url: c.url, status: "checking" as const }));
-    }
+    const parsed = settings.getEnv().customChecks;
+    return parsed.map((c) => ({ name: c.name, url: c.url, status: "checking" as const }));
   } catch { /* ignore */ }
   return [];
 }
 
 function saveCustomChecks(checks: EnvCheck[]) {
-  localStorage.setItem(
-    STORAGE_KEY,
-    JSON.stringify(checks.map((c) => ({ name: c.name, url: c.url }))),
-  );
+  settings.patchEnv({
+    customChecks: checks.map((c) => ({ name: c.name, url: c.url })),
+  });
 }
 
 const DEFAULT_CHECKS: EnvCheck[] = [
