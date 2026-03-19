@@ -70,13 +70,34 @@ export class ImapConnector {
       const lock = await client.getMailboxLock(folder);
 
       try {
-        const range = sinceUid ? `${sinceUid + 1}:*` : "1:*";
-        const messages = client.fetch(range, {
-          uid: true,
-          flags: true,
-          envelope: true,
-          source: true,
-        }, { uid: true });
+        let messages;
+        if (sinceUid) {
+          // Incremental sync: fetch only new messages since last known UID
+          messages = client.fetch(`${sinceUid + 1}:*`, {
+            uid: true,
+            flags: true,
+            envelope: true,
+            source: true,
+          }, { uid: true });
+        } else {
+          // First sync: use SEARCH to limit to recent emails (last 30 days, max 200)
+          const since = new Date();
+          since.setDate(since.getDate() - 30);
+          const uids = await client.search({ since }, { uid: true });
+          if (!uids || uids.length === 0) {
+            lock.release();
+            return results;
+          }
+          // Take the most recent 200 UIDs
+          const recentUids = uids.slice(-200);
+          const uidRange = recentUids.join(",");
+          messages = client.fetch(uidRange, {
+            uid: true,
+            flags: true,
+            envelope: true,
+            source: true,
+          }, { uid: true });
+        }
 
         for await (const msg of messages) {
           try {
