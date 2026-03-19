@@ -1,4 +1,5 @@
 import { ImapFlow } from "imapflow";
+import tls from "node:tls";
 import { simpleParser, type ParsedMail } from "mailparser";
 import type { EmailAccount, CreateEmailInput, EmailAddress } from "../../domain/email/email.entity";
 
@@ -8,6 +9,7 @@ interface ImapConfig {
   secure: boolean;
   username: string;
   password: string;
+  selfSigned?: boolean;
 }
 
 const IMAP_TIMEOUT_MS = 15_000;
@@ -34,8 +36,12 @@ export class ImapConnector {
       },
       logger: false,
       tls: {
-        rejectUnauthorized: true,
+        rejectUnauthorized: !config.selfSigned,
         servername: config.host,
+        checkServerIdentity: (hostname: string, cert: tls.PeerCertificate) => {
+          if (!cert) return undefined; // Avoid crash on null cert during failed handshake
+          return tls.checkServerIdentity(hostname, cert);
+        },
       },
     });
     // Prevent unhandled 'error' event from crashing the process
@@ -61,6 +67,7 @@ export class ImapConnector {
       secure: account.imapSecure,
       username: account.username,
       password,
+      selfSigned: account.selfSigned,
     });
 
     const results: CreateEmailInput[] = [];
@@ -171,6 +178,7 @@ export class ImapConnector {
       secure: account.imapSecure,
       username: account.username,
       password,
+      selfSigned: account.selfSigned,
     });
 
     try {
@@ -193,6 +201,7 @@ export class ImapConnector {
       secure: account.imapSecure,
       username: account.username,
       password,
+      selfSigned: account.selfSigned,
     });
 
     try {
@@ -208,6 +217,208 @@ export class ImapConnector {
     }
   }
 
+  async fetchByUids(
+    account: EmailAccount,
+    password: string,
+    folder: string,
+    uids: number[],
+  ): Promise<CreateEmailInput[]> {
+    if (uids.length === 0) return [];
+
+    const client = this.createClient({
+      host: account.imapHost,
+      port: account.imapPort,
+      secure: account.imapSecure,
+      username: account.username,
+      password,
+      selfSigned: account.selfSigned,
+    });
+
+    const results: CreateEmailInput[] = [];
+
+    try {
+      await this.connectWithTimeout(client);
+      const lock = await client.getMailboxLock(folder);
+      try {
+        const uidRange = uids.join(",");
+        const messages = client.fetch(uidRange, {
+          uid: true,
+          flags: true,
+          envelope: true,
+          source: true,
+        }, { uid: true });
+
+        for await (const msg of messages) {
+          try {
+            if (!msg.source) continue;
+            const parsed: ParsedMail = await simpleParser(msg.source);
+
+            const fromAddr = parsed.from?.value?.[0];
+            const toRaw = parsed.to;
+            const toAddrs: EmailAddress[] = toRaw
+              ? (Array.isArray(toRaw) ? toRaw : [toRaw])
+                  .flatMap((t: { value: Array<{ name?: string; address?: string }> }) => t.value)
+                  .map((a: { name?: string; address?: string }) => ({ name: a.name || null, address: a.address || "" }))
+              : [];
+            const ccRaw = parsed.cc;
+            const ccAddrs: EmailAddress[] = ccRaw
+              ? (Array.isArray(ccRaw) ? ccRaw : [ccRaw])
+                  .flatMap((t: { value: Array<{ name?: string; address?: string }> }) => t.value)
+                  .map((a: { name?: string; address?: string }) => ({ name: a.name || null, address: a.address || "" }))
+              : [];
+
+            const attachmentNames = (parsed.attachments || [])
+              .map((a: { filename?: string }) => a.filename)
+              .filter((n: string | undefined): n is string => !!n);
+
+            results.push({
+              accountId: account.id,
+              messageId: parsed.messageId || `uid-${msg.uid}-${account.id}`,
+              imapUid: msg.uid,
+              subject: parsed.subject || null,
+              fromAddress: fromAddr?.address || "unknown",
+              fromName: fromAddr?.name || null,
+              toAddresses: toAddrs,
+              ccAddresses: ccAddrs,
+              bodyText: parsed.text || null,
+              bodyHtml: parsed.html || null,
+              hasAttachments: attachmentNames.length > 0,
+              attachmentNames,
+              isRead: msg.flags?.has("\\Seen") ?? false,
+              folder,
+              sentAt: parsed.date || new Date(),
+            });
+          } catch (err) {
+            console.error(`[imap] Failed to parse message UID ${msg.uid}:`, err);
+          }
+        }
+      } finally {
+        lock.release();
+      }
+    } finally {
+      await client.logout().catch(() => {});
+    }
+
+    return results;
+  }
+
+  async listRecentUids(
+    account: EmailAccount,
+    password: string,
+    folder: string,
+    sinceDays: number = 30,
+  ): Promise<number[]> {
+    const client = this.createClient({
+      host: account.imapHost,
+      port: account.imapPort,
+      secure: account.imapSecure,
+      username: account.username,
+      password,
+      selfSigned: account.selfSigned,
+    });
+
+    try {
+      await this.connectWithTimeout(client);
+      const lock = await client.getMailboxLock(folder);
+      try {
+        const since = new Date();
+        since.setDate(since.getDate() - sinceDays);
+        const uids = await client.search({ since }, { uid: true });
+        return uids || [];
+      } finally {
+        lock.release();
+      }
+    } finally {
+      await client.logout().catch(() => {});
+    }
+  }
+
+  async fetchFlags(
+    account: EmailAccount,
+    password: string,
+    folder: string,
+    uids: number[],
+  ): Promise<Map<number, { seen: boolean; flagged: boolean }>> {
+    const result = new Map<number, { seen: boolean; flagged: boolean }>();
+    if (uids.length === 0) return result;
+
+    const client = this.createClient({
+      host: account.imapHost,
+      port: account.imapPort,
+      secure: account.imapSecure,
+      username: account.username,
+      password,
+      selfSigned: account.selfSigned,
+    });
+
+    try {
+      await this.connectWithTimeout(client);
+      const lock = await client.getMailboxLock(folder);
+      try {
+        const uidRange = uids.join(",");
+        const messages = client.fetch(uidRange, { uid: true, flags: true }, { uid: true });
+        for await (const msg of messages) {
+          result.set(msg.uid, {
+            seen: msg.flags?.has("\\Seen") ?? false,
+            flagged: msg.flags?.has("\\Flagged") ?? false,
+          });
+        }
+      } finally {
+        lock.release();
+      }
+    } finally {
+      await client.logout().catch(() => {});
+    }
+
+    return result;
+  }
+
+  async markStarred(account: EmailAccount, password: string, uid: number, folder: string = "INBOX"): Promise<void> {
+    const client = this.createClient({
+      host: account.imapHost,
+      port: account.imapPort,
+      secure: account.imapSecure,
+      username: account.username,
+      password,
+      selfSigned: account.selfSigned,
+    });
+
+    try {
+      await this.connectWithTimeout(client);
+      const lock = await client.getMailboxLock(folder);
+      try {
+        await client.messageFlagsAdd({ uid: uid }, ["\\Flagged"], { uid: true });
+      } finally {
+        lock.release();
+      }
+    } finally {
+      await client.logout().catch(() => {});
+    }
+  }
+
+  async markUnstarred(account: EmailAccount, password: string, uid: number, folder: string = "INBOX"): Promise<void> {
+    const client = this.createClient({
+      host: account.imapHost,
+      port: account.imapPort,
+      secure: account.imapSecure,
+      username: account.username,
+      password,
+      selfSigned: account.selfSigned,
+    });
+
+    try {
+      await this.connectWithTimeout(client);
+      const lock = await client.getMailboxLock(folder);
+      try {
+        await client.messageFlagsRemove({ uid: uid }, ["\\Flagged"], { uid: true });
+      } finally {
+        lock.release();
+      }
+    } finally {
+      await client.logout().catch(() => {});
+    }
+  }
+
   async deleteMessage(account: EmailAccount, password: string, uid: number, folder: string = "INBOX"): Promise<void> {
     const client = this.createClient({
       host: account.imapHost,
@@ -215,6 +426,7 @@ export class ImapConnector {
       secure: account.imapSecure,
       username: account.username,
       password,
+      selfSigned: account.selfSigned,
     });
 
     try {
@@ -229,5 +441,36 @@ export class ImapConnector {
     } finally {
       await client.logout().catch(() => {});
     }
+  }
+
+  async bulkDeleteMessages(account: EmailAccount, password: string, uids: number[], folder: string = "INBOX"): Promise<number> {
+    if (uids.length === 0) return 0;
+
+    const client = this.createClient({
+      host: account.imapHost,
+      port: account.imapPort,
+      secure: account.imapSecure,
+      username: account.username,
+      password,
+      selfSigned: account.selfSigned,
+    });
+
+    let deleted = 0;
+    try {
+      await this.connectWithTimeout(client);
+      const lock = await client.getMailboxLock(folder);
+      try {
+        const uidRange = uids.join(",");
+        await client.messageFlagsAdd(uidRange, ["\\Deleted"], { uid: true });
+        await client.messageDelete(uidRange, { uid: true });
+        deleted = uids.length;
+      } finally {
+        lock.release();
+      }
+    } finally {
+      await client.logout().catch(() => {});
+    }
+
+    return deleted;
   }
 }

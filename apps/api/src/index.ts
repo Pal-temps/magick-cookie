@@ -83,6 +83,7 @@ import { GitExecAdapter } from "./infrastructure/adapters/git-exec.adapter";
 
 // Connectors
 import { ImapConnector } from "./infrastructure/connectors/imap.connector";
+import { SmtpConnector } from "./infrastructure/connectors/smtp.connector";
 import { CalDavConnector } from "./infrastructure/connectors/caldav.connector";
 
 // Connector configs
@@ -185,7 +186,8 @@ const wellnessConfigService = new WellnessConfigService(wellnessConfigRepo);
 const wellnessLogService = new WellnessLogService(wellnessLogRepo);
 const dogWalkService = new DogWalkService(dogWalkRepo);
 const imapConnector = new ImapConnector();
-const emailService = new EmailService(emailAccountRepo, emailRepo, imapConnector);
+const smtpConnector = new SmtpConnector();
+const emailService = new EmailService(emailAccountRepo, emailRepo, imapConnector, smtpConnector);
 const analyticsService = new AnalyticsService(timerSessionRepo, dogWalkRepo, wellnessLogRepo, triageRepo, emailRepo, eventRepo, taskRepo, projectRepo);
 const llmService = new LlmService(llmConfigRepo);
 const triageService = new TriageService(triageRepo, taskRepo, llmService);

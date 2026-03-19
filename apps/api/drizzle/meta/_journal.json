@@ -204,6 +204,13 @@
       "when": 1775740800000,
       "tag": "0028_wellness_alert_sound",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1775827200000,
+      "tag": "0029_email_self_signed",
+      "breakpoints": true
     }
   ]
 }

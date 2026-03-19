@@ -9,6 +9,7 @@ export interface EmailAccount {
   smtpPort: number;
   smtpSecure: boolean;
   username: string;
+  selfSigned: boolean;
   lastSyncedAt: Date | null;
   syncEnabled: boolean;
   createdAt: Date;
@@ -55,6 +56,15 @@ export interface CreateEmailAccountInput {
   smtpSecure: boolean;
   username: string;
   password: string;
+  selfSigned?: boolean;
+}
+
+export interface SendEmailInput {
+  to: string[];
+  cc?: string[];
+  subject: string;
+  bodyText: string;
+  bodyHtml?: string;
 }
 
 export interface UpdateEmailAccountInput {

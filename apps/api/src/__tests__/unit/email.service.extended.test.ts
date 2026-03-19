@@ -5,7 +5,7 @@ import type { Email, EmailAccount } from "../../domain/email/email.entity";
 import type { ImapConnector } from "../../infrastructure/connectors/imap.connector";
 
 function makeAccount(overrides: Partial<EmailAccount> = {}): EmailAccount {
-  return { id: "acc-1", label: "Perso", email: "john@gmail.com", imapHost: "imap.gmail.com", imapPort: 993, imapSecure: true, smtpHost: "smtp.gmail.com", smtpPort: 587, smtpSecure: false, username: "john@gmail.com", lastSyncedAt: null, syncEnabled: true, createdAt: new Date("2026-01-01"), updatedAt: new Date("2026-01-01"), ...overrides };
+  return { id: "acc-1", label: "Perso", email: "john@gmail.com", imapHost: "imap.gmail.com", imapPort: 993, imapSecure: true, smtpHost: "smtp.gmail.com", smtpPort: 587, smtpSecure: false, username: "john@gmail.com", selfSigned: false, lastSyncedAt: null, syncEnabled: true, createdAt: new Date("2026-01-01"), updatedAt: new Date("2026-01-01"), ...overrides };
 }
 
 function makeEmail(overrides: Partial<Email> = {}): Email {
@@ -16,7 +16,8 @@ function createMocks() {
   const accountRepo = { findAll: mock(() => Promise.resolve([])), findById: mock(() => Promise.resolve(null)), findActive: mock(() => Promise.resolve([])), create: mock(() => Promise.resolve(makeAccount())), update: mock(() => Promise.resolve(null)), updateLastSyncedAt: mock(() => Promise.resolve()), delete: mock(() => Promise.resolve(false)), getPassword: mock(() => Promise.resolve(null)) } as unknown as EmailAccountRepository & Record<string, any>;
   const emailRepo = { findByAccount: mock(() => Promise.resolve([])), findAll: mock(() => Promise.resolve([])), findById: mock(() => Promise.resolve(null)), findMaxUid: mock(() => Promise.resolve(null)), create: mock(() => Promise.resolve(null)), bulkCreate: mock(() => Promise.resolve(0)), updateFlags: mock(() => Promise.resolve(null)), delete: mock(() => Promise.resolve(false)), countUnread: mock(() => Promise.resolve(0)), countByDateRange: mock(() => Promise.resolve({ total: 0, unread: 0, dailyStats: [] })), updateSummary: mock(() => Promise.resolve(null)) } as unknown as EmailRepository & Record<string, any>;
   const imapConnector = { fetchNewEmails: mock(() => Promise.resolve([])), testConnection: mock(() => Promise.resolve(true)), markRead: mock(() => Promise.resolve()), deleteMessage: mock(() => Promise.resolve()) } as unknown as ImapConnector;
-  return { accountRepo, emailRepo, imapConnector };
+  const smtpConnector = { sendEmail: mock(() => Promise.resolve({ messageId: "<sent@test.com>" })), testConnection: mock(() => Promise.resolve(true)) };
+  return { accountRepo, emailRepo, imapConnector, smtpConnector };
 }
 
 describe("EmailService — Extended", () => {
@@ -25,7 +26,7 @@ describe("EmailService — Extended", () => {
 
   beforeEach(() => {
     mocks = createMocks();
-    service = new EmailService(mocks.accountRepo as any, mocks.emailRepo as any, mocks.imapConnector as any);
+    service = new EmailService(mocks.accountRepo as any, mocks.emailRepo as any, mocks.imapConnector as any, mocks.smtpConnector as any);
   });
 
   describe("getAccountById", () => {

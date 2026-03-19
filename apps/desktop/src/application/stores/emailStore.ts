@@ -1,6 +1,44 @@
 import { createSignal } from "solid-js";
-import type { Email, EmailAccount, CreateEmailAccountDTO } from "../../domain/models/Email";
+import type { Email, EmailAccount, CreateEmailAccountDTO, SendEmailDTO } from "../../domain/models/Email";
 import { api } from "../../infrastructure/api/apiClient";
+
+const CACHE_KEY = "magick-cookie-email-cache";
+const CACHE_MAX_AGE_MS = 10 * 60 * 1000; // 10 minutes
+
+interface EmailCache {
+  emails: Omit<Email, "bodyText" | "bodyHtml">[];
+  unreadCount: number;
+  accountId: string | null;
+  folder: string;
+  timestamp: number;
+}
+
+function loadEmailCache(accountId: string | null, folder: string): EmailCache | null {
+  try {
+    const raw = localStorage.getItem(CACHE_KEY);
+    if (!raw) return null;
+    const cache = JSON.parse(raw) as EmailCache;
+    if (cache.accountId !== accountId || cache.folder !== folder) return null;
+    return cache;
+  } catch {
+    return null;
+  }
+}
+
+function saveEmailCache(emailList: Email[], unread: number, accountId: string | null, folder: string): void {
+  try {
+    const cache: EmailCache = {
+      emails: emailList.map(({ bodyText, bodyHtml, ...rest }) => rest),
+      unreadCount: unread,
+      accountId,
+      folder,
+      timestamp: Date.now(),
+    };
+    localStorage.setItem(CACHE_KEY, JSON.stringify(cache));
+  } catch {
+    // localStorage full or unavailable — ignore
+  }
+}
 
 const [emails, setEmails] = createSignal<Email[]>([]);
 const [accounts, setAccounts] = createSignal<EmailAccount[]>([]);
@@ -13,11 +51,14 @@ const [unreadCount, setUnreadCount] = createSignal(0);
 const [focusedIndex, setFocusedIndex] = createSignal(-1);
 const [emailSummary, setEmailSummary] = createSignal<string | null>(null);
 const [summaryLoading, setSummaryLoading] = createSignal(false);
+const [isStale, setIsStale] = createSignal(false);
 
 export interface EmailDigestBySender {
   sender: string;
+  senderAddress: string;
   count: number;
   subjects: string[];
+  emailIds: string[];
 }
 
 export interface EmailDigest {
@@ -37,17 +78,39 @@ export function useEmailStore() {
   }
 
   async function fetchEmails() {
-    setIsLoading(true);
+    const accountId = activeAccountId();
+    const folder = activeFolder();
+
+    // 1. Load from cache first for instant display
+    const cache = loadEmailCache(accountId, folder);
+    if (cache) {
+      setEmails(cache.emails as Email[]);
+      setUnreadCount(cache.unreadCount);
+      setIsStale(true);
+    }
+
+    // 2. Fetch fresh data from API
+    setIsLoading(!cache); // only show loading spinner if no cache
     try {
       const params = new URLSearchParams();
-      const accountId = activeAccountId();
       if (accountId) params.set("accountId", accountId);
-      params.set("folder", activeFolder());
+      params.set("folder", folder);
       params.set("limit", "50");
 
       const qs = params.toString();
       const data = await api.get<Email[]>(`/emails?${qs}`);
       setEmails(data);
+      setIsStale(false);
+
+      // Update cache with fresh data
+      const unread = await api.get<{ count: number }>("/emails/unread-count");
+      setUnreadCount(unread.count);
+      saveEmailCache(data, unread.count, accountId, folder);
+    } catch (err) {
+      // Offline: cache data remains displayed
+      if (!cache) {
+        console.error("[email] Failed to fetch emails and no cache available:", err);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -56,6 +119,10 @@ export function useEmailStore() {
   async function fetchUnreadCount() {
     const data = await api.get<{ count: number }>("/emails/unread-count");
     setUnreadCount(data.count);
+  }
+
+  function persistCache() {
+    saveEmailCache(emails(), unreadCount(), activeAccountId(), activeFolder());
   }
 
   async function selectEmail(email: Email) {
@@ -67,16 +134,28 @@ export function useEmailStore() {
       setEmails((prev) => prev.map((e) => (e.id === email.id ? { ...e, isRead: true } : e)));
       setSelectedEmail({ ...email, isRead: true });
       setUnreadCount((c) => Math.max(0, c - 1));
+      persistCache();
     }
   }
 
   async function toggleStar(emailId: string) {
     const email = emails().find((e) => e.id === emailId);
     if (!email) return;
-    await api.patch<Email>(`/emails/${emailId}`, { isStarred: !email.isStarred });
+    // Optimistic update
     setEmails((prev) => prev.map((e) => (e.id === emailId ? { ...e, isStarred: !e.isStarred } : e)));
     if (selectedEmail()?.id === emailId) {
       setSelectedEmail((prev) => prev ? { ...prev, isStarred: !prev.isStarred } : null);
+    }
+    persistCache();
+    try {
+      await api.patch<Email>(`/emails/${emailId}`, { isStarred: !email.isStarred });
+    } catch (err) {
+      // Revert on failure
+      setEmails((prev) => prev.map((e) => (e.id === emailId ? { ...e, isStarred: email.isStarred } : e)));
+      if (selectedEmail()?.id === emailId) {
+        setSelectedEmail((prev) => prev ? { ...prev, isStarred: email.isStarred } : null);
+      }
+      persistCache();
     }
   }
 
@@ -84,12 +163,14 @@ export function useEmailStore() {
     await api.patch<Email>(`/emails/${emailId}`, { isArchived: true });
     setEmails((prev) => prev.filter((e) => e.id !== emailId));
     if (selectedEmail()?.id === emailId) setSelectedEmail(null);
+    persistCache();
   }
 
   async function deleteEmail(emailId: string) {
     await api.delete(`/emails/${emailId}`);
     setEmails((prev) => prev.filter((e) => e.id !== emailId));
     if (selectedEmail()?.id === emailId) setSelectedEmail(null);
+    persistCache();
   }
 
   async function syncEmails() {
@@ -159,6 +240,14 @@ export function useEmailStore() {
       setSelectedEmail((prev) => prev ? { ...prev, isRead: !email.isRead } : null);
     }
     setUnreadCount((c) => email.isRead ? c + 1 : Math.max(0, c - 1));
+    persistCache();
+  }
+
+  // Refresh emails when coming back online
+  function setupReconnectionListener() {
+    window.addEventListener("online", () => {
+      fetchEmails();
+    });
   }
 
   async function fetchDigest(days: number = 7) {
@@ -172,6 +261,40 @@ export function useEmailStore() {
     } finally {
       setDigestLoading(false);
     }
+  }
+
+  async function bulkDeleteEmails(ids: string[]): Promise<number> {
+    const data = await api.post<{ deleted: number }>("/emails/bulk-delete", { ids });
+    // Remove from local state
+    const idSet = new Set(ids);
+    setEmails((prev) => prev.filter((e) => !idSet.has(e.id)));
+    persistCache();
+    return data.deleted;
+  }
+
+  async function deleteSenderFromDigest(sender: string, emailIds: string[]): Promise<void> {
+    await bulkDeleteEmails(emailIds);
+    // Remove sender group from digest
+    setDigest((prev) => {
+      if (!prev) return null;
+      const updated = {
+        ...prev,
+        bySender: prev.bySender.filter((s) => s.sender !== sender),
+        totalUnread: prev.totalUnread - emailIds.length,
+      };
+      return updated;
+    });
+    await fetchUnreadCount();
+  }
+
+  async function sendEmail(input: SendEmailDTO): Promise<Email | null> {
+    const data = await api.post<Email>("/emails/send", input);
+    return data;
+  }
+
+  async function generateReport(days: number = 7): Promise<{ markdown: string; emailCount: number }> {
+    const data = await api.post<{ markdown: string; emailCount: number }>(`/emails/report?days=${days}`, {});
+    return data;
   }
 
   async function summarizeEmail(id: string) {
@@ -190,7 +313,7 @@ export function useEmailStore() {
 
   return {
     emails, accounts, selectedEmail, activeAccountId, activeFolder,
-    isLoading, isSyncing, unreadCount,
+    isLoading, isSyncing, unreadCount, isStale,
     focusedIndex, emailSummary, summaryLoading,
     digest, digestLoading,
     setActiveAccountId, setActiveFolder, setSelectedEmail, setFocusedIndex, setEmailSummary,
@@ -198,5 +321,7 @@ export function useEmailStore() {
     selectEmail, toggleStar, archiveEmail, deleteEmail,
     syncEmails, addAccount, removeAccount, testConnection,
     moveFocus, selectFocused, toggleReadStatus, summarizeEmail,
+    bulkDeleteEmails, deleteSenderFromDigest, generateReport, sendEmail,
+    setupReconnectionListener,
   };
 }

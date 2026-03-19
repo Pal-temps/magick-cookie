@@ -11,6 +11,16 @@ export const createEmailAccountSchema = z.object({
   smtpSecure: z.boolean().default(false),
   username: z.string().min(1),
   password: z.string().min(1),
+  selfSigned: z.boolean().default(false),
+});
+
+export const sendEmailSchema = z.object({
+  accountId: z.string().uuid(),
+  to: z.array(z.string().email()).min(1),
+  cc: z.array(z.string().email()).optional(),
+  subject: z.string().max(1000),
+  bodyText: z.string().min(1),
+  bodyHtml: z.string().optional(),
 });
 
 export const updateEmailAccountSchema = z.object({

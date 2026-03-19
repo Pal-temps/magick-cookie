@@ -36,6 +36,7 @@ export class DrizzleEmailAccountRepository implements EmailAccountRepository {
       smtpSecure: input.smtpSecure,
       username: input.username,
       passwordEnc: input.password, // Phase 1: stocké en clair
+      selfSigned: input.selfSigned ?? false,
     }).returning();
     return this.toDomain(rows[0]);
   }
@@ -79,6 +80,7 @@ export class DrizzleEmailAccountRepository implements EmailAccountRepository {
       smtpPort: row.smtpPort,
       smtpSecure: row.smtpSecure,
       username: row.username,
+      selfSigned: row.selfSigned,
       lastSyncedAt: row.lastSyncedAt,
       syncEnabled: row.syncEnabled,
       createdAt: row.createdAt!,

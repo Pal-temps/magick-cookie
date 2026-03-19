@@ -45,6 +45,7 @@ function makeAccount(overrides: Partial<EmailAccount> = {}): EmailAccount {
     smtpPort: 587,
     smtpSecure: false,
     username: "bob@test.com",
+    selfSigned: false,
     lastSyncedAt: null,
     syncEnabled: true,
     createdAt: new Date("2026-01-01"),
@@ -63,7 +64,8 @@ function createMockService() {
     createAccount: mock(() => Promise.resolve(makeAccount())),
     updateAccount: mock(() => Promise.resolve(null)),
     deleteAccount: mock(() => Promise.resolve(false)),
-    testConnection: mock(() => Promise.resolve(true)),
+    testConnection: mock(() => Promise.resolve({ imap: true, smtp: true })),
+    sendEmail: mock(() => Promise.resolve(makeEmail({ folder: "Sent" }))),
     getEmails: mock(() => Promise.resolve([])),
     getEmailById: mock(() => Promise.resolve(null)),
     updateEmailFlags: mock(() => Promise.resolve(null)),
@@ -278,6 +280,39 @@ describe("Email Routes", () => {
     });
   });
 
+  describe("POST /api/emails/send", () => {
+    test("sends email and returns 201", async () => {
+      const sentEmail = makeEmail({ folder: "Sent", subject: "Hello" });
+      mockService.sendEmail.mockReturnValue(Promise.resolve(sentEmail));
+
+      const res = await app.request("/api/emails/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          accountId: "550e8400-e29b-41d4-a716-446655440000",
+          to: ["alice@example.com"],
+          subject: "Hello",
+          bodyText: "Hi Alice",
+        }),
+      });
+
+      expect(res.status).toBe(201);
+      const json = await res.json();
+      expect(json.data.folder).toBe("Sent");
+    });
+
+    test("rejects invalid input", async () => {
+      const res = await app.request("/api/emails/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ to: [], subject: "", bodyText: "" }),
+      });
+
+      // ZodError thrown -> 500 (no error middleware in test context)
+      expect(res.status).not.toBe(201);
+    });
+  });
+
   describe("DELETE /api/emails/:id", () => {
     test("deletes an email", async () => {
       mockService.deleteEmail.mockReturnValue(Promise.resolve(true));
@@ -380,8 +415,8 @@ describe("Email Account Routes", () => {
   });
 
   describe("POST /api/email-accounts/test-connection", () => {
-    test("returns success when connection works", async () => {
-      mockService.testConnection.mockReturnValue(Promise.resolve(true));
+    test("returns success when both IMAP and SMTP work", async () => {
+      mockService.testConnection.mockReturnValue(Promise.resolve({ imap: true, smtp: true }));
 
       const res = await app.request("/api/email-accounts/test-connection", {
         method: "POST",
@@ -403,10 +438,12 @@ describe("Email Account Routes", () => {
       expect(res.status).toBe(200);
       const json = await res.json();
       expect(json.data.success).toBe(true);
+      expect(json.data.imap).toBe(true);
+      expect(json.data.smtp).toBe(true);
     });
 
-    test("returns failure when connection fails", async () => {
-      mockService.testConnection.mockReturnValue(Promise.resolve(false));
+    test("returns failure when SMTP fails", async () => {
+      mockService.testConnection.mockReturnValue(Promise.resolve({ imap: true, smtp: false }));
 
       const res = await app.request("/api/email-accounts/test-connection", {
         method: "POST",
@@ -427,6 +464,8 @@ describe("Email Account Routes", () => {
 
       const json = await res.json();
       expect(json.data.success).toBe(false);
+      expect(json.data.imap).toBe(true);
+      expect(json.data.smtp).toBe(false);
     });
   });
 });

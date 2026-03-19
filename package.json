@@ -4,7 +4,9 @@
   "workspaces": ["apps/*"],
   "scripts": {
     "predev": "node scripts/kill-existing.js",
-    "dev": "node scripts/ensure-db.js && bun run db:migrate && concurrently -n api,desktop -c blue,green \"bun run api:dev\" \"bun run desktop:dev\"",
+    "dev": "node scripts/ensure-db.js && bun run db:migrate && bun run llm:up && concurrently -n api,desktop -c blue,green \"bun run api:dev\" \"bun run desktop:dev\"",
+    "llm:up": "docker compose -f apps/llm/docker-compose.cpu.yml up -d",
+    "llm:down": "docker compose -f apps/llm/docker-compose.cpu.yml down",
     "api:dev": "bun run --filter api dev",
     "desktop:dev": "bun run --filter desktop tauri:dev",
     "db:migrate": "bun run --filter api db:migrate",
@@ -14,7 +16,11 @@
     "db:studio": "bun run --filter api db:studio",
     "test": "bun run --filter api test",
     "test:integration": "bun run --filter api test:integration",
-    "test:e2e": "bun run --filter api test:e2e"
+    "test:e2e": "bun run --filter api test:e2e",
+    "mail:up": "docker compose -f apps/mail-server/docker-compose.yml up -d",
+    "mail:down": "docker compose -f apps/mail-server/docker-compose.yml down",
+    "mail:setup": "bash apps/mail-server/setup.sh",
+    "mail:up:prod": "docker compose -f apps/mail-server/docker-compose.yml -f apps/mail-server/docker-compose.prod.yml up -d"
   },
   "devDependencies": {
     "concurrently": "^9.2.1"

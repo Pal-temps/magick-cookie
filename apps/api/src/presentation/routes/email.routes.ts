@@ -6,6 +6,7 @@ import {
   updateEmailAccountSchema,
   updateEmailFlagsSchema,
   emailQuerySchema,
+  sendEmailSchema,
 } from "../validators/email.validator";
 
 const EMAIL_CATEGORIES = ["newsletter", "facture", "action_requise", "personnel", "notification", "autre"];
@@ -36,6 +37,37 @@ export function createEmailRoutes(emailService: EmailService, llmService?: LlmSe
       }
     }
     return c.json({ data: { ...digest, summary } });
+  });
+
+  // POST /api/emails/send
+  app.post("/send", async (c) => {
+    const body = sendEmailSchema.parse(await c.req.json());
+    const { accountId, ...input } = body;
+    const email = await emailService.sendEmail(accountId, input);
+    return c.json({ data: email }, 201);
+  });
+
+  // POST /api/emails/bulk-delete
+  app.post("/bulk-delete", async (c) => {
+    const body = await c.req.json();
+    const ids = body.ids;
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return c.json({ error: "ids must be a non-empty array" }, 400);
+    }
+    if (ids.length > 200) {
+      return c.json({ error: "Maximum 200 emails per bulk delete" }, 400);
+    }
+    const count = await emailService.bulkDeleteEmails(ids);
+    return c.json({ data: { deleted: count } });
+  });
+
+  // POST /api/emails/report — generate a markdown report of important emails
+  app.post("/report", async (c) => {
+    if (!llmService) return c.json({ error: "LLM not configured" }, 400);
+
+    const days = Number(c.req.query("days") || "7");
+    const report = await emailService.generateReport(days, llmService);
+    return c.json({ data: report });
   });
 
   // GET /api/emails/unread-count
@@ -181,8 +213,8 @@ export function createEmailAccountRoutes(emailService: EmailService) {
   // POST /api/email-accounts/test-connection
   app.post("/test-connection", async (c) => {
     const input = createEmailAccountSchema.parse(await c.req.json());
-    const success = await emailService.testConnection(input);
-    return c.json({ data: { success } });
+    const result = await emailService.testConnection(input);
+    return c.json({ data: { success: result.imap && result.smtp, imap: result.imap, smtp: result.smtp } });
   });
 
   return app;

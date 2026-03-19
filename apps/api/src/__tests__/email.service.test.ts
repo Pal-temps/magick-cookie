@@ -3,6 +3,7 @@ import { EmailService } from "../application/email/email.service";
 import type { EmailAccountRepository, EmailRepository } from "../domain/email/email.repository";
 import type { EmailAccount, Email, CreateEmailAccountInput, CreateEmailInput } from "../domain/email/email.entity";
 import type { ImapConnector } from "../infrastructure/connectors/imap.connector";
+import type { SmtpConnector } from "../infrastructure/connectors/smtp.connector";
 
 // --- Factories ---
 
@@ -18,6 +19,7 @@ function makeAccount(overrides: Partial<EmailAccount> = {}): EmailAccount {
     smtpPort: 587,
     smtpSecure: false,
     username: "john@gmail.com",
+    selfSigned: false,
     lastSyncedAt: null,
     syncEnabled: true,
     createdAt: new Date("2026-01-01"),
@@ -81,6 +83,9 @@ function createMockEmailRepo(): Record<keyof EmailRepository, ReturnType<typeof 
     countUnread: mock(() => Promise.resolve(0)),
     countByDateRange: mock(() => Promise.resolve({ total: 0, unread: 0, dailyStats: [] })),
     updateSummary: mock(() => Promise.resolve(null)),
+    findUidsByAccount: mock(() => Promise.resolve([])),
+    findFlagsByAccount: mock(() => Promise.resolve([])),
+    bulkUpdateFlags: mock(() => Promise.resolve(0)),
   };
 }
 
@@ -89,7 +94,21 @@ function createMockImapConnector(): Record<keyof ImapConnector, ReturnType<typeo
     fetchNewEmails: mock(() => Promise.resolve([])),
     testConnection: mock(() => Promise.resolve(true)),
     markRead: mock(() => Promise.resolve()),
+    markUnread: mock(() => Promise.resolve()),
+    markStarred: mock(() => Promise.resolve()),
+    markUnstarred: mock(() => Promise.resolve()),
     deleteMessage: mock(() => Promise.resolve()),
+    bulkDeleteMessages: mock(() => Promise.resolve(0)),
+    fetchByUids: mock(() => Promise.resolve([])),
+    listRecentUids: mock(() => Promise.resolve([])),
+    fetchFlags: mock(() => Promise.resolve(new Map())),
+  };
+}
+
+function createMockSmtpConnector(): Record<keyof SmtpConnector, ReturnType<typeof mock>> {
+  return {
+    sendEmail: mock(() => Promise.resolve({ messageId: "<sent@test.com>" })),
+    testConnection: mock(() => Promise.resolve(true)),
   };
 }
 
@@ -100,15 +119,18 @@ describe("EmailService", () => {
   let accountRepo: ReturnType<typeof createMockAccountRepo>;
   let emailRepo: ReturnType<typeof createMockEmailRepo>;
   let imapConnector: ReturnType<typeof createMockImapConnector>;
+  let smtpConnector: ReturnType<typeof createMockSmtpConnector>;
 
   beforeEach(() => {
     accountRepo = createMockAccountRepo();
     emailRepo = createMockEmailRepo();
     imapConnector = createMockImapConnector();
+    smtpConnector = createMockSmtpConnector();
     service = new EmailService(
       accountRepo as unknown as EmailAccountRepository,
       emailRepo as unknown as EmailRepository,
       imapConnector as unknown as ImapConnector,
+      smtpConnector as unknown as SmtpConnector,
     );
   });
 
@@ -174,8 +196,9 @@ describe("EmailService", () => {
   });
 
   describe("testConnection", () => {
-    test("delegates to IMAP connector", async () => {
+    test("tests both IMAP and SMTP", async () => {
       imapConnector.testConnection.mockReturnValue(Promise.resolve(true));
+      smtpConnector.testConnection.mockReturnValue(Promise.resolve(true));
 
       const input: CreateEmailAccountInput = {
         label: "Test",
@@ -191,14 +214,67 @@ describe("EmailService", () => {
       };
 
       const result = await service.testConnection(input);
-      expect(result).toBe(true);
+      expect(result).toEqual({ imap: true, smtp: true });
       expect(imapConnector.testConnection).toHaveBeenCalledWith({
         host: "imap.gmail.com",
         port: 993,
         secure: true,
         username: "test@gmail.com",
         password: "secret",
+        selfSigned: undefined,
       });
+      expect(smtpConnector.testConnection).toHaveBeenCalledWith({
+        host: "smtp.gmail.com",
+        port: 587,
+        secure: false,
+        username: "test@gmail.com",
+        password: "secret",
+        selfSigned: undefined,
+      });
+    });
+
+    test("returns partial failure when SMTP fails", async () => {
+      imapConnector.testConnection.mockReturnValue(Promise.resolve(true));
+      smtpConnector.testConnection.mockReturnValue(Promise.resolve(false));
+
+      const input: CreateEmailAccountInput = {
+        label: "Test",
+        email: "test@gmail.com",
+        imapHost: "imap.gmail.com",
+        imapPort: 993,
+        imapSecure: true,
+        smtpHost: "smtp.gmail.com",
+        smtpPort: 587,
+        smtpSecure: false,
+        username: "test@gmail.com",
+        password: "secret",
+      };
+
+      const result = await service.testConnection(input);
+      expect(result).toEqual({ imap: true, smtp: false });
+    });
+
+    test("passes selfSigned to both connectors", async () => {
+      imapConnector.testConnection.mockReturnValue(Promise.resolve(true));
+      smtpConnector.testConnection.mockReturnValue(Promise.resolve(true));
+
+      const input: CreateEmailAccountInput = {
+        label: "Self-hosted",
+        email: "me@localhost",
+        imapHost: "localhost",
+        imapPort: 1993,
+        imapSecure: true,
+        smtpHost: "localhost",
+        smtpPort: 1587,
+        smtpSecure: false,
+        username: "me@localhost",
+        password: "secret",
+        selfSigned: true,
+      };
+
+      await service.testConnection(input);
+      expect(imapConnector.testConnection).toHaveBeenCalledWith(expect.objectContaining({ selfSigned: true }));
+      expect(smtpConnector.testConnection).toHaveBeenCalledWith(expect.objectContaining({ selfSigned: true }));
     });
   });
 
@@ -329,6 +405,7 @@ describe("EmailService", () => {
 
   describe("deleteEmail", () => {
     test("deletes an email and returns true", async () => {
+      emailRepo.findById.mockReturnValue(Promise.resolve(makeEmail()));
       emailRepo.delete.mockReturnValue(Promise.resolve(true));
 
       const result = await service.deleteEmail("email-1");
@@ -337,7 +414,7 @@ describe("EmailService", () => {
     });
 
     test("returns false when email does not exist", async () => {
-      emailRepo.delete.mockReturnValue(Promise.resolve(false));
+      emailRepo.findById.mockReturnValue(Promise.resolve(null));
 
       const result = await service.deleteEmail("ghost");
       expect(result).toBe(false);
@@ -521,6 +598,72 @@ describe("EmailService", () => {
         "INBOX",
         undefined,
       );
+    });
+  });
+
+  // --- Send email ---
+
+  describe("sendEmail", () => {
+    test("sends email via SMTP and saves to DB", async () => {
+      const account = makeAccount();
+      accountRepo.findById.mockReturnValue(Promise.resolve(account));
+      accountRepo.getPassword.mockReturnValue(Promise.resolve("secret"));
+      smtpConnector.sendEmail.mockReturnValue(Promise.resolve({ messageId: "<sent@test.com>" }));
+      const savedEmail = makeEmail({ folder: "Sent", subject: "Hello" });
+      emailRepo.create.mockReturnValue(Promise.resolve(savedEmail));
+
+      const result = await service.sendEmail("acc-1", {
+        to: ["alice@example.com"],
+        subject: "Hello",
+        bodyText: "Hi Alice",
+      });
+
+      expect(result).toEqual(savedEmail);
+      expect(smtpConnector.sendEmail).toHaveBeenCalledWith(account, "secret", {
+        to: ["alice@example.com"],
+        subject: "Hello",
+        bodyText: "Hi Alice",
+      });
+      expect(emailRepo.create).toHaveBeenCalledWith(expect.objectContaining({
+        accountId: "acc-1",
+        folder: "Sent",
+        subject: "Hello",
+        fromAddress: "john@gmail.com",
+      }));
+    });
+
+    test("throws when account not found", async () => {
+      accountRepo.findById.mockReturnValue(Promise.resolve(null));
+      await expect(service.sendEmail("ghost", { to: ["a@b.com"], subject: "X", bodyText: "Y" })).rejects.toThrow("Account not found");
+    });
+
+    test("throws when password not found", async () => {
+      accountRepo.findById.mockReturnValue(Promise.resolve(makeAccount()));
+      accountRepo.getPassword.mockReturnValue(Promise.resolve(null));
+      await expect(service.sendEmail("acc-1", { to: ["a@b.com"], subject: "X", bodyText: "Y" })).rejects.toThrow("Account password not found");
+    });
+
+    test("sends with cc recipients", async () => {
+      accountRepo.findById.mockReturnValue(Promise.resolve(makeAccount()));
+      accountRepo.getPassword.mockReturnValue(Promise.resolve("secret"));
+      smtpConnector.sendEmail.mockReturnValue(Promise.resolve({ messageId: "<sent2@test.com>" }));
+      emailRepo.create.mockReturnValue(Promise.resolve(makeEmail()));
+
+      await service.sendEmail("acc-1", {
+        to: ["alice@example.com"],
+        cc: ["bob@example.com"],
+        subject: "Hello",
+        bodyText: "Hi",
+      });
+
+      expect(smtpConnector.sendEmail).toHaveBeenCalledWith(
+        expect.anything(),
+        "secret",
+        expect.objectContaining({ cc: ["bob@example.com"] }),
+      );
+      expect(emailRepo.create).toHaveBeenCalledWith(expect.objectContaining({
+        ccAddresses: [{ name: null, address: "bob@example.com" }],
+      }));
     });
   });
 

@@ -4,6 +4,7 @@ import {
   updateEmailAccountSchema,
   updateEmailFlagsSchema,
   emailQuerySchema,
+  sendEmailSchema,
 } from "../presentation/validators/email.validator";
 
 describe("createEmailAccountSchema", () => {
@@ -146,5 +147,82 @@ describe("emailQuerySchema", () => {
 
   test("rejects invalid UUID for accountId", () => {
     expect(() => emailQuerySchema.parse({ accountId: "not-a-uuid" })).toThrow();
+  });
+});
+
+describe("createEmailAccountSchema — selfSigned", () => {
+  const validInput = {
+    label: "Self-hosted",
+    email: "me@mail.localhost.com",
+    imapHost: "localhost",
+    imapPort: 1993,
+    imapSecure: true,
+    smtpHost: "localhost",
+    smtpPort: 1587,
+    smtpSecure: false,
+    username: "me@localhost",
+    password: "changeme",
+  };
+
+  test("defaults selfSigned to false", () => {
+    const result = createEmailAccountSchema.parse(validInput);
+    expect(result.selfSigned).toBe(false);
+  });
+
+  test("accepts selfSigned: true", () => {
+    const result = createEmailAccountSchema.parse({ ...validInput, selfSigned: true });
+    expect(result.selfSigned).toBe(true);
+  });
+});
+
+describe("sendEmailSchema", () => {
+  const validInput = {
+    accountId: "550e8400-e29b-41d4-a716-446655440000",
+    to: ["alice@example.com"],
+    subject: "Hello",
+    bodyText: "Hi Alice",
+  };
+
+  test("accepts valid input", () => {
+    const result = sendEmailSchema.parse(validInput);
+    expect(result.to).toEqual(["alice@example.com"]);
+    expect(result.subject).toBe("Hello");
+    expect(result.bodyText).toBe("Hi Alice");
+  });
+
+  test("accepts multiple recipients", () => {
+    const result = sendEmailSchema.parse({ ...validInput, to: ["a@b.com", "c@d.com"] });
+    expect(result.to).toHaveLength(2);
+  });
+
+  test("accepts cc", () => {
+    const result = sendEmailSchema.parse({ ...validInput, cc: ["bob@example.com"] });
+    expect(result.cc).toEqual(["bob@example.com"]);
+  });
+
+  test("accepts bodyHtml", () => {
+    const result = sendEmailSchema.parse({ ...validInput, bodyHtml: "<p>Hi</p>" });
+    expect(result.bodyHtml).toBe("<p>Hi</p>");
+  });
+
+  test("rejects empty to array", () => {
+    expect(() => sendEmailSchema.parse({ ...validInput, to: [] })).toThrow();
+  });
+
+  test("rejects invalid email in to", () => {
+    expect(() => sendEmailSchema.parse({ ...validInput, to: ["not-an-email"] })).toThrow();
+  });
+
+  test("rejects missing accountId", () => {
+    const { accountId, ...rest } = validInput;
+    expect(() => sendEmailSchema.parse(rest)).toThrow();
+  });
+
+  test("rejects invalid UUID for accountId", () => {
+    expect(() => sendEmailSchema.parse({ ...validInput, accountId: "not-uuid" })).toThrow();
+  });
+
+  test("rejects empty bodyText", () => {
+    expect(() => sendEmailSchema.parse({ ...validInput, bodyText: "" })).toThrow();
   });
 });

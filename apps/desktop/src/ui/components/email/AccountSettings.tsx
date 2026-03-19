@@ -1,5 +1,6 @@
 import { createSignal, For, Show } from "solid-js";
 import type { EmailAccount, CreateEmailAccountDTO } from "../../../domain/models/Email";
+import { api } from "../../../infrastructure/api/apiClient";
 import { Button } from "../common/Button";
 
 interface AccountSettingsProps {
@@ -10,12 +11,14 @@ interface AccountSettingsProps {
   onClose: () => void;
 }
 
-const PRESETS: Record<string, { imapHost: string; imapPort: number; smtpHost: string; smtpPort: number; smtpSecure: boolean }> = {
+const PRESETS: Record<string, { imapHost: string; imapPort: number; smtpHost: string; smtpPort: number; smtpSecure: boolean; selfSigned?: boolean }> = {
   Gmail: { imapHost: "imap.gmail.com", imapPort: 993, smtpHost: "smtp.gmail.com", smtpPort: 465, smtpSecure: true },
   Outlook: { imapHost: "outlook.office365.com", imapPort: 993, smtpHost: "smtp.office365.com", smtpPort: 587, smtpSecure: false },
   Yahoo: { imapHost: "imap.mail.yahoo.com", imapPort: 993, smtpHost: "smtp.mail.yahoo.com", smtpPort: 465, smtpSecure: true },
+  Apple: { imapHost: "imap.mail.me.com", imapPort: 993, smtpHost: "smtp.mail.me.com", smtpPort: 587, smtpSecure: false },
   "Proton Bridge": { imapHost: "127.0.0.1", imapPort: 1143, smtpHost: "127.0.0.1", smtpPort: 1025, smtpSecure: false },
   OVH: { imapHost: "imap.mail.ovh.net", imapPort: 993, smtpHost: "ssl0.ovh.net", smtpPort: 465, smtpSecure: true },
+  "Self-hosted": { imapHost: "localhost", imapPort: 1993, smtpHost: "localhost", smtpPort: 1587, smtpSecure: false, selfSigned: true },
 };
 
 const EMAIL_DOMAIN_PRESET: Record<string, string> = {
@@ -26,6 +29,9 @@ const EMAIL_DOMAIN_PRESET: Record<string, string> = {
   "live.com": "Outlook",
   "yahoo.com": "Yahoo",
   "yahoo.fr": "Yahoo",
+  "icloud.com": "Apple",
+  "me.com": "Apple",
+  "mac.com": "Apple",
   "ovh.net": "OVH",
   "ovh.com": "OVH",
 };
@@ -41,8 +47,9 @@ export function AccountSettings(props: AccountSettingsProps) {
   const [smtpHost, setSmtpHost] = createSignal("");
   const [smtpPort, setSmtpPort] = createSignal(587);
   const [smtpSecure, setSmtpSecure] = createSignal(false);
+  const [selfSigned, setSelfSigned] = createSignal(false);
   const [isTesting, setIsTesting] = createSignal(false);
-  const [testResult, setTestResult] = createSignal<boolean | null>(null);
+  const [testResult, setTestResult] = createSignal<{ success: boolean; imap?: boolean; smtp?: boolean } | null>(null);
   const [isSaving, setIsSaving] = createSignal(false);
 
   function applyPreset(name: string) {
@@ -53,6 +60,7 @@ export function AccountSettings(props: AccountSettingsProps) {
     setSmtpHost(p.smtpHost);
     setSmtpPort(p.smtpPort);
     setSmtpSecure(p.smtpSecure);
+    setSelfSigned(p.selfSigned ?? false);
   }
 
   function handleEmailInput(value: string) {
@@ -76,6 +84,7 @@ export function AccountSettings(props: AccountSettingsProps) {
       smtpSecure: smtpSecure(),
       username: username(),
       password: password(),
+      selfSigned: selfSigned(),
     };
   }
 
@@ -83,10 +92,11 @@ export function AccountSettings(props: AccountSettingsProps) {
     setIsTesting(true);
     setTestResult(null);
     try {
-      const ok = await props.onTestConnection(buildInput());
-      setTestResult(ok);
+      const input = buildInput();
+      const data = await api.post<{ success: boolean; imap: boolean; smtp: boolean }>("/email-accounts/test-connection", input);
+      setTestResult(data);
     } catch {
-      setTestResult(false);
+      setTestResult({ success: false });
     } finally {
       setIsTesting(false);
     }
@@ -105,7 +115,7 @@ export function AccountSettings(props: AccountSettingsProps) {
   function resetForm() {
     setShowForm(false);
     setLabel(""); setEmail(""); setUsername(""); setPassword("");
-    setImapHost(""); setImapPort(993); setSmtpHost(""); setSmtpPort(587); setSmtpSecure(false);
+    setImapHost(""); setImapPort(993); setSmtpHost(""); setSmtpPort(587); setSmtpSecure(false); setSelfSigned(false);
     setTestResult(null);
   }
 
@@ -222,6 +232,20 @@ export function AccountSettings(props: AccountSettingsProps) {
             </div>
           </div>
 
+          {/* Self-signed certificate checkbox */}
+          <div style={{ "margin-top": "10px", display: "flex", "align-items": "center", gap: "8px" }}>
+            <input
+              type="checkbox"
+              id="selfSigned"
+              checked={selfSigned()}
+              onChange={(e) => setSelfSigned(e.target.checked)}
+              style={{ width: "14px", height: "14px" }}
+            />
+            <label for="selfSigned" style={{ "font-size": "12px", color: "var(--text-secondary)", cursor: "pointer" }}>
+              Certificat auto-signe (self-hosted / dev local)
+            </label>
+          </div>
+
           {/* Test result */}
           <Show when={testResult() !== null}>
             <div style={{
@@ -229,10 +253,12 @@ export function AccountSettings(props: AccountSettingsProps) {
               padding: "6px 10px",
               "border-radius": "var(--radius-sm)",
               "font-size": "12px",
-              background: testResult() ? "#22c55e22" : "#ef444422",
-              color: testResult() ? "#22c55e" : "#ef4444",
+              background: testResult()?.success ? "#22c55e22" : "#ef444422",
+              color: testResult()?.success ? "#22c55e" : "#ef4444",
             }}>
-              {testResult() ? "Connexion reussie !" : "Echec de connexion"}
+              {testResult()?.success
+                ? "IMAP + SMTP OK !"
+                : `Echec — IMAP: ${testResult()?.imap ? "OK" : "KO"}, SMTP: ${testResult()?.smtp ? "OK" : "KO"}`}
             </div>
           </Show>
 

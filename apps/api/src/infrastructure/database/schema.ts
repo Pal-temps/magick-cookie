@@ -126,6 +126,7 @@ export const emailAccounts = pgTable("email_accounts", {
   username: varchar("username", { length: 255 }).notNull(),
   passwordEnc: text("password_enc").notNull(),
   lastSyncedAt: timestamp("last_synced_at", { withTimezone: true }),
+  selfSigned: boolean("self_signed").notNull().default(false),
   syncEnabled: boolean("sync_enabled").notNull().default(true),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
