@@ -63,7 +63,7 @@ export function useEmailStore() {
     setEmailSummary(null);
     // Mark as read if unread
     if (!email.isRead) {
-      await api.put<Email>(`/emails/${email.id}`, { isRead: true });
+      await api.patch<Email>(`/emails/${email.id}`, { isRead: true });
       setEmails((prev) => prev.map((e) => (e.id === email.id ? { ...e, isRead: true } : e)));
       setSelectedEmail({ ...email, isRead: true });
       setUnreadCount((c) => Math.max(0, c - 1));
@@ -73,7 +73,7 @@ export function useEmailStore() {
   async function toggleStar(emailId: string) {
     const email = emails().find((e) => e.id === emailId);
     if (!email) return;
-    await api.put<Email>(`/emails/${emailId}`, { isStarred: !email.isStarred });
+    await api.patch<Email>(`/emails/${emailId}`, { isStarred: !email.isStarred });
     setEmails((prev) => prev.map((e) => (e.id === emailId ? { ...e, isStarred: !e.isStarred } : e)));
     if (selectedEmail()?.id === emailId) {
       setSelectedEmail((prev) => prev ? { ...prev, isStarred: !prev.isStarred } : null);
@@ -81,7 +81,7 @@ export function useEmailStore() {
   }
 
   async function archiveEmail(emailId: string) {
-    await api.put<Email>(`/emails/${emailId}`, { isArchived: true });
+    await api.patch<Email>(`/emails/${emailId}`, { isArchived: true });
     setEmails((prev) => prev.filter((e) => e.id !== emailId));
     if (selectedEmail()?.id === emailId) setSelectedEmail(null);
   }
@@ -113,6 +113,14 @@ export function useEmailStore() {
   async function addAccount(input: CreateEmailAccountDTO): Promise<EmailAccount> {
     const account = await api.post<EmailAccount>("/email-accounts", input);
     setAccounts((prev) => [...prev, account]);
+    // Trigger initial sync for the new account
+    try {
+      await api.post(`/email-accounts/${account.id}/sync`, {});
+      await fetchEmails();
+      await fetchUnreadCount();
+    } catch (err) {
+      console.error(`[email] Initial sync failed for ${account.label}:`, err);
+    }
     return account;
   }
 
@@ -145,7 +153,7 @@ export function useEmailStore() {
   async function toggleReadStatus(id: string) {
     const email = emails().find((e) => e.id === id);
     if (!email) return;
-    await api.put<Email>(`/emails/${id}`, { isRead: !email.isRead });
+    await api.patch<Email>(`/emails/${id}`, { isRead: !email.isRead });
     setEmails((prev) => prev.map((e) => (e.id === id ? { ...e, isRead: !email.isRead } : e)));
     if (selectedEmail()?.id === id) {
       setSelectedEmail((prev) => prev ? { ...prev, isRead: !email.isRead } : null);

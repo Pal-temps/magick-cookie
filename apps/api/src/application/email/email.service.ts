@@ -78,11 +78,57 @@ export class EmailService {
   }
 
   async updateEmailFlags(id: string, flags: { isRead?: boolean; isStarred?: boolean; isArchived?: boolean }): Promise<Email | null> {
-    return this.emailRepo.updateFlags(id, flags);
+    const updated = await this.emailRepo.updateFlags(id, flags);
+    if (!updated) return null;
+
+    // Sync read status back to IMAP
+    if (flags.isRead !== undefined && updated.imapUid) {
+      this.syncFlagToImap(updated.accountId, updated.imapUid, updated.folder, flags.isRead);
+    }
+
+    return updated;
   }
 
   async deleteEmail(id: string): Promise<boolean> {
+    const email = await this.emailRepo.findById(id);
+    if (!email) return false;
+
+    // Delete from IMAP first
+    if (email.imapUid) {
+      this.syncDeleteToImap(email.accountId, email.imapUid, email.folder);
+    }
+
     return this.emailRepo.delete(id);
+  }
+
+  /** Fire-and-forget: push read/unread flag to IMAP server */
+  private async syncFlagToImap(accountId: string, uid: number, folder: string, isRead: boolean): Promise<void> {
+    try {
+      const account = await this.accountRepo.findById(accountId);
+      const password = account ? await this.accountRepo.getPassword(accountId) : null;
+      if (!account || !password) return;
+
+      if (isRead) {
+        await this.imapConnector.markRead(account, password, uid, folder);
+      } else {
+        await this.imapConnector.markUnread(account, password, uid, folder);
+      }
+    } catch (err) {
+      console.error(`[email-sync] Failed to sync read flag to IMAP (uid=${uid}):`, err);
+    }
+  }
+
+  /** Fire-and-forget: delete message from IMAP server */
+  private async syncDeleteToImap(accountId: string, uid: number, folder: string): Promise<void> {
+    try {
+      const account = await this.accountRepo.findById(accountId);
+      const password = account ? await this.accountRepo.getPassword(accountId) : null;
+      if (!account || !password) return;
+
+      await this.imapConnector.deleteMessage(account, password, uid, folder);
+    } catch (err) {
+      console.error(`[email-sync] Failed to delete from IMAP (uid=${uid}):`, err);
+    }
   }
 
   async getUnreadCount(accountId?: string): Promise<number> {

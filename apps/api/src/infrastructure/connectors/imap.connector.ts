@@ -144,6 +144,28 @@ export class ImapConnector {
     }
   }
 
+  async markUnread(account: EmailAccount, password: string, uid: number, folder: string = "INBOX"): Promise<void> {
+    const client = this.createClient({
+      host: account.imapHost,
+      port: account.imapPort,
+      secure: account.imapSecure,
+      username: account.username,
+      password,
+    });
+
+    try {
+      await client.connect();
+      const lock = await client.getMailboxLock(folder);
+      try {
+        await client.messageFlagsRemove({ uid: uid }, ["\\Seen"], { uid: true });
+      } finally {
+        lock.release();
+      }
+    } finally {
+      await client.logout().catch(() => {});
+    }
+  }
+
   async deleteMessage(account: EmailAccount, password: string, uid: number, folder: string = "INBOX"): Promise<void> {
     const client = this.createClient({
       host: account.imapHost,
