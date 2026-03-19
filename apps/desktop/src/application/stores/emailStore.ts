@@ -47,6 +47,7 @@ const [activeAccountId, setActiveAccountId] = createSignal<string | null>(null);
 const [activeFolder, setActiveFolder] = createSignal("INBOX");
 const [isLoading, setIsLoading] = createSignal(false);
 const [isSyncing, setIsSyncing] = createSignal(false);
+const [isDeleting, setIsDeleting] = createSignal(false);
 const [unreadCount, setUnreadCount] = createSignal(0);
 const [focusedIndex, setFocusedIndex] = createSignal(-1);
 const [emailSummary, setEmailSummary] = createSignal<string | null>(null);
@@ -160,17 +161,27 @@ export function useEmailStore() {
   }
 
   async function archiveEmail(emailId: string) {
-    await api.patch<Email>(`/emails/${emailId}`, { isArchived: true });
-    setEmails((prev) => prev.filter((e) => e.id !== emailId));
-    if (selectedEmail()?.id === emailId) setSelectedEmail(null);
-    persistCache();
+    setIsDeleting(true);
+    try {
+      await api.patch<Email>(`/emails/${emailId}`, { isArchived: true });
+      setEmails((prev) => prev.filter((e) => e.id !== emailId));
+      if (selectedEmail()?.id === emailId) setSelectedEmail(null);
+      persistCache();
+    } finally {
+      setIsDeleting(false);
+    }
   }
 
   async function deleteEmail(emailId: string) {
-    await api.delete(`/emails/${emailId}`);
-    setEmails((prev) => prev.filter((e) => e.id !== emailId));
-    if (selectedEmail()?.id === emailId) setSelectedEmail(null);
-    persistCache();
+    setIsDeleting(true);
+    try {
+      await api.delete(`/emails/${emailId}`);
+      setEmails((prev) => prev.filter((e) => e.id !== emailId));
+      if (selectedEmail()?.id === emailId) setSelectedEmail(null);
+      persistCache();
+    } finally {
+      setIsDeleting(false);
+    }
   }
 
   async function syncEmails() {
@@ -313,7 +324,7 @@ export function useEmailStore() {
 
   return {
     emails, accounts, selectedEmail, activeAccountId, activeFolder,
-    isLoading, isSyncing, unreadCount, isStale,
+    isLoading, isSyncing, isDeleting, unreadCount, isStale,
     focusedIndex, emailSummary, summaryLoading,
     digest, digestLoading,
     setActiveAccountId, setActiveFolder, setSelectedEmail, setFocusedIndex, setEmailSummary,

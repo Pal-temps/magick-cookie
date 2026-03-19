@@ -98,7 +98,7 @@ export function EmailView() {
         onClose={() => setShowSettings(false)}
       />
     }>
-      <div style={{ height: "100%", display: "flex", "flex-direction": "column", overflow: "hidden" }}>
+      <div style={{ height: "100%", display: "flex", "flex-direction": "column", overflow: "hidden", position: "relative" }}>
         {/* Toolbar */}
         <div style={{
           display: "flex",
@@ -144,13 +144,32 @@ export function EmailView() {
               Digest
             </Button>
             <Button size="sm" variant="secondary" onClick={store.syncEmails} disabled={store.isSyncing()}>
-              {store.isSyncing() ? "Sync..." : "Sync"}
+              Sync
             </Button>
             <Button size="sm" variant="ghost" onClick={() => setShowSettings(true)}>
               Comptes
             </Button>
           </div>
         </div>
+
+        {/* Overlay loader for sync / delete */}
+        <Show when={store.isSyncing() || store.isDeleting()}>
+          <div style={{
+            position: "absolute",
+            inset: "0",
+            display: "flex",
+            "align-items": "center",
+            "justify-content": "center",
+            background: "rgba(0,0,0,0.3)",
+            "z-index": "10",
+            "pointer-events": "all",
+          }}>
+            <CookieLoader
+              size={48}
+              message={store.isSyncing() ? "Synchronisation..." : "Suppression..."}
+            />
+          </div>
+        </Show>
 
         {/* Main area */}
         <div style={{ flex: "1", display: "flex", overflow: "hidden" }}>
