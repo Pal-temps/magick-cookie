@@ -7,6 +7,85 @@
     <title>Magick Cookie</title>
   </head>
   <body>
+    <!-- Splash loader — visible instantly, removed by App once ready -->
+    <div id="splash">
+      <div class="splash-content">
+        <img src="/gif/loader-cookie.gif" alt="" class="splash-img" />
+        <span class="splash-title">Magick Cookie</span>
+      </div>
+    </div>
+    <script>
+      // Read theme before paint so splash matches the user's preference
+      (function() {
+        var bg = { dark: "#0d0d11", light: "#f8f7f4", cookie: "#2c1e14" };
+        var glow = { dark: "rgba(124,107,245,0.12)", light: "rgba(91,76,212,0.08)", cookie: "rgba(232,165,75,0.14)" };
+        var text = { dark: "#505068", light: "#9090a8", cookie: "#8c7560" };
+        var t = "dark";
+        try {
+          var raw = localStorage.getItem("magick-cookie-preferences");
+          if (raw) { var p = JSON.parse(raw); if (p.theme && p.theme.theme) t = p.theme.theme; }
+        } catch(e) {}
+        var s = document.getElementById("splash");
+        if (s) {
+          s.style.background = bg[t] || bg.dark;
+          s.style.setProperty("--splash-glow", glow[t] || glow.dark);
+          s.style.setProperty("--splash-text", text[t] || text.dark);
+        }
+      })();
+    </script>
+    <style>
+      #splash {
+        position: fixed;
+        inset: 0;
+        z-index: 99999;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #0d0d11;
+        transition: opacity 0.4s ease;
+      }
+      #splash::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: radial-gradient(
+          ellipse 60% 50% at 50% 45%,
+          var(--splash-glow, rgba(124,107,245,0.12)) 0%,
+          transparent 70%
+        );
+        pointer-events: none;
+      }
+      #splash.fade-out {
+        opacity: 0;
+        pointer-events: none;
+      }
+      .splash-content {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 16px;
+        z-index: 1;
+        animation: splash-in 0.5s ease-out both;
+      }
+      .splash-img {
+        width: 96px;
+        height: 96px;
+        object-fit: contain;
+      }
+      .splash-title {
+        font-family: system-ui, -apple-system, sans-serif;
+        font-size: 14px;
+        font-weight: 500;
+        letter-spacing: 2px;
+        text-transform: uppercase;
+        color: var(--splash-text, #505068);
+      }
+      @keyframes splash-in {
+        from { opacity: 0; transform: scale(0.92); }
+        to { opacity: 1; transform: scale(1); }
+      }
+    </style>
+
     <div id="root"></div>
     <script src="/src/main.tsx" type="module"></script>
   </body>
