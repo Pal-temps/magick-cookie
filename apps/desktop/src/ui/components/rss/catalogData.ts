@@ -38,4 +38,39 @@ export const RSS_CATALOG: CatalogSource[] = [
       { label: "LN — Velos & Trottinettes", url: "https://www.lesnumeriques.com/velos-trottinettes/rss.xml", category: "Mobilite" },
     ],
   },
+  {
+    name: "Actu Tech (Generaliste)",
+    feeds: [
+      { label: "Numerama", url: "https://www.numerama.com/feed/", category: "Tech", description: "Actu tech, science et societe numerique" },
+      { label: "Next", url: "https://www.next.ink/feed/", category: "Tech", description: "Actu tech et numerique (ex-NextINpact)" },
+      { label: "Journal du Geek", url: "https://www.journaldugeek.com/feed/", category: "Tech", description: "High-tech, science, geek culture" },
+      { label: "Clubic", url: "https://www.clubic.com/feed/news.rss", category: "Tech", description: "Actu tech et bons plans" },
+    ],
+  },
+  {
+    name: "Developpement & Veille Technique",
+    feeds: [
+      { label: "Journal du Hacker", url: "https://www.journalduhacker.net/rss", category: "Dev", description: "Liens et discussions dev francophones" },
+      { label: "Alsacreations", url: "https://www.alsacreations.com/rss/actualites.xml", category: "Dev", description: "Actu web, HTML, CSS, accessibilite" },
+      { label: "DEV Community", url: "https://dev.to/feed", category: "Dev", description: "Articles de developpeurs (EN)" },
+      { label: "Hacker News", url: "https://news.ycombinator.com/rss", category: "Dev", description: "Top stories Y Combinator (EN)" },
+      { label: "Developpez.com", url: "https://www.developpez.com/index/rss", category: "Dev", description: "Actu dev et IT francophone" },
+    ],
+  },
+  {
+    name: "IA & Recherche",
+    feeds: [
+      { label: "Google AI Blog", url: "https://blog.google/technology/ai/rss/", category: "IA", description: "Recherche et annonces IA Google" },
+      { label: "OpenAI News", url: "https://openai.com/news/rss.xml", category: "IA", description: "Annonces et recherche OpenAI" },
+      { label: "Apple Machine Learning", url: "https://machinelearning.apple.com/rss.xml", category: "IA", description: "Recherche ML chez Apple" },
+    ],
+  },
+  {
+    name: "Blogs de Developpeurs",
+    feeds: [
+      { label: "Josh W. Comeau", url: "https://www.joshwcomeau.com/rss.xml", category: "Dev", description: "Web, React, CSS — tutoriels interactifs" },
+      { label: "Overreacted (Dan Abramov)", url: "https://overreacted.io/rss.xml", category: "Dev", description: "React, JavaScript, reflexions dev" },
+      { label: "Martin Fowler", url: "https://martinfowler.com/feed.atom", category: "Dev", description: "Architecture logicielle, patterns, refactoring" },
+    ],
+  },
 ];
