@@ -33,14 +33,30 @@
 ### API Endpoints
 - `GET /api/wellness-configs` — lister toutes les configs
 - `POST /api/wellness-configs` — créer une config
-  - Body: `{ type, label, intervalMinutes, enabled? }`
-- `PUT /api/wellness-configs/:id` — modifier (toggle enabled, changer interval)
-  - Body: `{ label?, intervalMinutes?, enabled? }`
+  - Body: `{ type, label, intervalMinutes, enabled?, alertSound? }`
+- `PUT /api/wellness-configs/:id` — modifier (toggle enabled, changer interval, changer son)
+  - Body: `{ label?, intervalMinutes?, enabled?, alertSound? }`
 - `DELETE /api/wellness-configs/:id` — supprimer
+
+### Sons d'alerte
+
+Chaque rappel peut avoir un son personnalisé (`alertSound`). Sons disponibles :
+
+| Clé | Label | Fichier |
+|-----|-------|---------|
+| `notification` | Cookie Notification | cookie-notification-v3.mp3 |
+| `alarm` | Cookie Boogie | cookie-boogie.mp3 |
+| `cockatiel` | Cookie Cockatiel | cookie-cockatiel.mp3 |
+| `nomnom` | Nom Nom | nom-nom.mp3 |
+| `focusEnd` | Put That Cookie Down | put-that-cookie-down.mp3 |
+
+- Le son est configurable par rappel (select dans le widget + preview)
+- Si `alertSound` est `null`, le son par défaut (`notification`) est utilisé
+- Le son est joué côté client via `playSound()` au moment de la notification Tauri
 
 ### Comportement
 - Les rappels tournent en `setInterval` côté client
-- Notification native Tauri quand l'intervalle est atteint
+- Notification native Tauri + son personnalisé quand l'intervalle est atteint
 - Fonctionne même app minimisée dans le tray
 - Snooze : reporte le prochain rappel de N minutes
 - Les configs sont seedées au premier lancement de l'API
@@ -82,5 +98,6 @@
 | label | varchar(255) | NOT NULL |
 | interval_minutes | integer | NOT NULL |
 | enabled | boolean | NOT NULL DEFAULT true |
+| alert_sound | varchar(50) | nullable |
 | created_at | timestamptz | NOT NULL DEFAULT now() |
 | updated_at | timestamptz | NOT NULL DEFAULT now() |

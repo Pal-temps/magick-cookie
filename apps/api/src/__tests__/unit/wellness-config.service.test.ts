@@ -9,6 +9,7 @@ const makeConfig = (overrides: Partial<WellnessConfig> = {}): WellnessConfig => 
   label: "Boire de l'eau",
   intervalMinutes: 45,
   enabled: true,
+  alertSound: null,
   createdAt: new Date("2026-01-01"),
   updatedAt: new Date("2026-01-01"),
   ...overrides,
@@ -118,5 +119,46 @@ describe("WellnessConfigService", () => {
 
     expect(mockRepo.findAll).toHaveBeenCalledTimes(1);
     expect(mockRepo.create).not.toHaveBeenCalled();
+  });
+
+  // --- alertSound ---
+  it("create passes alertSound to repo", async () => {
+    const input = { type: "water", label: "Drink", intervalMinutes: 30, alertSound: "cockatiel" };
+    const created = makeConfig({ alertSound: "cockatiel" });
+    mockRepo.create.mockReturnValue(Promise.resolve(created));
+
+    const result = await service.create(input);
+
+    expect(result.alertSound).toBe("cockatiel");
+    expect(mockRepo.create).toHaveBeenCalledWith(input);
+  });
+
+  it("create defaults alertSound to null when not provided", async () => {
+    const input = { type: "water", label: "Drink", intervalMinutes: 30 };
+    mockRepo.create.mockReturnValue(Promise.resolve(makeConfig()));
+
+    const result = await service.create(input);
+
+    expect(result.alertSound).toBeNull();
+  });
+
+  it("update can change alertSound", async () => {
+    const updated = makeConfig({ alertSound: "alarm" });
+    mockRepo.update.mockReturnValue(Promise.resolve(updated));
+
+    const result = await service.update("wc-1", { alertSound: "alarm" });
+
+    expect(result?.alertSound).toBe("alarm");
+    expect(mockRepo.update).toHaveBeenCalledWith("wc-1", { alertSound: "alarm" });
+  });
+
+  it("update can set alertSound to null", async () => {
+    const updated = makeConfig({ alertSound: null });
+    mockRepo.update.mockReturnValue(Promise.resolve(updated));
+
+    const result = await service.update("wc-1", { alertSound: null });
+
+    expect(result?.alertSound).toBeNull();
+    expect(mockRepo.update).toHaveBeenCalledWith("wc-1", { alertSound: null });
   });
 });
