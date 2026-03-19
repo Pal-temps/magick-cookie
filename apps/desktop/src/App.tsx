@@ -3,15 +3,14 @@ import { AppLayout } from "./ui/layouts/AppLayout";
 import { DesktopWidgets } from "./ui/layouts/DesktopWidgets";
 import { CalendarGrid } from "./ui/components/calendar/CalendarGrid";
 import { EventForm } from "./ui/components/events/EventForm";
+import { AiEventGenerator } from "./ui/components/calendar/AiEventGenerator";
 import { NotesView } from "./ui/components/notes/NotesView";
 import { TriageView } from "./ui/components/triage/TriageView";
 import { EmailView } from "./ui/components/email/EmailView";
 import { ChatView } from "./ui/components/chat/ChatView";
 import { VpsView } from "./ui/components/vps/VpsView";
-import { BookmarkView } from "./ui/components/bookmarks/BookmarkView";
+import { LibraryView } from "./ui/components/library/LibraryView";
 import { RssView } from "./ui/components/rss/RssView";
-import { SnippetView } from "./ui/components/snippets/SnippetView";
-import { AlarmView } from "./ui/components/alarm/AlarmView";
 import { CiCdView } from "./ui/components/github/CiCdView";
 import { SettingsView } from "./ui/components/settings/SettingsView";
 import { ToolsView } from "./ui/components/tools/ToolsView";
@@ -35,6 +34,7 @@ import { useSmartReminderStore } from "./application/stores/smartReminderStore";
 import { useRoutineStore } from "./application/stores/routineStore";
 import { CommandPalette } from "./ui/components/common/CommandPalette";
 import { FocusOverlay } from "./ui/components/common/FocusOverlay";
+import { ConfirmDialog } from "./ui/components/common/ConfirmDialog";
 import { QuickCapture } from "./ui/components/capture/QuickCapture";
 import { initNotifications, notify } from "./infrastructure/tauri/notifications";
 import { connectSSE } from "./infrastructure/api/sseClient";
@@ -42,7 +42,7 @@ import { listen } from "@tauri-apps/api/event";
 import { useOfflineQueue } from "./infrastructure/offline/offlineQueue";
 
 export function App() {
-  const { fetchCalendars, fetchEvents, fetchContacts, openCreateForm } = useCalendarStore();
+  const { fetchCalendars, fetchEvents, fetchContacts, openCreateForm, setAlarmGetter } = useCalendarStore();
   const { fetchTasks } = useTaskStore();
   const { currentDate, viewMode, setViewMode, goToToday } = useViewStore();
   const { fetchConfigs, startAll, stopAll, fetchTodayLogs } = useWellnessStore();
@@ -58,7 +58,7 @@ export function App() {
   const { fetchSnippets } = useSnippetStore();
   const { fetchProjects } = useProjectStore();
   const { startSmartReminders, stopSmartReminders } = useSmartReminderStore();
-  const { fetchAlarms, startAlarmChecker, stopAlarmChecker } = useAlarmStore();
+  const { alarms, fetchAlarms, startAlarmChecker, stopAlarmChecker } = useAlarmStore();
   const { fetchRoutines, startRoutineChecker, stopRoutineChecker } = useRoutineStore();
   const { startConnectivityCheck, stopConnectivityCheck } = useOfflineQueue();
   let disconnectSSE: (() => void) | null = null;
@@ -77,9 +77,7 @@ export function App() {
       case "vps":
       case "cicd":
       case "tools":
-      case "alarms":
-      case "bookmarks":
-      case "snippets":
+      case "library":
       case "rss":
       case "settings":
       case "dashboard":
@@ -135,7 +133,7 @@ export function App() {
       case "nav-notes": setViewMode("notes"); break;
       case "nav-triage": setViewMode("triage"); break;
       case "nav-email": setViewMode("email"); break;
-      case "nav-bookmarks": setViewMode("bookmarks"); break;
+      case "nav-library": setViewMode("library"); break;
       case "nav-chat": setViewMode("chat"); break;
       case "nav-vps": setViewMode("vps"); break;
       case "command-palette": openCommandPalette(); break;
@@ -147,10 +145,22 @@ export function App() {
     }
   }
 
+  function hideSplash() {
+    const splash = document.getElementById("splash");
+    if (!splash) return;
+    splash.classList.add("fade-out");
+    setTimeout(() => splash.remove(), 300);
+  }
+
   onMount(async () => {
     document.addEventListener("keydown", handleGlobalKeydown);
     initClipboard();
-    await fetchCalendars();
+    try {
+      await fetchCalendars();
+    } catch {
+      // API unreachable — continue anyway, offline mode will handle it
+    }
+    hideSplash();
     fetchContacts();
     fetchTasks();
     fetchTriage();
@@ -160,6 +170,7 @@ export function App() {
     fetchSnippets();
     fetchRssFeeds();
     fetchRssUnreadCount();
+    setAlarmGetter(alarms);
     fetchAlarms().then(() => startAlarmChecker());
     fetchRoutines().then(() => startRoutineChecker());
     fetchProjects();
@@ -226,6 +237,7 @@ export function App() {
     <CommandPalette />
     <FocusOverlay />
     <QuickCapture />
+    <ConfirmDialog />
     <Show when={!isDesktopMode()} fallback={<DesktopWidgets />}>
       <AppLayout>
         <Show when={viewMode() === "notes"}>
@@ -243,11 +255,8 @@ export function App() {
         <Show when={viewMode() === "vps"}>
           <VpsView />
         </Show>
-        <Show when={viewMode() === "bookmarks"}>
-          <BookmarkView />
-        </Show>
-        <Show when={viewMode() === "snippets"}>
-          <SnippetView />
+        <Show when={viewMode() === "library"}>
+          <LibraryView />
         </Show>
         <Show when={viewMode() === "rss"}>
           <RssView />
@@ -255,18 +264,16 @@ export function App() {
         <Show when={viewMode() === "cicd"}>
           <CiCdView />
         </Show>
-        <Show when={viewMode() === "alarms"}>
-          <AlarmView />
-        </Show>
         <Show when={viewMode() === "settings"}>
           <SettingsView />
         </Show>
         <Show when={viewMode() === "tools"}>
           <ToolsView />
         </Show>
-        <Show when={viewMode() !== "notes" && viewMode() !== "triage" && viewMode() !== "email" && viewMode() !== "chat" && viewMode() !== "vps" && viewMode() !== "cicd" && viewMode() !== "bookmarks" && viewMode() !== "snippets" && viewMode() !== "rss" && viewMode() !== "alarms" && viewMode() !== "settings" && viewMode() !== "tools"}>
+        <Show when={viewMode() !== "notes" && viewMode() !== "triage" && viewMode() !== "email" && viewMode() !== "chat" && viewMode() !== "vps" && viewMode() !== "cicd" && viewMode() !== "library" && viewMode() !== "rss" && viewMode() !== "settings" && viewMode() !== "tools"}>
           <CalendarGrid />
           <EventForm />
+          <AiEventGenerator />
         </Show>
       </AppLayout>
     </Show>
