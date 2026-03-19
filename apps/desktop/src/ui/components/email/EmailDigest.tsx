@@ -91,23 +91,7 @@ export function EmailDigest(props: EmailDigestProps) {
   }
 
   return (
-    <div style={{ padding: "24px", height: "100%", display: "flex", "flex-direction": "column", position: "relative" }}>
-      {/* Overlay loader for group deletion */}
-      <Show when={deletingGroup() !== null}>
-        <div style={{
-          position: "absolute",
-          inset: "0",
-          display: "flex",
-          "align-items": "center",
-          "justify-content": "center",
-          background: "rgba(0,0,0,0.3)",
-          "z-index": "10",
-          "border-radius": "var(--radius-md)",
-        }}>
-          <CookieLoader size={48} message="Suppression..." />
-        </div>
-      </Show>
-
+    <div style={{ padding: "24px", height: "100%", display: "flex", "flex-direction": "column" }}>
       {/* Header */}
       <div style={{ display: "flex", "align-items": "center", "justify-content": "space-between", "margin-bottom": "20px" }}>
         <h2 style={{ margin: "0", "font-size": "20px", "font-weight": "600", color: "var(--text-primary)" }}>
@@ -214,14 +198,18 @@ export function EmailDigest(props: EmailDigestProps) {
                           }}>
                             {entry.count}
                           </span>
-                          <Button
-                            variant="danger"
-                            size="sm"
-                            onClick={() => handleDeleteGroup(entry.sender, entry.emailIds, entry.count)}
-                            disabled={deletingGroup() === entry.sender}
-                          >
-                            {deletingGroup() === entry.sender ? "..." : "Supprimer"}
-                          </Button>
+                          <Show when={deletingGroup() === entry.sender} fallback={
+                            <Button
+                              variant="danger"
+                              size="sm"
+                              onClick={() => handleDeleteGroup(entry.sender, entry.emailIds, entry.count)}
+                              disabled={deletingGroup() !== null}
+                            >
+                              Supprimer
+                            </Button>
+                          }>
+                            <CookieLoader size={22} />
+                          </Show>
                         </div>
                       </div>
                       <For each={entry.subjects}>
