@@ -1,5 +1,5 @@
 import { createSignal, For, Show, createMemo } from "solid-js";
-import { RSS_CATALOG, type CatalogFeed, type CatalogSource } from "./rssCatalog";
+import { RSS_CATALOG, type CatalogFeed, type CatalogSource } from "./catalogData";
 import type { RssFeed } from "../../../application/stores/rssStore";
 import { Button } from "../common/Button";
 
