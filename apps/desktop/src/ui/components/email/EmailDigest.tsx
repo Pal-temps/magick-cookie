@@ -1,7 +1,9 @@
-import { onMount, Show, For } from "solid-js";
+import { onMount, Show, For, createSignal } from "solid-js";
 import { CookieLoader } from "../common/CookieLoader";
 import { useEmailStore } from "../../../application/stores/emailStore";
+import { useNotesStore } from "../../../application/stores/notesStore";
 import { Button } from "../common/Button";
+import { requestConfirm } from "../common/ConfirmDialog";
 
 interface EmailDigestProps {
   onClose: () => void;
@@ -36,8 +38,46 @@ function renderMarkdown(text: string) {
 
 export function EmailDigest(props: EmailDigestProps) {
   const store = useEmailStore();
+  const notes = useNotesStore();
+
+  const [deletingGroup, setDeletingGroup] = createSignal<string | null>(null);
+  const [generatingReport, setGeneratingReport] = createSignal(false);
 
   onMount(() => store.fetchDigest());
+
+  async function handleDeleteGroup(sender: string, emailIds: string[], count: number) {
+    const confirmed = await requestConfirm(
+      `Supprimer les ${count} email${count > 1 ? "s" : ""} de "${sender}" ? Cette action est irreversible.`,
+    );
+    if (!confirmed) return;
+
+    setDeletingGroup(sender);
+    try {
+      await store.deleteSenderFromDigest(sender, emailIds);
+    } catch (err) {
+      console.error(`Failed to delete emails from ${sender}:`, err);
+    } finally {
+      setDeletingGroup(null);
+    }
+  }
+
+  async function handleGenerateReport() {
+    setGeneratingReport(true);
+    try {
+      const { markdown, emailCount } = await store.generateReport(7);
+      // Create a note with the report
+      const date = new Date().toISOString().slice(0, 10);
+      const noteName = `rapport-emails-${date}`;
+      await notes.createNote(noteName, "");
+      notes.updateContent(markdown);
+      await notes.saveCurrentFile();
+      props.onClose();
+    } catch (err) {
+      console.error("Failed to generate email report:", err);
+    } finally {
+      setGeneratingReport(false);
+    }
+  }
 
   async function handleCopy() {
     const data = store.digest();
@@ -51,7 +91,23 @@ export function EmailDigest(props: EmailDigestProps) {
   }
 
   return (
-    <div style={{ padding: "24px", height: "100%", display: "flex", "flex-direction": "column" }}>
+    <div style={{ padding: "24px", height: "100%", display: "flex", "flex-direction": "column", position: "relative" }}>
+      {/* Overlay loader for group deletion */}
+      <Show when={deletingGroup() !== null}>
+        <div style={{
+          position: "absolute",
+          inset: "0",
+          display: "flex",
+          "align-items": "center",
+          "justify-content": "center",
+          background: "rgba(0,0,0,0.3)",
+          "z-index": "10",
+          "border-radius": "var(--radius-md)",
+        }}>
+          <CookieLoader size={48} message="Suppression..." />
+        </div>
+      </Show>
+
       {/* Header */}
       <div style={{ display: "flex", "align-items": "center", "justify-content": "space-between", "margin-bottom": "20px" }}>
         <h2 style={{ margin: "0", "font-size": "20px", "font-weight": "600", color: "var(--text-primary)" }}>
@@ -145,18 +201,28 @@ export function EmailDigest(props: EmailDigestProps) {
                       padding: "10px 12px",
                     }}>
                       <div style={{ display: "flex", "justify-content": "space-between", "align-items": "center", "margin-bottom": "4px" }}>
-                        <span style={{ "font-size": "13px", "font-weight": "500", color: "var(--text-primary)" }}>
+                        <span style={{ "font-size": "13px", "font-weight": "500", color: "var(--text-primary)", flex: "1", "min-width": "0", overflow: "hidden", "text-overflow": "ellipsis", "white-space": "nowrap" }}>
                           {entry.sender}
                         </span>
-                        <span style={{
-                          "font-size": "11px",
-                          background: "#3b82f6",
-                          color: "white",
-                          padding: "1px 6px",
-                          "border-radius": "8px",
-                        }}>
-                          {entry.count}
-                        </span>
+                        <div style={{ display: "flex", "align-items": "center", gap: "6px", "flex-shrink": "0" }}>
+                          <span style={{
+                            "font-size": "11px",
+                            background: "#3b82f6",
+                            color: "white",
+                            padding: "1px 6px",
+                            "border-radius": "8px",
+                          }}>
+                            {entry.count}
+                          </span>
+                          <Button
+                            variant="danger"
+                            size="sm"
+                            onClick={() => handleDeleteGroup(entry.sender, entry.emailIds, entry.count)}
+                            disabled={deletingGroup() === entry.sender}
+                          >
+                            {deletingGroup() === entry.sender ? "..." : "Supprimer"}
+                          </Button>
+                        </div>
                       </div>
                       <For each={entry.subjects}>
                         {(subject) => (
@@ -182,6 +248,9 @@ export function EmailDigest(props: EmailDigestProps) {
 
       {/* Footer buttons */}
       <div style={{ display: "flex", gap: "8px", "justify-content": "flex-end", "padding-top": "12px", "border-top": "1px solid var(--border-color)" }}>
+        <Button variant="primary" size="sm" onClick={handleGenerateReport} disabled={generatingReport()}>
+          {generatingReport() ? "Generation..." : "Rapport dans Notes"}
+        </Button>
         <Button variant="secondary" size="sm" onClick={() => store.fetchDigest()}>
           Regenerer
         </Button>
