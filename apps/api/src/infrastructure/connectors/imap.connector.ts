@@ -21,6 +21,10 @@ export class ImapConnector {
         pass: config.password,
       },
       logger: false,
+      tls: {
+        rejectUnauthorized: true,
+        servername: config.host,
+      },
     });
   }
 

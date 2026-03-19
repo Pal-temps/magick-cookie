@@ -10,12 +10,24 @@ interface AccountSettingsProps {
   onClose: () => void;
 }
 
-const PRESETS: Record<string, { imapHost: string; imapPort: number; smtpHost: string; smtpPort: number }> = {
-  Gmail: { imapHost: "imap.gmail.com", imapPort: 993, smtpHost: "smtp.gmail.com", smtpPort: 587 },
-  Outlook: { imapHost: "outlook.office365.com", imapPort: 993, smtpHost: "smtp.office365.com", smtpPort: 587 },
-  Yahoo: { imapHost: "imap.mail.yahoo.com", imapPort: 993, smtpHost: "smtp.mail.yahoo.com", smtpPort: 465 },
-  "Proton Bridge": { imapHost: "127.0.0.1", imapPort: 1143, smtpHost: "127.0.0.1", smtpPort: 1025 },
-  OVH: { imapHost: "imap.mail.ovh.net", imapPort: 993, smtpHost: "ssl0.ovh.net", smtpPort: 465 },
+const PRESETS: Record<string, { imapHost: string; imapPort: number; smtpHost: string; smtpPort: number; smtpSecure: boolean }> = {
+  Gmail: { imapHost: "imap.gmail.com", imapPort: 993, smtpHost: "smtp.gmail.com", smtpPort: 465, smtpSecure: true },
+  Outlook: { imapHost: "outlook.office365.com", imapPort: 993, smtpHost: "smtp.office365.com", smtpPort: 587, smtpSecure: false },
+  Yahoo: { imapHost: "imap.mail.yahoo.com", imapPort: 993, smtpHost: "smtp.mail.yahoo.com", smtpPort: 465, smtpSecure: true },
+  "Proton Bridge": { imapHost: "127.0.0.1", imapPort: 1143, smtpHost: "127.0.0.1", smtpPort: 1025, smtpSecure: false },
+  OVH: { imapHost: "imap.mail.ovh.net", imapPort: 993, smtpHost: "ssl0.ovh.net", smtpPort: 465, smtpSecure: true },
+};
+
+const EMAIL_DOMAIN_PRESET: Record<string, string> = {
+  "gmail.com": "Gmail",
+  "googlemail.com": "Gmail",
+  "outlook.com": "Outlook",
+  "hotmail.com": "Outlook",
+  "live.com": "Outlook",
+  "yahoo.com": "Yahoo",
+  "yahoo.fr": "Yahoo",
+  "ovh.net": "OVH",
+  "ovh.com": "OVH",
 };
 
 export function AccountSettings(props: AccountSettingsProps) {
@@ -28,6 +40,7 @@ export function AccountSettings(props: AccountSettingsProps) {
   const [imapPort, setImapPort] = createSignal(993);
   const [smtpHost, setSmtpHost] = createSignal("");
   const [smtpPort, setSmtpPort] = createSignal(587);
+  const [smtpSecure, setSmtpSecure] = createSignal(false);
   const [isTesting, setIsTesting] = createSignal(false);
   const [testResult, setTestResult] = createSignal<boolean | null>(null);
   const [isSaving, setIsSaving] = createSignal(false);
@@ -39,6 +52,16 @@ export function AccountSettings(props: AccountSettingsProps) {
     setImapPort(p.imapPort);
     setSmtpHost(p.smtpHost);
     setSmtpPort(p.smtpPort);
+    setSmtpSecure(p.smtpSecure);
+  }
+
+  function handleEmailInput(value: string) {
+    setEmail(value);
+    if (!username()) setUsername(value);
+    const domain = value.split("@")[1]?.toLowerCase();
+    if (domain && EMAIL_DOMAIN_PRESET[domain] && !imapHost()) {
+      applyPreset(EMAIL_DOMAIN_PRESET[domain]);
+    }
   }
 
   function buildInput(): CreateEmailAccountDTO {
@@ -50,7 +73,7 @@ export function AccountSettings(props: AccountSettingsProps) {
       imapSecure: true,
       smtpHost: smtpHost(),
       smtpPort: smtpPort(),
-      smtpSecure: false,
+      smtpSecure: smtpSecure(),
       username: username(),
       password: password(),
     };
@@ -82,7 +105,7 @@ export function AccountSettings(props: AccountSettingsProps) {
   function resetForm() {
     setShowForm(false);
     setLabel(""); setEmail(""); setUsername(""); setPassword("");
-    setImapHost(""); setImapPort(993); setSmtpHost(""); setSmtpPort(587);
+    setImapHost(""); setImapPort(993); setSmtpHost(""); setSmtpPort(587); setSmtpSecure(false);
     setTestResult(null);
   }
 
@@ -171,7 +194,7 @@ export function AccountSettings(props: AccountSettingsProps) {
             </div>
             <div>
               <span style={labelStyle}>Email</span>
-              <input style={inputStyle} value={email()} onInput={(e) => setEmail(e.target.value)} placeholder="john@gmail.com" />
+              <input style={inputStyle} value={email()} onInput={(e) => handleEmailInput(e.target.value)} placeholder="john@gmail.com" />
             </div>
             <div>
               <span style={labelStyle}>Nom d'utilisateur</span>
