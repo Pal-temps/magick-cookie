@@ -1,4 +1,4 @@
-import type { LlmPort, LlmMessage } from "../../domain/llm/llm.port";
+import type { LlmPort, LlmMessage, ChatOptions } from "../../domain/llm/llm.port";
 
 const DEFAULT_BASE_URL = "https://api.anthropic.com";
 
@@ -39,7 +39,7 @@ export class AnthropicAdapter implements LlmPort {
     };
   }
 
-  async chat(messages: LlmMessage[], model: string): Promise<string> {
+  async chat(messages: LlmMessage[], model: string, _options?: ChatOptions): Promise<string> {
     const { body } = this.buildBody(messages, model, false);
 
     const res = await fetch(`${this.baseUrl}/v1/messages`, {

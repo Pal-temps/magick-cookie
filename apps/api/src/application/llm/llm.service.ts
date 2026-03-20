@@ -1,6 +1,6 @@
 import type { LlmConfigRepository } from "../../domain/llm/llm-config.repository";
 import type { LlmConfig, CreateLlmConfigInput } from "../../domain/llm/llm-config.entity";
-import type { LlmPort, LlmMessage } from "../../domain/llm/llm.port";
+import type { LlmPort, LlmMessage, ChatOptions } from "../../domain/llm/llm.port";
 import { OllamaAdapter } from "../../infrastructure/adapters/ollama.adapter";
 import { OpenAICompatibleAdapter } from "../../infrastructure/adapters/openai-compatible.adapter";
 import { AnthropicAdapter } from "../../infrastructure/adapters/anthropic.adapter";
@@ -16,12 +16,12 @@ export class LlmService {
     return this.configRepo.upsert(input);
   }
 
-  async chat(messages: LlmMessage[]): Promise<string> {
+  async chat(messages: LlmMessage[], options?: ChatOptions): Promise<string> {
     const config = await this.configRepo.getActive();
     if (!config) throw new Error("No LLM configured");
 
     const adapter = this.createAdapter(config);
-    return adapter.chat(messages, config.model);
+    return adapter.chat(messages, config.model, options);
   }
 
   async *chatStream(messages: LlmMessage[]): AsyncIterable<string> {
@@ -88,10 +88,13 @@ Regles :
     const response = await this.chat([
       { role: "system", content: systemPrompt },
       { role: "user", content: prompt },
-    ]);
+    ], { jsonMode: true });
 
     try {
-      const parsed = JSON.parse(response.trim());
+      let jsonStr = response.trim();
+      const jsonMatch = jsonStr.match(/```(?:json)?\s*\n?([\s\S]*?)```/) ?? jsonStr.match(/(\{[\s\S]*\})/);
+      if (jsonMatch) jsonStr = jsonMatch[1].trim();
+      const parsed = JSON.parse(jsonStr);
       const events = parsed.events ?? parsed;
       if (!Array.isArray(events)) return [];
       return events.map((e: any) => ({
@@ -146,9 +149,9 @@ Regles :
     const response = await this.chat([
       { role: "system", content: systemPrompt },
       { role: "user", content: articlesText },
-    ]);
+    ], { jsonMode: true });
 
-    // Extract JSON from response — small models often wrap it in markdown
+    // Extract JSON from response — small models may still wrap it in markdown
     let jsonStr = response.trim();
     const jsonMatch = jsonStr.match(/```(?:json)?\s*\n?([\s\S]*?)```/) ?? jsonStr.match(/(\{[\s\S]*\})/);
     if (jsonMatch) jsonStr = jsonMatch[1].trim();

@@ -1,19 +1,22 @@
-import type { LlmPort, LlmMessage } from "../../domain/llm/llm.port";
+import type { LlmPort, LlmMessage, ChatOptions } from "../../domain/llm/llm.port";
 
 const CHAT_TIMEOUT_MS = 180_000; // 3 minutes for local models
 
 export class OllamaAdapter implements LlmPort {
   constructor(private baseUrl: string) {}
 
-  async chat(messages: LlmMessage[], model: string): Promise<string> {
+  async chat(messages: LlmMessage[], model: string, options?: ChatOptions): Promise<string> {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), CHAT_TIMEOUT_MS);
 
     try {
+      const body: Record<string, unknown> = { model, messages, stream: false };
+      if (options?.jsonMode) body.format = "json";
+
       const res = await fetch(`${this.baseUrl}/api/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ model, messages, stream: false }),
+        body: JSON.stringify(body),
         signal: controller.signal,
       });
 
