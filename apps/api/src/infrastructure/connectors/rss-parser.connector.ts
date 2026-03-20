@@ -21,8 +21,29 @@ const parser = new Parser({
   },
 });
 
+/** Sanitize common XML issues (unescaped &, etc.) before parsing */
+function sanitizeXml(xml: string): string {
+  // Replace bare & that are not already part of an entity (e.g. &amp; &lt; &#123;)
+  return xml.replace(/&(?!(?:amp|lt|gt|quot|apos|#\d+|#x[0-9a-fA-F]+);)/g, "&amp;");
+}
+
 export async function fetchFeed(url: string): Promise<ParsedFeed> {
-  const feed = await parser.parseURL(url);
+  let feed;
+  try {
+    feed = await parser.parseURL(url);
+  } catch (err) {
+    // If XML parsing fails, try with sanitized XML
+    const msg = err instanceof Error ? err.message : "";
+    if (msg.includes("Invalid character") || msg.includes("not well-formed")) {
+      const res = await fetch(url, { signal: AbortSignal.timeout(15_000) });
+      if (!res.ok) throw new Error(`Status code ${res.status}`);
+      const raw = await res.text();
+      const sanitized = sanitizeXml(raw);
+      feed = await parser.parseString(sanitized);
+    } else {
+      throw err;
+    }
+  }
 
   const items: ParsedFeedItem[] = (feed.items || []).map((item: any) => ({
     guid: item.guid || item.id || item.link || "",

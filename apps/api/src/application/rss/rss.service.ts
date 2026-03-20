@@ -12,8 +12,11 @@ export interface RssDigest {
   categories: { name: string; count: number; topArticle: string }[];
 }
 
+const MAX_CONSECUTIVE_FAILURES = 3;
+
 export class RssService {
   private llmService?: LlmService;
+  private failCounts = new Map<string, number>();
 
   constructor(
     private feedRepo: RssFeedRepository,
@@ -144,9 +147,19 @@ export class RssService {
       try {
         const result = await this.syncFeed(feed.id);
         total += result.newArticles;
+        this.failCounts.delete(feed.id); // Reset on success
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
-        errors.push(`${feed.label}: ${msg}`);
+        const count = (this.failCounts.get(feed.id) ?? 0) + 1;
+        this.failCounts.set(feed.id, count);
+
+        if (count >= MAX_CONSECUTIVE_FAILURES) {
+          await this.feedRepo.update(feed.id, { syncEnabled: false });
+          this.failCounts.delete(feed.id);
+          errors.push(`${feed.label}: ${msg} — desactive apres ${count} echecs`);
+        } else {
+          errors.push(`${feed.label}: ${msg} (${count}/${MAX_CONSECUTIVE_FAILURES})`);
+        }
       }
     }
 
