@@ -24,6 +24,7 @@ Le backend gere :
 | PUT | `/api/llm/config` | Modifier la config |
 | POST | `/api/llm/test` | Tester la connexion au LLM |
 | POST | `/api/llm/chat` | Envoyer des messages au LLM |
+| POST | `/api/llm/generate-events` | Generer des evenements calendrier depuis un prompt |
 
 ### GET /api/llm/config
 
@@ -184,8 +185,74 @@ Apres sauvegarde, affiche un encart recapitulatif :
 - URL : base URL
 - Cle API : "configuree" ou "aucune"
 
+### POST /api/llm/generate-events
+
+Body :
+
+```typescript
+{
+  prompt: string;   // requis, 1-2000 chars — ex: "Planifie ma journee de travail"
+  date: string;     // requis — date de reference au format YYYY-MM-DD
+}
+```
+
+Reponse :
+
+```json
+{
+  "data": {
+    "events": [
+      {
+        "title": "Reunion equipe",
+        "startAt": "2026-03-19T09:00:00.000Z",
+        "endAt": "2026-03-19T10:00:00.000Z",
+        "description": null,
+        "location": "Salle A",
+        "isAllDay": false
+      }
+    ]
+  }
+}
+```
+
+Le LLM recoit un system prompt structure demandant du JSON strict. Le backend parse et valide la reponse. Si le LLM retourne du JSON invalide, un tableau vide est retourne.
+
+### POST /api/rss-articles/digest
+
+Genere un digest IA des flux RSS (articles non-lus des dernieres 24h).
+
+- `GET` retourne le digest en cache (genere automatiquement a 7h)
+- `POST` force la regeneration
+
+Reponse :
+
+```json
+{
+  "data": {
+    "generatedAt": "2026-03-20T07:00:00.000Z",
+    "totalUnread": 42,
+    "highlights": [
+      {
+        "title": "Titre de l'article",
+        "feedLabel": "Nom du feed",
+        "reason": "Pourquoi c'est interessant",
+        "link": "https://..."
+      }
+    ],
+    "summary": "Resume global des tendances du jour.",
+    "categories": [
+      { "name": "Tech", "count": 15, "topArticle": "Meilleur article tech" }
+    ]
+  }
+}
+```
+
+Le job backend genere automatiquement le digest a 7h chaque jour. Le desktop peut aussi forcer la generation via le bouton "Generer" dans la vue Digest.
+
 ## Utilisation par d'autres features
 
 Le LLM est un service generique utilise par :
 - **Resume email** (`POST /api/emails/:id/summarize`) — voir `email-shortcuts-ai-summary.md`
-- Futures features : classification automatique d'emails, generation de resume hebdomadaire narratif, suggestions de triage
+- **Generation d'events** (`POST /api/llm/generate-events`) — generer des evenements calendrier depuis un prompt libre
+- **Digest RSS** (`POST /api/rss-articles/digest`) — triage et resume IA des flux RSS
+- Classification automatique d'emails, generation de resume hebdomadaire narratif, suggestions de triage
