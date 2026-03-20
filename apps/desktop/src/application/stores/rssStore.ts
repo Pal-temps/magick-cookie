@@ -1,4 +1,5 @@
 import { createSignal } from "solid-js";
+import { invoke } from "@tauri-apps/api/core";
 import { api } from "../../infrastructure/api/apiClient";
 
 export interface RssFeed {
@@ -244,6 +245,45 @@ export function useRssStore() {
     }
   }
 
+  async function saveDigestToNotes() {
+    const d = digest();
+    if (!d || (!d.summary && d.highlights.length === 0)) return;
+
+    const now = new Date(d.generatedAt);
+    const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+    const path = `digests-rss/digest-${dateStr}.md`;
+
+    const lines: string[] = [
+      `# Digest RSS — ${now.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}`,
+      "",
+      `> ${d.totalUnread} articles non lus analyses`,
+      "",
+    ];
+
+    if (d.summary) {
+      lines.push("## Resume", "", d.summary, "");
+    }
+
+    if (d.highlights.length > 0) {
+      lines.push("## A lire en priorite", "");
+      for (const h of d.highlights) {
+        lines.push(`- **${h.title}** (${h.feedLabel}) — ${h.reason}${h.link ? ` [lien](${h.link})` : ""}`);
+      }
+      lines.push("");
+    }
+
+    if (d.categories.length > 0) {
+      lines.push("## Par thematique", "");
+      for (const c of d.categories) {
+        lines.push(`- **${c.name}** (${c.count}) — ${c.topArticle}`);
+      }
+      lines.push("");
+    }
+
+    await invoke("notes_save", { path, content: lines.join("\n") });
+    return path;
+  }
+
   return {
     feeds,
     articles,
@@ -269,5 +309,6 @@ export function useRssStore() {
     fetchUnreadCounts,
     fetchDigest,
     generateDigest,
+    saveDigestToNotes,
   };
 }

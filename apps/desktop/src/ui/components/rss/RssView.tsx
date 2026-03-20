@@ -11,7 +11,7 @@ export function RssView() {
     feeds, articles, selectedArticle, activeFeedId, setActiveFeedId,
     isLoading, unreadCount, unreadPerFeed, fetchFeeds, fetchArticles, selectArticle,
     toggleStar, markAllRead, syncAll, addFeed, updateFeed, removeFeed, fetchFullContent, fetchUnreadCount, fetchUnreadCounts,
-    digest, digestLoading, fetchDigest, generateDigest,
+    digest, digestLoading, fetchDigest, generateDigest, saveDigestToNotes,
   } = useRssStore();
 
   const [addingFeed, setAddingFeed] = createSignal(false);
@@ -319,6 +319,14 @@ export function RssView() {
                 <AiButton variant="primary" size="sm" onClick={generateDigest} disabled={digestLoading()}>
                   {digestLoading() ? "Generation..." : "Generer"}
                 </AiButton>
+                <Show when={digest() && (digest()!.summary || digest()!.highlights.length > 0)}>
+                  <Button variant="secondary" size="sm" onClick={async () => {
+                    const path = await saveDigestToNotes();
+                    if (path) alert(`Sauvegarde dans Notes: ${path}`);
+                  }}>
+                    Dans Notes
+                  </Button>
+                </Show>
                 <Button variant="ghost" size="sm" onClick={() => setShowDigest(false)}>
                   Fermer
                 </Button>
