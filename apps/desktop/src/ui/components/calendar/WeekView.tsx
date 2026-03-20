@@ -1,7 +1,8 @@
-import { For, createMemo, createSignal, onMount, onCleanup } from "solid-js";
+import { For, Show, createMemo, createSignal, onMount, onCleanup } from "solid-js";
 import { useViewStore } from "../../../application/stores/viewStore";
 import { useCalendarStore } from "../../../application/stores/calendarStore";
 import { EventCard } from "../events/EventCard";
+import { CellContextMenu } from "./CellContextMenu";
 
 function toLocalDateStr(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -9,7 +10,9 @@ function toLocalDateStr(d: Date): string {
 
 export function WeekView() {
   const { currentDate } = useViewStore();
-  const { visibleEvents } = useCalendarStore();
+  const { visibleEvents, openCreateFormAtDate } = useCalendarStore();
+
+  const [contextMenu, setContextMenu] = createSignal<{ x: number; y: number; date: Date; hour: number } | null>(null);
 
   // Track container width for compact mode
   let containerRef: HTMLDivElement | undefined;
@@ -112,7 +115,14 @@ export function WeekView() {
                   const hourEvents = () => (eventsByDate().get(day.dateStr) ?? [])
                     .filter((ev) => new Date(ev.startAt).getHours() === hour);
                   return (
-                    <div class="week-day-cell">
+                    <div class="week-day-cell"
+                      onClick={() => openCreateFormAtDate(day.date, hour)}
+                      onContextMenu={(e) => {
+                        e.preventDefault();
+                        setContextMenu({ x: e.clientX, y: e.clientY, date: day.date, hour });
+                      }}
+                      style={{ cursor: "pointer" }}
+                    >
                       <For each={hourEvents()}>
                         {(ev) => <EventCard event={ev} />}
                       </For>
@@ -124,6 +134,18 @@ export function WeekView() {
           )}
         </For>
       </div>
+
+      <Show when={contextMenu()}>
+        {(menu) => (
+          <CellContextMenu
+            x={menu().x}
+            y={menu().y}
+            date={menu().date}
+            hour={menu().hour}
+            onClose={() => setContextMenu(null)}
+          />
+        )}
+      </Show>
     </div>
   );
 }

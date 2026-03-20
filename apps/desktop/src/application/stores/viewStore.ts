@@ -1,9 +1,15 @@
 import { createSignal } from "solid-js";
 import type { ViewMode } from "../../domain/models/types";
 
-const [viewMode, setViewMode] = createSignal<ViewMode>("dashboard");
+const [viewMode, setViewModeRaw] = createSignal<ViewMode>("dashboard");
+const [navTick, setNavTick] = createSignal(0);
 const [currentDate, setCurrentDate] = createSignal(new Date());
 const [selectedDate, setSelectedDate] = createSignal<Date | null>(null);
+
+function setViewMode(mode: ViewMode) {
+  setViewModeRaw(mode);
+  setNavTick((n) => n + 1);
+}
 
 export function useViewStore() {
   function navigatePrev() {
@@ -45,7 +51,7 @@ export function useViewStore() {
   }
 
   return {
-    viewMode, setViewMode,
+    viewMode, setViewMode, navTick,
     currentDate, setCurrentDate,
     selectedDate, setSelectedDate,
     navigatePrev, navigateNext, goToToday,

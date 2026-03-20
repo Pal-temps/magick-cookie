@@ -10,9 +10,11 @@ const SOURCE_BADGE: Record<string, { label: string; color: string }> = {
   task: { label: "T", color: "#7B68EE" },
   personal: { label: "P", color: "#00b894" },
   birthday: { label: "AN", color: "#fd79a8" },
+  alarm: { label: "A", color: "#e17055" },
 };
 
 function getEventSource(event: CalendarEvent): string {
+  if (event._isAlarm) return "alarm";
   if (event._isBirthday) return "birthday";
   if (event.taskId) return "task";
   return "personal";
@@ -39,7 +41,7 @@ export function EventCard(props: EventCardProps) {
 
   return (
     <button
-      onClick={() => openEditForm(props.event)}
+      onClick={(e) => { e.stopPropagation(); openEditForm(props.event); }}
       style={{
         display: "flex",
         "align-items": "center",
@@ -56,7 +58,7 @@ export function EventCard(props: EventCardProps) {
       }}
     >
       <span
-        title={source().label === "T" ? "Tache" : source().label === "AN" ? "Anniversaire" : "Personnel"}
+        title={source().label === "T" ? "Tache" : source().label === "AN" ? "Anniversaire" : source().label === "A" ? "Alarme" : "Personnel"}
         style={{
           "font-size": "8px",
           "font-weight": "700",

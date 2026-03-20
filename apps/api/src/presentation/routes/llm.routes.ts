@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import type { LlmService } from "../../application/llm/llm.service";
-import { updateLlmConfigSchema, chatSchema } from "../validators/llm.validator";
+import { updateLlmConfigSchema, chatSchema, generateEventsSchema } from "../validators/llm.validator";
 
 export function createLlmRoutes(llmService: LlmService) {
   const app = new Hono();
@@ -23,6 +23,13 @@ export function createLlmRoutes(llmService: LlmService) {
     const { messages } = chatSchema.parse(await c.req.json());
     const response = await llmService.chat(messages);
     return c.json({ data: { response } });
+  });
+
+  // POST /api/llm/generate-events
+  app.post("/generate-events", async (c) => {
+    const { prompt, date } = generateEventsSchema.parse(await c.req.json());
+    const events = await llmService.generateEvents(prompt, date);
+    return c.json({ data: { events } });
   });
 
   // POST /api/llm/test

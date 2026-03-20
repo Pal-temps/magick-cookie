@@ -1,7 +1,8 @@
-import { For, createMemo } from "solid-js";
+import { For, Show, createMemo, createSignal } from "solid-js";
 import { useViewStore } from "../../../application/stores/viewStore";
 import { useCalendarStore } from "../../../application/stores/calendarStore";
 import { EventCard } from "../events/EventCard";
+import { CellContextMenu } from "./CellContextMenu";
 
 function toLocalDateStr(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -11,7 +12,9 @@ const DAY_NAMES_FULL = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Same
 
 export function MonthView() {
   const { currentDate } = useViewStore();
-  const { visibleEvents } = useCalendarStore();
+  const { visibleEvents, openCreateFormAtDate } = useCalendarStore();
+
+  const [contextMenu, setContextMenu] = createSignal<{ x: number; y: number; date: Date } | null>(null);
 
   const weeks = createMemo(() => {
     const d = currentDate();
@@ -79,7 +82,18 @@ export function MonthView() {
                   const isToday = cell.dateStr === todayStr;
 
                   return (
-                    <div class="month-cell">
+                    <div class="month-cell"
+                      onClick={() => {
+                        const [y, m, d] = cell.dateStr.split("-").map(Number);
+                        openCreateFormAtDate(new Date(y, m - 1, d));
+                      }}
+                      onContextMenu={(e) => {
+                        e.preventDefault();
+                        const [y, m, d] = cell.dateStr.split("-").map(Number);
+                        setContextMenu({ x: e.clientX, y: e.clientY, date: new Date(y, m - 1, d) });
+                      }}
+                      style={{ cursor: "pointer" }}
+                    >
                       <div style={{
                         padding: "4px 6px",
                         "font-size": "12px",
@@ -109,6 +123,17 @@ export function MonthView() {
           )}
         </For>
       </div>
+
+      <Show when={contextMenu()}>
+        {(menu) => (
+          <CellContextMenu
+            x={menu().x}
+            y={menu().y}
+            date={menu().date}
+            onClose={() => setContextMenu(null)}
+          />
+        )}
+      </Show>
     </div>
   );
 }

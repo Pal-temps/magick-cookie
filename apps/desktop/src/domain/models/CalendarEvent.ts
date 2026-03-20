@@ -12,6 +12,7 @@ export interface CalendarEvent {
   createdAt: string;
   updatedAt: string;
   _isBirthday?: boolean;
+  _isAlarm?: boolean;
 }
 
 export interface CreateEventDTO {

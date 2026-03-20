@@ -1,7 +1,8 @@
-import { For, createMemo } from "solid-js";
+import { For, Show, createMemo, createSignal } from "solid-js";
 import { useViewStore } from "../../../application/stores/viewStore";
 import { useCalendarStore } from "../../../application/stores/calendarStore";
 import { EventCard } from "../events/EventCard";
+import { CellContextMenu } from "./CellContextMenu";
 
 function toLocalDateStr(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -9,7 +10,9 @@ function toLocalDateStr(d: Date): string {
 
 export function DayView() {
   const { currentDate } = useViewStore();
-  const { visibleEvents } = useCalendarStore();
+  const { visibleEvents, openCreateFormAtDate } = useCalendarStore();
+
+  const [contextMenu, setContextMenu] = createSignal<{ x: number; y: number; date: Date; hour: number } | null>(null);
 
   const dateStr = createMemo(() => toLocalDateStr(currentDate()));
   const hours = Array.from({ length: 24 }, (_, i) => i);
@@ -39,7 +42,14 @@ export function DayView() {
                 <div class="day-time-label">
                   {String(hour).padStart(2, "0")}:00
                 </div>
-                <div class="day-events-cell">
+                <div class="day-events-cell"
+                  onClick={() => openCreateFormAtDate(currentDate(), hour)}
+                  onContextMenu={(e) => {
+                    e.preventDefault();
+                    setContextMenu({ x: e.clientX, y: e.clientY, date: currentDate(), hour });
+                  }}
+                  style={{ cursor: "pointer" }}
+                >
                   <For each={hourEvents()}>
                     {(ev) => <EventCard event={ev} />}
                   </For>
@@ -49,6 +59,18 @@ export function DayView() {
           }}
         </For>
       </div>
+
+      <Show when={contextMenu()}>
+        {(menu) => (
+          <CellContextMenu
+            x={menu().x}
+            y={menu().y}
+            date={menu().date}
+            hour={menu().hour}
+            onClose={() => setContextMenu(null)}
+          />
+        )}
+      </Show>
     </div>
   );
 }

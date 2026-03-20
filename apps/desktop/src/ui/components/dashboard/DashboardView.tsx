@@ -1,4 +1,4 @@
-import { createSignal, Show, For, type Component } from "solid-js";
+import { createSignal, createEffect, on, Show, For, type Component } from "solid-js";
 import { TimerWidget } from "./TimerWidget";
 import { WellnessStatus } from "./WellnessStatus";
 import { DailyStats } from "./DailyStats";
@@ -11,6 +11,7 @@ import { AnalyticsWidget } from "./AnalyticsWidget";
 import { GitHubWidget } from "./GitHubWidget";
 import { VpsWidget } from "./VpsWidget";
 import { StreakWidget } from "./StreakWidget";
+import { AlarmWidget } from "./AlarmWidget";
 import { WeeklyReview } from "./WeeklyReview";
 import { BriefView } from "./BriefView";
 import { PatternsView } from "./PatternsView";
@@ -18,6 +19,7 @@ import { TimesheetView } from "./TimesheetView";
 import { Button } from "../common/Button";
 import { JournalButton } from "./JournalButton";
 import { useDashboardStore, type WidgetId } from "../../../application/stores/dashboardStore";
+import { useViewStore } from "../../../application/stores/viewStore";
 import "../../styles/dashboard.css";
 
 interface WidgetDef {
@@ -34,6 +36,7 @@ const ALL_WIDGETS: WidgetDef[] = [
   { id: "dog-walk", label: "Balade", component: DogWalkWidget },
   { id: "today-events", label: "Evenements", component: TodayEvents },
   { id: "wellness", label: "Bien-etre", component: WellnessStatus },
+  { id: "alarms", label: "Alarmes", component: AlarmWidget },
   { id: "streak", label: "Streak", component: StreakWidget },
   { id: "github-prs", label: "GitHub PRs", component: GitHubWidget },
   { id: "vps", label: "VPS", component: VpsWidget },
@@ -44,6 +47,7 @@ const WIDGET_MAP = new Map<WidgetId, WidgetDef>(ALL_WIDGETS.map((w) => [w.id, w]
 
 export function DashboardView() {
   const { widgetOrder, hiddenWidgets, reorderWidget, toggleWidget, resetLayout } = useDashboardStore();
+  const { viewMode, navTick } = useViewStore();
 
   const [showStats, setShowStats] = createSignal(false);
   const [showWeeklyReview, setShowWeeklyReview] = createSignal(false);
@@ -51,6 +55,17 @@ export function DashboardView() {
   const [showPatterns, setShowPatterns] = createSignal(false);
   const [showTimesheet, setShowTimesheet] = createSignal(false);
   const [showConfig, setShowConfig] = createSignal(false);
+
+  // Reset sub-views when navigating (even if already on dashboard)
+  createEffect(on(navTick, () => {
+    if (viewMode() === "dashboard") {
+      setShowStats(false);
+      setShowWeeklyReview(false);
+      setShowBrief(false);
+      setShowPatterns(false);
+      setShowTimesheet(false);
+    }
+  }, { defer: true }));
 
   const [draggedId, setDraggedId] = createSignal<WidgetId | null>(null);
   const [dropTargetId, setDropTargetId] = createSignal<WidgetId | null>(null);

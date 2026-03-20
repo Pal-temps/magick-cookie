@@ -16,3 +16,8 @@ export const chatSchema = z.object({
     content: z.string(),
   })).min(1),
 });
+
+export const generateEventsSchema = z.object({
+  prompt: z.string().min(1).max(2000),
+  date: z.string().min(1),
+});
