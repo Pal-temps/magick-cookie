@@ -227,4 +227,68 @@ describe("LlmService", () => {
       await expect(service.chat([{ role: "user", content: "test" }])).rejects.toThrow("Anthropic API key required");
     });
   });
+
+  /* ====== generateRssDigest — JSON parsing ====== */
+
+  describe("generateRssDigest", () => {
+    const articles = [
+      { feedLabel: "TechCrunch", title: "AI Update", description: "Big news", link: "https://example.com/1", publishedAt: "2026-03-20" },
+    ];
+
+    const validJson = JSON.stringify({
+      highlights: [{ title: "AI Update", feedLabel: "TechCrunch", reason: "Important", link: "https://example.com/1" }],
+      summary: "Tech news today.",
+      categories: [{ name: "Tech", count: 1, topArticle: "AI Update" }],
+    });
+
+    it("parses raw JSON response", async () => {
+      mockFetchForOllama(validJson);
+      const result = await service.generateRssDigest(articles);
+      expect(result.highlights).toHaveLength(1);
+      expect(result.highlights[0].title).toBe("AI Update");
+      expect(result.summary).toBe("Tech news today.");
+      expect(result.categories).toHaveLength(1);
+    });
+
+    it("parses JSON wrapped in ```json markdown fences", async () => {
+      mockFetchForOllama("```json\n" + validJson + "\n```");
+      const result = await service.generateRssDigest(articles);
+      expect(result.highlights).toHaveLength(1);
+      expect(result.summary).toBe("Tech news today.");
+    });
+
+    it("parses JSON wrapped in ``` markdown fences (no language)", async () => {
+      mockFetchForOllama("```\n" + validJson + "\n```");
+      const result = await service.generateRssDigest(articles);
+      expect(result.highlights).toHaveLength(1);
+    });
+
+    it("parses JSON with leading text before the object", async () => {
+      mockFetchForOllama("Here is the result:\n" + validJson);
+      const result = await service.generateRssDigest(articles);
+      expect(result.highlights).toHaveLength(1);
+    });
+
+    it("returns empty result when LLM returns garbage", async () => {
+      mockFetchForOllama("I cannot process this request.");
+      const result = await service.generateRssDigest(articles);
+      expect(result.highlights).toEqual([]);
+      expect(result.summary).toBe("");
+      expect(result.categories).toEqual([]);
+    });
+
+    it("returns empty result when LLM returns invalid JSON", async () => {
+      mockFetchForOllama("{invalid json here}}}");
+      const result = await service.generateRssDigest(articles);
+      expect(result.highlights).toEqual([]);
+    });
+
+    it("handles missing fields gracefully", async () => {
+      mockFetchForOllama('{"summary": "Just a summary"}');
+      const result = await service.generateRssDigest(articles);
+      expect(result.summary).toBe("Just a summary");
+      expect(result.highlights).toEqual([]);
+      expect(result.categories).toEqual([]);
+    });
+  });
 });
