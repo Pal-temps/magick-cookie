@@ -88,6 +88,14 @@
 | 9051288 | fix: show unread counts on all RSS feeds, not just active one |
 | 67cf8fa | fix: improve RSS unread badge contrast |
 
+### 11. AI Buttons gated + Ollama auto-setup
+- **AiButton** : composant reutilisable qui grise les boutons IA si pas de LLM configure
+- Click quand desactive → redirige vers Settings
+- Tooltip "IA non configuree" au hover
+- Applique sur 7 features : email resume, email rapport, event generator, auto-triage, journal, changelog, RSS digest
+- **Auto-setup Ollama** : `POST /api/llm/auto-setup` detecte le container, choisit le meilleur modele
+- **llmStore** : signal global `isLlmConfigured()`, charge au boot via `App.tsx`
+
 ## A faire
 - Tester manuellement l'envoi email avec un vrai compte SMTP
 - Tester le digest RSS avec un LLM configure (ollama pull llama3.2:3b)
