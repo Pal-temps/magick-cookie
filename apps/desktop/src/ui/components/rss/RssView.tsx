@@ -195,10 +195,11 @@ export function RssView() {
                         <Show when={unreadPerFeed()[feed.id]}>
                           <span style={{
                             "font-size": "10px",
-                            padding: "1px 5px",
-                            "border-radius": "var(--radius-sm)",
-                            background: "var(--bg-elevated)",
-                            color: "var(--text-muted)",
+                            padding: "1px 6px",
+                            "border-radius": "8px",
+                            background: "var(--accent-primary)",
+                            color: "#fff",
+                            "font-weight": "600",
                             "flex-shrink": "0",
                             "margin-left": "6px",
                           }}>{unreadPerFeed()[feed.id]}</span>
