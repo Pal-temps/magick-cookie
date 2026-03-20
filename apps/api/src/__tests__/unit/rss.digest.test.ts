@@ -63,6 +63,7 @@ function createMockArticleRepo(): Record<keyof RssArticleRepository, ReturnType<
     updateFlags: mock(() => Promise.resolve(null)),
     delete: mock(() => Promise.resolve(false)),
     countUnread: mock(() => Promise.resolve(0)),
+    countUnreadPerFeed: mock(() => Promise.resolve({})),
     markAllRead: mock(() => Promise.resolve(0)),
     updateContent: mock(() => Promise.resolve(null)),
     deleteOlderThan: mock(() => Promise.resolve(0)),

@@ -96,6 +96,12 @@
 - **Auto-setup Ollama** : `POST /api/llm/auto-setup` detecte le container, choisit le meilleur modele
 - **llmStore** : signal global `isLlmConfigured()`, charge au boot via `App.tsx`
 
+### 12. RSS resilience
+- XML sanitization (unescaped `&` → `&amp;`) avec fallback fetch+sanitize+parseString
+- Auto-disable feeds apres 3 echecs consecutifs, compteur reset on success
+- Badge rouge "OFF" dans la sidebar RSS, clic pour reactiver
+- Feeds desactives affiches en barre
+
 ## A faire
 - Tester manuellement l'envoi email avec un vrai compte SMTP
 - Tester le digest RSS avec un LLM configure (ollama pull llama3.2:3b)

@@ -53,6 +53,7 @@ function createMockArticleRepo(): Record<keyof RssArticleRepository, ReturnType<
     markAllRead: mock(() => Promise.resolve(0)),
     delete: mock(() => Promise.resolve(false)),
     countUnread: mock(() => Promise.resolve(0)),
+    countUnreadPerFeed: mock(() => Promise.resolve({})),
     updateContent: mock(() => Promise.resolve(null)),
     deleteOlderThan: mock(() => Promise.resolve(0)),
   };
@@ -163,7 +164,7 @@ describe("RssService", () => {
     expect(result.errors).toHaveLength(0);
   });
 
-  it("syncAll captures errors per feed", async () => {
+  it("syncAll captures errors per feed with failure counter", async () => {
     feedRepo.findActive.mockReturnValue(Promise.resolve([makeFeed()]));
     feedRepo.findById.mockReturnValue(Promise.resolve(makeFeed()));
     mockFetchFeed.mockImplementation(() => Promise.reject(new Error("Network error")));
@@ -171,6 +172,42 @@ describe("RssService", () => {
     const result = await service.syncAll();
     expect(result.errors).toHaveLength(1);
     expect(result.errors[0]).toContain("My Feed");
+    expect(result.errors[0]).toContain("1/3");
+  });
+
+  it("syncAll auto-disables feed after 3 consecutive failures", async () => {
+    feedRepo.findActive.mockReturnValue(Promise.resolve([makeFeed()]));
+    feedRepo.findById.mockReturnValue(Promise.resolve(makeFeed()));
+    feedRepo.update.mockReturnValue(Promise.resolve(makeFeed({ syncEnabled: false })));
+    mockFetchFeed.mockImplementation(() => Promise.reject(new Error("404")));
+
+    // Fail 3 times
+    await service.syncAll(); // 1/3
+    await service.syncAll(); // 2/3
+    const result = await service.syncAll(); // 3/3 → disabled
+
+    expect(feedRepo.update).toHaveBeenCalledWith("f-1", { syncEnabled: false });
+    expect(result.errors[0]).toContain("desactive");
+  });
+
+  it("syncAll resets failure counter on success", async () => {
+    feedRepo.findActive.mockReturnValue(Promise.resolve([makeFeed()]));
+    feedRepo.findById.mockReturnValue(Promise.resolve(makeFeed()));
+    mockFetchFeed.mockImplementation(() => Promise.reject(new Error("fail")));
+
+    await service.syncAll(); // 1/3
+    await service.syncAll(); // 2/3
+
+    // Now succeed
+    mockFetchFeed.mockImplementation(() => Promise.resolve({ siteUrl: null, items: [] }));
+    articleRepo.bulkCreate.mockReturnValue(Promise.resolve(0));
+    await service.syncAll(); // success → counter reset
+
+    // Fail again — should be 1/3, not 4/3
+    mockFetchFeed.mockImplementation(() => Promise.reject(new Error("fail again")));
+    const result = await service.syncAll();
+    expect(result.errors[0]).toContain("1/3");
+    expect(feedRepo.update).not.toHaveBeenCalledWith("f-1", { syncEnabled: false });
   });
 
   it("syncAll returns zero when no active feeds", async () => {
