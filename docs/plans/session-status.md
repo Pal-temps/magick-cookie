@@ -1,65 +1,95 @@
 # Session status — 2026-03-20
 
-## Ce qui a ete fait (session precedente — 2026-03-19)
+## Ce qui a ete fait
 
-### 1. Sync bidirectionnelle email (IMAP <-> DB)
-- **ImapConnector** : `fetchFlags()`, `markStarred()`, `markUnstarred()`, `fetchByUids()`, `listRecentUids()`, `bulkDeleteMessages()`
-- **EmailRepository** : `findFlagsByAccount()`, `bulkUpdateFlags()`, `findUidsByAccount()`
-- **EmailService** : `syncFlags()` (IMAP -> DB), `reconcileMissing()` (reimporte les emails supprimes localement mais encore en ligne)
-- **syncAccount()** fait maintenant : fetch new -> reconcile missing -> sync flags -> apply rules
-- **updateEmailFlags()** push aussi `isStarred` vers IMAP (pas juste `isRead`)
-- **syncFlagToImap()** refactorise pour gerer `seen` et `flagged`
+### 1. Infra & bugfixes
+- Postgres pool: `max: 10, idle_timeout: 20` + `max_connections=200` dans docker-compose
+- Email repo: `findUidsByAccount`, `findFlagsByAccount`, `bulkUpdateFlags` pour la sync bidirectionnelle
+- Guards defensifs: `?? []` dans vpsStore/VpsView pour eviter les crashes null
+- NotesView: retire ConfirmDialog en doublon
+- Notifications: support parametre `sound` custom
 
-### 2. Cache frontend (offline)
-- **emailStore** : localStorage cache (`magick-cookie-email-cache`), fetch cache-first, signal `isStale`
-- Toutes les mutations (star, archive, delete, mark read) persistent le cache
-- `toggleStar` est optimiste (UI update avant API)
-- `setupReconnectionListener()` pour refresh quand on revient online
+### 2. Calendar & UI
+- **Menu contextuel** : clic droit sur les cellules calendrier (nouvel evenement / nouvelle alarme)
+- **Click sur cellule** : ouvre le formulaire de creation a la date/heure cliquee
+- **AI Event Generator** : `POST /api/llm/generate-events` + modal AiEventGenerator
+- **AlarmWidget** : widget dashboard avec creation/toggle/suppression
+- **EventCard** : badge "A" orange pour alarmes, stopPropagation
+- **Library view** : vue unifiee signets + snippets avec onglets
+- **ViewMode** : simplifie (suppression bookmarks/alarms/snippets, ajout library)
+- **navTick** : reset des sous-vues dashboard quand on re-navigue
 
-### 3. Suppression groupee depuis le Digest
-- **Backend** : `POST /api/emails/bulk-delete` + `bulkDeleteEmails()` avec suppression IMAP en batch (1 connexion)
-- **Digest** : `emailIds` et `senderAddress` ajoutes au digest par expediteur
-- **Frontend** : bouton "Supprimer" par groupe + modal de confirmation (`ConfirmDialog` monte globalement dans `App.tsx`)
+### 3. Email compose
+- Bouton "Nouveau" dans la toolbar + raccourci clavier `c`
+- Boutons "Repondre" et "Transferer" dans EmailDetail
+- ComposeEmail: prop `prefill` pour reply (Re: + citation) et forward (Fwd: + header)
 
-### 4. Rapport email -> Notes
-- **Backend** : `POST /api/emails/report?days=7` — genere un rapport markdown via LLM
-- **Frontend** : bouton "Rapport dans Notes" dans le Digest
+### 4. RSS Digest IA
+- `LlmService.generateRssDigest()` : prompt structure pour triage articles
+- `RssService.generateDigest()` : fetch articles non-lus 24h, appel LLM, digest structure
+- Routes: `GET/POST /api/rss-articles/digest` (cache + force)
+- Job quotidien: generation auto a 7h, cache memoire, check toutes les 5min
+- Desktop: bouton "Digest" dans RssView, vue dediee (resume, highlights, thematiques)
+- Routine target `"rss-digest"` ajoutee (API + desktop + RoutineSettings)
+- Gestion gracieuse quand pas de LLM configure
 
-### 5. LLM Docker dans bun run dev + Bugfixes
-- Scripts `llm:up` et `llm:down`, Postgres pool config, TLS IMAP fix
+### 5. RSS unread counts
+- `countUnreadPerFeed()` : requete GROUP BY dans le repo
+- Route `GET /api/rss-articles/unread-counts` : comptages par feed
+- Badges toujours visibles sur tous les feeds (pas seulement le feed actif)
+- Contraste ameliore : fond accent + texte blanc bold
 
-## Ce qui a ete fait (session courante — 2026-03-20)
+### 6. Icone cookie
+- Toutes les icones Tauri regenerees depuis logo.png (cookie chocolate chip)
+- PNG (32, 128, 256, 512), ICO, Store logos
+- Window icon set via Rust `set_icon()` dans lib.rs pour taskbar/processus
 
-### 6. Envoi d'emails SMTP — integration UI
-- **Backend** deja en place : `SmtpConnector`, `EmailService.sendEmail()`, `POST /api/emails/send`, `sendEmailSchema`
-- **ComposeEmail.tsx** existait deja — ajoute prop `prefill?: Partial<SendEmailDTO>` pour reply/forward
-- **EmailView.tsx** :
-  - Bouton "Nouveau" dans la toolbar
-  - Raccourci clavier `c` pour composer
-  - `handleReply()` pre-remplit `to`, `subject` ("Re: ..."), citation du message
-  - `handleForward()` pre-remplit `subject` ("Fwd: ..."), header de transfert + contenu
-- **EmailDetail.tsx** : boutons "Repondre" et "Transferer" dans le header
+### 7. Chat ameliore
+- **Markdown riche** : `marked` + `highlight.js` remplacent le parseur custom
+- **Coloration syntaxique** : theme catppuccin dark, label langue, bouton "Copier"
+- **Streaming SSE** : reponses en temps reel avec effet typing
+  - `LlmPort.chatStream()` → `AsyncIterable<string>` (nouveau, additif)
+  - 3 adapters (Ollama, OpenAI, Anthropic) implementent le streaming
+  - `AgentService.sendMessageStream()` : tools non-stream, reponse finale streamee
+  - Route SSE `POST /api/agent/:id/messages/stream`
+  - Desktop: parseur SSE, signal `streamingContent`, curseur clignotant
+- **CSS dedie** `chat.css` : code blocks, typing dots, cursor, hljs theme
+- Zero impact sur les features existantes (chat() inchange)
 
-### 7. Autres features en attente de commit (faites en session precedente)
-- Generation d'evenements IA (API + desktop `AiEventGenerator.tsx`)
-- Menu contextuel calendrier (`CellContextMenu.tsx`)
-- Widget Alarmes (`AlarmWidget.tsx`)
-- Vue Bibliotheque (`LibraryView.tsx` — fusion Signets + Snippets)
-- `navTick` pour reset des sous-vues dashboard
-- Guards defensifs dans vpsStore/VpsView
+### 8. Docker cleanup
+- Open WebUI supprime des deux docker-compose (GPU + CPU)
+- Volume webui-data supprime — seul Ollama reste
 
-### 8. Digest RSS avec IA
-- **LlmService** : `generateRssDigest()` — trie les articles par interet, highlights, resume, thematiques
-- **RssService** : `generateDigest()` — fetch articles non-lus 24h, mappe feeds, appelle LLM
-- **Routes** : `GET /api/rss-articles/digest` (cache), `POST /api/rss-articles/digest` (force)
-- **Job quotidien** : generation auto a 7h, cache en memoire, check toutes les 5min
-- **Desktop** : bouton "Digest" dans RssView, vue dediee (resume, highlights, thematiques)
-- **Routines** : target `"rss-digest"` ajoutee (API + desktop + RoutineSettings)
+### 9. Logs propres
+- RSS sync: erreurs par feed sur une ligne au lieu d'un array dump
+- RSS digest: "Skipped — no LLM configured" au lieu d'un stack trace
 
-### 9. Tests unitaires
-- `email.sync.test.ts` (21 tests) — syncFlags, reconcileMissing, sendEmail, syncAccount flow
-- `rss.digest.test.ts` — generateDigest
+### 10. Tests
+- `email.sync.test.ts` (21 tests) : syncFlags, reconcileMissing, sendEmail, syncAccount
+- `rss.digest.test.ts` (9 tests) : generateDigest avec mocks LLM, edge cases
+- Total : 137 tests passent, 0 fail
 
-## Pas encore fait
-- Envoi d'emails : tester manuellement avec un vrai compte SMTP
-- Digest RSS : tester avec des feeds reels + LLM configure
+## Commits (14 cette session)
+
+| Hash | Message |
+|------|---------|
+| 97ab2d0 | fix: infra improvements — PG pool config, defensive guards, cleanup |
+| 9a2b3a2 | feat: calendar context menu, AI event generation, alarm widget, library view |
+| f6f8036 | feat: email compose UI — Nouveau button, reply, forward |
+| 612c0e9 | feat: AI-powered RSS digest — daily triage and summary of feeds |
+| fc22728 | test+docs: unit tests for email sync/send and RSS digest |
+| aca5afc | feat: replace Tauri default icon with cookie logo |
+| 526dd34 | fix: set window icon to cookie for taskbar and process list |
+| 95e9837 | feat: rich markdown chat with syntax highlighting, remove Open WebUI |
+| c7300f8 | fix: graceful skip of RSS digest when no LLM configured |
+| 819f1d1 | fix: window icon via Rust setup, cleaner RSS sync logs |
+| c937e4c | fix: remove stack trace dump on RSS feed sync errors |
+| 81f1071 | feat: streaming chat responses (SSE) with real-time typing effect |
+| 9051288 | fix: show unread counts on all RSS feeds, not just active one |
+| 67cf8fa | fix: improve RSS unread badge contrast |
+
+## A faire
+- Tester manuellement l'envoi email avec un vrai compte SMTP
+- Tester le digest RSS avec un LLM configure (ollama pull llama3.2:3b)
+- Tester le streaming chat en live
+- Supprimer le container webui orphelin : `docker rm -f magick-cookie-webui && docker volume rm magick-cookie_webui-data`
