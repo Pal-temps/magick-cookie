@@ -28,18 +28,19 @@ function sanitizeXml(xml: string): string {
 }
 
 export async function fetchFeed(url: string): Promise<ParsedFeed> {
+  // Fetch raw XML with timeout (rss-parser's parseURL uses Node http without timeout)
+  const res = await fetch(url, { signal: AbortSignal.timeout(15_000) });
+  if (!res.ok) throw new Error(`Status code ${res.status}`);
+  let raw = await res.text();
+
   let feed;
   try {
-    feed = await parser.parseURL(url);
+    feed = await parser.parseString(raw);
   } catch (err) {
-    // If XML parsing fails, try with sanitized XML
+    // If XML parsing fails, try with sanitized XML (unescaped & etc.)
     const msg = err instanceof Error ? err.message : "";
     if (msg.includes("Invalid character") || msg.includes("not well-formed")) {
-      const res = await fetch(url, { signal: AbortSignal.timeout(15_000) });
-      if (!res.ok) throw new Error(`Status code ${res.status}`);
-      const raw = await res.text();
-      const sanitized = sanitizeXml(raw);
-      feed = await parser.parseString(sanitized);
+      feed = await parser.parseString(sanitizeXml(raw));
     } else {
       throw err;
     }

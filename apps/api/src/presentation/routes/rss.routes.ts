@@ -92,6 +92,28 @@ export function createRssArticleRoutes(service: RssService) {
     return c.json({ data: counts });
   });
 
+  // GET /api/rss-articles/digest — return cached daily digest
+  app.get("/digest", async (c) => {
+    const cached = getLastRssDigest();
+    if (cached) return c.json({ data: cached.data });
+    return c.json({ data: null });
+  });
+
+  // POST /api/rss-articles/digest — force-generate a fresh AI digest
+  app.post("/digest", async (c) => {
+    const digest = await service.generateDigest();
+    setLastRssDigest(digest);
+    return c.json({ data: digest });
+  });
+
+  // POST /api/rss-articles/mark-all-read
+  app.post("/mark-all-read", async (c) => {
+    const { feedId } = await c.req.json();
+    if (!feedId) return c.json({ error: "feedId is required" }, 400);
+    const count = await service.markAllRead(feedId);
+    return c.json({ data: { count } });
+  });
+
   // GET /api/rss-articles/:id
   app.get("/:id", async (c) => {
     const article = await service.getArticleById(c.req.param("id"));
@@ -119,28 +141,6 @@ export function createRssArticleRoutes(service: RssService) {
     const deleted = await service.deleteArticle(c.req.param("id"));
     if (!deleted) return c.json({ error: "Article not found" }, 404);
     return c.json({ data: { ok: true } });
-  });
-
-  // GET /api/rss-articles/digest — return cached daily digest
-  app.get("/digest", async (c) => {
-    const cached = getLastRssDigest();
-    if (cached) return c.json({ data: cached.data });
-    return c.json({ data: null });
-  });
-
-  // POST /api/rss-articles/digest — force-generate a fresh AI digest
-  app.post("/digest", async (c) => {
-    const digest = await service.generateDigest();
-    setLastRssDigest(digest);
-    return c.json({ data: digest });
-  });
-
-  // POST /api/rss-articles/mark-all-read
-  app.post("/mark-all-read", async (c) => {
-    const { feedId } = await c.req.json();
-    if (!feedId) return c.json({ error: "feedId is required" }, 400);
-    const count = await service.markAllRead(feedId);
-    return c.json({ data: { count } });
   });
 
   return app;
