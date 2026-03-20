@@ -178,6 +178,55 @@ Regles :
     }
   }
 
+  async generateCode(context: { title: string; description: string | null; comments: string[] }): Promise<{
+    title: string;
+    code: string;
+    language: string;
+    explanation: string;
+  }> {
+    const systemPrompt = `Tu es un developpeur senior. On te donne le contexte d'une tache (titre, description, commentaires).
+Tu dois generer du code qui repond a cette tache.
+
+Reponds UNIQUEMENT avec un JSON valide :
+{
+  "title": "Titre court du snippet (max 60 chars)",
+  "code": "Le code complet ici",
+  "language": "Le langage (typescript, python, bash, sql, go, rust, java, etc.)",
+  "explanation": "Explication courte de ce que fait le code (1-2 phrases)"
+}
+
+Regles :
+- Le code doit etre complet, fonctionnel et pret a copier
+- Choisis le langage le plus adapte au contexte
+- Ajoute des commentaires dans le code si necessaire
+- Si la tache est vague, genere un squelette/template utile`;
+
+    const parts = [`Titre: ${context.title}`];
+    if (context.description) parts.push(`Description:\n${context.description}`);
+    if (context.comments.length > 0) parts.push(`Commentaires:\n${context.comments.join("\n---\n")}`);
+
+    const response = await this.chat([
+      { role: "system", content: systemPrompt },
+      { role: "user", content: parts.join("\n\n") },
+    ], { jsonMode: true });
+
+    let jsonStr = response.trim();
+    const jsonMatch = jsonStr.match(/```(?:json)?\s*\n?([\s\S]*?)```/) ?? jsonStr.match(/(\{[\s\S]*\})/);
+    if (jsonMatch) jsonStr = jsonMatch[1].trim();
+
+    try {
+      const parsed = JSON.parse(jsonStr);
+      return {
+        title: String(parsed.title ?? context.title),
+        code: String(parsed.code ?? ""),
+        language: String(parsed.language ?? "text").toLowerCase(),
+        explanation: String(parsed.explanation ?? ""),
+      };
+    } catch {
+      return { title: context.title, code: "", language: "text", explanation: "Echec de la generation" };
+    }
+  }
+
   async testConnection(): Promise<boolean> {
     const config = await this.configRepo.getActive();
     if (!config) return false;

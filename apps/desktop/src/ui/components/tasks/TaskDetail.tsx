@@ -1,10 +1,14 @@
-import { Show, For } from "solid-js";
+import { Show, For, createSignal } from "solid-js";
 import { CookieLoader } from "../common/CookieLoader";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import type { Task } from "../../../domain/models/Task";
 import { useTaskStore } from "../../../application/stores/taskStore";
+import { useSnippetStore } from "../../../application/stores/snippetStore";
+import { useViewStore } from "../../../application/stores/viewStore";
+import { api } from "../../../infrastructure/api/apiClient";
 import { Modal } from "../common/Modal";
 import { Button } from "../common/Button";
+import { AiButton } from "../common/AiButton";
 
 function priorityLabel(priority: string | null): { text: string; color: string } | null {
   switch (priority) {
@@ -26,6 +30,9 @@ function formatCommentDate(timestamp: string): string {
 
 export function TaskDetail() {
   const { selectedTask, closeTaskDetail, taskDetail, isLoadingTaskDetail } = useTaskStore();
+  const { createSnippet } = useSnippetStore();
+  const { setViewMode } = useViewStore();
+  const [generating, setGenerating] = createSignal(false);
 
   const task = () => selectedTask() as Task;
 
@@ -170,13 +177,47 @@ export function TaskDetail() {
           </Show>
 
           {/* Actions */}
-          <Show when={task().url && task().source !== "manual"}>
-            <div style={{ display: "flex", gap: "8px", "margin-top": "4px" }}>
+          <div style={{ display: "flex", gap: "8px", "margin-top": "4px", "flex-wrap": "wrap" }}>
+            <Show when={task().url && task().source !== "manual"}>
               <Button variant="secondary" onClick={() => { if (task().url) openUrl(task().url!); }}>
                 Ouvrir dans {sourceLabels[task().source] || "navigateur"}
               </Button>
-            </div>
-          </Show>
+            </Show>
+            <AiButton
+              variant="primary"
+              disabled={generating() || isLoadingTaskDetail()}
+              onClick={async () => {
+                const { trackAiActivity } = await import("../../../application/stores/aiActivityStore");
+                setGenerating(true);
+                try {
+                  const detail = taskDetail();
+                  const comments = detail?.comments?.map((c) => c.commentText) ?? [];
+                  const result = await trackAiActivity("Generation code IA", () =>
+                    api.post<{ title: string; code: string; language: string; explanation: string }>(
+                      "/llm/generate-code",
+                      { title: task().title, description: detail?.description ?? task().description, comments },
+                    )
+                  );
+                  if (result.code) {
+                    await createSnippet({
+                      title: result.title,
+                      content: result.code,
+                      language: result.language,
+                      category: "generated",
+                    });
+                    closeTaskDetail();
+                    setViewMode("library");
+                  }
+                } catch (e) {
+                  console.error("Failed to generate code:", e);
+                } finally {
+                  setGenerating(false);
+                }
+              }}
+            >
+              {generating() ? "Generation..." : "Generer du code"}
+            </AiButton>
+          </div>
         </div>
       </Show>
     </Modal>

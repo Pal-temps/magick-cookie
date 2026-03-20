@@ -32,6 +32,18 @@ export function createLlmRoutes(llmService: LlmService) {
     return c.json({ data: { events } });
   });
 
+  // POST /api/llm/generate-code
+  app.post("/generate-code", async (c) => {
+    const { title, description, comments } = await c.req.json();
+    if (!title) return c.json({ error: "title required" }, 400);
+    const result = await llmService.generateCode({
+      title: String(title),
+      description: description ? String(description) : null,
+      comments: Array.isArray(comments) ? comments.map(String) : [],
+    });
+    return c.json({ data: result });
+  });
+
   // POST /api/llm/test
   app.post("/test", async (c) => {
     const success = await llmService.testConnection();
