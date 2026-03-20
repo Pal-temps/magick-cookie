@@ -71,6 +71,10 @@ export class RssService {
     return this.articleRepo.countUnread(feedId);
   }
 
+  async getUnreadCountPerFeed(): Promise<Record<string, number>> {
+    return this.articleRepo.countUnreadPerFeed();
+  }
+
   async markAllRead(feedId: string): Promise<number> {
     return this.articleRepo.markAllRead(feedId);
   }

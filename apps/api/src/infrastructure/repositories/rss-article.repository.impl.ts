@@ -100,6 +100,20 @@ export class DrizzleRssArticleRepository implements RssArticleRepository {
     return Number(rows[0]?.count ?? 0);
   }
 
+  async countUnreadPerFeed(): Promise<Record<string, number>> {
+    const rows = await this.db
+      .select({ feedId: rssArticles.feedId, count: sql<number>`COUNT(*)` })
+      .from(rssArticles)
+      .where(eq(rssArticles.isRead, false))
+      .groupBy(rssArticles.feedId);
+
+    const result: Record<string, number> = {};
+    for (const row of rows) {
+      result[row.feedId] = Number(row.count);
+    }
+    return result;
+  }
+
   async markAllRead(feedId: string): Promise<number> {
     const rows = await this.db.update(rssArticles)
       .set({ isRead: true })

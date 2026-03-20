@@ -50,6 +50,7 @@ const [selectedArticle, setSelectedArticle] = createSignal<RssArticle | null>(nu
 const [activeFeedId, setActiveFeedId] = createSignal<string | null>(null);
 const [isLoading, setIsLoading] = createSignal(false);
 const [unreadCount, setUnreadCount] = createSignal(0);
+const [unreadPerFeed, setUnreadPerFeed] = createSignal<Record<string, number>>({});
 const [digest, setDigest] = createSignal<RssDigest | null>(null);
 const [digestLoading, setDigestLoading] = createSignal(false);
 
@@ -91,7 +92,7 @@ export function useRssStore() {
           prev.map((a) => (a.id === article.id ? { ...a, isRead: true } : a))
         );
         setSelectedArticle({ ...article, isRead: true });
-        await fetchUnreadCount();
+        await fetchUnreadCounts();
       } catch (e) {
         console.error("Failed to mark article as read:", e);
       }
@@ -119,7 +120,7 @@ export function useRssStore() {
       const feedId = activeFeedId();
       await api.post("/rss-articles/mark-all-read", { feedId: feedId ?? undefined });
       setArticles((prev) => prev.map((a) => ({ ...a, isRead: true })));
-      await fetchUnreadCount();
+      await fetchUnreadCounts();
     } catch (e) {
       console.error("Failed to mark all as read:", e);
     }
@@ -134,7 +135,7 @@ export function useRssStore() {
         }
       }
       await fetchArticles({ feedId: activeFeedId() ?? undefined });
-      await fetchUnreadCount();
+      await fetchUnreadCounts();
     } catch (e) {
       console.error("Failed to sync RSS feeds:", e);
     } finally {
@@ -205,6 +206,18 @@ export function useRssStore() {
     }
   }
 
+  async function fetchUnreadCounts() {
+    try {
+      const data = await api.get<Record<string, number>>("/rss-articles/unread-counts");
+      setUnreadPerFeed(data);
+      // Also update total
+      const total = Object.values(data).reduce((sum, n) => sum + n, 0);
+      setUnreadCount(total);
+    } catch (e) {
+      console.error("Failed to fetch unread counts:", e);
+    }
+  }
+
   async function fetchDigest() {
     try {
       const data = await api.get<RssDigest | null>("/rss-articles/digest");
@@ -236,6 +249,7 @@ export function useRssStore() {
     setActiveFeedId,
     isLoading,
     unreadCount,
+    unreadPerFeed,
     digest,
     digestLoading,
     fetchFeeds,
@@ -249,6 +263,7 @@ export function useRssStore() {
     removeFeed,
     fetchFullContent,
     fetchUnreadCount,
+    fetchUnreadCounts,
     fetchDigest,
     generateDigest,
   };

@@ -19,6 +19,7 @@ export interface RssArticleRepository {
   updateFlags(id: string, flags: { isRead?: boolean; isStarred?: boolean }): Promise<RssArticle | null>;
   delete(id: string): Promise<boolean>;
   countUnread(feedId?: string): Promise<number>;
+  countUnreadPerFeed(): Promise<Record<string, number>>;
   markAllRead(feedId: string): Promise<number>;
   updateContent(id: string, content: string): Promise<RssArticle | null>;
   deleteOlderThan(before: Date): Promise<number>;

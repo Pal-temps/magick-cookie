@@ -86,6 +86,12 @@ export function createRssArticleRoutes(service: RssService) {
     return c.json({ data: { count } });
   });
 
+  // GET /api/rss-articles/unread-counts — per-feed unread counts
+  app.get("/unread-counts", async (c) => {
+    const counts = await service.getUnreadCountPerFeed();
+    return c.json({ data: counts });
+  });
+
   // GET /api/rss-articles/:id
   app.get("/:id", async (c) => {
     const article = await service.getArticleById(c.req.param("id"));

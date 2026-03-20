@@ -8,8 +8,8 @@ import { RssCatalog } from "./RssCatalog";
 export function RssView() {
   const {
     feeds, articles, selectedArticle, activeFeedId, setActiveFeedId,
-    isLoading, unreadCount, fetchFeeds, fetchArticles, selectArticle,
-    toggleStar, markAllRead, syncAll, addFeed, removeFeed, fetchFullContent, fetchUnreadCount,
+    isLoading, unreadCount, unreadPerFeed, fetchFeeds, fetchArticles, selectArticle,
+    toggleStar, markAllRead, syncAll, addFeed, removeFeed, fetchFullContent, fetchUnreadCount, fetchUnreadCounts,
     digest, digestLoading, fetchDigest, generateDigest,
   } = useRssStore();
 
@@ -20,8 +20,8 @@ export function RssView() {
   const [newUrl, setNewUrl] = createSignal("");
   const [newLabel, setNewLabel] = createSignal("");
 
-  // Fetch cached digest on mount
-  onMount(() => { fetchDigest(); });
+  // Fetch cached digest + unread counts on mount
+  onMount(() => { fetchDigest(); fetchUnreadCounts(); });
 
   // Re-fetch articles when active feed changes
   createEffect(() => {
@@ -60,16 +60,7 @@ export function RssView() {
     return groups;
   };
 
-  // Count unread per feed
-  const unreadPerFeed = () => {
-    const counts = new Map<string, number>();
-    for (const a of articles()) {
-      if (!a.isRead) {
-        counts.set(a.feedId, (counts.get(a.feedId) || 0) + 1);
-      }
-    }
-    return counts;
-  };
+  // unreadPerFeed comes from the store (fetched via API, always up-to-date)
 
   function formatDate(dateStr: string | null): string {
     if (!dateStr) return "";
@@ -201,7 +192,7 @@ export function RssView() {
                         onMouseLeave={(e) => { if (activeFeedId() !== feed.id) e.currentTarget.style.background = "transparent"; }}
                       >
                         <span style={{ overflow: "hidden", "text-overflow": "ellipsis", "white-space": "nowrap" }}>{feed.label}</span>
-                        <Show when={unreadPerFeed().get(feed.id)}>
+                        <Show when={unreadPerFeed()[feed.id]}>
                           <span style={{
                             "font-size": "10px",
                             padding: "1px 5px",
@@ -210,7 +201,7 @@ export function RssView() {
                             color: "var(--text-muted)",
                             "flex-shrink": "0",
                             "margin-left": "6px",
-                          }}>{unreadPerFeed().get(feed.id)}</span>
+                          }}>{unreadPerFeed()[feed.id]}</span>
                         </Show>
                       </button>
                       <button
