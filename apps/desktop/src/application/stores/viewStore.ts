@@ -5,9 +5,16 @@ const [viewMode, setViewModeRaw] = createSignal<ViewMode>("dashboard");
 const [navTick, setNavTick] = createSignal(0);
 const [currentDate, setCurrentDate] = createSignal(new Date());
 const [selectedDate, setSelectedDate] = createSignal<Date | null>(null);
+const [settingsTab, setSettingsTab] = createSignal<string | null>(null);
 
 function setViewMode(mode: ViewMode) {
   setViewModeRaw(mode);
+  setNavTick((n) => n + 1);
+}
+
+function openSettings(tab: string) {
+  setSettingsTab(tab);
+  setViewModeRaw("settings");
   setNavTick((n) => n + 1);
 }
 
@@ -51,7 +58,7 @@ export function useViewStore() {
   }
 
   return {
-    viewMode, setViewMode, navTick,
+    viewMode, setViewMode, navTick, settingsTab, setSettingsTab, openSettings,
     currentDate, setCurrentDate,
     selectedDate, setSelectedDate,
     navigatePrev, navigateNext, goToToday,

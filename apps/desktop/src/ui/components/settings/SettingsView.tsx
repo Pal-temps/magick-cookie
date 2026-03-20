@@ -1,4 +1,5 @@
-import { createSignal, Show } from "solid-js";
+import { createSignal, createEffect, on, Show } from "solid-js";
+import { useViewStore } from "../../../application/stores/viewStore";
 import { LlmSettings } from "./LlmSettings";
 import { ThemeSettings } from "./ThemeSettings";
 import { FocusSettings } from "./FocusSettings";
@@ -20,7 +21,16 @@ import { RssSettings } from "./RssSettings";
 type SettingsTab = "theme" | "llm" | "focus" | "connectors" | "github" | "brief" | "vps" | "bookmarks" | "projects" | "routines" | "webhooks" | "caldav" | "email-rules" | "habits" | "shortcuts" | "rss" | "data";
 
 export function SettingsView() {
+  const { settingsTab, setSettingsTab } = useViewStore();
   const [tab, setTab] = createSignal<SettingsTab>("theme");
+
+  // Open on a specific tab if requested (e.g. from AiButton → "llm")
+  createEffect(on(settingsTab, (requested) => {
+    if (requested && tabs.some((t) => t.id === requested)) {
+      setTab(requested as SettingsTab);
+      setSettingsTab(null);
+    }
+  }));
 
   const tabs: { id: SettingsTab; label: string }[] = [
     { id: "theme", label: "Apparence" },

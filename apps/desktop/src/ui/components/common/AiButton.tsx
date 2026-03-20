@@ -17,12 +17,12 @@ interface AiButtonProps {
  * Clicking while disabled navigates to Settings > IA configuration.
  */
 export function AiButton(props: AiButtonProps) {
-  const { setViewMode } = useViewStore();
+  const { openSettings } = useViewStore();
   const configured = () => isLlmConfigured();
 
   function handleClick() {
     if (!configured()) {
-      setViewMode("settings");
+      openSettings("llm");
       return;
     }
     props.onClick?.();
