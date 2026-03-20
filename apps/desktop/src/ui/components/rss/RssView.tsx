@@ -10,7 +10,7 @@ export function RssView() {
   const {
     feeds, articles, selectedArticle, activeFeedId, setActiveFeedId,
     isLoading, unreadCount, unreadPerFeed, fetchFeeds, fetchArticles, selectArticle,
-    toggleStar, markAllRead, syncAll, addFeed, removeFeed, fetchFullContent, fetchUnreadCount, fetchUnreadCounts,
+    toggleStar, markAllRead, syncAll, addFeed, updateFeed, removeFeed, fetchFullContent, fetchUnreadCount, fetchUnreadCounts,
     digest, digestLoading, fetchDigest, generateDigest,
   } = useRssStore();
 
@@ -192,8 +192,32 @@ export function RssView() {
                         onMouseEnter={(e) => { if (activeFeedId() !== feed.id) e.currentTarget.style.background = "var(--bg-elevated)"; }}
                         onMouseLeave={(e) => { if (activeFeedId() !== feed.id) e.currentTarget.style.background = "transparent"; }}
                       >
-                        <span style={{ overflow: "hidden", "text-overflow": "ellipsis", "white-space": "nowrap" }}>{feed.label}</span>
-                        <Show when={unreadPerFeed()[feed.id]}>
+                        <span style={{
+                          overflow: "hidden", "text-overflow": "ellipsis", "white-space": "nowrap",
+                          ...(!feed.syncEnabled ? { opacity: "0.5", "text-decoration": "line-through" } : {}),
+                        }}>{feed.label}</span>
+                        <Show when={!feed.syncEnabled}>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              updateFeed(feed.id, { syncEnabled: true });
+                            }}
+                            title="Feed desactive (echecs repetes) — cliquez pour reactiver"
+                            style={{
+                              "font-size": "10px",
+                              padding: "1px 6px",
+                              "border-radius": "8px",
+                              background: "var(--cal-red, #e74c3c)",
+                              color: "#fff",
+                              "font-weight": "600",
+                              "flex-shrink": "0",
+                              "margin-left": "6px",
+                              border: "none",
+                              cursor: "pointer",
+                            }}
+                          >OFF</button>
+                        </Show>
+                        <Show when={feed.syncEnabled && unreadPerFeed()[feed.id]}>
                           <span style={{
                             "font-size": "10px",
                             padding: "1px 6px",
