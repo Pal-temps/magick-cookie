@@ -143,7 +143,6 @@ export class RssService {
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         errors.push(`${feed.label}: ${msg}`);
-        console.error(`[rss-sync] Failed to sync ${feed.label}:`, err);
       }
     }
 
