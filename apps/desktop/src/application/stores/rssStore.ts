@@ -54,6 +54,7 @@ const [unreadCount, setUnreadCount] = createSignal(0);
 const [unreadPerFeed, setUnreadPerFeed] = createSignal<Record<string, number>>({});
 const [digest, setDigest] = createSignal<RssDigest | null>(null);
 const [digestLoading, setDigestLoading] = createSignal(false);
+const [digestSavedToNotes, setDigestSavedToNotes] = createSignal(false);
 
 export function useRssStore() {
   async function fetchFeeds() {
@@ -236,6 +237,15 @@ export function useRssStore() {
         api.post<RssDigest>("/rss-articles/digest", {})
       );
       setDigest(data);
+      setDigestSavedToNotes(false);
+      if (data && (data.summary || data.highlights.length > 0)) {
+        try {
+          await saveDigestToNotes();
+          setDigestSavedToNotes(true);
+        } catch (e) {
+          console.error("Failed to auto-save digest to Notes:", e);
+        }
+      }
       return data;
     } catch (e) {
       console.error("Failed to generate RSS digest:", e);
@@ -251,7 +261,7 @@ export function useRssStore() {
 
     const now = new Date(d.generatedAt);
     const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
-    const path = `digests-rss/digest-${dateStr}.md`;
+    const path = `_digests-rss/digest-${dateStr}.md`;
 
     const lines: string[] = [
       `# Digest RSS — ${now.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}`,
@@ -310,5 +320,6 @@ export function useRssStore() {
     fetchDigest,
     generateDigest,
     saveDigestToNotes,
+    digestSavedToNotes,
   };
 }

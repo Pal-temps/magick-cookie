@@ -102,6 +102,12 @@
 - Badge rouge "OFF" dans la sidebar RSS, clic pour reactiver
 - Feeds desactives affiches en barre
 
+### 13. RSS digest auto-save to Notes
+- `generateDigest()` sauvegarde automatiquement le digest en `.md` dans `_digests-rss/` (Notes)
+- Bouton "Dans Notes" conserve comme fallback manuel, desactive apres sauvegarde auto reussie (label "Sauvegarde ✓")
+- Signal `digestSavedToNotes` tracke l'etat de la sauvegarde
+- Dossier renomme `_digests-rss/` (prefixe `_` = dossier programme)
+
 ## A faire
 - Tester manuellement l'envoi email avec un vrai compte SMTP
 - Tester le digest RSS avec un LLM configure (ollama pull llama3.2:3b)
