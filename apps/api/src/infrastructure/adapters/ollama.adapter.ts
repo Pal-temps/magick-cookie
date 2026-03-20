@@ -1,23 +1,37 @@
 import type { LlmPort, LlmMessage } from "../../domain/llm/llm.port";
 
+const CHAT_TIMEOUT_MS = 180_000; // 3 minutes for local models
+
 export class OllamaAdapter implements LlmPort {
   constructor(private baseUrl: string) {}
 
   async chat(messages: LlmMessage[], model: string): Promise<string> {
-    const res = await fetch(`${this.baseUrl}/api/chat`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ model, messages, stream: false }),
-      signal: AbortSignal.timeout(120_000),
-    });
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), CHAT_TIMEOUT_MS);
 
-    if (!res.ok) {
-      const text = await res.text();
-      throw new Error(`Ollama error ${res.status}: ${text}`);
+    try {
+      const res = await fetch(`${this.baseUrl}/api/chat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ model, messages, stream: false }),
+        signal: controller.signal,
+      });
+
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`Ollama error ${res.status}: ${text}`);
+      }
+
+      const json = await res.json() as { message?: { content?: string } };
+      return json.message?.content ?? "";
+    } catch (err: any) {
+      if (err?.name === "AbortError") {
+        throw new Error(`Ollama timeout after ${CHAT_TIMEOUT_MS / 1000}s`);
+      }
+      throw err;
+    } finally {
+      clearTimeout(timer);
     }
-
-    const json = await res.json() as { message?: { content?: string } };
-    return json.message?.content ?? "";
   }
 
   async *chatStream(messages: LlmMessage[], model: string): AsyncIterable<string> {
