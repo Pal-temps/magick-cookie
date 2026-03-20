@@ -4,13 +4,51 @@ import { EmailList } from "./EmailList";
 import { EmailDetail } from "./EmailDetail";
 import { EmailDigest } from "./EmailDigest";
 import { AccountSettings } from "./AccountSettings";
+import { ComposeEmail } from "./ComposeEmail";
 import { Button } from "../common/Button";
 import { CookieLoader } from "../common/CookieLoader";
+import type { SendEmailDTO } from "../../../domain/models/Email";
 
 export function EmailView() {
   const store = useEmailStore();
   const [showSettings, setShowSettings] = createSignal(false);
   const [showDigest, setShowDigest] = createSignal(false);
+  const [showCompose, setShowCompose] = createSignal(false);
+  const [composePrefill, setComposePrefill] = createSignal<Partial<SendEmailDTO> | null>(null);
+
+  function openCompose(prefill?: Partial<SendEmailDTO>) {
+    setComposePrefill(prefill ?? null);
+    setShowCompose(true);
+  }
+
+  function handleReply() {
+    const email = store.selectedEmail();
+    if (!email) return;
+    openCompose({
+      accountId: email.accountId,
+      to: [email.fromAddress],
+      subject: `Re: ${email.subject?.replace(/^Re:\s*/i, "") ?? ""}`,
+      bodyText: `\n\n--- ${email.fromName || email.fromAddress} a ecrit ---\n${email.bodyText ?? ""}`,
+    });
+  }
+
+  function handleForward() {
+    const email = store.selectedEmail();
+    if (!email) return;
+    const header = [
+      `---------- Message transfere ----------`,
+      `De: ${email.fromName || email.fromAddress}`,
+      `Date: ${new Date(email.sentAt).toLocaleDateString("fr-FR")}`,
+      `Objet: ${email.subject ?? ""}`,
+      `A: ${email.toAddresses.map((a) => a.name ? `${a.name} <${a.address}>` : a.address).join(", ")}`,
+      ``,
+    ].join("\n");
+    openCompose({
+      accountId: email.accountId,
+      subject: `Fwd: ${email.subject?.replace(/^Fwd:\s*/i, "") ?? ""}`,
+      bodyText: `\n\n${header}\n${email.bodyText ?? ""}`,
+    });
+  }
 
   onMount(async () => {
     await store.fetchAccounts();
@@ -33,7 +71,7 @@ export function EmailView() {
     // Don't handle when typing in inputs
     const tag = (e.target as HTMLElement)?.tagName;
     if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
-    if (showSettings()) return;
+    if (showSettings() || showCompose()) return;
 
     const key = e.key.toLowerCase();
 
@@ -52,6 +90,7 @@ export function EmailView() {
     }
 
     switch (key) {
+      case "c": openCompose(); e.preventDefault(); break;
       case "j": store.moveFocus(1); e.preventDefault(); break;
       case "k": store.moveFocus(-1); e.preventDefault(); break;
       case "enter": store.selectFocused(); e.preventDefault(); break;
@@ -86,6 +125,14 @@ export function EmailView() {
   const folders = ["INBOX", "Sent", "Archive"] as const;
 
   return (
+    <Show when={!showCompose()} fallback={
+      <ComposeEmail
+        accounts={store.accounts()}
+        onSend={store.sendEmail}
+        onClose={() => setShowCompose(false)}
+        prefill={composePrefill() ?? undefined}
+      />
+    }>
     <Show when={!showDigest()} fallback={
       <EmailDigest onClose={() => setShowDigest(false)} />
     }>
@@ -140,6 +187,9 @@ export function EmailView() {
             ))}
           </div>
           <div style={{ display: "flex", "align-items": "center", gap: "6px" }}>
+            <Button size="sm" variant="primary" onClick={() => openCompose()}>
+              Nouveau
+            </Button>
             <Button size="sm" variant="secondary" onClick={() => setShowDigest(true)}>
               Digest
             </Button>
@@ -231,12 +281,15 @@ export function EmailView() {
               onDelete={store.deleteEmail}
               onToggleStar={store.toggleStar}
               onSummarize={store.summarizeEmail}
+              onReply={handleReply}
+              onForward={handleForward}
               summary={store.emailSummary()}
               summaryLoading={store.summaryLoading()}
             />
           </div>
         </div>
       </div>
+    </Show>
     </Show>
     </Show>
   );

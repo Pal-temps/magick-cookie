@@ -8,6 +8,8 @@ interface EmailDetailProps {
   onDelete: (id: string) => void;
   onToggleStar: (id: string) => void;
   onSummarize?: (id: string) => void;
+  onReply?: () => void;
+  onForward?: () => void;
   summary?: string | null;
   summaryLoading?: boolean;
 }
@@ -65,6 +67,16 @@ export function EmailDetail(props: EmailDetailProps) {
                     disabled={props.summaryLoading}
                   >
                     {props.summaryLoading ? "..." : "Resumer"}
+                  </Button>
+                </Show>
+                <Show when={props.onReply}>
+                  <Button size="sm" variant="secondary" onClick={() => props.onReply?.()}>
+                    Repondre
+                  </Button>
+                </Show>
+                <Show when={props.onForward}>
+                  <Button size="sm" variant="secondary" onClick={() => props.onForward?.()}>
+                    Transferer
                   </Button>
                 </Show>
                 <Button size="sm" variant="secondary" onClick={() => props.onArchive(email().id)}>

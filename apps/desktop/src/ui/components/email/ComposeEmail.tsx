@@ -7,15 +7,17 @@ interface ComposeEmailProps {
   accounts: EmailAccount[];
   onSend: (input: SendEmailDTO) => Promise<unknown>;
   onClose: () => void;
+  prefill?: Partial<SendEmailDTO>;
 }
 
 export function ComposeEmail(props: ComposeEmailProps) {
-  const [selectedAccountId, setSelectedAccountId] = createSignal(props.accounts[0]?.id ?? "");
-  const [to, setTo] = createSignal("");
-  const [cc, setCc] = createSignal("");
-  const [showCc, setShowCc] = createSignal(false);
-  const [subject, setSubject] = createSignal("");
-  const [body, setBody] = createSignal("");
+  const pf = props.prefill;
+  const [selectedAccountId, setSelectedAccountId] = createSignal(pf?.accountId ?? props.accounts[0]?.id ?? "");
+  const [to, setTo] = createSignal(pf?.to?.join(", ") ?? "");
+  const [cc, setCc] = createSignal(pf?.cc?.join(", ") ?? "");
+  const [showCc, setShowCc] = createSignal((pf?.cc?.length ?? 0) > 0);
+  const [subject, setSubject] = createSignal(pf?.subject ?? "");
+  const [body, setBody] = createSignal(pf?.bodyText ?? "");
   const [isSending, setIsSending] = createSignal(false);
   const [error, setError] = createSignal<string | null>(null);
 
