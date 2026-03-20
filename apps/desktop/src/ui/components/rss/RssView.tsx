@@ -1,7 +1,8 @@
-import { createSignal, createEffect, For, Show } from "solid-js";
+import { createSignal, createEffect, onMount, For, Show } from "solid-js";
 import { useRssStore, type RssFeed, type RssArticle } from "../../../application/stores/rssStore";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { Button } from "../common/Button";
+import { CookieLoader } from "../common/CookieLoader";
 import { RssCatalog } from "./RssCatalog";
 
 export function RssView() {
@@ -9,13 +10,18 @@ export function RssView() {
     feeds, articles, selectedArticle, activeFeedId, setActiveFeedId,
     isLoading, unreadCount, fetchFeeds, fetchArticles, selectArticle,
     toggleStar, markAllRead, syncAll, addFeed, removeFeed, fetchFullContent, fetchUnreadCount,
+    digest, digestLoading, fetchDigest, generateDigest,
   } = useRssStore();
 
   const [addingFeed, setAddingFeed] = createSignal(false);
   const [showCatalog, setShowCatalog] = createSignal(false);
+  const [showDigest, setShowDigest] = createSignal(false);
   const [loadingContent, setLoadingContent] = createSignal<string | null>(null);
   const [newUrl, setNewUrl] = createSignal("");
   const [newLabel, setNewLabel] = createSignal("");
+
+  // Fetch cached digest on mount
+  onMount(() => { fetchDigest(); });
 
   // Re-fetch articles when active feed changes
   createEffect(() => {
@@ -104,6 +110,9 @@ export function RssView() {
           <div style={{ display: "flex", "align-items": "center", "justify-content": "space-between", "margin-bottom": "8px" }}>
             <h3 style={{ margin: "0", "font-size": "14px", "font-weight": "600", color: "var(--text-primary)" }}>Flux RSS</h3>
             <div style={{ display: "flex", gap: "4px" }}>
+              <Button variant="secondary" size="sm" onClick={() => setShowDigest(true)}>
+                Digest
+              </Button>
               <Button variant="ghost" size="sm" onClick={syncAll} disabled={isLoading()}>
                 {isLoading() ? "..." : "Sync"}
               </Button>
@@ -275,16 +284,161 @@ export function RssView() {
         </div>
       </div>
 
-      {/* Right panel - article list or catalog */}
+      {/* Right panel - article list, catalog, or digest */}
       <div style={{ flex: "1", display: "flex", "flex-direction": "column", overflow: "hidden" }}>
-        <Show when={showCatalog()}>
+        <Show when={showDigest()}>
+          <div style={{ height: "100%", display: "flex", "flex-direction": "column", overflow: "hidden" }}>
+            <div style={{
+              padding: "12px 16px",
+              "border-bottom": "1px solid var(--border-color)",
+              display: "flex",
+              "align-items": "center",
+              "justify-content": "space-between",
+            }}>
+              <h3 style={{ margin: "0", "font-size": "14px", "font-weight": "600", color: "var(--text-primary)" }}>
+                Digest IA
+              </h3>
+              <div style={{ display: "flex", gap: "6px" }}>
+                <Button variant="primary" size="sm" onClick={generateDigest} disabled={digestLoading()}>
+                  {digestLoading() ? "Generation..." : "Generer"}
+                </Button>
+                <Button variant="ghost" size="sm" onClick={() => setShowDigest(false)}>
+                  Fermer
+                </Button>
+              </div>
+            </div>
+
+            <Show when={digestLoading()}>
+              <div style={{ padding: "40px", display: "flex", "justify-content": "center" }}>
+                <CookieLoader size={40} message="Analyse des articles en cours..." />
+              </div>
+            </Show>
+
+            <Show when={!digestLoading()}>
+              <div style={{ flex: "1", "overflow-y": "auto", padding: "16px" }}>
+                <Show when={digest()} fallback={
+                  <div style={{ "text-align": "center", color: "var(--text-muted)", "font-size": "13px", padding: "40px 0" }}>
+                    Aucun digest disponible. Cliquez sur "Generer" pour creer un resume IA de vos flux.
+                  </div>
+                }>
+                  {(d) => (
+                    <>
+                      {/* Summary */}
+                      <div style={{
+                        padding: "12px 16px",
+                        background: "rgba(99, 102, 241, 0.08)",
+                        "border-left": "3px solid #6366f1",
+                        "border-radius": "var(--radius-md)",
+                        "margin-bottom": "16px",
+                        "font-size": "13px",
+                        "line-height": "1.5",
+                        color: "var(--text-primary)",
+                      }}>
+                        <div style={{ "font-size": "11px", "font-weight": "600", color: "#6366f1", "margin-bottom": "4px" }}>
+                          Resume — {d().totalUnread} articles non lus
+                        </div>
+                        {d().summary}
+                      </div>
+
+                      {/* Highlights */}
+                      <Show when={d().highlights.length > 0}>
+                        <h4 style={{ "font-size": "13px", "font-weight": "600", color: "var(--text-primary)", margin: "0 0 8px" }}>
+                          A lire en priorite
+                        </h4>
+                        <div style={{ display: "flex", "flex-direction": "column", gap: "8px", "margin-bottom": "20px" }}>
+                          <For each={d().highlights}>
+                            {(h) => (
+                              <div style={{
+                                padding: "10px 14px",
+                                background: "var(--bg-elevated)",
+                                "border-radius": "var(--radius-md)",
+                                border: "1px solid var(--border-color)",
+                              }}>
+                                <div style={{ display: "flex", "align-items": "flex-start", "justify-content": "space-between", gap: "8px" }}>
+                                  <div>
+                                    <div style={{ "font-size": "13px", "font-weight": "600", color: "var(--text-primary)" }}>
+                                      {h.title}
+                                    </div>
+                                    <div style={{ "font-size": "11px", color: "var(--text-muted)", "margin-top": "2px" }}>
+                                      {h.feedLabel}
+                                    </div>
+                                    <div style={{ "font-size": "12px", color: "var(--text-secondary)", "margin-top": "4px", "line-height": "1.4" }}>
+                                      {h.reason}
+                                    </div>
+                                  </div>
+                                  <Show when={h.link}>
+                                    <button
+                                      onClick={() => openUrl(h.link!)}
+                                      style={{
+                                        "flex-shrink": "0",
+                                        padding: "4px 8px",
+                                        "border-radius": "var(--radius-sm)",
+                                        border: "1px solid var(--border-color)",
+                                        background: "var(--bg-surface)",
+                                        color: "var(--accent-color)",
+                                        "font-size": "11px",
+                                        cursor: "pointer",
+                                      }}
+                                    >
+                                      Ouvrir
+                                    </button>
+                                  </Show>
+                                </div>
+                              </div>
+                            )}
+                          </For>
+                        </div>
+                      </Show>
+
+                      {/* Categories */}
+                      <Show when={d().categories.length > 0}>
+                        <h4 style={{ "font-size": "13px", "font-weight": "600", color: "var(--text-primary)", margin: "0 0 8px" }}>
+                          Par thematique
+                        </h4>
+                        <div style={{ display: "flex", "flex-wrap": "wrap", gap: "8px" }}>
+                          <For each={d().categories}>
+                            {(cat) => (
+                              <div style={{
+                                padding: "8px 12px",
+                                background: "var(--bg-elevated)",
+                                "border-radius": "var(--radius-md)",
+                                border: "1px solid var(--border-color)",
+                                "min-width": "140px",
+                              }}>
+                                <div style={{ "font-size": "12px", "font-weight": "600", color: "var(--text-primary)" }}>
+                                  {cat.name}
+                                  <span style={{ "font-weight": "normal", color: "var(--text-muted)", "margin-left": "6px" }}>
+                                    ({cat.count})
+                                  </span>
+                                </div>
+                                <div style={{ "font-size": "11px", color: "var(--text-secondary)", "margin-top": "2px" }}>
+                                  {cat.topArticle}
+                                </div>
+                              </div>
+                            )}
+                          </For>
+                        </div>
+                      </Show>
+
+                      {/* Generated at */}
+                      <div style={{ "margin-top": "20px", "font-size": "11px", color: "var(--text-muted)", "text-align": "right" }}>
+                        Genere le {new Date(d().generatedAt).toLocaleString("fr-FR")}
+                      </div>
+                    </>
+                  )}
+                </Show>
+              </div>
+            </Show>
+          </div>
+        </Show>
+        <Show when={showCatalog() && !showDigest()}>
           <RssCatalog
             existingFeeds={feeds()}
             onAdd={async (input) => { await addFeed(input); await fetchUnreadCount(); }}
             onClose={() => setShowCatalog(false)}
           />
         </Show>
-        <Show when={!showCatalog()}>
+        <Show when={!showCatalog() && !showDigest()}>
         {/* Article list header */}
         <div style={{
           padding: "12px 16px",

@@ -9,7 +9,7 @@ export type RoutineStepAction = "navigate" | "sync" | "generate" | "notify";
 export type RoutineStep =
   | { action: "navigate"; view: string }
   | { action: "sync"; target: "email" | "rss" | "github" }
-  | { action: "generate"; target: "brief" | "changelog" }
+  | { action: "generate"; target: "brief" | "changelog" | "rss-digest" }
   | { action: "notify"; title: string; body: string };
 
 export interface Routine {
@@ -79,6 +79,7 @@ async function executeStep(step: RoutineStep): Promise<void> {
       const endpoints: Record<string, string> = {
         brief: "/brief/generate",
         changelog: "/changelog/generate",
+        "rss-digest": "/rss-articles/digest",
       };
       const endpoint = endpoints[step.target];
       if (endpoint) {

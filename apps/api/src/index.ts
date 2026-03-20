@@ -203,6 +203,7 @@ const projectService = new ProjectService(projectRepo);
 const smartReminderService = new SmartReminderService(triageRepo, taskRepo, emailRepo);
 const alarmService = new AlarmService(alarmRepo);
 const rssService = new RssService(rssFeedRepo, rssArticleRepo);
+rssService.setLlmService(llmService);
 const snippetService = new SnippetService(snippetRepo, snippetCategoryRepo);
 const changelogService = new ChangelogService(gitScanService, llmService);
 const caldavConnector = new CalDavConnector();

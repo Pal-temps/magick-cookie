@@ -36,12 +36,22 @@ export interface FetchArticlesOptions {
   offset?: number;
 }
 
+export interface RssDigest {
+  generatedAt: string;
+  totalUnread: number;
+  highlights: { title: string; feedLabel: string; reason: string; link: string | null }[];
+  summary: string;
+  categories: { name: string; count: number; topArticle: string }[];
+}
+
 const [feeds, setFeeds] = createSignal<RssFeed[]>([]);
 const [articles, setArticles] = createSignal<RssArticle[]>([]);
 const [selectedArticle, setSelectedArticle] = createSignal<RssArticle | null>(null);
 const [activeFeedId, setActiveFeedId] = createSignal<string | null>(null);
 const [isLoading, setIsLoading] = createSignal(false);
 const [unreadCount, setUnreadCount] = createSignal(0);
+const [digest, setDigest] = createSignal<RssDigest | null>(null);
+const [digestLoading, setDigestLoading] = createSignal(false);
 
 export function useRssStore() {
   async function fetchFeeds() {
@@ -195,6 +205,29 @@ export function useRssStore() {
     }
   }
 
+  async function fetchDigest() {
+    try {
+      const data = await api.get<RssDigest | null>("/rss-articles/digest");
+      setDigest(data);
+    } catch (e) {
+      console.error("Failed to fetch RSS digest:", e);
+    }
+  }
+
+  async function generateDigest() {
+    try {
+      setDigestLoading(true);
+      const data = await api.post<RssDigest>("/rss-articles/digest", {});
+      setDigest(data);
+      return data;
+    } catch (e) {
+      console.error("Failed to generate RSS digest:", e);
+      return null;
+    } finally {
+      setDigestLoading(false);
+    }
+  }
+
   return {
     feeds,
     articles,
@@ -203,6 +236,8 @@ export function useRssStore() {
     setActiveFeedId,
     isLoading,
     unreadCount,
+    digest,
+    digestLoading,
     fetchFeeds,
     fetchArticles,
     selectArticle,
@@ -214,5 +249,7 @@ export function useRssStore() {
     removeFeed,
     fetchFullContent,
     fetchUnreadCount,
+    fetchDigest,
+    generateDigest,
   };
 }

@@ -17,8 +17,7 @@ const NAVIGATE_VIEWS = [
   { value: "email", label: "Email" },
   { value: "chat", label: "Chat" },
   { value: "rss", label: "RSS" },
-  { value: "bookmarks", label: "Signets" },
-  { value: "snippets", label: "Snippets" },
+  { value: "library", label: "Bibliotheque" },
 ];
 
 const SYNC_TARGETS = [
@@ -30,6 +29,7 @@ const SYNC_TARGETS = [
 const GENERATE_TARGETS = [
   { value: "brief", label: "Brief" },
   { value: "changelog", label: "Changelog" },
+  { value: "rss-digest", label: "Digest RSS (IA)" },
 ];
 
 export function RoutineSettings() {
@@ -110,7 +110,7 @@ export function RoutineSettings() {
         step = { action: "sync", target: newStepParam1() as "email" | "rss" | "github" };
         break;
       case "generate":
-        step = { action: "generate", target: newStepParam1() as "brief" | "changelog" };
+        step = { action: "generate", target: newStepParam1() as "brief" | "changelog" | "rss-digest" };
         break;
       case "notify":
         step = { action: "notify", title: newStepParam1(), body: newStepParam2() };

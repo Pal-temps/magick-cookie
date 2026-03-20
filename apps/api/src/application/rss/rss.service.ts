@@ -2,12 +2,27 @@ import type { RssFeedRepository, RssArticleRepository } from "../../domain/rss/r
 import type { RssFeed, RssArticle, CreateRssFeedInput, UpdateRssFeedInput } from "../../domain/rss/rss.entity";
 import { fetchFeed } from "../../infrastructure/connectors/rss-parser.connector";
 import { extractArticleContent } from "../../infrastructure/connectors/readability.connector";
+import type { LlmService } from "../llm/llm.service";
+
+export interface RssDigest {
+  generatedAt: string;
+  totalUnread: number;
+  highlights: { title: string; feedLabel: string; reason: string; link: string | null }[];
+  summary: string;
+  categories: { name: string; count: number; topArticle: string }[];
+}
 
 export class RssService {
+  private llmService?: LlmService;
+
   constructor(
     private feedRepo: RssFeedRepository,
     private articleRepo: RssArticleRepository,
   ) {}
+
+  setLlmService(llm: LlmService) {
+    this.llmService = llm;
+  }
 
   // --- Feeds ---
 
@@ -133,5 +148,52 @@ export class RssService {
     }
 
     return { total, errors };
+  }
+
+  // --- AI Digest ---
+
+  async generateDigest(): Promise<RssDigest> {
+    if (!this.llmService) throw new Error("LLM service not configured");
+
+    // Fetch all feeds for label mapping
+    const feeds = await this.feedRepo.findAll();
+    const feedMap = new Map(feeds.map((f) => [f.id, f.label]));
+
+    // Get recent unread articles (last 24h, up to 200)
+    const allUnread = await this.articleRepo.findAll({ unread: true, limit: 200 });
+
+    // Filter to last 24h only
+    const cutoff = new Date();
+    cutoff.setHours(cutoff.getHours() - 24);
+    const recent = allUnread.filter((a) => {
+      const pub = a.publishedAt ? new Date(a.publishedAt) : new Date(a.createdAt);
+      return pub >= cutoff;
+    });
+
+    if (recent.length === 0) {
+      return {
+        generatedAt: new Date().toISOString(),
+        totalUnread: 0,
+        highlights: [],
+        summary: "Aucun nouvel article dans les dernieres 24h.",
+        categories: [],
+      };
+    }
+
+    const articlesForLlm = recent.map((a) => ({
+      feedLabel: feedMap.get(a.feedId) ?? "Inconnu",
+      title: a.title ?? "(sans titre)",
+      description: a.description,
+      link: a.link,
+      publishedAt: a.publishedAt?.toISOString?.() ?? (a.publishedAt as unknown as string) ?? null,
+    }));
+
+    const result = await this.llmService.generateRssDigest(articlesForLlm);
+
+    return {
+      generatedAt: new Date().toISOString(),
+      totalUnread: recent.length,
+      ...result,
+    };
   }
 }

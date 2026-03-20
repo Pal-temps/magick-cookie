@@ -1,7 +1,7 @@
 export type RoutineStep =
   | { action: "navigate"; view: string }
   | { action: "sync"; target: "email" | "rss" | "github" }
-  | { action: "generate"; target: "brief" | "changelog" }
+  | { action: "generate"; target: "brief" | "changelog" | "rss-digest" }
   | { action: "notify"; title: string; body: string };
 
 export interface Routine {

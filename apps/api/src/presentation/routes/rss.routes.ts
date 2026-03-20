@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import type { RssService } from "../../application/rss/rss.service";
+import { getLastRssDigest, setLastRssDigest } from "../../infrastructure/jobs/rss-sync.job";
 import {
   createRssFeedSchema,
   updateRssFeedSchema,
@@ -112,6 +113,20 @@ export function createRssArticleRoutes(service: RssService) {
     const deleted = await service.deleteArticle(c.req.param("id"));
     if (!deleted) return c.json({ error: "Article not found" }, 404);
     return c.json({ data: { ok: true } });
+  });
+
+  // GET /api/rss-articles/digest — return cached daily digest
+  app.get("/digest", async (c) => {
+    const cached = getLastRssDigest();
+    if (cached) return c.json({ data: cached.data });
+    return c.json({ data: null });
+  });
+
+  // POST /api/rss-articles/digest — force-generate a fresh AI digest
+  app.post("/digest", async (c) => {
+    const digest = await service.generateDigest();
+    setLastRssDigest(digest);
+    return c.json({ data: digest });
   });
 
   // POST /api/rss-articles/mark-all-read
