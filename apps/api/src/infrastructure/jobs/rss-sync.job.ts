@@ -47,8 +47,13 @@ export function startRssSyncJob(rssService: RssService, intervalMs = 15 * 60 * 1
         const digest = await rssService.generateDigest();
         setLastRssDigest(digest);
         console.log(`[rss-digest] Done — ${digest.highlights.length} highlights, ${digest.totalUnread} articles`);
-      } catch (err) {
-        console.error("[rss-digest] Failed to generate digest:", err);
+      } catch (err: any) {
+        const msg = err?.message ?? String(err);
+        if (msg.includes("No LLM configured") || msg.includes("LLM service not configured")) {
+          console.log("[rss-digest] Skipped — no LLM configured");
+        } else {
+          console.error("[rss-digest] Failed to generate digest:", msg);
+        }
       }
     }
   }
