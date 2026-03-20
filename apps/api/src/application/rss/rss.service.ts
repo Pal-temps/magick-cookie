@@ -175,7 +175,7 @@ export class RssService {
     const feeds = await this.feedRepo.findAll();
     const feedMap = new Map(feeds.map((f) => [f.id, f.label]));
 
-    // Get recent unread articles (last 24h, up to 200)
+    // Get recent unread articles (last 24h, cap at 50 for LLM performance)
     const allUnread = await this.articleRepo.findAll({ unread: true, limit: 200 });
 
     // Filter to last 24h only
@@ -196,10 +196,13 @@ export class RssService {
       };
     }
 
-    const articlesForLlm = recent.map((a) => ({
+    // Cap to 30 most recent to keep the prompt manageable for local LLMs
+    const capped = recent.slice(0, 30);
+
+    const articlesForLlm = capped.map((a) => ({
       feedLabel: feedMap.get(a.feedId) ?? "Inconnu",
       title: a.title ?? "(sans titre)",
-      description: a.description,
+      description: a.description ? a.description.slice(0, 120) : null,
       link: a.link,
       publishedAt: a.publishedAt?.toISOString?.() ?? (a.publishedAt as unknown as string) ?? null,
     }));
