@@ -5,5 +5,6 @@ export interface LlmMessage {
 
 export interface LlmPort {
   chat(messages: LlmMessage[], model: string): Promise<string>;
+  chatStream(messages: LlmMessage[], model: string): AsyncIterable<string>;
   testConnection(model: string): Promise<boolean>;
 }

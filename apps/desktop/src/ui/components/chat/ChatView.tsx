@@ -37,7 +37,7 @@ function renderMarkdown(text: string): string {
 
 export function ChatView() {
   const {
-    conversations, activeConversationId, messages, sending, error,
+    conversations, activeConversationId, messages, sending, error, streamingContent,
     fetchConversations, createConversation, selectConversation, sendMessage, deleteConversation,
   } = useChatStore();
 
@@ -48,9 +48,10 @@ export function ChatView() {
     fetchConversations();
   });
 
-  // Auto-scroll to bottom when messages change
+  // Auto-scroll to bottom when messages or streaming content changes
   createEffect(() => {
     messages();
+    streamingContent();
     setTimeout(() => {
       messagesEndRef?.scrollIntoView({ behavior: "smooth" });
     }, 50);
@@ -287,8 +288,32 @@ export function ChatView() {
               )}
             </For>
 
-            {/* Loading indicator */}
-            <Show when={sending()}>
+            {/* Streaming response */}
+            <Show when={streamingContent()}>
+              {(content) => (
+                <div style={{ display: "flex", "justify-content": "flex-start" }}>
+                  <div
+                    class="chat-assistant-msg"
+                    style={{
+                      "max-width": "85%",
+                      padding: "12px 16px",
+                      "border-radius": "var(--radius-md) var(--radius-md) var(--radius-md) 4px",
+                      background: "var(--bg-elevated)",
+                      color: "var(--text-secondary)",
+                      "font-size": "13px",
+                      "line-height": "1.6",
+                      "word-break": "break-word",
+                    }}
+                  >
+                    <div innerHTML={renderMarkdown(content())} />
+                    <span class="chat-cursor" />
+                  </div>
+                </div>
+              )}
+            </Show>
+
+            {/* Loading indicator (before streaming starts) */}
+            <Show when={sending() && !streamingContent()}>
               <div style={{ display: "flex", "justify-content": "flex-start" }}>
                 <div style={{
                   padding: "12px 16px",

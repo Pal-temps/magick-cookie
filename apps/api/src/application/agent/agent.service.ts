@@ -121,6 +121,88 @@ export class AgentService {
     return { message: assistantMsg, toolCalls: allToolResults };
   }
 
+  async *sendMessageStream(conversationId: string, content: string): AsyncGenerator<{ type: "tool" | "chunk" | "done"; data: string }> {
+    if (!this.llmService) throw new Error("No LLM configured");
+
+    await this.chatRepo.addMessage(conversationId, "user", content);
+    const messages = await this.chatRepo.getMessages(conversationId);
+    const systemPrompt = await this.buildSystemPromptAsync();
+
+    const allToolResults: ToolResult[] = [];
+    let currentMessages = [
+      { role: "system" as const, content: systemPrompt },
+      ...messages.map((m) => ({ role: m.role, content: m.content })),
+    ];
+
+    // Tool-calling rounds (non-streaming)
+    for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
+      const response = await this.llmService.chat(currentMessages);
+      const toolCalls = this.parseToolCalls(response);
+
+      if (toolCalls.length === 0) {
+        // No tools — stream the final response from scratch
+        let fullText = "";
+        const streamMessages = [...currentMessages];
+        for await (const chunk of this.llmService.chatStream(streamMessages)) {
+          fullText += chunk;
+          yield { type: "chunk", data: chunk };
+        }
+        await this.chatRepo.addMessage(conversationId, "assistant", fullText);
+        await this.autoTitle(conversationId, content, messages.length);
+        yield { type: "done", data: fullText };
+        return;
+      }
+
+      // Execute tools
+      const results: ToolResult[] = [];
+      for (const tc of toolCalls) {
+        const tool = this.toolRegistry.get(tc.tool);
+        if (!tool) {
+          results.push({ tool: tc.tool, result: null, error: `Outil inconnu: ${tc.tool}` });
+          continue;
+        }
+        try {
+          const result = await tool.execute(tc.params);
+          results.push({ tool: tc.tool, result });
+        } catch (e) {
+          results.push({ tool: tc.tool, result: null, error: String(e) });
+        }
+      }
+
+      allToolResults.push(...results);
+      yield { type: "tool", data: JSON.stringify(results) };
+
+      const toolResultsText = results.map((r) => {
+        if (r.error) return `[ERREUR ${r.tool}]: ${r.error}`;
+        return `[RESULTAT ${r.tool}]: ${JSON.stringify(r.result)}`;
+      }).join("\n\n");
+
+      currentMessages.push(
+        { role: "assistant" as const, content: response },
+        { role: "user" as const, content: `Voici les resultats des outils que tu as appeles :\n\n${toolResultsText}\n\nMaintenant, reponds a l'utilisateur en utilisant ces resultats. Si tu as besoin d'appeler d'autres outils, utilise le meme format TOOL_CALL. Sinon, reponds normalement.` },
+      );
+    }
+
+    // Max rounds — stream final answer
+    currentMessages.push({
+      role: "user" as const,
+      content: "Tu as atteint la limite d'appels d'outils. Reponds maintenant avec les informations que tu as. Ne fais plus d'appels d'outils.",
+    });
+
+    let fullText = "";
+    for await (const chunk of this.llmService.chatStream(currentMessages)) {
+      const clean = this.stripToolCalls(chunk);
+      if (clean) {
+        fullText += clean;
+        yield { type: "chunk", data: clean };
+      }
+    }
+
+    await this.chatRepo.addMessage(conversationId, "assistant", fullText);
+    await this.autoTitle(conversationId, content, messages.length);
+    yield { type: "done", data: fullText };
+  }
+
   private async buildSystemPromptAsync(): Promise<string> {
     const today = new Date().toISOString().split("T")[0];
     const dayName = new Date().toLocaleDateString("fr-FR", { weekday: "long" });

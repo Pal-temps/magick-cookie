@@ -13,8 +13,7 @@ export class AnthropicAdapter implements LlmPort {
     this.baseUrl = (baseUrl || DEFAULT_BASE_URL).replace(/\/+$/, "");
   }
 
-  async chat(messages: LlmMessage[], model: string): Promise<string> {
-    // Anthropic API: system is a top-level param, not in messages
+  private buildBody(messages: LlmMessage[], model: string, stream: boolean): { body: Record<string, unknown>; systemMessages: LlmMessage[] } {
     const systemMessages = messages.filter((m) => m.role === "system");
     const nonSystemMessages = messages.filter((m) => m.role !== "system");
 
@@ -22,19 +21,30 @@ export class AnthropicAdapter implements LlmPort {
       model,
       max_tokens: this.maxTokens,
       messages: nonSystemMessages.map((m) => ({ role: m.role, content: m.content })),
+      stream,
     };
 
     if (systemMessages.length > 0) {
       body.system = systemMessages.map((m) => m.content).join("\n\n");
     }
 
+    return { body, systemMessages };
+  }
+
+  private get headers() {
+    return {
+      "Content-Type": "application/json",
+      "x-api-key": this.apiKey,
+      "anthropic-version": "2023-06-01",
+    };
+  }
+
+  async chat(messages: LlmMessage[], model: string): Promise<string> {
+    const { body } = this.buildBody(messages, model, false);
+
     const res = await fetch(`${this.baseUrl}/v1/messages`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": this.apiKey,
-        "anthropic-version": "2023-06-01",
-      },
+      headers: this.headers,
       body: JSON.stringify(body),
     });
 
@@ -51,6 +61,49 @@ export class AnthropicAdapter implements LlmPort {
       ?.filter((block) => block.type === "text")
       .map((block) => block.text ?? "")
       .join("") ?? "";
+  }
+
+  async *chatStream(messages: LlmMessage[], model: string): AsyncIterable<string> {
+    const { body } = this.buildBody(messages, model, true);
+
+    const res = await fetch(`${this.baseUrl}/v1/messages`, {
+      method: "POST",
+      headers: this.headers,
+      body: JSON.stringify(body),
+    });
+
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`Anthropic API error ${res.status}: ${text}`);
+    }
+
+    const reader = res.body?.getReader();
+    if (!reader) return;
+
+    const decoder = new TextDecoder();
+    let buffer = "";
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop() ?? "";
+
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed.startsWith("data: ")) continue;
+        try {
+          const json = JSON.parse(trimmed.slice(6));
+          if (json.type === "content_block_delta" && json.delta?.text) {
+            yield json.delta.text;
+          }
+        } catch {
+          // Skip malformed SSE data
+        }
+      }
+    }
   }
 
   async testConnection(model: string): Promise<boolean> {

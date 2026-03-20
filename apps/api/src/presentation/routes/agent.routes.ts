@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { streamSSE } from "hono/streaming";
 import type { AgentService } from "../../application/agent/agent.service";
 
 export function createAgentRoutes(agentService: AgentService) {
@@ -33,6 +34,24 @@ export function createAgentRoutes(agentService: AgentService) {
     return c.json({
       data: result.message,
       toolCalls: result.toolCalls,
+    });
+  });
+
+  // POST /:id/messages/stream — send message with SSE streaming
+  app.post("/:id/messages/stream", async (c) => {
+    const { message } = await c.req.json();
+    if (!message || typeof message !== "string") {
+      return c.json({ error: "message required" }, 400);
+    }
+    const convId = c.req.param("id");
+    return streamSSE(c, async (stream) => {
+      try {
+        for await (const event of agentService.sendMessageStream(convId, message)) {
+          await stream.writeSSE({ event: event.type, data: event.data });
+        }
+      } catch (err: any) {
+        await stream.writeSSE({ event: "error", data: err.message ?? String(err) });
+      }
     });
   });
 

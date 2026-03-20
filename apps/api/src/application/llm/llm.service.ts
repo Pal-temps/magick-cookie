@@ -24,6 +24,14 @@ export class LlmService {
     return adapter.chat(messages, config.model);
   }
 
+  async *chatStream(messages: LlmMessage[]): AsyncIterable<string> {
+    const config = await this.configRepo.getActive();
+    if (!config) throw new Error("No LLM configured");
+
+    const adapter = this.createAdapter(config);
+    yield* adapter.chatStream(messages, config.model);
+  }
+
   async summarize(text: string, systemPrompt: string): Promise<string> {
     return this.chat([
       { role: "system", content: systemPrompt },
