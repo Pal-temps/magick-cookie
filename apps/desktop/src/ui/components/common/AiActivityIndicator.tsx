@@ -33,7 +33,7 @@ export function AiActivityIndicator() {
               display: "flex",
               "align-items": "center",
               gap: "8px",
-              padding: "8px 12px",
+              padding: "6px 12px",
               background: "var(--bg-surface)",
               border: "1px solid var(--border-color)",
               "border-radius": "var(--radius-md)",
@@ -42,7 +42,11 @@ export function AiActivityIndicator() {
               color: "var(--text-secondary)",
               animation: "ai-activity-in 0.2s ease-out",
             }}>
-              <span class="ai-activity-spinner" />
+              <img
+                src="/gif/loader-cookie.gif"
+                alt="IA"
+                style={{ width: "20px", height: "20px", "flex-shrink": "0" }}
+              />
               <span style={{ flex: "1", "min-width": "0", overflow: "hidden", "text-overflow": "ellipsis", "white-space": "nowrap" }}>
                 {activity.label}
               </span>
