@@ -148,8 +148,13 @@ Regles :
       { role: "user", content: articlesText },
     ]);
 
+    // Extract JSON from response — small models often wrap it in markdown
+    let jsonStr = response.trim();
+    const jsonMatch = jsonStr.match(/```(?:json)?\s*\n?([\s\S]*?)```/) ?? jsonStr.match(/(\{[\s\S]*\})/);
+    if (jsonMatch) jsonStr = jsonMatch[1].trim();
+
     try {
-      const parsed = JSON.parse(response.trim());
+      const parsed = JSON.parse(jsonStr);
       return {
         highlights: Array.isArray(parsed.highlights) ? parsed.highlights.map((h: any) => ({
           title: String(h.title ?? ""),
@@ -165,6 +170,7 @@ Regles :
         })) : [],
       };
     } catch {
+      console.warn("[rss-digest] Failed to parse LLM response as JSON:", jsonStr.slice(0, 200));
       return { highlights: [], summary: "", categories: [] };
     }
   }
