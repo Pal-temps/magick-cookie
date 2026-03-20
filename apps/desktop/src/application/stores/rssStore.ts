@@ -228,9 +228,12 @@ export function useRssStore() {
   }
 
   async function generateDigest() {
+    const { trackAiActivity } = await import("./aiActivityStore");
     try {
       setDigestLoading(true);
-      const data = await api.post<RssDigest>("/rss-articles/digest", {});
+      const data = await trackAiActivity("Digest RSS IA", () =>
+        api.post<RssDigest>("/rss-articles/digest", {})
+      );
       setDigest(data);
       return data;
     } catch (e) {

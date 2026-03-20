@@ -22,6 +22,7 @@ export function ChangelogGenerator() {
   const [copied, setCopied] = createSignal(false);
 
   async function handleGenerate() {
+    const { trackAiActivity } = await import("../../../application/stores/aiActivityStore");
     setLoading(true);
     setError("");
     setResult(null);
@@ -29,7 +30,9 @@ export function ChangelogGenerator() {
       const body: { since: string; repo?: string } = { since: sinceDate() };
       const r = repo().trim();
       if (r) body.repo = r;
-      const data = await api.post<ChangelogResult>("/changelog/generate", body);
+      const data = await trackAiActivity("Changelog IA", () =>
+        api.post<ChangelogResult>("/changelog/generate", body)
+      );
       setResult(data);
     } catch (err: any) {
       setError(err.message || "Erreur lors de la generation");

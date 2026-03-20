@@ -56,10 +56,13 @@ export function useJournalStore() {
     const dateStr = formatDate(d);
     const path = `journal/${dateStr}.md`;
 
+    const { trackAiActivity } = await import("./aiActivityStore");
     setGenerating(true);
     try {
       const [brief, stats] = await Promise.all([
-        api.post<BriefResponse>("/brief/generate", { date: dateStr }).catch(() => null),
+        trackAiActivity("Journal du jour IA", () =>
+          api.post<BriefResponse>("/brief/generate", { date: dateStr })
+        ).catch(() => null),
         api.get<TimerStats>("/timer-sessions/stats/today").catch(() => null),
       ]);
 

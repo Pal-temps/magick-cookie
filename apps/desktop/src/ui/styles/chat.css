@@ -217,6 +217,27 @@
   50% { opacity: 0; }
 }
 
+/* --- AI Activity Indicator --- */
+
+.ai-activity-spinner {
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--border-color);
+  border-top-color: var(--accent-primary);
+  border-radius: 50%;
+  animation: ai-spin 0.8s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes ai-spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes ai-activity-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
 @keyframes chat-bounce {
   0%, 60%, 100% {
     transform: translateY(0);

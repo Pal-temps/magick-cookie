@@ -313,9 +313,12 @@ export function useCalendarStore() {
 
   // --- AI Event Generation ---
   async function generateEvents(prompt: string, date: string) {
+    const { trackAiActivity } = await import("./aiActivityStore");
     setIsGenerating(true);
     try {
-      const data = await api.post<{ events: CreateEventDTO[] }>("/llm/generate-events", { prompt, date });
+      const data = await trackAiActivity("Generation evenements IA", () =>
+        api.post<{ events: CreateEventDTO[] }>("/llm/generate-events", { prompt, date })
+      );
       setGeneratedEvents(data.events);
       return data.events;
     } catch (e) {

@@ -36,6 +36,7 @@ import { useRoutineStore } from "./application/stores/routineStore";
 import { CommandPalette } from "./ui/components/common/CommandPalette";
 import { FocusOverlay } from "./ui/components/common/FocusOverlay";
 import { ConfirmDialog } from "./ui/components/common/ConfirmDialog";
+import { AiActivityIndicator } from "./ui/components/common/AiActivityIndicator";
 import { QuickCapture } from "./ui/components/capture/QuickCapture";
 import { initNotifications, notify } from "./infrastructure/tauri/notifications";
 import { connectSSE } from "./infrastructure/api/sseClient";
@@ -241,6 +242,7 @@ export function App() {
     <FocusOverlay />
     <QuickCapture />
     <ConfirmDialog />
+    <AiActivityIndicator />
     <Show when={!isDesktopMode()} fallback={<DesktopWidgets />}>
       <AppLayout>
         <Show when={viewMode() === "notes"}>

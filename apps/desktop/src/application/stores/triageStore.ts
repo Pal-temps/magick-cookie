@@ -127,9 +127,12 @@ export function useTriageStore() {
   }
 
   async function fetchSuggestions() {
+    const { trackAiActivity } = await import("./aiActivityStore");
     setSuggestLoading(true);
     try {
-      const data = await api.post<TriageSuggestion[]>("/triage/suggest", {});
+      const data = await trackAiActivity("Auto-triage IA", () =>
+        api.post<TriageSuggestion[]>("/triage/suggest", {})
+      );
       setSuggestions(data);
     } catch (e) {
       console.error("Failed to fetch suggestions:", e);

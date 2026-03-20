@@ -325,15 +325,20 @@ export function useEmailStore() {
   }
 
   async function generateReport(days: number = 7): Promise<{ markdown: string; emailCount: number }> {
-    const data = await api.post<{ markdown: string; emailCount: number }>(`/emails/report?days=${days}`, {});
-    return data;
+    const { trackAiActivity } = await import("./aiActivityStore");
+    return trackAiActivity("Rapport email IA", () =>
+      api.post<{ markdown: string; emailCount: number }>(`/emails/report?days=${days}`, {})
+    );
   }
 
   async function summarizeEmail(id: string) {
+    const { trackAiActivity } = await import("./aiActivityStore");
     setSummaryLoading(true);
     setEmailSummary(null);
     try {
-      const data = await api.post<{ summary: string }>(`/emails/${id}/summarize`, {});
+      const data = await trackAiActivity("Resume email IA", () =>
+        api.post<{ summary: string }>(`/emails/${id}/summarize`, {})
+      );
       setEmailSummary(data.summary);
     } catch (err) {
       console.error("Failed to summarize email:", err);
