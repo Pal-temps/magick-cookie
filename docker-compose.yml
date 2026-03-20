@@ -1,7 +1,7 @@
 services:
   db:
     image: postgres:17-alpine
-    container_name: do-it-now-db
+    container_name: magick-cookie-db
     environment:
       POSTGRES_DB: do_it_now
       POSTGRES_USER: postgres
@@ -21,7 +21,7 @@ services:
     build:
       context: .
       dockerfile: apps/api/Dockerfile
-    container_name: do-it-now-api
+    container_name: magick-cookie-api
     ports:
       - "47300:47300"
     environment:

@@ -2,7 +2,7 @@
 // Ensure the Postgres container is running and ready before proceeding
 const { execSync } = require("child_process");
 
-const CONTAINER = "do-it-now-db";
+const CONTAINER = "magick-cookie-db";
 const MAX_WAIT = 30; // seconds
 
 function getContainerStatus() {
