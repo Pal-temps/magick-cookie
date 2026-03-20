@@ -152,6 +152,56 @@ export class DrizzleEmailRepository implements EmailRepository {
     };
   }
 
+  async findUidsByAccount(accountId: string, folder: string): Promise<number[]> {
+    const rows = await this.db
+      .select({ imapUid: emails.imapUid })
+      .from(emails)
+      .where(and(eq(emails.accountId, accountId), eq(emails.folder, folder)));
+
+    return rows
+      .map((r) => r.imapUid)
+      .filter((uid): uid is number => uid !== null);
+  }
+
+  async findFlagsByAccount(
+    accountId: string,
+    folder: string,
+    limit: number = 200,
+  ): Promise<Array<{ id: string; imapUid: number | null; isRead: boolean; isStarred: boolean }>> {
+    const rows = await this.db
+      .select({
+        id: emails.id,
+        imapUid: emails.imapUid,
+        isRead: emails.isRead,
+        isStarred: emails.isStarred,
+      })
+      .from(emails)
+      .where(and(eq(emails.accountId, accountId), eq(emails.folder, folder)))
+      .orderBy(desc(emails.sentAt))
+      .limit(limit);
+
+    return rows;
+  }
+
+  async bulkUpdateFlags(
+    updates: Array<{ id: string; isRead?: boolean; isStarred?: boolean }>,
+  ): Promise<number> {
+    let count = 0;
+    for (const update of updates) {
+      const flags: Record<string, boolean> = {};
+      if (update.isRead !== undefined) flags.isRead = update.isRead;
+      if (update.isStarred !== undefined) flags.isStarred = update.isStarred;
+      if (Object.keys(flags).length === 0) continue;
+
+      const rows = await this.db.update(emails)
+        .set(flags)
+        .where(eq(emails.id, update.id))
+        .returning({ id: emails.id });
+      if (rows.length > 0) count++;
+    }
+    return count;
+  }
+
   private toDomain(row: typeof emails.$inferSelect): Email {
     return {
       id: row.id,

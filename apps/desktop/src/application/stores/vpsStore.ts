@@ -94,7 +94,7 @@ export function useVpsStore() {
   async function fetchHealth() {
     try {
       const data = await api.get<VpsHealth>("/vps/health");
-      setHealth(data);
+      setHealth({ services: data.services ?? [] });
     } catch {
       setHealth(null);
     }
@@ -147,7 +147,7 @@ export function useVpsStore() {
   async function fetchAlerts() {
     try {
       const data = await api.get<{ alerts: VpsAlert[] }>("/vps/alerts");
-      setAlerts(data.alerts);
+      setAlerts(data.alerts ?? []);
     } catch {
       // Keep existing alerts
     }

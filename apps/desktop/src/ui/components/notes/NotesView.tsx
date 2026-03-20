@@ -4,7 +4,7 @@ import { useThemeStore } from "../../../application/stores/themeStore";
 import { mountExcalidraw, type ExcalidrawHandle } from "../drawings/excalidrawMount";
 import { Button } from "../common/Button";
 import { CookieLoader } from "../common/CookieLoader";
-import { ConfirmDialog, requestConfirm } from "../common/ConfirmDialog";
+import { requestConfirm } from "../common/ConfirmDialog";
 import "../../styles/notes.css";
 
 interface ContextMenuState {
@@ -903,7 +903,6 @@ export function NotesView() {
       </div>
 
       <ContextMenu />
-      <ConfirmDialog />
     </div>
     </Show>
   );

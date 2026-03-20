@@ -23,4 +23,7 @@ export interface EmailRepository {
   countUnread(accountId?: string): Promise<number>;
   countByDateRange(from: Date, to: Date): Promise<{ total: number; unread: number; dailyStats: { date: string; count: number }[] }>;
   updateSummary(id: string, summary: string, classification?: string): Promise<Email | null>;
+  findUidsByAccount(accountId: string, folder: string): Promise<number[]>;
+  findFlagsByAccount(accountId: string, folder: string, limit?: number): Promise<Array<{ id: string; imapUid: number | null; isRead: boolean; isStarred: boolean }>>;
+  bulkUpdateFlags(updates: Array<{ id: string; isRead?: boolean; isStarred?: boolean }>): Promise<number>;
 }

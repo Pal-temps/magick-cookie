@@ -347,16 +347,16 @@ export function VpsView() {
                 }}>
                   &#9654;
                 </span>
-                Alertes ({store.alerts().length})
+                Alertes ({(store.alerts() ?? []).length})
               </button>
               <Show when={alertsOpen()}>
                 <div style={{ overflow: "auto", padding: "0 12px 8px", flex: "1" }}>
-                  <Show when={store.alerts().length > 0} fallback={
+                  <Show when={(store.alerts() ?? []).length > 0} fallback={
                     <div style={{ "font-size": "11px", color: "var(--text-muted)", padding: "4px 0" }}>
                       Aucune alerte
                     </div>
                   }>
-                    <For each={store.alerts()}>
+                    <For each={store.alerts() ?? []}>
                       {(alert) => (
                         <div style={{
                           display: "flex",
