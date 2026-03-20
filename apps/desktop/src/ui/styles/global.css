@@ -1,5 +1,6 @@
 @import "./reset.css";
 @import "./variables.css";
+@import "./chat.css";
 
 body {
   background-color: var(--bg-base);

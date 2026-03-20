@@ -1,156 +1,36 @@
-import { onMount, onCleanup, createEffect, Show, For, type JSX } from "solid-js";
+import { onMount, createEffect, Show, For, createSignal } from "solid-js";
 import { useChatStore } from "../../../application/stores/chatStore";
 import { Button } from "../common/Button";
+import { marked } from "marked";
+import hljs from "highlight.js";
 
-// --- Simple Markdown Renderer ---
+// --- Marked config with highlight.js ---
 
-function renderInline(text: string): JSX.Element[] {
-  // Handle bold, inline code
-  const parts: JSX.Element[] = [];
-  const regex = /(\*\*(.+?)\*\*|`(.+?)`)/g;
-  let lastIndex = 0;
-  let match: RegExpExecArray | null;
+marked.setOptions({
+  breaks: true,
+  gfm: true,
+});
 
-  while ((match = regex.exec(text)) !== null) {
-    if (match.index > lastIndex) {
-      parts.push(<>{text.slice(lastIndex, match.index)}</>);
-    }
-    if (match[2]) {
-      parts.push(<strong>{match[2]}</strong>);
-    } else if (match[3]) {
-      parts.push(
-        <code style={{
-          background: "var(--bg-elevated)",
-          padding: "1px 5px",
-          "border-radius": "3px",
-          "font-size": "0.9em",
-          "font-family": "monospace",
-        }}>{match[3]}</code>
-      );
-    }
-    lastIndex = match.index + match[0].length;
-  }
+function renderMarkdown(text: string): string {
+  const renderer = new marked.Renderer();
 
-  if (lastIndex < text.length) {
-    parts.push(<>{text.slice(lastIndex)}</>);
-  }
+  renderer.code = ({ text: code, lang }) => {
+    const language = lang && hljs.getLanguage(lang) ? lang : "plaintext";
+    const highlighted = hljs.highlight(code, { language }).value;
+    return `<div class="chat-code-block">
+      <div class="chat-code-header">
+        <span class="chat-code-lang">${language}</span>
+        <button class="chat-code-copy" onclick="(function(btn){var c=btn.closest('.chat-code-block').querySelector('code').textContent;navigator.clipboard.writeText(c);btn.textContent='Copie !';setTimeout(function(){btn.textContent='Copier'},1500)})(this)">Copier</button>
+      </div>
+      <pre><code class="hljs language-${language}">${highlighted}</code></pre>
+    </div>`;
+  };
 
-  return parts.length > 0 ? parts : [<>{text}</>];
-}
+  renderer.codespan = ({ text: code }) => {
+    return `<code class="chat-inline-code">${code}</code>`;
+  };
 
-interface MarkdownBlock {
-  type: "h3" | "li" | "p" | "code";
-  content: string;
-  language?: string;
-}
-
-function parseMarkdown(text: string): MarkdownBlock[] {
-  const lines = text.split("\n");
-  const blocks: MarkdownBlock[] = [];
-  let inCodeBlock = false;
-  let codeContent = "";
-  let codeLang = "";
-
-  for (const line of lines) {
-    const trimmed = line.trim();
-
-    if (trimmed.startsWith("```")) {
-      if (inCodeBlock) {
-        blocks.push({ type: "code", content: codeContent.trimEnd(), language: codeLang });
-        codeContent = "";
-        codeLang = "";
-        inCodeBlock = false;
-      } else {
-        inCodeBlock = true;
-        codeLang = trimmed.slice(3).trim();
-      }
-      continue;
-    }
-
-    if (inCodeBlock) {
-      codeContent += (codeContent ? "\n" : "") + line;
-      continue;
-    }
-
-    if (!trimmed) continue;
-
-    if (trimmed.startsWith("## ") || trimmed.startsWith("### ")) {
-      const content = trimmed.replace(/^#{2,3}\s+/, "");
-      blocks.push({ type: "h3", content });
-    } else if (trimmed.startsWith("- ") || trimmed.startsWith("* ")) {
-      blocks.push({ type: "li", content: trimmed.slice(2) });
-    } else {
-      blocks.push({ type: "p", content: trimmed });
-    }
-  }
-
-  // Close unclosed code block
-  if (inCodeBlock && codeContent) {
-    blocks.push({ type: "code", content: codeContent.trimEnd(), language: codeLang });
-  }
-
-  return blocks;
-}
-
-function MarkdownContent(props: { text: string }) {
-  return (
-    <div style={{ display: "flex", "flex-direction": "column", gap: "4px" }}>
-      <For each={parseMarkdown(props.text)}>
-        {(block) => (
-          <>
-            <Show when={block.type === "h3"}>
-              <h3 style={{
-                margin: "8px 0 4px",
-                "font-size": "14px",
-                "font-weight": "600",
-                color: "var(--text-primary)",
-              }}>
-                {renderInline(block.content)}
-              </h3>
-            </Show>
-            <Show when={block.type === "li"}>
-              <div style={{
-                "padding-left": "16px",
-                "font-size": "13px",
-                color: "var(--text-secondary)",
-                "line-height": "1.5",
-              }}>
-                <span style={{ "margin-right": "6px" }}>-</span>
-                {renderInline(block.content)}
-              </div>
-            </Show>
-            <Show when={block.type === "p"}>
-              <p style={{
-                margin: "2px 0",
-                "font-size": "13px",
-                color: "inherit",
-                "line-height": "1.6",
-              }}>
-                {renderInline(block.content)}
-              </p>
-            </Show>
-            <Show when={block.type === "code"}>
-              <pre style={{
-                margin: "4px 0",
-                padding: "10px 12px",
-                background: "var(--bg-primary)",
-                "border-radius": "var(--radius-md)",
-                "font-size": "12px",
-                "font-family": "monospace",
-                "overflow-x": "auto",
-                "white-space": "pre-wrap",
-                "word-break": "break-word",
-                border: "1px solid var(--border-color)",
-                color: "var(--text-secondary)",
-              }}>
-                <code>{block.content}</code>
-              </pre>
-            </Show>
-          </>
-        )}
-      </For>
-    </div>
-  );
+  return marked.parse(text, { renderer }) as string;
 }
 
 // --- Chat View ---
@@ -163,7 +43,6 @@ export function ChatView() {
 
   let messagesEndRef: HTMLDivElement | undefined;
   let textareaRef: HTMLTextAreaElement | undefined;
-  let messagesContainerRef: HTMLDivElement | undefined;
 
   onMount(() => {
     fetchConversations();
@@ -171,7 +50,7 @@ export function ChatView() {
 
   // Auto-scroll to bottom when messages change
   createEffect(() => {
-    messages(); // track
+    messages();
     setTimeout(() => {
       messagesEndRef?.scrollIntoView({ behavior: "smooth" });
     }, 50);
@@ -180,11 +59,7 @@ export function ChatView() {
   function handleKeyDown(e: KeyboardEvent) {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      const value = textareaRef?.value?.trim();
-      if (value && !sending()) {
-        sendMessage(value);
-        if (textareaRef) textareaRef.value = "";
-      }
+      handleSend();
     }
   }
 
@@ -198,6 +73,14 @@ export function ChatView() {
 
   function formatTime(dateStr: string) {
     return new Date(dateStr).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+  }
+
+  const [copiedId, setCopiedId] = createSignal<string | null>(null);
+
+  function copyMessage(id: string, content: string) {
+    navigator.clipboard.writeText(content);
+    setCopiedId(id);
+    setTimeout(() => setCopiedId(null), 1500);
   }
 
   return (
@@ -216,7 +99,6 @@ export function ChatView() {
         "flex-direction": "column",
         background: "var(--bg-secondary)",
       }}>
-        {/* New conversation button */}
         <div style={{ padding: "12px" }}>
           <Button
             variant="primary"
@@ -228,7 +110,6 @@ export function ChatView() {
           </Button>
         </div>
 
-        {/* Conversation list */}
         <div style={{
           flex: "1",
           "overflow-y": "auto",
@@ -337,14 +218,13 @@ export function ChatView() {
         >
           {/* Messages area */}
           <div
-            ref={messagesContainerRef}
             style={{
               flex: "1",
               "overflow-y": "auto",
               padding: "20px",
               display: "flex",
               "flex-direction": "column",
-              gap: "12px",
+              gap: "16px",
             }}
           >
             <For each={messages()}>
@@ -354,28 +234,52 @@ export function ChatView() {
                     display: "flex",
                     "justify-content": msg.role === "user" ? "flex-end" : "flex-start",
                   }}>
-                    <div style={{
-                      "max-width": "75%",
-                      padding: "10px 14px",
-                      "border-radius": msg.role === "user"
-                        ? "var(--radius-md) var(--radius-md) 4px var(--radius-md)"
-                        : "var(--radius-md) var(--radius-md) var(--radius-md) 4px",
-                      background: msg.role === "user" ? "var(--accent-primary)" : "var(--bg-elevated)",
-                      color: msg.role === "user" ? "#fff" : "var(--text-secondary)",
-                      "font-size": "13px",
-                      "line-height": "1.5",
-                      "word-break": "break-word",
-                    }}>
+                    <div
+                      class={msg.role === "assistant" ? "chat-assistant-msg" : undefined}
+                      style={{
+                        "max-width": msg.role === "user" ? "75%" : "85%",
+                        padding: msg.role === "user" ? "10px 14px" : "12px 16px",
+                        "border-radius": msg.role === "user"
+                          ? "var(--radius-md) var(--radius-md) 4px var(--radius-md)"
+                          : "var(--radius-md) var(--radius-md) var(--radius-md) 4px",
+                        background: msg.role === "user" ? "var(--accent-primary)" : "var(--bg-elevated)",
+                        color: msg.role === "user" ? "#fff" : "var(--text-secondary)",
+                        "font-size": "13px",
+                        "line-height": "1.6",
+                        "word-break": "break-word",
+                        position: "relative",
+                      }}
+                    >
                       <Show when={msg.role === "assistant"} fallback={<>{msg.content}</>}>
-                        <MarkdownContent text={msg.content} />
+                        <div innerHTML={renderMarkdown(msg.content)} />
                       </Show>
+
+                      {/* Message actions */}
                       <div style={{
-                        "font-size": "10px",
+                        display: "flex",
+                        "align-items": "center",
+                        "justify-content": "space-between",
                         "margin-top": "6px",
+                        "font-size": "10px",
                         opacity: "0.6",
-                        "text-align": msg.role === "user" ? "right" : "left",
                       }}>
-                        {formatTime(msg.createdAt)}
+                        <span>{formatTime(msg.createdAt)}</span>
+                        <Show when={msg.role === "assistant"}>
+                          <button
+                            onClick={() => copyMessage(msg.id, msg.content)}
+                            style={{
+                              background: "none",
+                              border: "none",
+                              cursor: "pointer",
+                              color: "inherit",
+                              "font-size": "10px",
+                              padding: "0 4px",
+                            }}
+                            title="Copier le message"
+                          >
+                            {copiedId() === msg.id ? "Copie !" : "Copier"}
+                          </button>
+                        </Show>
                       </div>
                     </div>
                   </div>
@@ -385,23 +289,25 @@ export function ChatView() {
 
             {/* Loading indicator */}
             <Show when={sending()}>
-              <div style={{
-                display: "flex",
-                "justify-content": "flex-start",
-              }}>
+              <div style={{ display: "flex", "justify-content": "flex-start" }}>
                 <div style={{
-                  padding: "10px 14px",
+                  padding: "12px 16px",
                   "border-radius": "var(--radius-md) var(--radius-md) var(--radius-md) 4px",
                   background: "var(--bg-elevated)",
                   color: "var(--text-muted)",
                   "font-size": "13px",
+                  display: "flex",
+                  gap: "4px",
+                  "align-items": "center",
                 }}>
-                  <span class="chat-typing-dots">...</span>
+                  <span class="chat-dot" style={{ "animation-delay": "0s" }} />
+                  <span class="chat-dot" style={{ "animation-delay": "0.2s" }} />
+                  <span class="chat-dot" style={{ "animation-delay": "0.4s" }} />
                 </div>
               </div>
             </Show>
 
-            {/* Error display */}
+            {/* Error */}
             <Show when={error()}>
               <div style={{
                 padding: "8px 12px",
@@ -428,7 +334,7 @@ export function ChatView() {
           }}>
             <textarea
               ref={textareaRef}
-              placeholder="Ecrivez un message... (Entree pour envoyer, Shift+Entree pour retour a la ligne)"
+              placeholder="Ecrivez un message... (Entree pour envoyer)"
               rows={2}
               disabled={sending()}
               onKeyDown={handleKeyDown}
