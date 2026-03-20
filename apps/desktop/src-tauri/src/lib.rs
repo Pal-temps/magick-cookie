@@ -58,6 +58,20 @@ pub fn run() {
                 .build(),
         )
         .setup(|app| {
+            // Set window icon from file (for taskbar/process list in dev + prod)
+            if let Some(window) = app.get_webview_window("main") {
+                let icon_path = app
+                    .path()
+                    .resolve("icons/icon.png", tauri::path::BaseDirectory::Resource)
+                    .unwrap_or_default();
+                if icon_path.exists() {
+                    if let Ok(bytes) = std::fs::read(&icon_path) {
+                        let icon = tauri::image::Image::from_bytes(&bytes).unwrap();
+                        let _ = window.set_icon(icon);
+                    }
+                }
+            }
+
             // Build tray menu
             let show = MenuItem::with_id(app, "show", "Ouvrir do-it-now", true, None::<&str>)?;
             let desktop = MenuItem::with_id(app, "desktop", "Mode Bureau", true, None::<&str>)?;

@@ -21,7 +21,9 @@ export function startRssSyncJob(rssService: RssService, intervalMs = 15 * 60 * 1
         console.log(`[rss-sync] Synced ${total} new article(s)`);
       }
       if (errors.length > 0) {
-        console.warn(`[rss-sync] ${errors.length} error(s):`, errors);
+        for (const e of errors) {
+          console.warn(`[rss-sync] ${e}`);
+        }
       }
 
       // Cleanup old articles after sync

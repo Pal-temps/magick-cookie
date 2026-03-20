@@ -19,8 +19,7 @@
         "minWidth": 900,
         "minHeight": 600,
         "transparent": true,
-        "decorations": false,
-        "icon": "icons/icon.png"
+        "decorations": false
       }
     ],
     "security": {
@@ -36,6 +35,9 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
+    ],
+    "resources": [
+      "icons/icon.png"
     ]
   }
 }
