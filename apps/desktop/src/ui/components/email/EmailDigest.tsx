@@ -3,6 +3,7 @@ import { CookieLoader } from "../common/CookieLoader";
 import { useEmailStore } from "../../../application/stores/emailStore";
 import { useNotesStore } from "../../../application/stores/notesStore";
 import { Button } from "../common/Button";
+import { AiButton } from "../common/AiButton";
 import { requestConfirm } from "../common/ConfirmDialog";
 
 interface EmailDigestProps {
@@ -236,12 +237,12 @@ export function EmailDigest(props: EmailDigestProps) {
 
       {/* Footer buttons */}
       <div style={{ display: "flex", gap: "8px", "justify-content": "flex-end", "padding-top": "12px", "border-top": "1px solid var(--border-color)" }}>
-        <Button variant="primary" size="sm" onClick={handleGenerateReport} disabled={generatingReport()}>
+        <AiButton variant="primary" size="sm" onClick={handleGenerateReport} disabled={generatingReport()}>
           {generatingReport() ? "Generation..." : "Rapport dans Notes"}
-        </Button>
-        <Button variant="secondary" size="sm" onClick={() => store.fetchDigest()}>
+        </AiButton>
+        <AiButton variant="secondary" size="sm" onClick={() => store.fetchDigest()}>
           Regenerer
-        </Button>
+        </AiButton>
         <Button variant="secondary" size="sm" onClick={handleCopy}>
           Copier
         </Button>

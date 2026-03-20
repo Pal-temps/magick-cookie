@@ -1,6 +1,7 @@
 import { Show } from "solid-js";
 import type { Email } from "../../../domain/models/Email";
 import { Button } from "../common/Button";
+import { AiButton } from "../common/AiButton";
 
 interface EmailDetailProps {
   email: Email | null;
@@ -60,14 +61,14 @@ export function EmailDetail(props: EmailDetailProps) {
                   {email().isStarred ? "★" : "☆"}
                 </Button>
                 <Show when={props.onSummarize}>
-                  <Button
+                  <AiButton
                     size="sm"
                     variant="secondary"
                     onClick={() => props.onSummarize?.(email().id)}
                     disabled={props.summaryLoading}
                   >
                     {props.summaryLoading ? "..." : "Resumer"}
-                  </Button>
+                  </AiButton>
                 </Show>
                 <Show when={props.onReply}>
                   <Button size="sm" variant="secondary" onClick={() => props.onReply?.()}>

@@ -1,6 +1,7 @@
 import { createSignal, Show } from "solid-js";
 import { api } from "../../../infrastructure/api/apiClient";
 import { Button } from "../common/Button";
+import { AiButton } from "../common/AiButton";
 
 interface ChangelogResult {
   commits: { hash: string; message: string; repo: string }[];
@@ -94,9 +95,9 @@ export function ChangelogGenerator() {
             }}
           />
         </div>
-        <Button size="sm" variant="primary" onClick={handleGenerate} disabled={loading()}>
+        <AiButton size="sm" variant="primary" onClick={handleGenerate} disabled={loading()}>
           {loading() ? "Generation..." : "Generer"}
-        </Button>
+        </AiButton>
       </div>
 
       {/* Error */}

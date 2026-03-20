@@ -15,14 +15,36 @@ export interface LlmConfig {
 const [llmConfig, setLlmConfig] = createSignal<LlmConfig | null>(null);
 const [llmLoading, setLlmLoading] = createSignal(false);
 const [llmTestResult, setLlmTestResult] = createSignal<boolean | null>(null);
+const [llmReady, setLlmReady] = createSignal(false);
+
+/** Global read-only accessor — can be imported anywhere without useLlmStore() */
+export function isLlmConfigured(): boolean {
+  return llmReady();
+}
 
 export function useLlmStore() {
   async function fetchConfig() {
     try {
       const data = await api.get<LlmConfig | null>("/llm/config");
       setLlmConfig(data);
+      setLlmReady(data != null && data.enabled !== false);
     } catch (e) {
       console.error("Failed to fetch LLM config:", e);
+    }
+  }
+
+  /** Try to auto-detect Ollama and configure it if no LLM config exists */
+  async function autoSetup() {
+    try {
+      const result = await api.post<{ configured: boolean; source?: string; model?: string; reason?: string }>("/llm/auto-setup", {});
+      if (result.configured) {
+        await fetchConfig();
+        if (result.source === "ollama") {
+          console.log(`[llm] Auto-configured Ollama with model ${result.model}`);
+        }
+      }
+    } catch (e) {
+      console.error("Failed to auto-setup LLM:", e);
     }
   }
 
@@ -40,6 +62,7 @@ export function useLlmStore() {
       const data = await api.put<LlmConfig>("/llm/config", input);
       if (data) {
         setLlmConfig(data);
+        setLlmReady(data.enabled !== false);
       }
     } catch (e) {
       console.error("Failed to update LLM config:", e);
@@ -65,7 +88,9 @@ export function useLlmStore() {
     llmConfig,
     llmLoading,
     llmTestResult,
+    isLlmConfigured: llmReady,
     fetchConfig,
+    autoSetup,
     updateConfig,
     testConnection,
   };

@@ -5,6 +5,7 @@ import { useViewStore } from "../../../application/stores/viewStore";
 import type { Task, TaskSource } from "../../../domain/models/Task";
 import { SwipeCard } from "./SwipeCard";
 import { Button } from "../common/Button";
+import { AiButton } from "../common/AiButton";
 import { openUrl } from "@tauri-apps/plugin-opener";
 
 // --- Module-level drag state (ephemeral, no persistence needed) ---
@@ -613,9 +614,9 @@ function KanbanBoard(props: KanbanBoardProps) {
           </div>
           <div style={{ display: "flex", gap: "8px", "align-items": "center" }}>
             <ViewToggle />
-            <Button size="sm" variant="secondary" onClick={handleAutoTriage} disabled={triage.suggestLoading()}>
+            <AiButton size="sm" variant="secondary" onClick={handleAutoTriage} disabled={triage.suggestLoading()}>
               {triage.suggestLoading() ? "Analyse..." : "Auto-triage (IA)"}
-            </Button>
+            </AiButton>
             <Show when={props.sourceFilter !== "manual"}>
               <Button size="sm" variant="secondary" onClick={handleSync} disabled={props.isSyncing}>
                 {props.isSyncing ? "..." : syncLabel()}
@@ -1125,9 +1126,9 @@ function TriageDashboard(props: TriageDashboardProps) {
             </div>
             <div style={{ display: "flex", gap: "8px", "align-items": "center" }}>
               <ViewToggle />
-              <Button size="sm" variant="secondary" onClick={handleAutoTriage} disabled={triage.suggestLoading()}>
+              <AiButton size="sm" variant="secondary" onClick={handleAutoTriage} disabled={triage.suggestLoading()}>
                 {triage.suggestLoading() ? "Analyse en cours..." : "Auto-triage (IA)"}
-              </Button>
+              </AiButton>
               <Show when={props.sourceFilter !== "manual"}>
                 <Button size="sm" variant="secondary" onClick={() => {
                   const src = props.sourceFilter;

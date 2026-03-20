@@ -26,6 +26,7 @@ import { useCommandStore } from "./application/stores/commandStore";
 import { useShortcutStore } from "./application/stores/shortcutStore";
 import { useClipboardStore } from "./application/stores/clipboardStore";
 import { useBookmarkStore } from "./application/stores/bookmarkStore";
+import { useLlmStore } from "./application/stores/llmStore";
 import { useRssStore } from "./application/stores/rssStore";
 import { useSnippetStore } from "./application/stores/snippetStore";
 import { useAlarmStore } from "./application/stores/alarmStore";
@@ -54,6 +55,7 @@ export function App() {
   const { matchAction } = useShortcutStore();
   const { init: initClipboard } = useClipboardStore();
   const { fetchBookmarks } = useBookmarkStore();
+  const { autoSetup: autoSetupLlm } = useLlmStore();
   const { fetchFeeds: fetchRssFeeds, fetchUnreadCount: fetchRssUnreadCount } = useRssStore();
   const { fetchSnippets } = useSnippetStore();
   const { fetchProjects } = useProjectStore();
@@ -176,6 +178,7 @@ export function App() {
     fetchProjects();
     await initNotifications();
     startSmartReminders();
+    autoSetupLlm();
     await fetchConfigs();
     fetchTodayLogs();
     startAll();

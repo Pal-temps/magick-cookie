@@ -1,6 +1,6 @@
 import type { JSX } from "solid-js";
 
-interface ButtonProps {
+export interface ButtonProps {
   children: JSX.Element;
   onClick?: () => void;
   variant?: "primary" | "secondary" | "ghost" | "danger";
@@ -9,6 +9,7 @@ interface ButtonProps {
   style?: JSX.CSSProperties;
   type?: "button" | "submit";
   disabled?: boolean;
+  title?: string;
 }
 
 export function Button(props: ButtonProps) {
@@ -21,6 +22,7 @@ export function Button(props: ButtonProps) {
       class={`btn btn-${variant()} btn-${size()} ${props.class ?? ""}`}
       onClick={props.onClick}
       disabled={props.disabled}
+      title={props.title}
       style={{
         ...props.style,
         display: "inline-flex",

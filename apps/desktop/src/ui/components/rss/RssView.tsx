@@ -2,6 +2,7 @@ import { createSignal, createEffect, onMount, For, Show } from "solid-js";
 import { useRssStore, type RssFeed, type RssArticle } from "../../../application/stores/rssStore";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { Button } from "../common/Button";
+import { AiButton } from "../common/AiButton";
 import { CookieLoader } from "../common/CookieLoader";
 import { RssCatalog } from "./RssCatalog";
 
@@ -291,9 +292,9 @@ export function RssView() {
                 Digest IA
               </h3>
               <div style={{ display: "flex", gap: "6px" }}>
-                <Button variant="primary" size="sm" onClick={generateDigest} disabled={digestLoading()}>
+                <AiButton variant="primary" size="sm" onClick={generateDigest} disabled={digestLoading()}>
                   {digestLoading() ? "Generation..." : "Generer"}
-                </Button>
+                </AiButton>
                 <Button variant="ghost" size="sm" onClick={() => setShowDigest(false)}>
                   Fermer
                 </Button>

@@ -2,6 +2,7 @@ import { createSignal, For, Show } from "solid-js";
 import { useCalendarStore } from "../../../application/stores/calendarStore";
 import { Modal } from "../common/Modal";
 import { Button } from "../common/Button";
+import { AiButton } from "../common/AiButton";
 import type { CreateEventDTO } from "../../../domain/models/CalendarEvent";
 
 export function AiEventGenerator() {
@@ -111,13 +112,13 @@ export function AiEventGenerator() {
           </div>
         </div>
 
-        <Button
+        <AiButton
           variant="primary"
           onClick={handleGenerate}
           disabled={isGenerating() || !prompt().trim()}
         >
           {isGenerating() ? "Generation..." : "Generer"}
-        </Button>
+        </AiButton>
 
         <Show when={editableEvents().length > 0}>
           <div>

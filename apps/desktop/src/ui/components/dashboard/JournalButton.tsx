@@ -2,6 +2,7 @@ import { useJournalStore } from "../../../application/stores/journalStore";
 import { useNotesStore } from "../../../application/stores/notesStore";
 import { useViewStore } from "../../../application/stores/viewStore";
 import { Button } from "../common/Button";
+import { AiButton } from "../common/AiButton";
 
 export function JournalButton() {
   const { generating, generateJournal } = useJournalStore();
@@ -20,8 +21,8 @@ export function JournalButton() {
   }
 
   return (
-    <Button variant="secondary" size="sm" onClick={handleClick} disabled={generating()}>
+    <AiButton variant="secondary" size="sm" onClick={handleClick} disabled={generating()}>
       {generating() ? "Generation..." : "Journal du jour"}
-    </Button>
+    </AiButton>
   );
 }
