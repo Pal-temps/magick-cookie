@@ -249,10 +249,44 @@ Reponse :
 
 Le job backend genere automatiquement le digest a 7h chaque jour. Le desktop peut aussi forcer la generation via le bouton "Generer" dans la vue Digest.
 
+### POST /api/llm/auto-setup
+
+Auto-detecte et configure Ollama si aucun LLM n'est configure.
+
+Comportement :
+1. Si un LLM est deja configure → `{ configured: true, source: "existing" }`
+2. Tente de joindre Ollama sur `localhost:11434` (timeout 3s)
+3. Si Ollama repond avec des modeles → choisit le meilleur modele disponible et configure automatiquement
+4. Modeles preferes (par ordre) : `llama3.2:3b`, `llama3.2:1b`, `llama3.1:8b`, `llama3:8b`, `mistral:7b`
+
+Reponses possibles :
+
+```json
+{ "data": { "configured": true, "source": "existing" } }
+{ "data": { "configured": true, "source": "ollama", "model": "llama3.2:3b" } }
+{ "data": { "configured": false, "reason": "ollama_unreachable" } }
+{ "data": { "configured": false, "reason": "no_models" } }
+```
+
+Appele au demarrage de l'app desktop (`App.tsx`). Si Ollama n'est pas disponible, les boutons IA restent grises avec un tooltip explicatif.
+
+## Boutons IA (AiButton)
+
+Toutes les features IA utilisent le composant `<AiButton>` qui :
+- Verifie `isLlmConfigured()` (signal global charge au boot)
+- Si configure : fonctionne comme un bouton normal
+- Si non configure : grise (opacity 0.5), click redirige vers Settings > IA
+
+Features concernees :
+- Resume email, rapport email, generation d'events, auto-triage, journal, changelog, digest RSS
+
 ## Utilisation par d'autres features
 
 Le LLM est un service generique utilise par :
 - **Resume email** (`POST /api/emails/:id/summarize`) — voir `email-shortcuts-ai-summary.md`
 - **Generation d'events** (`POST /api/llm/generate-events`) — generer des evenements calendrier depuis un prompt libre
 - **Digest RSS** (`POST /api/rss-articles/digest`) — triage et resume IA des flux RSS
-- Classification automatique d'emails, generation de resume hebdomadaire narratif, suggestions de triage
+- **Auto-triage** (`POST /api/triage/suggest`) — suggestions IA de categorisation
+- **Journal** (`POST /api/brief/generate`) — brief quotidien
+- **Changelog** (`POST /api/changelog/generate`) — changelog depuis les commits git
+- Classification automatique d'emails
