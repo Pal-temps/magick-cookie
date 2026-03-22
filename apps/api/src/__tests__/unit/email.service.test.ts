@@ -1,9 +1,9 @@
 import { describe, test, expect, beforeEach, mock } from "bun:test";
-import { EmailService } from "../application/email/email.service";
-import type { EmailAccountRepository, EmailRepository } from "../domain/email/email.repository";
-import type { EmailAccount, Email, CreateEmailAccountInput, CreateEmailInput } from "../domain/email/email.entity";
-import type { ImapConnector } from "../infrastructure/connectors/imap.connector";
-import type { SmtpConnector } from "../infrastructure/connectors/smtp.connector";
+import { EmailService } from "../../application/email/email.service";
+import type { EmailAccountRepository, EmailRepository } from "../../domain/email/email.repository";
+import type { EmailAccount, Email, CreateEmailAccountInput, CreateEmailInput } from "../../domain/email/email.entity";
+import type { ImapConnector } from "../../infrastructure/connectors/imap.connector";
+import type { SmtpConnector } from "../../infrastructure/connectors/smtp.connector";
 
 // --- Factories ---
 

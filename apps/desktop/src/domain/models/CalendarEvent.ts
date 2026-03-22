@@ -36,16 +36,6 @@ export interface UpdateEventDTO {
   recurrenceRule?: string | null;
 }
 
-export interface Reminder {
-  id: string;
-  eventId: string;
-  type: "push";
-  minutesBefore: number;
-  scheduledAt: string;
-  sentAt: string | null;
-  createdAt: string;
-}
-
 export interface Contact {
   id: string;
   name: string;

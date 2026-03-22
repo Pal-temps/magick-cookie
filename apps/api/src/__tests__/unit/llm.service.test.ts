@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, mock } from "bun:test";
-import { LlmService } from "../application/llm/llm.service";
-import type { LlmConfigRepository } from "../domain/llm/llm-config.repository";
-import type { LlmConfig } from "../domain/llm/llm-config.entity";
+import { LlmService } from "../../application/llm/llm.service";
+import type { LlmConfigRepository } from "../../domain/llm/llm-config.repository";
+import type { LlmConfig } from "../../domain/llm/llm-config.entity";
 
 const makeConfig = (overrides: Partial<LlmConfig> = {}): LlmConfig => ({
   id: "cfg-1",

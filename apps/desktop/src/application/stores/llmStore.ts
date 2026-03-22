@@ -39,9 +39,6 @@ export function useLlmStore() {
       const result = await api.post<{ configured: boolean; source?: string; model?: string; reason?: string }>("/llm/auto-setup", {});
       if (result.configured) {
         await fetchConfig();
-        if (result.source === "ollama") {
-          console.log(`[llm] Auto-configured Ollama with model ${result.model}`);
-        }
       }
     } catch (e) {
       console.error("Failed to auto-setup LLM:", e);

@@ -40,23 +40,15 @@ export function useSpeechStore() {
 
   async function startSpeechRecording() {
     try {
-      console.log("[speech] Starting...");
-      // Check model first
       if (!isModelReady()) {
-        console.log("[speech] Checking model...");
         const ready = await checkModel();
-        console.log("[speech] Model ready:", ready);
         if (!ready) {
-          console.log("[speech] Downloading model...");
           await downloadModel();
-          console.log("[speech] Download complete");
         }
       }
 
-      console.log("[speech] Requesting microphone...");
       await startRecording();
       setIsRecording(true);
-      console.log("[speech] Recording started");
     } catch (err) {
       console.error("[speech] startRecording error:", err);
       setIsRecording(false);
@@ -70,13 +62,11 @@ export function useSpeechStore() {
 
     try {
       const { samples, sampleRate } = await stopRecording();
-      console.log(`[speech] Sending ${samples.length} samples at ${sampleRate}Hz`);
       const text = await invoke<string>("transcribe_audio", {
         samples: Array.from(samples),
         sampleRate,
       });
 
-      console.log("[speech] Transcript:", text);
       setLastTranscript(text);
 
       if (text.trim()) {

@@ -1,12 +1,12 @@
 import { describe, it, expect, beforeEach, mock } from "bun:test";
-import { AnalyticsService } from "../application/analytics/analytics.service";
-import type { TimerSessionRepository, DailyTimerStats } from "../domain/timer-session/timer-session.repository";
-import type { DogWalkRepository } from "../domain/dog-walk/dog-walk.repository";
-import type { WellnessLogRepository } from "../domain/wellness-log/wellness-log.repository";
-import type { TriageRepository } from "../domain/triage/triage.repository";
-import type { EmailRepository } from "../domain/email/email.repository";
-import type { EventRepository } from "../domain/event/event.repository";
-import type { TaskRepository } from "../domain/task/task.repository";
+import { AnalyticsService } from "../../application/analytics/analytics.service";
+import type { TimerSessionRepository, DailyTimerStats } from "../../domain/timer-session/timer-session.repository";
+import type { DogWalkRepository } from "../../domain/dog-walk/dog-walk.repository";
+import type { WellnessLogRepository } from "../../domain/wellness-log/wellness-log.repository";
+import type { TriageRepository } from "../../domain/triage/triage.repository";
+import type { EmailRepository } from "../../domain/email/email.repository";
+import type { EventRepository } from "../../domain/event/event.repository";
+import type { TaskRepository } from "../../domain/task/task.repository";
 
 function makeMockRepos() {
   return {

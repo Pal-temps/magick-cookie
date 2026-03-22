@@ -1,8 +1,8 @@
 import { describe, test, expect, beforeEach, mock } from "bun:test";
 import { Hono } from "hono";
-import { createEmailRoutes, createEmailAccountRoutes } from "../presentation/routes/email.routes";
-import type { EmailService } from "../application/email/email.service";
-import type { Email, EmailAccount } from "../domain/email/email.entity";
+import { createEmailRoutes, createEmailAccountRoutes } from "../../presentation/routes/email.routes";
+import type { EmailService } from "../../application/email/email.service";
+import type { Email, EmailAccount } from "../../domain/email/email.entity";
 
 // --- Factories ---
 

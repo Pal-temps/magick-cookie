@@ -5,7 +5,7 @@ import {
   updateEmailFlagsSchema,
   emailQuerySchema,
   sendEmailSchema,
-} from "../presentation/validators/email.validator";
+} from "../../presentation/validators/email.validator";
 
 describe("createEmailAccountSchema", () => {
   const validInput = {
