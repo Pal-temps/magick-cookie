@@ -1,7 +1,9 @@
+mod ai;
 mod desktop_mode;
 mod fs;
 mod git;
 mod notes;
+mod pty;
 mod whisper;
 
 use tauri::{
@@ -30,7 +32,13 @@ fn send_to_desktop(app: &tauri::AppHandle) {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    let session_manager: ai::session_manager::SharedSessionManager =
+        std::sync::Arc::new(std::sync::Mutex::new(ai::session_manager::SessionManager::new()));
+    let pty_store: std::sync::Arc<pty::PtyStore> = pty::new_pty_store();
+
     tauri::Builder::default()
+        .manage(session_manager)
+        .manage(pty_store)
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_dialog::init())
@@ -167,6 +175,22 @@ pub fn run() {
             git::git_commit,
             git::git_log,
             git::git_discard,
+            git::git_branches,
+            git::git_checkout,
+            git::git_pull,
+            git::git_push,
+            ai::session_manager::ai_list_providers,
+            ai::session_manager::ai_get_capabilities,
+            ai::session_manager::ai_start_session,
+            ai::session_manager::ai_send_message,
+            ai::session_manager::ai_respond_permission,
+            ai::session_manager::ai_interrupt,
+            ai::session_manager::ai_stop_session,
+            ai::session_manager::ai_list_sessions,
+            pty::pty_spawn,
+            pty::pty_write,
+            pty::pty_resize,
+            pty::pty_kill,
         ])
         .on_window_event(|window, event| {
             // X button → enter desktop mode (Rainmeter-style background widgets)

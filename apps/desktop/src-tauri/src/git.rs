@@ -195,3 +195,59 @@ pub fn git_discard(project_path: String, files: Vec<String>) -> Result<(), Strin
     run_git(&project_path, &args)?;
     Ok(())
 }
+
+// ─── Phase 8: branches, push, pull ───
+
+#[derive(Debug, Serialize)]
+pub struct GitBranch {
+    pub name: String,
+    pub is_current: bool,
+    pub is_remote: bool,
+}
+
+#[tauri::command]
+pub fn git_branches(project_path: String) -> Result<Vec<GitBranch>, String> {
+    if !is_git_repo(&project_path) {
+        return Err("Not a git repository".into());
+    }
+
+    let output = run_git(&project_path, &["branch", "-a", "--no-color"])?;
+    let mut branches = Vec::new();
+
+    for line in output.lines() {
+        let trimmed = line.trim();
+        if trimmed.is_empty() || trimmed.contains("->") { continue; }
+
+        let is_current = trimmed.starts_with('*');
+        let name = trimmed.trim_start_matches("* ").trim_start_matches("remotes/").to_string();
+        let is_remote = line.contains("remotes/");
+
+        branches.push(GitBranch { name, is_current, is_remote });
+    }
+
+    Ok(branches)
+}
+
+#[tauri::command]
+pub fn git_checkout(project_path: String, branch: String) -> Result<String, String> {
+    if !is_git_repo(&project_path) {
+        return Err("Not a git repository".into());
+    }
+    run_git(&project_path, &["checkout", &branch])
+}
+
+#[tauri::command]
+pub fn git_pull(project_path: String) -> Result<String, String> {
+    if !is_git_repo(&project_path) {
+        return Err("Not a git repository".into());
+    }
+    run_git(&project_path, &["pull", "--rebase"])
+}
+
+#[tauri::command]
+pub fn git_push(project_path: String) -> Result<String, String> {
+    if !is_git_repo(&project_path) {
+        return Err("Not a git repository".into());
+    }
+    run_git(&project_path, &["push"])
+}
