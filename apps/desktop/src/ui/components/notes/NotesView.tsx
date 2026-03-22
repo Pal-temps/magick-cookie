@@ -2,6 +2,7 @@ import { onMount, onCleanup, Show, For, createSignal, createEffect, createMemo, 
 import { useNotesStore, type NoteEntry, type TreeNode } from "../../../application/stores/notesStore";
 import { useThemeStore } from "../../../application/stores/themeStore";
 import { mountExcalidraw, type ExcalidrawHandle } from "../drawings/excalidrawMount";
+import { MonacoEditor } from "../ide/MonacoEditor";
 import { Button } from "../common/Button";
 import { CookieLoader } from "../common/CookieLoader";
 import { requestConfirm } from "../common/ConfirmDialog";
@@ -28,11 +29,6 @@ export function NotesView() {
   const [sidebarOpen, setSidebarOpen] = createSignal(false);
 
   // ─── Wiki-link autocomplete state ───
-  const [wikiQuery, setWikiQuery] = createSignal<string | null>(null);
-  const [wikiSuggestions, setWikiSuggestions] = createSignal<NoteEntry[]>([]);
-  const [wikiSelectedIdx, setWikiSelectedIdx] = createSignal(0);
-  const [wikiPopupPos, setWikiPopupPos] = createSignal<{ top: number; left: number } | null>(null);
-  let textareaRef: HTMLTextAreaElement | undefined;
 
   // ─── Backlinks state ───
   const [backlinks, setBacklinks] = createSignal<NoteEntry[]>([]);
@@ -124,123 +120,6 @@ export function NotesView() {
     setBacklinks(found);
   });
 
-  // ─── Wiki-link autocomplete helpers ───
-  function detectWikiLink(textarea: HTMLTextAreaElement): { query: string; start: number } | null {
-    const pos = textarea.selectionStart;
-    const text = textarea.value.slice(0, pos);
-    // Find last [[ that doesn't have a closing ]]
-    const lastOpen = text.lastIndexOf("[[");
-    if (lastOpen === -1) return null;
-    const afterOpen = text.slice(lastOpen + 2);
-    if (afterOpen.includes("]]")) return null;
-    // No newlines in wiki-link query
-    if (afterOpen.includes("\n")) return null;
-    return { query: afterOpen, start: lastOpen };
-  }
-
-  function updateWikiSuggestions(query: string) {
-    const q = query.toLowerCase();
-    const allMd = store.allFiles().filter((f) => f.type === "md");
-    if (!q) {
-      setWikiSuggestions(allMd.slice(0, 10));
-    } else {
-      setWikiSuggestions(allMd.filter((f) => noteNameFromPath(f.path).toLowerCase().includes(q)).slice(0, 10));
-    }
-    setWikiSelectedIdx(0);
-  }
-
-  function getTextareaCaretPosition(textarea: HTMLTextAreaElement): { top: number; left: number } {
-    // Create a mirror div to measure caret position
-    const div = document.createElement("div");
-    const style = window.getComputedStyle(textarea);
-    const props = ["font-family", "font-size", "font-weight", "line-height", "padding-top", "padding-left", "padding-right", "border-width", "box-sizing", "letter-spacing", "word-spacing", "text-indent", "white-space", "overflow-wrap", "tab-size"];
-    div.style.position = "absolute";
-    div.style.visibility = "hidden";
-    div.style.whiteSpace = "pre-wrap";
-    div.style.wordWrap = "break-word";
-    div.style.width = style.width;
-    for (const p of props) div.style.setProperty(p, style.getPropertyValue(p));
-    const text = textarea.value.slice(0, textarea.selectionStart);
-    div.textContent = text;
-    const span = document.createElement("span");
-    span.textContent = "|";
-    div.appendChild(span);
-    document.body.appendChild(div);
-    const rect = textarea.getBoundingClientRect();
-    const spanRect = span.getBoundingClientRect();
-    const divRect = div.getBoundingClientRect();
-    const top = rect.top + (spanRect.top - divRect.top) - textarea.scrollTop;
-    const left = rect.left + (spanRect.left - divRect.left) - textarea.scrollLeft;
-    document.body.removeChild(div);
-    return { top: Math.min(top + 20, rect.bottom - 10), left: Math.min(left, rect.right - 200) };
-  }
-
-  function handleTextareaInput(e: InputEvent & { currentTarget: HTMLTextAreaElement }) {
-    store.updateContent(e.currentTarget.value);
-    const result = detectWikiLink(e.currentTarget);
-    if (result) {
-      setWikiQuery(result.query);
-      updateWikiSuggestions(result.query);
-      setWikiPopupPos(getTextareaCaretPosition(e.currentTarget));
-    } else {
-      closeWikiPopup();
-    }
-  }
-
-  function handleTextareaKeyDown(e: KeyboardEvent) {
-    if (wikiQuery() !== null && wikiSuggestions().length > 0) {
-      if (e.key === "ArrowDown") {
-        e.preventDefault();
-        setWikiSelectedIdx((i) => Math.min(i + 1, wikiSuggestions().length - 1));
-        return;
-      }
-      if (e.key === "ArrowUp") {
-        e.preventDefault();
-        setWikiSelectedIdx((i) => Math.max(i - 1, 0));
-        return;
-      }
-      if (e.key === "Enter" || e.key === "Tab") {
-        const selected = wikiSuggestions()[wikiSelectedIdx()];
-        if (selected) {
-          e.preventDefault();
-          insertWikiLink(selected);
-          return;
-        }
-      }
-      if (e.key === "Escape") {
-        e.preventDefault();
-        closeWikiPopup();
-        return;
-      }
-    }
-    // Existing Ctrl+S handling is on the parent div
-  }
-
-  function insertWikiLink(note: NoteEntry) {
-    if (!textareaRef) return;
-    const textarea = textareaRef;
-    const result = detectWikiLink(textarea);
-    if (!result) return;
-    const name = noteNameFromPath(note.path);
-    const before = textarea.value.slice(0, result.start);
-    const after = textarea.value.slice(textarea.selectionStart);
-    const insert = `[[${name}]]`;
-    const newContent = before + insert + after;
-    store.updateContent(newContent);
-    closeWikiPopup();
-    // Set cursor position after the inserted link
-    requestAnimationFrame(() => {
-      const pos = before.length + insert.length;
-      textarea.selectionStart = textarea.selectionEnd = pos;
-      textarea.focus();
-    });
-  }
-
-  function closeWikiPopup() {
-    setWikiQuery(null);
-    setWikiSuggestions([]);
-    setWikiPopupPos(null);
-  }
 
   function handleWikiLinkNavigate(name: string) {
     const allMd = store.allFiles().filter((f) => f.type === "md");
@@ -377,26 +256,6 @@ export function NotesView() {
     return type === "excalidraw" ? "\u270F" : "\u2630";
   }
 
-  function handleEditorDragOver(e: DragEvent) {
-    if (e.dataTransfer?.types.includes("application/x-magick-cookie")) { e.preventDefault(); e.dataTransfer.dropEffect = "copy"; }
-  }
-
-  function handleEditorDrop(e: DragEvent) {
-    const raw = e.dataTransfer?.getData("application/x-magick-cookie");
-    if (!raw) return;
-    e.preventDefault();
-    try {
-      const data = JSON.parse(raw) as { type: string; markdown: string };
-      const textarea = e.currentTarget as HTMLTextAreaElement;
-      const pos = textarea.selectionStart ?? store.noteContent().length;
-      const content = store.noteContent();
-      const before = content.slice(0, pos);
-      const after = content.slice(pos);
-      const insert = (before.length > 0 && !before.endsWith("\n") ? "\n" : "") + data.markdown + "\n";
-      store.updateContent(before + insert + after);
-      requestAnimationFrame(() => { textarea.selectionStart = textarea.selectionEnd = before.length + insert.length; textarea.focus(); });
-    } catch {}
-  }
 
   // Close sidebar when selecting a file in compact mode
   function handleFileSelect(path: string) {
@@ -813,66 +672,13 @@ export function NotesView() {
             <Show when={store.activeFileType() === "md"}>
               <Show when={store.isPreview()} fallback={
                 <div style={{ flex: "1", display: "flex", "flex-direction": "column", position: "relative", overflow: "hidden" }}>
-                  <textarea
-                    ref={(el) => { textareaRef = el; }}
-                    class="notes-textarea"
+                  <MonacoEditor
                     value={store.noteContent()}
-                    onInput={handleTextareaInput}
-                    onKeyDown={handleTextareaKeyDown}
-                    onDragOver={handleEditorDragOver}
-                    onDrop={handleEditorDrop}
-                    spellcheck={false}
-                    onClick={() => {
-                      if (textareaRef) {
-                        const result = detectWikiLink(textareaRef);
-                        if (!result) closeWikiPopup();
-                      }
-                    }}
+                    language="markdown"
+                    path={store.activeFile() ?? undefined}
+                    onChange={(val) => store.updateContent(val)}
+                    style={{ flex: "1", "min-height": "0" }}
                   />
-                  {/* Wiki-link autocomplete popup */}
-                  <Show when={wikiQuery() !== null && wikiPopupPos()}>
-                    <div style={{
-                      position: "fixed",
-                      top: `${wikiPopupPos()!.top}px`,
-                      left: `${wikiPopupPos()!.left}px`,
-                      "min-width": "200px",
-                      "max-width": "320px",
-                      "max-height": "200px",
-                      "overflow-y": "auto",
-                      background: "var(--bg-surface)",
-                      border: "1px solid var(--border-color)",
-                      "border-radius": "var(--radius-md)",
-                      "box-shadow": "0 4px 16px rgba(0,0,0,0.3)",
-                      "z-index": "1000",
-                      padding: "4px 0",
-                    }}>
-                      <Show when={wikiSuggestions().length > 0} fallback={
-                        <div style={{ padding: "8px 12px", "font-size": "12px", color: "var(--text-muted)" }}>Aucune note trouvee</div>
-                      }>
-                        <For each={wikiSuggestions()}>
-                          {(note, idx) => (
-                            <div
-                              onClick={() => insertWikiLink(note)}
-                              onMouseEnter={() => setWikiSelectedIdx(idx())}
-                              style={{
-                                padding: "6px 12px",
-                                "font-size": "12px",
-                                cursor: "pointer",
-                                background: idx() === wikiSelectedIdx() ? "var(--accent-primary)" : "transparent",
-                                color: idx() === wikiSelectedIdx() ? "#fff" : "var(--text-primary)",
-                                display: "flex",
-                                "flex-direction": "column",
-                                gap: "1px",
-                              }}
-                            >
-                              <span style={{ "font-weight": "500" }}>{noteNameFromPath(note.path)}</span>
-                              <span style={{ "font-size": "10px", opacity: "0.7" }}>{note.path}</span>
-                            </div>
-                          )}
-                        </For>
-                      </Show>
-                    </div>
-                  </Show>
                   {/* Backlinks section in edit mode */}
                   <Show when={backlinks().length > 0}>
                     <BacklinksSection />

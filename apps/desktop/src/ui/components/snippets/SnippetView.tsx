@@ -1,6 +1,7 @@
 import { createSignal, For, Show, createMemo } from "solid-js";
 import { useSnippetStore, type Snippet, type CreateSnippetInput } from "../../../application/stores/snippetStore";
 import { Button } from "../common/Button";
+import { MonacoEditor } from "../ide/MonacoEditor";
 
 const LANGUAGES = [
   "text", "bash", "javascript", "typescript", "python", "sql", "css", "html",
@@ -97,21 +98,6 @@ export function SnippetView() {
       setTimeout(() => setCopyFeedback(false), 1500);
     } catch {
       // Fallback: ignore
-    }
-  }
-
-  function handleContentKeyDown(e: KeyboardEvent) {
-    if (e.key === "Tab") {
-      e.preventDefault();
-      const target = e.currentTarget as HTMLTextAreaElement;
-      const start = target.selectionStart;
-      const end = target.selectionEnd;
-      const val = formContent();
-      setFormContent(val.substring(0, start) + "  " + val.substring(end));
-      // Restore cursor position after SolidJS re-renders
-      requestAnimationFrame(() => {
-        target.selectionStart = target.selectionEnd = start + 2;
-      });
     }
   }
 
@@ -436,21 +422,11 @@ export function SnippetView() {
             </div>
             <div style={{ "margin-bottom": "10px" }}>
               <label style={{ display: "block", "font-size": "12px", "font-weight": "500", color: "var(--text-secondary)", "margin-bottom": "4px" }}>Contenu</label>
-              <textarea
+              <MonacoEditor
                 value={formContent()}
-                onInput={(e) => setFormContent(e.currentTarget.value)}
-                onKeyDown={handleContentKeyDown}
-                placeholder="Collez ou tapez votre code ici..."
-                style={{
-                  ...inputStyle,
-                  "font-family": "monospace",
-                  "font-size": "12px",
-                  "line-height": "1.5",
-                  "min-height": "200px",
-                  resize: "vertical",
-                  "white-space": "pre",
-                  "tab-size": "2",
-                }}
+                language={formLanguage()}
+                onChange={(val) => setFormContent(val)}
+                style={{ height: "200px", border: "1px solid var(--border-color)", "border-radius": "var(--radius-sm)" }}
               />
             </div>
             <div style={{ display: "flex", "align-items": "center", "justify-content": "space-between" }}>
@@ -562,24 +538,16 @@ export function SnippetView() {
 
             {/* Code block */}
             <div style={{
-              background: "var(--bg-primary)",
               border: "1px solid var(--border-color)",
               "border-radius": "var(--radius-md)",
-              overflow: "auto",
+              overflow: "hidden",
+              height: "300px",
             }}>
-              <pre style={{
-                margin: "0",
-                padding: "16px",
-                "font-family": "monospace",
-                "font-size": "13px",
-                "line-height": "1.6",
-                color: "var(--text-primary)",
-                "white-space": "pre-wrap",
-                "word-break": "break-word",
-                "tab-size": "2",
-              }}>
-                <code>{sel()!.content}</code>
-              </pre>
+              <MonacoEditor
+                value={sel()!.content}
+                language={sel()!.language}
+                readOnly={true}
+              />
             </div>
           </div>
         </Show>
