@@ -1,35 +1,48 @@
 # IDE
 
-> Statut : **Done** — Editeur Monaco, file explorer, onglets, terminal, git interactif, assistant IA.
+> Statut : **Done** — Editeur Monaco, file explorer, onglets, PTY terminal, git interactif (branches/push/pull), AI panel multi-provider (Right Panel), diff preview.
 
-IDE integre independant de Notes, base sur Monaco Editor, pour coder des projets directement dans Magick Cookie.
+IDE integre independant de Notes, base sur Monaco Editor, avec AI multi-provider (Claude CLI, Codex, Anthropic, OpenAI, Ollama) inspire de Companion.
 
 ## Architecture
 
 ```
 desktop/src/
 ├── application/stores/
-│   └── ideStore.ts                  # Projets, tabs, file tree, CRUD, shortcuts
+│   ├── ideStore.ts                  # Projets, tabs, file tree, CRUD, shortcuts, AI panel state
+│   └── aiSessionStore.ts           # Sessions AI multi-provider (messages, streaming, permissions)
 ├── ui/components/ide/
 │   ├── MonacoEditor.tsx             # Wrapper SolidJS (themes, AI context menu, ref API)
-│   ├── IdeView.tsx                  # Layout principal (sidebar tabs + editor + terminal)
+│   ├── IdeView.tsx                  # Layout principal (sidebar + editor + AI right panel + terminal)
 │   ├── EditorTabs.tsx               # Onglets (dirty, close, context menu)
 │   ├── FileExplorer.tsx             # Arborescence projet + snippets virtuels + context menus
-│   ├── Terminal.tsx                 # xterm.js + tauri-plugin-shell
-│   ├── GitPanel.tsx                 # Source control (status, stage, commit, log)
-│   └── AiAssistant.tsx             # Panel IA (explain, refactor, fix, tests, document)
+│   ├── Terminal.tsx                 # PTY terminal (portable-pty via Tauri IPC)
+│   ├── GitPanel.tsx                 # Source control (status, stage, commit, branches, push/pull, log)
+│   ├── AiPanel.tsx                  # Panel IA droit (380px, resizable) — wrapper principal
+│   ├── AiMessageFeed.tsx            # Liste messages avec streaming, auto-scroll
+│   ├── AiMessageBubble.tsx          # Bulles user/assistant/system/error avec markdown
+│   ├── ToolBlock.tsx                # Tool calls collapsibles (Read, Write, Bash, Edit)
+│   ├── PermissionBanner.tsx         # Permission request inline avec diff preview Monaco
+│   ├── AiComposer.tsx              # Input avec context chips + quick actions adaptes au provider
+│   ├── ProviderPicker.tsx           # Dropdown provider avec badges capabilities
+│   ├── ResizeHandle.tsx             # Drag handle pour redimensionner le panel AI
+│   └── DiffPreview.tsx              # Monaco diff editor (original vs modified, read-only)
 └── ui/styles/
-    └── ide.css                      # Styles complets
+    └── ide.css                      # Styles complets (layout, tabs, tree, AI panel, tool blocks, permissions)
 
 src-tauri/src/
-├── fs.rs                            # Commandes FS generiques (list, read, write, delete, rename)
-└── git.rs                           # Commandes git (status, diff, stage, unstage, commit, log, discard)
-
-api/src/
-├── application/agent/tools/
-│   └── code.tools.ts                # 4 agent tools (list, read, write, search project files)
-└── presentation/routes/
-    └── code.routes.ts               # 6 endpoints IA (explain, refactor, generate, fix, tests, document)
+├── ai/                              # Module AI multi-provider
+│   ├── types.rs                     # AdapterEvent, Capabilities, Config (provider-agnostic)
+│   ├── adapter.rs                   # Trait BackendAdapter (interface commune)
+│   ├── session_manager.rs           # Gestion sessions + commandes Tauri (8 commandes)
+│   ├── dedup.rs                     # Deduplication messages (rolling hash)
+│   ├── event_buffer.rs              # Buffer circulaire 200 events
+│   └── adapters/
+│       ├── claude_cli.rs            # Claude Code CLI (NDJSON stdin/stdout)
+│       └── http_api.rs              # Anthropic/OpenAI/Ollama/LmStudio (SSE/NDJSON HTTP)
+├── pty.rs                           # PTY terminal (portable-pty, persistant)
+├── fs.rs                            # Commandes FS generiques
+└── git.rs                           # Commandes git (status, diff, stage, commit, branches, push/pull)
 ```
 
 ## Acces

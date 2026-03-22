@@ -14,6 +14,12 @@ interface GitLogEntry {
   date: string;
 }
 
+interface GitBranch {
+  name: string;
+  is_current: boolean;
+  is_remote: boolean;
+}
+
 interface GitPanelProps {
   projectPath: string | null;
   onOpenDiff?: (path: string) => void;
@@ -36,9 +42,12 @@ export function GitPanel(props: GitPanelProps) {
   const [isRepo, setIsRepo] = createSignal(false);
   const [loading, setLoading] = createSignal(false);
   const [showLog, setShowLog] = createSignal(false);
+  const [branches, setBranches] = createSignal<GitBranch[]>([]);
+  const [showBranches, setShowBranches] = createSignal(false);
 
   const staged = () => files().filter((f) => f.staged);
   const unstaged = () => files().filter((f) => !f.staged);
+  const currentBranch = () => branches().find((b) => b.is_current)?.name ?? "";
 
   async function refresh() {
     if (!props.projectPath) return;
@@ -50,6 +59,9 @@ export function GitPanel(props: GitPanelProps) {
 
       const status = await invoke<GitFileStatus[]>("git_status", { projectPath: props.projectPath });
       setFiles(status);
+
+      const br = await invoke<GitBranch[]>("git_branches", { projectPath: props.projectPath });
+      setBranches(br);
 
       if (showLog()) {
         const entries = await invoke<GitLogEntry[]>("git_log", { projectPath: props.projectPath, limit: 20 });
@@ -119,6 +131,31 @@ export function GitPanel(props: GitPanelProps) {
     } catch {}
   }
 
+  async function gitPull() {
+    if (!props.projectPath) return;
+    try {
+      await invoke("git_pull", { projectPath: props.projectPath });
+      await refresh();
+    } catch (e) { console.error("git pull error:", e); }
+  }
+
+  async function gitPush() {
+    if (!props.projectPath) return;
+    try {
+      await invoke("git_push", { projectPath: props.projectPath });
+      await refresh();
+    } catch (e) { console.error("git push error:", e); }
+  }
+
+  async function checkoutBranch(branch: string) {
+    if (!props.projectPath) return;
+    try {
+      await invoke("git_checkout", { projectPath: props.projectPath, branch });
+      setShowBranches(false);
+      await refresh();
+    } catch (e) { console.error("git checkout error:", e); }
+  }
+
   const itemStyle = {
     display: "flex",
     "align-items": "center",
@@ -143,10 +180,48 @@ export function GitPanel(props: GitPanelProps) {
       <div class="ide-explorer__header" style={{ display: "flex", "align-items": "center" }}>
         SOURCE CONTROL
         <span style={{ "margin-left": "auto", display: "flex", gap: "4px" }}>
+          <button style={btnSmall} onClick={() => gitPull()} title="Pull">↓</button>
+          <button style={btnSmall} onClick={() => gitPush()} title="Push">↑</button>
           <button style={btnSmall} onClick={() => refresh()} title="Rafraichir">↻</button>
           <button style={btnSmall} onClick={() => toggleLog()} title="Historique">{showLog() ? "✕" : "☰"}</button>
         </span>
       </div>
+
+      {/* Branch selector */}
+      <Show when={props.projectPath && isRepo() && branches().length > 0}>
+        <div style={{ padding: "4px 8px", "border-bottom": "1px solid var(--border-color)", position: "relative" }}>
+          <button
+            style={{ ...btnSmall, width: "100%", "text-align": "left", display: "flex", "align-items": "center", gap: "4px" }}
+            onClick={() => setShowBranches((v) => !v)}
+          >
+            <span style={{ flex: "1", overflow: "hidden", "text-overflow": "ellipsis", "white-space": "nowrap" }}>{currentBranch()}</span>
+            <span style={{ "font-size": "8px" }}>{showBranches() ? "▴" : "▾"}</span>
+          </button>
+          <Show when={showBranches()}>
+            <div style={{
+              position: "absolute", left: "8px", right: "8px", top: "100%", "z-index": "100",
+              background: "var(--bg-surface)", border: "1px solid var(--border-color)",
+              "border-radius": "var(--radius-md)", "box-shadow": "0 4px 16px rgba(0,0,0,0.3)",
+              "max-height": "200px", "overflow-y": "auto",
+            }}>
+              <For each={branches().filter((b) => !b.is_remote)}>
+                {(branch) => (
+                  <div
+                    onClick={() => checkoutBranch(branch.name)}
+                    style={{
+                      padding: "4px 8px", "font-size": "11px", cursor: "pointer",
+                      background: branch.is_current ? "var(--accent-primary)" : "transparent",
+                      color: branch.is_current ? "#fff" : "var(--text-primary)",
+                    }}
+                    onMouseEnter={(e) => { if (!branch.is_current) e.currentTarget.style.background = "var(--bg-elevated)"; }}
+                    onMouseLeave={(e) => { if (!branch.is_current) e.currentTarget.style.background = "transparent"; }}
+                  >{branch.name}</div>
+                )}
+              </For>
+            </div>
+          </Show>
+        </div>
+      </Show>
 
       <Show when={!props.projectPath}>
         <div style={{ padding: "16px", color: "var(--text-muted)", "font-size": "12px", "text-align": "center" }}>

@@ -30,7 +30,7 @@ export interface EditorTab {
   snippetId?: string;
 }
 
-export type SidePanel = "files" | "git" | "ai";
+export type SidePanel = "files" | "git";
 
 // ─── State ───
 
@@ -42,7 +42,16 @@ const [activeTabId, setActiveTabId] = createSignal<string | null>(null);
 const [sidePanel, setSidePanel] = createSignal<SidePanel>("files");
 const [showBottomPanel, setShowBottomPanel] = createSignal(false);
 const [showSidePanel, setShowSidePanel] = createSignal(true);
+const [aiPanelOpen, setAiPanelOpen] = createSignal(false);
+const [aiPanelWidth, setAiPanelWidth] = createSignal(
+  parseInt(localStorage.getItem("ide-ai-panel-width") ?? "380", 10)
+);
 const [expandedFolders, setExpandedFolders] = createSignal<Set<string>>(new Set([""]));
+
+function persistAiPanelWidth(w: number) {
+  setAiPanelWidth(w);
+  localStorage.setItem("ide-ai-panel-width", String(w));
+}
 
 // ─── Helpers ───
 
@@ -371,6 +380,10 @@ export function useIdeStore() {
       e.preventDefault();
       setShowSidePanel((v) => !v);
     }
+    if (e.key === "i" && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault();
+      setAiPanelOpen((v) => !v);
+    }
   }
 
   return {
@@ -414,6 +427,10 @@ export function useIdeStore() {
     setShowBottomPanel,
     showSidePanel,
     setShowSidePanel,
+    aiPanelOpen,
+    setAiPanelOpen,
+    aiPanelWidth,
+    persistAiPanelWidth,
 
     // Keyboard
     handleKeyDown,

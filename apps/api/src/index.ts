@@ -77,7 +77,6 @@ import { createTaskTools } from "./application/agent/tools/task.tools";
 import { createTimerTools } from "./application/agent/tools/timer.tools";
 import { createBriefTools, createEmailTools, createCalendarTools, createBookmarkTools, createProjectTools } from "./application/agent/tools/brief.tools";
 import { createMemoryTools } from "./application/agent/tools/memory.tools";
-import { createCodeTools } from "./application/agent/tools/code.tools";
 
 // Adapters
 import { GitExecAdapter } from "./infrastructure/adapters/git-exec.adapter";
@@ -115,7 +114,6 @@ import { createTriageRoutes } from "./presentation/routes/triage.routes";
 import { createEmailRoutes, createEmailAccountRoutes } from "./presentation/routes/email.routes";
 import { createAnalyticsRoutes } from "./presentation/routes/analytics.routes";
 import { createLlmRoutes } from "./presentation/routes/llm.routes";
-import { createCodeRoutes } from "./presentation/routes/code.routes";
 import { createBriefRoutes } from "./presentation/routes/brief.routes";
 import { createChatRoutes } from "./presentation/routes/chat.routes";
 import { createGitHubRoutes } from "./presentation/routes/github.routes";
@@ -227,7 +225,6 @@ toolRegistry.registerAll(createCalendarTools(eventService));
 toolRegistry.registerAll(createBookmarkTools(bookmarkService));
 toolRegistry.registerAll(createProjectTools(projectService));
 toolRegistry.registerAll(createMemoryTools(agentMemoryRepo));
-toolRegistry.registerAll(createCodeTools());
 const agentService = new AgentService(chatRepo, llmService, toolRegistry, agentMemoryRepo);
 
 const clickUpSyncService = new ClickUpSyncService(connectorConfigRepo, calendarService, eventRepo, taskRepo);
@@ -266,7 +263,6 @@ app.route("/api/emails", createEmailRoutes(emailService, llmService));
 app.route("/api/email-accounts", createEmailAccountRoutes(emailService));
 app.route("/api/analytics", createAnalyticsRoutes(analyticsService, llmService));
 app.route("/api/llm", createLlmRoutes(llmService));
-app.route("/api/code", createCodeRoutes(llmService));
 app.route("/api/brief", createBriefRoutes(briefService));
 app.route("/api/chat", createChatRoutes(chatService));
 app.route("/api/github", createGitHubRoutes(githubService));

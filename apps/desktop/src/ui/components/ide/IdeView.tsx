@@ -7,7 +7,7 @@ import { EditorTabs } from "./EditorTabs";
 import { FileExplorer } from "./FileExplorer";
 import { Terminal } from "./Terminal";
 import { GitPanel } from "./GitPanel";
-import { AiAssistant } from "./AiAssistant";
+import { AiPanel } from "./AiPanel";
 import type { MonacoEditorApi } from "./MonacoEditor";
 import "../../styles/ide.css";
 
@@ -98,10 +98,6 @@ export function IdeView() {
               class={`ide-sidebar-tab ${ide.sidePanel() === "git" ? "ide-sidebar-tab--active" : ""}`}
               onClick={() => ide.setSidePanel("git")}
             >Git</button>
-            <button
-              class={`ide-sidebar-tab ${ide.sidePanel() === "ai" ? "ide-sidebar-tab--active" : ""}`}
-              onClick={() => ide.setSidePanel("ai")}
-            >IA</button>
           </div>
 
           {/* Files panel */}
@@ -145,34 +141,33 @@ export function IdeView() {
             <GitPanel projectPath={ide.projectPath()} />
           </Show>
 
-          {/* AI panel */}
-          <Show when={ide.sidePanel() === "ai"}>
-            <AiAssistant
-              getContext={() => {
-                const tab = ide.activeTab();
-                if (!tab) return null;
-                const code = editorApi?.getSelection() || tab.content;
-                return { code, language: tab.language, fileName: tab.name };
-              }}
-              onApplyCode={(code) => {
-                if (editorApi) editorApi.insertAtCursor(code);
-              }}
-            />
-          </Show>
         </div>
       </Show>
 
       {/* Main editor area */}
       <div class="ide-main">
-        <EditorTabs
-          tabs={ide.tabs()}
-          activeTabId={ide.activeTabId()}
-          onSwitch={(id) => ide.switchTab(id)}
-          onClose={(id) => ide.closeTab(id)}
-          onCloseOthers={(id) => ide.closeOtherTabs(id)}
-          onCloseAll={() => ide.closeAllTabs()}
-          onCopyPath={(path) => ide.copyPath(path)}
-        />
+        <div style={{ display: "flex", "align-items": "stretch" }}>
+          <EditorTabs
+            tabs={ide.tabs()}
+            activeTabId={ide.activeTabId()}
+            onSwitch={(id) => ide.switchTab(id)}
+            onClose={(id) => ide.closeTab(id)}
+            onCloseOthers={(id) => ide.closeOtherTabs(id)}
+            onCloseAll={() => ide.closeAllTabs()}
+            onCopyPath={(path) => ide.copyPath(path)}
+          />
+          <button
+            onClick={() => ide.setAiPanelOpen((v) => !v)}
+            style={{
+              "margin-left": "auto", padding: "0 10px", "font-size": "11px", "font-weight": "600",
+              background: ide.aiPanelOpen() ? "var(--accent-primary)" : "transparent",
+              color: ide.aiPanelOpen() ? "#fff" : "var(--text-muted)",
+              border: "none", "border-left": "1px solid var(--border-color)",
+              cursor: "pointer", "flex-shrink": "0", transition: "all 0.15s",
+            }}
+            title="Panel IA (Ctrl+I)"
+          >AI</button>
+        </div>
 
         <div class="ide-editor-area">
           <Show when={ide.activeTab()} fallback={
@@ -203,7 +198,7 @@ export function IdeView() {
               style={{ flex: "1", "min-height": "0" }}
               ref={(api) => { editorApi = api; }}
               onAiAction={() => {
-                ide.setSidePanel("ai");
+                ide.setAiPanelOpen(true);
               }}
             />
           </Show>
@@ -222,6 +217,11 @@ export function IdeView() {
           </div>
         </Show>
       </div>
+
+      {/* AI Right Panel */}
+      <Show when={ide.aiPanelOpen()}>
+        <AiPanel editorApi={editorApi} />
+      </Show>
 
       {/* New file/folder dialog */}
       <Show when={newFileDialog()}>
