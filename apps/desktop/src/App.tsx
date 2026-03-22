@@ -5,6 +5,7 @@ import { CalendarGrid } from "./ui/components/calendar/CalendarGrid";
 import { EventForm } from "./ui/components/events/EventForm";
 import { AiEventGenerator } from "./ui/components/calendar/AiEventGenerator";
 import { NotesView } from "./ui/components/notes/NotesView";
+import { IdeView } from "./ui/components/ide/IdeView";
 import { TriageView } from "./ui/components/triage/TriageView";
 import { EmailView } from "./ui/components/email/EmailView";
 import { ChatView } from "./ui/components/chat/ChatView";
@@ -133,6 +134,7 @@ export function App() {
     switch (actionId) {
       case "nav-dashboard": setViewMode("dashboard"); break;
       case "nav-calendar": setViewMode("month"); break;
+      case "nav-ide": setViewMode("ide"); break;
       case "nav-notes": setViewMode("notes"); break;
       case "nav-triage": setViewMode("triage"); break;
       case "nav-email": setViewMode("email"); break;
@@ -248,6 +250,9 @@ export function App() {
         <Show when={viewMode() === "notes"}>
           <NotesView />
         </Show>
+        <Show when={viewMode() === "ide"}>
+          <IdeView />
+        </Show>
         <Show when={viewMode() === "triage"}>
           <TriageView />
         </Show>
@@ -275,7 +280,7 @@ export function App() {
         <Show when={viewMode() === "tools"}>
           <ToolsView />
         </Show>
-        <Show when={viewMode() !== "notes" && viewMode() !== "triage" && viewMode() !== "email" && viewMode() !== "chat" && viewMode() !== "vps" && viewMode() !== "cicd" && viewMode() !== "library" && viewMode() !== "rss" && viewMode() !== "settings" && viewMode() !== "tools"}>
+        <Show when={viewMode() !== "notes" && viewMode() !== "ide" && viewMode() !== "triage" && viewMode() !== "email" && viewMode() !== "chat" && viewMode() !== "vps" && viewMode() !== "cicd" && viewMode() !== "library" && viewMode() !== "rss" && viewMode() !== "settings" && viewMode() !== "tools"}>
           <CalendarGrid />
           <EventForm />
           <AiEventGenerator />

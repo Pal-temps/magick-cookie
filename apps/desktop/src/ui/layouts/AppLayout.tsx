@@ -147,7 +147,8 @@ export function AppLayout(props: AppLayoutProps) {
         { separator: true, label: "" },
         { label: "Aujourd'hui", action: goToToday, shortcut: "Ctrl+T" },
         { separator: true, label: "" },
-        { label: "Notes & Schemas", action: () => setViewMode("notes"), shortcut: "Ctrl+4" },
+        { label: "IDE", action: () => setViewMode("ide"), shortcut: "Ctrl+4" },
+        { label: "Notes & Schemas", action: () => setViewMode("notes") },
         { label: "Taches", action: () => setViewMode("triage"), shortcut: "Ctrl+5" },
         { label: "Email", action: () => setViewMode("email"), shortcut: "Ctrl+6" },
         { label: "Bibliotheque", action: () => setViewMode("library"), shortcut: "Ctrl+7" },
@@ -332,6 +333,7 @@ export function AppLayout(props: AppLayoutProps) {
               <For each={[
                 { id: "dashboard", label: "Accueil", match: (v: string) => v === "dashboard" },
                 { id: "month", label: "Calendrier", match: (v: string) => ["month", "week", "day"].includes(v) },
+                { id: "ide", label: "IDE", match: (v: string) => v === "ide" },
                 { id: "notes", label: "Notes", match: (v: string) => v === "notes" },
                 { id: "triage", label: "Taches", match: (v: string) => v === "triage" },
                 { id: "email", label: "Email", match: (v: string) => v === "email" },

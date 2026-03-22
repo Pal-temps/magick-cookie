@@ -1,0 +1,358 @@
+/* ─── IDE Layout ─── */
+
+.ide-layout {
+  display: flex;
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg-base);
+}
+
+.ide-sidebar {
+  width: 240px;
+  min-width: 180px;
+  max-width: 400px;
+  background: var(--bg-surface);
+  border-right: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.ide-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.ide-editor-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.ide-empty {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  font-size: 14px;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ide-empty kbd {
+  background: var(--bg-elevated);
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-size: 12px;
+  border: 1px solid var(--border-color);
+}
+
+/* ─── Tabs ─── */
+
+.ide-tabs {
+  display: flex;
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border-color);
+  overflow-x: auto;
+  flex-shrink: 0;
+  height: 35px;
+  align-items: stretch;
+}
+
+.ide-tabs::-webkit-scrollbar {
+  height: 2px;
+}
+
+.ide-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 12px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  border-right: 1px solid var(--border-color);
+  white-space: nowrap;
+  transition: background 0.1s, color 0.1s;
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.ide-tab:hover {
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+}
+
+.ide-tab--active {
+  background: var(--bg-base);
+  color: var(--text-primary);
+  border-bottom: 2px solid var(--accent-primary);
+}
+
+.ide-tab__icon {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--accent-secondary);
+  background: var(--bg-elevated);
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+
+.ide-tab__name {
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ide-tab__dirty {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent-primary);
+  flex-shrink: 0;
+}
+
+.ide-tab__close {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  padding: 0 2px;
+  border-radius: 3px;
+  opacity: 0;
+  transition: opacity 0.1s, background 0.1s;
+}
+
+.ide-tab:hover .ide-tab__close {
+  opacity: 1;
+}
+
+.ide-tab__close:hover {
+  background: var(--bg-overlay);
+  color: var(--text-primary);
+}
+
+/* ─── Sidebar Tabs ─── */
+
+.ide-sidebar-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--border-color);
+  flex-shrink: 0;
+}
+
+.ide-sidebar-tab {
+  flex: 1;
+  padding: 6px 0;
+  font-size: 11px;
+  font-weight: 500;
+  text-align: center;
+  color: var(--text-muted);
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  transition: color 0.1s, border-color 0.1s;
+}
+
+.ide-sidebar-tab:hover {
+  color: var(--text-secondary);
+}
+
+.ide-sidebar-tab--active {
+  color: var(--text-primary);
+  border-bottom-color: var(--accent-primary);
+}
+
+/* ─── File Explorer ─── */
+
+.ide-explorer {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.ide-explorer__header {
+  padding: 8px 12px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+
+.ide-explorer__section {
+  margin-bottom: 4px;
+}
+
+.ide-tree-folder {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  font-size: 13px;
+  color: var(--text-primary);
+  cursor: pointer;
+  user-select: none;
+}
+
+.ide-tree-folder:hover {
+  background: var(--bg-elevated);
+}
+
+.ide-tree-folder--virtual .ide-tree-folder-name {
+  color: var(--accent-secondary);
+  font-style: italic;
+}
+
+.ide-tree-arrow {
+  font-size: 10px;
+  width: 12px;
+  text-align: center;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.ide-tree-folder-name {
+  font-weight: 500;
+}
+
+.ide-tree-badge {
+  font-size: 10px;
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  padding: 1px 5px;
+  border-radius: 8px;
+  margin-left: auto;
+}
+
+.ide-tree-file {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  user-select: none;
+}
+
+.ide-tree-file:hover {
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+}
+
+.ide-tree-file--active {
+  background: var(--accent-primary)15;
+  color: var(--text-primary);
+}
+
+.ide-file-icon {
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--text-muted);
+  width: 18px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.ide-tree-file-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ─── Context Menu ─── */
+
+.ide-context-menu {
+  position: fixed;
+  z-index: 1000;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+  padding: 4px 0;
+  min-width: 160px;
+}
+
+.ide-context-item {
+  padding: 6px 12px;
+  font-size: 12px;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.ide-context-item:hover {
+  background: var(--accent-primary);
+  color: #fff;
+}
+
+.ide-context-item--danger {
+  color: var(--danger);
+}
+
+.ide-context-item--danger:hover {
+  background: var(--danger);
+  color: #fff;
+}
+
+.ide-context-sep {
+  height: 1px;
+  background: var(--border-color);
+  margin: 4px 0;
+}
+
+/* ─── Bottom Panel ─── */
+
+.ide-bottom-panel {
+  height: 200px;
+  min-height: 100px;
+  max-height: 400px;
+  border-top: 1px solid var(--border-color);
+  background: var(--bg-surface);
+  display: flex;
+  flex-direction: column;
+}
+
+.ide-bottom-panel__header {
+  display: flex;
+  align-items: center;
+  padding: 4px 12px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border-color);
+  flex-shrink: 0;
+}
+
+.ide-bottom-panel__content {
+  flex: 1;
+  overflow: auto;
+  padding: 8px 12px;
+  font-family: monospace;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.ide-bottom-panel__terminal {
+  padding: 0;
+  overflow: hidden;
+}
+
+.ide-bottom-panel__terminal .xterm {
+  height: 100%;
+}
+
+.ide-bottom-panel__terminal .xterm-viewport {
+  overflow-y: auto !important;
+}

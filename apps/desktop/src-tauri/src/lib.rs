@@ -1,4 +1,6 @@
 mod desktop_mode;
+mod fs;
+mod git;
 mod notes;
 mod whisper;
 
@@ -31,6 +33,8 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_notification::init())
+        .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_shell::init())
         .plugin(
             tauri_plugin_global_shortcut::Builder::new()
                 .with_handler(|app, shortcut, event| {
@@ -149,6 +153,20 @@ pub fn run() {
             notes::notes_git_push,
             notes::notes_ssh_status,
             notes::notes_ssh_generate,
+            fs::fs_list_dir,
+            fs::fs_read_file,
+            fs::fs_write_file,
+            fs::fs_delete,
+            fs::fs_create_dir,
+            fs::fs_rename,
+            git::git_is_repo,
+            git::git_status,
+            git::git_diff,
+            git::git_stage,
+            git::git_unstage,
+            git::git_commit,
+            git::git_log,
+            git::git_discard,
         ])
         .on_window_event(|window, event| {
             // X button → enter desktop mode (Rainmeter-style background widgets)

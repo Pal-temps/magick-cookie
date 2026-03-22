@@ -24,6 +24,7 @@ export function useViewStore() {
     switch (viewMode()) {
       case "triage":
       case "notes":
+      case "ide":
       case "email":
       case "chat":
       case "settings":
@@ -41,6 +42,7 @@ export function useViewStore() {
     switch (viewMode()) {
       case "triage":
       case "notes":
+      case "ide":
       case "email":
       case "chat":
       case "settings":

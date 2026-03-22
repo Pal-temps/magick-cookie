@@ -22,6 +22,27 @@
     "notification:allow-notify",
     "global-shortcut:allow-register",
     "global-shortcut:allow-unregister",
-    "global-shortcut:allow-unregister-all"
+    "global-shortcut:allow-unregister-all",
+    "dialog:default",
+    "shell:default",
+    "shell:allow-stdin-write",
+    {
+      "identifier": "shell:allow-spawn",
+      "allow": [
+        { "name": "powershell", "cmd": "powershell", "args": true },
+        { "name": "cmd", "cmd": "cmd", "args": true },
+        { "name": "bash", "cmd": "bash", "args": true },
+        { "name": "sh", "cmd": "sh", "args": true }
+      ]
+    },
+    {
+      "identifier": "shell:allow-execute",
+      "allow": [
+        { "name": "powershell", "cmd": "powershell", "args": true },
+        { "name": "cmd", "cmd": "cmd", "args": true },
+        { "name": "bash", "cmd": "bash", "args": true },
+        { "name": "sh", "cmd": "sh", "args": true }
+      ]
+    }
   ]
 }
