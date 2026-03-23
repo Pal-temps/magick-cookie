@@ -1,4 +1,4 @@
-import type { TriageRepository } from "../../domain/triage/triage.repository";
+import type { FluxRepository } from "../../domain/flux/flux.repository";
 import type { TaskRepository } from "../../domain/task/task.repository";
 import type { EmailRepository } from "../../domain/email/email.repository";
 
@@ -10,7 +10,7 @@ export interface SmartAlert {
 
 export class SmartReminderService {
   constructor(
-    private triageRepo: TriageRepository,
+    private fluxRepo: FluxRepository,
     private taskRepo: TaskRepository,
     private emailRepo: EmailRepository,
   ) {}
@@ -32,11 +32,11 @@ export class SmartReminderService {
   }
 
   private async checkStalePriority(): Promise<SmartAlert | null> {
-    const priorityItems = await this.triageRepo.findByStatus("priority");
+    const priorityItems = await this.fluxRepo.findByStatus("priority");
     const threeDaysAgo = new Date();
     threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
 
-    const stale = priorityItems.filter((t) => t.triagedAt < threeDaysAgo);
+    const stale = priorityItems.filter((t) => t.decidedAt < threeDaysAgo);
     if (stale.length === 0) return null;
 
     return {
@@ -48,9 +48,9 @@ export class SmartReminderService {
 
   private async checkUntriaged(): Promise<SmartAlert | null> {
     const allTasks = await this.taskRepo.findAll();
-    const allTriage = await this.triageRepo.findAll();
-    const triagedTaskIds = new Set(allTriage.map((t) => t.taskId));
-    const untriaged = allTasks.filter((t) => !triagedTaskIds.has(t.id));
+    const allFlux = await this.fluxRepo.findAll();
+    const fluxedTaskIds = new Set(allFlux.map((t) => t.entityId));
+    const untriaged = allTasks.filter((t) => !fluxedTaskIds.has(t.id));
 
     if (untriaged.length === 0) return null;
 

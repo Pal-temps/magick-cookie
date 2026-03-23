@@ -1,30 +1,31 @@
 import { describe, test, expect, beforeEach, mock } from "bun:test";
 import { SmartReminderService } from "../../application/smart-reminder/smart-reminder.service";
-import type { TriageRepository } from "../../domain/triage/triage.repository";
+import type { FluxRepository } from "../../domain/flux/flux.repository";
 import type { TaskRepository } from "../../domain/task/task.repository";
 import type { EmailRepository } from "../../domain/email/email.repository";
-import type { TaskTriage } from "../../domain/triage/triage.entity";
+import type { FluxItem } from "../../domain/flux/flux.entity";
 
-function makeTriage(overrides: Partial<TaskTriage> = {}): TaskTriage {
+function makeFluxItem(overrides: Partial<FluxItem> = {}): FluxItem {
   return {
     id: "triage-1",
-    taskId: "task-1",
-    triageStatus: "priority",
-    triagedAt: new Date(),
+    entityType: "task",
+    entityId: "task-1",
+    fluxStatus: "priority",
+    decidedAt: new Date(),
     createdAt: new Date(),
     updatedAt: new Date(),
     ...overrides,
   };
 }
 
-function createMockTriageRepo() {
+function createMockFluxRepo() {
   return {
     findAll: mock(() => Promise.resolve([])),
     findByStatus: mock(() => Promise.resolve([])),
-    findByTaskId: mock(() => Promise.resolve(null)),
+    findByEntity: mock(() => Promise.resolve(null)),
     upsert: mock(() => Promise.resolve({} as any)),
     bulkUpsert: mock(() => Promise.resolve()),
-    deleteByTaskId: mock(() => Promise.resolve()),
+    deleteByEntity: mock(() => Promise.resolve()),
     deleteAll: mock(() => Promise.resolve()),
     countByStatus: mock(() => Promise.resolve({})),
     countByDateRange: mock(() => Promise.resolve(0)),
@@ -64,16 +65,16 @@ function createMockEmailRepo() {
 
 describe("SmartReminderService", () => {
   let service: SmartReminderService;
-  let triageRepo: ReturnType<typeof createMockTriageRepo>;
+  let fluxRepo: ReturnType<typeof createMockFluxRepo>;
   let taskRepo: ReturnType<typeof createMockTaskRepo>;
   let emailRepo: ReturnType<typeof createMockEmailRepo>;
 
   beforeEach(() => {
-    triageRepo = createMockTriageRepo();
+    fluxRepo = createMockFluxRepo();
     taskRepo = createMockTaskRepo();
     emailRepo = createMockEmailRepo();
     service = new SmartReminderService(
-      triageRepo as unknown as TriageRepository,
+      fluxRepo as unknown as FluxRepository,
       taskRepo as unknown as TaskRepository,
       emailRepo as unknown as EmailRepository,
     );
@@ -88,8 +89,8 @@ describe("SmartReminderService", () => {
     test("returns stale_priority alert when priority items are old", async () => {
       const fiveDaysAgo = new Date();
       fiveDaysAgo.setDate(fiveDaysAgo.getDate() - 5);
-      triageRepo.findByStatus.mockReturnValue(
-        Promise.resolve([makeTriage({ triagedAt: fiveDaysAgo })]),
+      fluxRepo.findByStatus.mockReturnValue(
+        Promise.resolve([makeFluxItem({ decidedAt: fiveDaysAgo })]),
       );
 
       const result = await service.getAlerts();
@@ -103,10 +104,10 @@ describe("SmartReminderService", () => {
     test("returns stale_priority alert with plural when multiple items", async () => {
       const fiveDaysAgo = new Date();
       fiveDaysAgo.setDate(fiveDaysAgo.getDate() - 5);
-      triageRepo.findByStatus.mockReturnValue(
+      fluxRepo.findByStatus.mockReturnValue(
         Promise.resolve([
-          makeTriage({ id: "t-1", triagedAt: fiveDaysAgo }),
-          makeTriage({ id: "t-2", taskId: "task-2", triagedAt: fiveDaysAgo }),
+          makeFluxItem({ id: "t-1", decidedAt: fiveDaysAgo }),
+          makeFluxItem({ id: "t-2", entityId: "task-2", decidedAt: fiveDaysAgo }),
         ]),
       );
 
@@ -119,8 +120,8 @@ describe("SmartReminderService", () => {
     });
 
     test("does not return stale_priority when items are recent", async () => {
-      triageRepo.findByStatus.mockReturnValue(
-        Promise.resolve([makeTriage({ triagedAt: new Date() })]),
+      fluxRepo.findByStatus.mockReturnValue(
+        Promise.resolve([makeFluxItem({ decidedAt: new Date() })]),
       );
 
       const result = await service.getAlerts();
@@ -134,8 +135,8 @@ describe("SmartReminderService", () => {
           { id: "task-2", title: "Task 2", source: "manual" },
         ] as any),
       );
-      triageRepo.findAll.mockReturnValue(
-        Promise.resolve([makeTriage({ taskId: "task-1" })]),
+      fluxRepo.findAll.mockReturnValue(
+        Promise.resolve([makeFluxItem({ entityId: "task-1" })]),
       );
 
       const result = await service.getAlerts();
@@ -154,7 +155,7 @@ describe("SmartReminderService", () => {
           { id: "task-3", title: "Task 3", source: "manual" },
         ] as any),
       );
-      triageRepo.findAll.mockReturnValue(Promise.resolve([]));
+      fluxRepo.findAll.mockReturnValue(Promise.resolve([]));
 
       const result = await service.getAlerts();
       const untriagedAlert = result.find((a) => a.type === "untriaged");
@@ -168,8 +169,8 @@ describe("SmartReminderService", () => {
       taskRepo.findAll.mockReturnValue(
         Promise.resolve([{ id: "task-1", title: "T1", source: "manual" }] as any),
       );
-      triageRepo.findAll.mockReturnValue(
-        Promise.resolve([makeTriage({ taskId: "task-1" })]),
+      fluxRepo.findAll.mockReturnValue(
+        Promise.resolve([makeFluxItem({ entityId: "task-1" })]),
       );
 
       const result = await service.getAlerts();
@@ -205,13 +206,13 @@ describe("SmartReminderService", () => {
       const fiveDaysAgo = new Date();
       fiveDaysAgo.setDate(fiveDaysAgo.getDate() - 5);
 
-      triageRepo.findByStatus.mockReturnValue(
-        Promise.resolve([makeTriage({ triagedAt: fiveDaysAgo })]),
+      fluxRepo.findByStatus.mockReturnValue(
+        Promise.resolve([makeFluxItem({ decidedAt: fiveDaysAgo })]),
       );
       taskRepo.findAll.mockReturnValue(
         Promise.resolve([{ id: "task-99", title: "X", source: "manual" }] as any),
       );
-      triageRepo.findAll.mockReturnValue(Promise.resolve([]));
+      fluxRepo.findAll.mockReturnValue(Promise.resolve([]));
       emailRepo.countUnread.mockReturnValue(Promise.resolve(50));
 
       const result = await service.getAlerts();

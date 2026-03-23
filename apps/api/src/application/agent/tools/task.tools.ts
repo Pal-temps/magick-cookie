@@ -1,9 +1,9 @@
 import type { AgentTool } from "../tool-registry";
 import type { TaskService } from "../../task/task.service";
-import type { TriageService } from "../../triage/triage.service";
-import type { TriageStatus } from "../../../domain/triage/triage.entity";
+import type { FluxService } from "../../flux/flux.service";
+import type { FluxStatus, FluxEntityType } from "../../../domain/flux/flux.entity";
 
-export function createTaskTools(taskService: TaskService, triageService: TriageService): AgentTool[] {
+export function createTaskTools(taskService: TaskService, fluxService: FluxService): AgentTool[] {
   return [
     {
       name: "get_all_tasks",
@@ -13,38 +13,45 @@ export function createTaskTools(taskService: TaskService, triageService: TriageS
       },
       execute: async () => {
         const tasks = await taskService.getAll();
-        return tasks.slice(0, 30); // Limiter pour ne pas surcharger le LLM
+        return tasks.slice(0, 30);
       },
     },
     {
-      name: "get_priority_tasks",
-      description: "Liste les taches triees comme prioritaires",
-      parameters: {},
-      execute: async () => {
-        const triage = await triageService.getByStatus("priority");
-        return triage;
-      },
-    },
-    {
-      name: "get_triage_by_status",
-      description: "Liste les taches triees par statut",
+      name: "get_priority_items",
+      description: "Liste les elements marques comme prioritaires dans Flux",
       parameters: {
-        status: { type: "string", description: "Statut : priority, later, archived, dismissed", required: true },
+        entityType: { type: "string", description: "Type : task, email, rss_article (optionnel)", required: false },
       },
       execute: async (params) => {
-        return triageService.getByStatus(params.status as TriageStatus);
+        return fluxService.getByStatus("priority", params.entityType as FluxEntityType | undefined);
       },
     },
     {
-      name: "set_triage",
-      description: "Trie une tache : la marquer comme priority, later, archived ou dismissed",
+      name: "get_flux_by_status",
+      description: "Liste les elements tries par statut dans Flux",
       parameters: {
-        taskId: { type: "string", description: "ID de la tache", required: true },
+        status: { type: "string", description: "Statut : priority, later, archived, dismissed", required: true },
+        entityType: { type: "string", description: "Type : task, email, rss_article (optionnel)", required: false },
+      },
+      execute: async (params) => {
+        return fluxService.getByStatus(params.status as FluxStatus, params.entityType as FluxEntityType | undefined);
+      },
+    },
+    {
+      name: "set_flux",
+      description: "Trie un element (tache, email, article) : le marquer comme priority, later, archived ou dismissed",
+      parameters: {
+        entityType: { type: "string", description: "Type : task, email, rss_article", required: true },
+        entityId: { type: "string", description: "ID de l'element", required: true },
         status: { type: "string", description: "Nouveau statut : priority, later, archived, dismissed", required: true },
       },
       execute: async (params) => {
-        await triageService.setTriage({ taskId: params.taskId as string, triageStatus: params.status as TriageStatus });
-        return { success: true, taskId: params.taskId, status: params.status };
+        await fluxService.setFlux({
+          entityType: params.entityType as FluxEntityType,
+          entityId: params.entityId as string,
+          fluxStatus: params.status as FluxStatus,
+        });
+        return { success: true, entityType: params.entityType, entityId: params.entityId, status: params.status };
       },
     },
     {

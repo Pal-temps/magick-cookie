@@ -13,7 +13,7 @@ export const ACTIONS: ShortcutAction[] = [
   { id: "nav-calendar", label: "Calendrier", defaultShortcut: "Ctrl+1", category: "Navigation" },
   { id: "nav-ide", label: "IDE", defaultShortcut: "Ctrl+4", category: "Navigation" },
   { id: "nav-notes", label: "Notes", defaultShortcut: "", category: "Navigation" },
-  { id: "nav-triage", label: "Taches", defaultShortcut: "Ctrl+5", category: "Navigation" },
+  { id: "nav-flux", label: "Flux", defaultShortcut: "Ctrl+5", category: "Navigation" },
   { id: "nav-email", label: "Email", defaultShortcut: "Ctrl+6", category: "Navigation" },
   { id: "nav-library", label: "Bibliotheque", defaultShortcut: "Ctrl+7", category: "Navigation" },
   { id: "nav-chat", label: "Chat", defaultShortcut: "Ctrl+8", category: "Navigation" },

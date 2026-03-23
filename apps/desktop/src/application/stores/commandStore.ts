@@ -63,7 +63,7 @@ export function useCommandStore() {
     { id: "nav-week", label: "Calendrier (Semaine)", sublabel: "Vue semaine", category: "Navigation", icon: "📍", action: () => setViewMode("week") },
     { id: "nav-day", label: "Calendrier (Jour)", sublabel: "Vue jour", category: "Navigation", icon: "📍", action: () => setViewMode("day") },
     { id: "nav-notes", label: "Notes", sublabel: "Vue notes", category: "Navigation", icon: "📝", shortcut: "Alt+3", action: () => setViewMode("notes") },
-    { id: "nav-triage", label: "Triage", sublabel: "Vue triage", category: "Navigation", icon: "📍", shortcut: "Alt+4", action: () => setViewMode("triage") },
+    { id: "nav-flux", label: "Flux", sublabel: "Vue flux", category: "Navigation", icon: "📍", shortcut: "Alt+4", action: () => setViewMode("flux") },
     { id: "nav-email", label: "Email", sublabel: "Vue email", category: "Navigation", icon: "📧", shortcut: "Alt+5", action: () => setViewMode("email") },
     { id: "nav-chat", label: "Chat", sublabel: "Chat avec le LLM", category: "Navigation", icon: "💬", shortcut: "Alt+7", action: () => setViewMode("chat") },
     { id: "nav-settings", label: "Paramètres", sublabel: "Ouvrir settings", category: "Navigation", icon: "📍", shortcut: "Alt+6", action: () => setViewMode("settings") },
@@ -100,7 +100,7 @@ export function useCommandStore() {
         }
         // For dynamic results (tasks, contacts, emails, notes), reconstruct a basic action
         if (h.id.startsWith("task-")) {
-          return { id: h.id, label: h.label, category: "Récents", icon: "🕑", action: () => setViewMode("triage") };
+          return { id: h.id, label: h.label, category: "Récents", icon: "🕑", action: () => setViewMode("flux") };
         }
         if (h.id.startsWith("contact-")) {
           return { id: h.id, label: h.label, category: "Récents", icon: "🕑", action: () => setViewMode("dashboard") };
@@ -253,7 +253,7 @@ export function useCommandStore() {
         category: "Tâches",
         icon: "📋",
         action: () => {
-          setViewMode("triage");
+          setViewMode("flux");
         },
       }));
 

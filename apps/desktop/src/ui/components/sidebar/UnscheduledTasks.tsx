@@ -1,6 +1,6 @@
 import { For, Show, createMemo } from "solid-js";
 import { useTaskStore } from "../../../application/stores/taskStore";
-import { useTriageStore, type TriageStatus } from "../../../application/stores/triageStore";
+import { useFluxStore, type FluxStatus } from "../../../application/stores/fluxStore";
 import { CookieLoader } from "../common/CookieLoader";
 import type { Task } from "../../../domain/models/Task";
 
@@ -14,7 +14,7 @@ function priorityColor(priority: string | null): string | null {
   }
 }
 
-const TRIAGE_GROUPS: { status: TriageStatus | null; label: string; color: string }[] = [
+const FLUX_GROUPS: { status: FluxStatus | null; label: string; color: string }[] = [
   { status: "priority", label: "Prioritaire", color: "#ef4444" },
   { status: "later", label: "Plus tard", color: "#3b82f6" },
   { status: null, label: "Non trie", color: "var(--text-muted)" },
@@ -22,16 +22,16 @@ const TRIAGE_GROUPS: { status: TriageStatus | null; label: string; color: string
 
 export function UnscheduledTasks() {
   const { tasks: unscheduledTasks, openTaskDetail, syncConnector, isSyncing } = useTaskStore();
-  const triage = useTriageStore();
+  const flux = useFluxStore();
 
   const grouped = createMemo(() => {
     const allTasks = unscheduledTasks();
-    const map = triage.triageMap();
+    const map = flux.fluxMap();
 
-    return TRIAGE_GROUPS.map((group) => ({
+    return FLUX_GROUPS.map((group) => ({
       ...group,
       tasks: allTasks.filter((t) => {
-        const s = map.get(t.id) ?? null;
+        const s = map.get(`task:${t.id}`) ?? null;
         return s === group.status;
       }),
     })).filter((g) => g.tasks.length > 0);

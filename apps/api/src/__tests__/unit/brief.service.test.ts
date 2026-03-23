@@ -3,7 +3,7 @@ import { BriefService } from "../../application/brief/brief.service";
 import type { TimerSessionRepository } from "../../domain/timer-session/timer-session.repository";
 import type { EventRepository } from "../../domain/event/event.repository";
 import type { TaskRepository } from "../../domain/task/task.repository";
-import type { TriageRepository } from "../../domain/triage/triage.repository";
+import type { FluxRepository } from "../../domain/flux/flux.repository";
 import type { EmailRepository } from "../../domain/email/email.repository";
 import type { LlmService } from "../../application/llm/llm.service";
 import type { GitScanService } from "../../application/git/git-scan.service";
@@ -47,14 +47,14 @@ function createMockTaskRepo() {
   };
 }
 
-function createMockTriageRepo() {
+function createMockFluxRepo() {
   return {
     findAll: mock(() => Promise.resolve([])),
     findByStatus: mock(() => Promise.resolve([])),
-    findByTaskId: mock(() => Promise.resolve(null)),
+    findByEntity: mock(() => Promise.resolve(null)),
     upsert: mock(() => Promise.resolve({} as any)),
     bulkUpsert: mock(() => Promise.resolve()),
-    deleteByTaskId: mock(() => Promise.resolve()),
+    deleteByEntity: mock(() => Promise.resolve()),
     deleteAll: mock(() => Promise.resolve()),
     countByStatus: mock(() => Promise.resolve({})),
     countByDateRange: mock(() => Promise.resolve(0)),
@@ -99,7 +99,7 @@ describe("BriefService", () => {
   let timerRepo: ReturnType<typeof createMockTimerRepo>;
   let eventRepo: ReturnType<typeof createMockEventRepo>;
   let taskRepo: ReturnType<typeof createMockTaskRepo>;
-  let triageRepo: ReturnType<typeof createMockTriageRepo>;
+  let fluxRepo: ReturnType<typeof createMockFluxRepo>;
   let emailRepo: ReturnType<typeof createMockEmailRepo>;
   let llmService: ReturnType<typeof createMockLlmService>;
   let gitScanService: ReturnType<typeof createMockGitScanService>;
@@ -109,7 +109,7 @@ describe("BriefService", () => {
     timerRepo = createMockTimerRepo();
     eventRepo = createMockEventRepo();
     taskRepo = createMockTaskRepo();
-    triageRepo = createMockTriageRepo();
+    fluxRepo = createMockFluxRepo();
     emailRepo = createMockEmailRepo();
     llmService = createMockLlmService();
     gitScanService = createMockGitScanService();
@@ -117,7 +117,7 @@ describe("BriefService", () => {
       timerRepo as unknown as TimerSessionRepository,
       eventRepo as unknown as EventRepository,
       taskRepo as unknown as TaskRepository,
-      triageRepo as unknown as TriageRepository,
+      fluxRepo as unknown as FluxRepository,
       emailRepo as unknown as EmailRepository,
       llmService as unknown as LlmService,
       gitScanService as unknown as GitScanService,
@@ -204,13 +204,14 @@ describe("BriefService", () => {
 
     test("collects yesterday triaged tasks", async () => {
       const yesterday = new Date("2026-03-17T12:00:00");
-      triageRepo.findAll.mockReturnValue(
+      fluxRepo.findAll.mockReturnValue(
         Promise.resolve([
           {
             id: "tr-1",
-            taskId: "task-1",
-            triageStatus: "priority",
-            triagedAt: yesterday,
+            entityType: "task",
+            entityId: "task-1",
+            fluxStatus: "priority",
+            decidedAt: yesterday,
             createdAt: yesterday,
             updatedAt: yesterday,
           },
@@ -222,19 +223,20 @@ describe("BriefService", () => {
 
       const result = await service.generate(new Date("2026-03-18"));
 
-      expect(result.rawData.yesterday.triagedTasks).toHaveLength(1);
-      expect(result.rawData.yesterday.triagedTasks[0].title).toBe("Fix bug");
+      expect(result.rawData.yesterday.fluxedItems).toHaveLength(1);
+      expect(result.rawData.yesterday.fluxedItems[0].title).toBe("Fix bug");
     });
 
     test("skips triaged tasks when task not found", async () => {
       const yesterday = new Date("2026-03-17T12:00:00");
-      triageRepo.findAll.mockReturnValue(
+      fluxRepo.findAll.mockReturnValue(
         Promise.resolve([
           {
             id: "tr-1",
-            taskId: "task-deleted",
-            triageStatus: "priority",
-            triagedAt: yesterday,
+            entityType: "task",
+            entityId: "task-deleted",
+            fluxStatus: "priority",
+            decidedAt: yesterday,
             createdAt: yesterday,
             updatedAt: yesterday,
           },
@@ -244,17 +246,18 @@ describe("BriefService", () => {
 
       const result = await service.generate(new Date("2026-03-18"));
 
-      expect(result.rawData.yesterday.triagedTasks).toHaveLength(0);
+      expect(result.rawData.yesterday.fluxedItems).toHaveLength(0);
     });
 
     test("collects priority tasks for today", async () => {
-      triageRepo.findByStatus.mockReturnValue(
+      fluxRepo.findByStatus.mockReturnValue(
         Promise.resolve([
           {
             id: "tr-2",
-            taskId: "task-2",
-            triageStatus: "priority",
-            triagedAt: new Date(),
+            entityType: "task",
+            entityId: "task-2",
+            fluxStatus: "priority",
+            decidedAt: new Date(),
             createdAt: new Date(),
             updatedAt: new Date(),
           },
@@ -282,13 +285,14 @@ describe("BriefService", () => {
       const fiveDaysAgo = new Date();
       fiveDaysAgo.setDate(fiveDaysAgo.getDate() - 5);
 
-      triageRepo.findByStatus.mockReturnValue(
+      fluxRepo.findByStatus.mockReturnValue(
         Promise.resolve([
           {
             id: "tr-3",
-            taskId: "task-3",
-            triageStatus: "priority",
-            triagedAt: fiveDaysAgo,
+            entityType: "task",
+            entityId: "task-3",
+            fluxStatus: "priority",
+            decidedAt: fiveDaysAgo,
             createdAt: fiveDaysAgo,
             updatedAt: fiveDaysAgo,
           },
@@ -360,7 +364,7 @@ describe("BriefService", () => {
         timerRepo as unknown as TimerSessionRepository,
         eventRepo as unknown as EventRepository,
         taskRepo as unknown as TaskRepository,
-        triageRepo as unknown as TriageRepository,
+        fluxRepo as unknown as FluxRepository,
         emailRepo as unknown as EmailRepository,
         llmService as unknown as LlmService,
       );
@@ -391,7 +395,7 @@ describe("BriefService", () => {
         timerRepo as unknown as TimerSessionRepository,
         eventRepo as unknown as EventRepository,
         taskRepo as unknown as TaskRepository,
-        triageRepo as unknown as TriageRepository,
+        fluxRepo as unknown as FluxRepository,
         emailRepo as unknown as EmailRepository,
         null,
       );

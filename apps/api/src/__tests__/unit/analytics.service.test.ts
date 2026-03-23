@@ -3,7 +3,7 @@ import { AnalyticsService } from "../../application/analytics/analytics.service"
 import type { TimerSessionRepository, DailyTimerStats } from "../../domain/timer-session/timer-session.repository";
 import type { DogWalkRepository } from "../../domain/dog-walk/dog-walk.repository";
 import type { WellnessLogRepository } from "../../domain/wellness-log/wellness-log.repository";
-import type { TriageRepository } from "../../domain/triage/triage.repository";
+import type { FluxRepository } from "../../domain/flux/flux.repository";
 import type { EmailRepository } from "../../domain/email/email.repository";
 import type { EventRepository } from "../../domain/event/event.repository";
 import type { TaskRepository } from "../../domain/task/task.repository";
@@ -43,17 +43,17 @@ function makeMockRepos() {
       upsert: mock(() => Promise.resolve({} as any)),
       increment: mock(() => Promise.resolve(null)),
     } as unknown as WellnessLogRepository,
-    triageRepo: {
+    fluxRepo: {
       findAll: mock(() => Promise.resolve([])),
       findByStatus: mock(() => Promise.resolve([])),
-      findByTaskId: mock(() => Promise.resolve(null)),
+      findByEntity: mock(() => Promise.resolve(null)),
       upsert: mock(() => Promise.resolve({} as any)),
       bulkUpsert: mock(() => Promise.resolve()),
-      deleteByTaskId: mock(() => Promise.resolve()),
+      deleteByEntity: mock(() => Promise.resolve()),
       deleteAll: mock(() => Promise.resolve()),
       countByStatus: mock(() => Promise.resolve({ priority: 5, later: 3, archived: 2 })),
       countByDateRange: mock(() => Promise.resolve(10)),
-    } as unknown as TriageRepository,
+    } as unknown as FluxRepository,
     emailRepo: {
       findByAccount: mock(() => Promise.resolve([])),
       findAll: mock(() => Promise.resolve([])),
@@ -97,7 +97,7 @@ describe("AnalyticsService", () => {
 
   beforeEach(() => {
     repos = makeMockRepos();
-    service = new AnalyticsService(repos.timerRepo, repos.dogWalkRepo, repos.wellnessLogRepo, repos.triageRepo, repos.emailRepo, repos.eventRepo, repos.taskRepo);
+    service = new AnalyticsService(repos.timerRepo, repos.dogWalkRepo, repos.wellnessLogRepo, repos.fluxRepo, repos.emailRepo, repos.eventRepo, repos.taskRepo);
   });
 
   describe("getOverview", () => {
@@ -106,7 +106,7 @@ describe("AnalyticsService", () => {
       expect(result.period.from).toBe("2026-03-10");
       expect(result.focus.totalSeconds).toBe(5400);
       expect(result.focus.sessionCount).toBe(6);
-      expect(result.triage.totalTriaged).toBe(10);
+      expect(result.flux.totalFluxed).toBe(10);
       expect(result.email.received).toBe(25);
       expect(result.events.total).toBe(12);
       expect(result.dogWalk.totalWalks).toBe(2);
@@ -133,7 +133,7 @@ describe("AnalyticsService", () => {
       const overview = {
         period: { from: "2026-03-10", to: "2026-03-16" },
         focus: { totalSeconds: 5400, sessionCount: 6, completedCount: 5, dailyStats: [] },
-        triage: { byStatus: { priority: 5 }, totalTriaged: 10 },
+        flux: { byStatus: { priority: 5 }, totalFluxed: 10 },
         wellness: { waterAvg: 1750, fruitAvg: 5, daysTracked: 5 },
         email: { received: 25, unread: 8, dailyStats: [] },
         events: { total: 12, dailyStats: [] },
@@ -143,7 +143,7 @@ describe("AnalyticsService", () => {
         week: "2026-W12",
         current: overview,
         previous: overview,
-        deltas: { focusSeconds: 10, sessionCount: null, totalTriaged: -5, emailReceived: 20, eventsTotal: null, dogWalks: 0 },
+        deltas: { focusSeconds: 10, sessionCount: null, totalFluxed: -5, emailReceived: 20, eventsTotal: null, dogWalks: 0 },
       };
     }
 
@@ -152,7 +152,7 @@ describe("AnalyticsService", () => {
       expect(parsed.semaine).toBe("2026-W12");
       expect(parsed.focus.heures).toBe(1);
       expect(parsed.focus.minutes).toBe(30);
-      expect(parsed.triage.total).toBe(10);
+      expect(parsed.flux.total).toBe(10);
       expect(parsed.emails.recus).toBe(25);
       expect(parsed.balades.minutes).toBe(20);
       expect(parsed.wellness.eauMoyenne).toBe(1750);

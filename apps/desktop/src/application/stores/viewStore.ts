@@ -22,7 +22,7 @@ export function useViewStore() {
   function navigatePrev() {
     const d = new Date(currentDate());
     switch (viewMode()) {
-      case "triage":
+      case "flux":
       case "notes":
       case "ide":
       case "email":
@@ -40,7 +40,7 @@ export function useViewStore() {
   function navigateNext() {
     const d = new Date(currentDate());
     switch (viewMode()) {
-      case "triage":
+      case "flux":
       case "notes":
       case "ide":
       case "email":

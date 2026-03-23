@@ -1,7 +1,7 @@
 import type { TimerSessionRepository, DailyTimerStats } from "../../domain/timer-session/timer-session.repository";
 import type { DogWalkRepository } from "../../domain/dog-walk/dog-walk.repository";
 import type { WellnessLogRepository } from "../../domain/wellness-log/wellness-log.repository";
-import type { TriageRepository } from "../../domain/triage/triage.repository";
+import type { FluxRepository } from "../../domain/flux/flux.repository";
 import type { EmailRepository } from "../../domain/email/email.repository";
 import type { EventRepository } from "../../domain/event/event.repository";
 import type { TaskRepository } from "../../domain/task/task.repository";
@@ -18,7 +18,7 @@ export interface ProjectTimeEntry {
 export interface AnalyticsOverview {
   period: { from: string; to: string };
   focus: { totalSeconds: number; sessionCount: number; completedCount: number; dailyStats: { date: string; totalSeconds: number }[] };
-  triage: { byStatus: Record<string, number>; totalTriaged: number };
+  flux: { byStatus: Record<string, number>; totalFluxed: number };
   wellness: { waterAvg: number; fruitAvg: number; daysTracked: number };
   email: { received: number; unread: number; dailyStats: { date: string; count: number }[] };
   events: { total: number; dailyStats: { date: string; count: number }[] };
@@ -32,7 +32,7 @@ export interface WeeklyReview {
   deltas: {
     focusSeconds: number | null;
     sessionCount: number | null;
-    totalTriaged: number | null;
+    totalFluxed: number | null;
     emailReceived: number | null;
     eventsTotal: number | null;
     dogWalks: number | null;
@@ -92,7 +92,7 @@ export class AnalyticsService {
     private timerRepo: TimerSessionRepository,
     private dogWalkRepo: DogWalkRepository,
     private wellnessLogRepo: WellnessLogRepository,
-    private triageRepo: TriageRepository,
+    private fluxRepo: FluxRepository,
     private emailRepo: EmailRepository,
     private eventRepo: EventRepository,
     private taskRepo: TaskRepository,
@@ -103,13 +103,13 @@ export class AnalyticsService {
     const fromStr = formatDate(from);
     const toStr = formatDate(to);
 
-    const [timerStats, dogWalkStats, wellnessWater, wellnessFruit, triageByStatus, triageCount, emailStats, eventStats] = await Promise.all([
+    const [timerStats, dogWalkStats, wellnessWater, wellnessFruit, fluxByStatus, fluxCount, emailStats, eventStats] = await Promise.all([
       this.timerRepo.getDailyStats(from, to),
       this.dogWalkRepo.getDailyStats(from, to),
       this.wellnessLogRepo.findByRange(fromStr, toStr, "water"),
       this.wellnessLogRepo.findByRange(fromStr, toStr, "fruits_veggies"),
-      this.triageRepo.countByStatus(),
-      this.triageRepo.countByDateRange(from, to),
+      this.fluxRepo.countByStatus(),
+      this.fluxRepo.countByDateRange(from, to),
       this.emailRepo.countByDateRange(from, to),
       this.eventRepo.countByDateRange(from, to),
     ]);
@@ -135,7 +135,7 @@ export class AnalyticsService {
         completedCount: totalCompleted,
         dailyStats: timerStats.map((d) => ({ date: d.date, totalSeconds: d.totalSeconds })),
       },
-      triage: { byStatus: triageByStatus, totalTriaged: triageCount },
+      flux: { byStatus: fluxByStatus, totalFluxed: fluxCount },
       wellness: { waterAvg, fruitAvg, daysTracked },
       email: { received: emailStats.total, unread: emailStats.unread, dailyStats: emailStats.dailyStats },
       events: { total: eventStats.total, dailyStats: eventStats.dailyStats },
@@ -228,7 +228,7 @@ export class AnalyticsService {
       deltas: {
         focusSeconds: pctDelta(current.focus.totalSeconds, previous.focus.totalSeconds),
         sessionCount: pctDelta(current.focus.sessionCount, previous.focus.sessionCount),
-        totalTriaged: pctDelta(current.triage.totalTriaged, previous.triage.totalTriaged),
+        totalFluxed: pctDelta(current.flux.totalFluxed, previous.flux.totalFluxed),
         emailReceived: pctDelta(current.email.received, previous.email.received),
         eventsTotal: pctDelta(current.events.total, previous.events.total),
         dogWalks: pctDelta(current.dogWalk.totalWalks, previous.dogWalk.totalWalks),
@@ -246,7 +246,7 @@ export class AnalyticsService {
     return JSON.stringify({
       semaine: review.week,
       focus: { heures: focusH, minutes: focusM, sessions: c.focus.sessionCount, delta: d.focusSeconds },
-      triage: { total: c.triage.totalTriaged, delta: d.totalTriaged },
+      flux: { total: c.flux.totalFluxed, delta: d.totalFluxed },
       emails: { recus: c.email.received, nonLus: c.email.unread, delta: d.emailReceived },
       evenements: { total: c.events.total, delta: d.eventsTotal },
       balades: { total: c.dogWalk.totalWalks, minutes: dogWalkMin, delta: d.dogWalks },

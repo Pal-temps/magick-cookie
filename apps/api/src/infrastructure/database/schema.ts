@@ -104,14 +104,19 @@ export const dogWalks = pgTable("dog_walks", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
-export const taskTriage = pgTable("task_triage", {
+export const fluxItems = pgTable("flux_items", {
   id: uuid("id").primaryKey().defaultRandom(),
-  taskId: uuid("task_id").notNull().unique().references(() => tasks.id, { onDelete: "cascade" }),
-  triageStatus: varchar("triage_status", { length: 50 }).notNull(),
-  triagedAt: timestamp("triaged_at", { withTimezone: true }).notNull().defaultNow(),
+  entityType: varchar("entity_type", { length: 20 }).notNull(),
+  entityId: uuid("entity_id").notNull(),
+  fluxStatus: varchar("flux_status", { length: 50 }).notNull(),
+  decidedAt: timestamp("decided_at", { withTimezone: true }).notNull().defaultNow(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
-});
+}, (table) => [
+  uniqueIndex("idx_flux_entity").on(table.entityType, table.entityId),
+  index("idx_flux_status").on(table.fluxStatus),
+  index("idx_flux_type_status").on(table.entityType, table.fluxStatus),
+]);
 
 export const emailAccounts = pgTable("email_accounts", {
   id: uuid("id").primaryKey().defaultRandom(),

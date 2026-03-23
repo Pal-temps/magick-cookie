@@ -1,7 +1,7 @@
 import type { TimerSessionRepository } from "../../domain/timer-session/timer-session.repository";
 import type { EventRepository } from "../../domain/event/event.repository";
 import type { TaskRepository } from "../../domain/task/task.repository";
-import type { TriageRepository } from "../../domain/triage/triage.repository";
+import type { FluxRepository } from "../../domain/flux/flux.repository";
 import type { EmailRepository } from "../../domain/email/email.repository";
 import type { LlmService } from "../llm/llm.service";
 import type { GitScanService } from "../git/git-scan.service";
@@ -29,7 +29,7 @@ export interface BriefStaleTask {
   id: string;
   title: string;
   source: string;
-  triagedAt: string;
+  decidedAt: string;
 }
 
 export interface BriefGitData {
@@ -43,7 +43,7 @@ export interface BriefRawData {
     timerSessions: BriefTimerSession[];
     totalFocusSeconds: number;
     events: BriefEvent[];
-    triagedTasks: BriefTask[];
+    fluxedItems: BriefTask[];
   };
   today: {
     events: BriefEvent[];
@@ -70,7 +70,7 @@ export class BriefService {
     private timerRepo: TimerSessionRepository,
     private eventRepo: EventRepository,
     private taskRepo: TaskRepository,
-    private triageRepo: TriageRepository,
+    private fluxRepo: FluxRepository,
     private emailRepo: EmailRepository,
     private llmService: LlmService | null,
     private gitScanService?: GitScanService,
@@ -100,15 +100,15 @@ export class BriefService {
       yesterdayTimerSessions,
       yesterdayEvents,
       todayEvents,
-      allTriage,
-      priorityTriage,
+      allFlux,
+      priorityFlux,
       unreadEmails,
     ] = await Promise.all([
       this.timerRepo.findAll(yesterdayStart, yesterdayEnd),
       this.eventRepo.findAll({ from: yesterdayStart, to: yesterdayEnd }),
       this.eventRepo.findAll({ from: todayStart, to: todayEnd }),
-      this.triageRepo.findAll(),
-      this.triageRepo.findByStatus("priority"),
+      this.fluxRepo.findAll(),
+      this.fluxRepo.findByStatus("priority"),
       this.emailRepo.countUnread(),
     ]);
 
@@ -126,15 +126,15 @@ export class BriefService {
       startAt: e.startAt.toISOString(),
     }));
 
-    // Yesterday triaged tasks — filter triage items where triagedAt is in yesterday range
-    const yesterdayTriageItems = allTriage.filter(
-      (t) => t.triagedAt >= yesterdayStart && t.triagedAt <= yesterdayEnd,
+    // Yesterday triaged tasks — filter triage items where decidedAt is in yesterday range
+    const yesterdayFluxItems = allFlux.filter(
+      (t) => t.decidedAt >= yesterdayStart && t.decidedAt <= yesterdayEnd,
     );
-    const triagedTasks: BriefTask[] = [];
-    for (const item of yesterdayTriageItems) {
-      const task = await this.taskRepo.findById(item.taskId);
+    const fluxedItems: BriefTask[] = [];
+    for (const item of yesterdayFluxItems) {
+      const task = await this.taskRepo.findById(item.entityId);
       if (task) {
-        triagedTasks.push({ id: task.id, title: task.title, source: task.source });
+        fluxedItems.push({ id: task.id, title: task.title, source: task.source });
       }
     }
 
@@ -146,26 +146,26 @@ export class BriefService {
 
     // Priority tasks
     const priorityTasks: BriefTask[] = [];
-    for (const item of priorityTriage) {
-      const task = await this.taskRepo.findById(item.taskId);
+    for (const item of priorityFlux) {
+      const task = await this.taskRepo.findById(item.entityId);
       if (task) {
         priorityTasks.push({ id: task.id, title: task.title, source: task.source });
       }
     }
 
-    // Blockers — stale priority tasks (triagedAt > 3 days ago)
+    // Blockers — stale priority tasks (decidedAt > 3 days ago)
     const threeDaysAgo = new Date(now);
     threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
-    const stalePriorityItems = priorityTriage.filter((t) => t.triagedAt < threeDaysAgo);
+    const stalePriorityItems = priorityFlux.filter((t) => t.decidedAt < threeDaysAgo);
     const staleTasks: BriefStaleTask[] = [];
     for (const item of stalePriorityItems) {
-      const task = await this.taskRepo.findById(item.taskId);
+      const task = await this.taskRepo.findById(item.entityId);
       if (task) {
         staleTasks.push({
           id: task.id,
           title: task.title,
           source: task.source,
-          triagedAt: item.triagedAt.toISOString(),
+          decidedAt: item.decidedAt.toISOString(),
         });
       }
     }
@@ -196,7 +196,7 @@ export class BriefService {
         timerSessions,
         totalFocusSeconds,
         events: yesterdayBriefEvents,
-        triagedTasks,
+        fluxedItems,
       },
       today: {
         events: todayBriefEvents,

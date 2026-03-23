@@ -76,7 +76,7 @@ export function startAgentScheduler(deps: SchedulerDeps) {
       const mins = Math.floor((c.focus.totalSeconds % 3600) / 60);
       const body = [
         `**Focus :** ${hours}h${mins} (${c.focus.sessionCount} sessions)${review.deltas.focusSeconds !== null ? ` ${review.deltas.focusSeconds > 0 ? "+" : ""}${review.deltas.focusSeconds}%` : ""}`,
-        `**Triage :** ${c.triage.totalTriaged} taches triees`,
+        `**Flux :** ${c.flux.totalFluxed} taches triees`,
         `**Emails :** ${c.email.received} recus, ${c.email.unread} non lus`,
         `**Events :** ${c.events.total} evenements`,
         `**Balades :** ${c.dogWalk.totalWalks} (${Math.floor(c.dogWalk.totalSeconds / 60)} min)`,
@@ -188,7 +188,7 @@ function formatRawBrief(rawData: any): string {
       lines.push(`- ${h}h${String(m).padStart(2, "0")} de focus (${y.timerSessions?.length ?? 0} sessions)`);
     }
     if (y.events?.length > 0) lines.push(`- ${y.events.length} evenement(s)`);
-    if (y.triagedTasks?.length > 0) lines.push(`- ${y.triagedTasks.length} tache(s) triee(s)`);
+    if (y.fluxedItems?.length > 0) lines.push(`- ${y.fluxedItems.length} tache(s) triee(s)`);
     if (lines.length === 1) lines.push("- RAS");
   }
 

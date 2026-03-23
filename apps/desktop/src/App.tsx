@@ -6,7 +6,7 @@ import { EventForm } from "./ui/components/events/EventForm";
 import { AiEventGenerator } from "./ui/components/calendar/AiEventGenerator";
 import { NotesView } from "./ui/components/notes/NotesView";
 import { IdeView } from "./ui/components/ide/IdeView";
-import { TriageView } from "./ui/components/triage/TriageView";
+import { FluxView } from "./ui/components/flux/FluxView";
 import { EmailView } from "./ui/components/email/EmailView";
 import { ChatView } from "./ui/components/chat/ChatView";
 import { VpsView } from "./ui/components/vps/VpsView";
@@ -21,7 +21,7 @@ import { useWellnessStore } from "./application/stores/wellnessStore";
 import { useTimerStore } from "./application/stores/timerStore";
 import { useDogWalkStore } from "./application/stores/dogWalkStore";
 import { useDesktopModeStore } from "./application/stores/desktopModeStore";
-import { useTriageStore } from "./application/stores/triageStore";
+import { useFluxStore } from "./application/stores/fluxStore";
 import { useTaskStore } from "./application/stores/taskStore";
 import { useCommandStore } from "./application/stores/commandStore";
 import { useShortcutStore } from "./application/stores/shortcutStore";
@@ -52,7 +52,7 @@ export function App() {
   const { fetchTodayStats, timerState, startPomodoro, stop: stopTimer, isFocusMode, toggleFocusMode } = useTimerStore();
   const { fetchActive: fetchActiveWalk } = useDogWalkStore();
   const { isDesktopMode, toggle: toggleDesktopMode } = useDesktopModeStore();
-  const { fetchTriage } = useTriageStore();
+  const { fetchFlux } = useFluxStore();
   const { open: openCommandPalette } = useCommandStore();
   const { matchAction } = useShortcutStore();
   const { init: initClipboard } = useClipboardStore();
@@ -74,7 +74,7 @@ export function App() {
     const month = d.getMonth();
 
     switch (viewMode()) {
-      case "triage":
+      case "flux":
       case "notes":
       case "email":
       case "chat":
@@ -136,7 +136,7 @@ export function App() {
       case "nav-calendar": setViewMode("month"); break;
       case "nav-ide": setViewMode("ide"); break;
       case "nav-notes": setViewMode("notes"); break;
-      case "nav-triage": setViewMode("triage"); break;
+      case "nav-flux": setViewMode("flux"); break;
       case "nav-email": setViewMode("email"); break;
       case "nav-library": setViewMode("library"); break;
       case "nav-chat": setViewMode("chat"); break;
@@ -168,7 +168,7 @@ export function App() {
     hideSplash();
     fetchContacts();
     fetchTasks();
-    fetchTriage();
+    fetchFlux();
     fetchTodayStats();
     fetchActiveWalk();
     fetchBookmarks();
@@ -198,7 +198,7 @@ export function App() {
           }
           break;
         case "brief":
-          setViewMode("triage");
+          setViewMode("flux");
           break;
         case "desktop":
           toggleDesktopMode();
@@ -253,8 +253,8 @@ export function App() {
         <Show when={viewMode() === "ide"}>
           <IdeView />
         </Show>
-        <Show when={viewMode() === "triage"}>
-          <TriageView />
+        <Show when={viewMode() === "flux"}>
+          <FluxView />
         </Show>
         <Show when={viewMode() === "email"}>
           <EmailView />
@@ -280,7 +280,7 @@ export function App() {
         <Show when={viewMode() === "tools"}>
           <ToolsView />
         </Show>
-        <Show when={viewMode() !== "notes" && viewMode() !== "ide" && viewMode() !== "triage" && viewMode() !== "email" && viewMode() !== "chat" && viewMode() !== "vps" && viewMode() !== "cicd" && viewMode() !== "library" && viewMode() !== "rss" && viewMode() !== "settings" && viewMode() !== "tools"}>
+        <Show when={viewMode() !== "notes" && viewMode() !== "ide" && viewMode() !== "flux" && viewMode() !== "email" && viewMode() !== "chat" && viewMode() !== "vps" && viewMode() !== "cicd" && viewMode() !== "library" && viewMode() !== "rss" && viewMode() !== "settings" && viewMode() !== "tools"}>
           <CalendarGrid />
           <EventForm />
           <AiEventGenerator />

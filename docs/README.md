@@ -27,7 +27,7 @@ apps/
 
 ### Productivite
 - **Timer Pomodoro** — sessions focus/break, stats, streaks, son en boucle
-- **Triage** — inbox taches, Kanban drag & drop, auto-triage IA
+- **Flux** — tri universel (taches, emails, articles RSS), swipe cards + Kanban, suggestions IA
 - **Brief quotidien** — resume IA (hier/aujourd'hui/blocages) + git scan + templates
 - **Weekly Review** — bilan hebdo avec deltas semaine precedente
 - **Analytics** — dashboard widgets configurables, charts, contribution graph

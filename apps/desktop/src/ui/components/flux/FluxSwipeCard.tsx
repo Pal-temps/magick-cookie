@@ -1,22 +1,21 @@
 import { createSignal, Show } from "solid-js";
-import type { Task } from "../../../domain/models/Task";
-import type { TriageStatus } from "../../../application/stores/triageStore";
+import type { FluxableItem, FluxStatus } from "../../../application/stores/fluxStore";
 
-interface SwipeCardProps {
-  task: Task;
-  onSwipe: (status: TriageStatus) => void;
+interface FluxSwipeCardProps {
+  item: FluxableItem;
+  onSwipe: (status: FluxStatus) => void;
 }
 
 const THRESHOLD = 80;
 
-const DIRECTION_CONFIG: Record<string, { status: TriageStatus; label: string; color: string; icon: string }> = {
+const DIRECTION_CONFIG: Record<string, { status: FluxStatus; label: string; color: string; icon: string }> = {
   right: { status: "priority", label: "Prioritaire", color: "#ef4444", icon: "!!!" },
   left: { status: "later", label: "Plus tard", color: "#3b82f6", icon: "..." },
   up: { status: "archived", label: "Archiver", color: "#8b5cf6", icon: "v" },
   down: { status: "dismissed", label: "Masquer", color: "#6b7280", icon: "x" },
 };
 
-function priorityColor(priority: string | null): string {
+function priorityColor(priority: string | null | undefined): string {
   switch (priority) {
     case "urgent": return "#ef4444";
     case "high": return "#f97316";
@@ -26,34 +25,48 @@ function priorityColor(priority: string | null): string {
   }
 }
 
-export function SwipeCard(props: SwipeCardProps) {
+function entityTypeIcon(type: string): string {
+  switch (type) {
+    case "task": return "T";
+    case "email": return "@";
+    case "rss_article": return "R";
+    default: return "?";
+  }
+}
+
+function entityTypeColor(type: string): string {
+  switch (type) {
+    case "task": return "var(--accent-primary)";
+    case "email": return "#0984e3";
+    case "rss_article": return "#00b894";
+    default: return "var(--text-muted)";
+  }
+}
+
+export function FluxSwipeCard(props: FluxSwipeCardProps) {
   const [dragX, setDragX] = createSignal(0);
   const [dragY, setDragY] = createSignal(0);
   const [isDragging, setIsDragging] = createSignal(false);
   const [isExiting, setIsExiting] = createSignal(false);
   let startX = 0;
   let startY = 0;
+  let activePointerId: number | null = null;
+  let activeTarget: HTMLElement | null = null;
 
   function getDirection(): string | null {
     const x = dragX();
     const y = dragY();
     const absX = Math.abs(x);
     const absY = Math.abs(y);
-
     if (absX < THRESHOLD && absY < THRESHOLD) return null;
     if (absX > absY) return x > 0 ? "right" : "left";
     return y < 0 ? "up" : "down";
   }
 
   function getOpacity(): number {
-    const x = Math.abs(dragX());
-    const y = Math.abs(dragY());
-    const dist = Math.max(x, y);
+    const dist = Math.max(Math.abs(dragX()), Math.abs(dragY()));
     return Math.min(1, dist / THRESHOLD);
   }
-
-  let activePointerId: number | null = null;
-  let activeTarget: HTMLElement | null = null;
 
   function cleanupDrag() {
     if (!isDragging() || isExiting()) return;
@@ -69,9 +82,8 @@ export function SwipeCard(props: SwipeCardProps) {
     const dir = getDirection();
     if (dir) {
       setIsExiting(true);
-      const multiplier = 3;
-      setDragX(dragX() * multiplier);
-      setDragY(dragY() * multiplier);
+      setDragX(dragX() * 3);
+      setDragY(dragY() * 3);
       setTimeout(() => {
         props.onSwipe(DIRECTION_CONFIG[dir].status);
         setDragX(0);
@@ -102,14 +114,6 @@ export function SwipeCard(props: SwipeCardProps) {
     setDragY(e.clientY - startY);
   }
 
-  function onPointerUp() {
-    cleanupDrag();
-  }
-
-  function onPointerCancel() {
-    cleanupDrag();
-  }
-
   const dir = () => getDirection();
   const config = () => dir() ? DIRECTION_CONFIG[dir()!] : null;
 
@@ -117,8 +121,8 @@ export function SwipeCard(props: SwipeCardProps) {
     <div
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
-      onPointerUp={onPointerUp}
-      onPointerCancel={onPointerCancel}
+      onPointerUp={() => cleanupDrag()}
+      onPointerCancel={() => cleanupDrag()}
       style={{
         position: "absolute",
         width: "380px",
@@ -142,97 +146,79 @@ export function SwipeCard(props: SwipeCardProps) {
       {/* Direction indicator overlay */}
       <Show when={config()}>
         <div style={{
-          position: "absolute",
-          top: "16px",
-          left: "0",
-          right: "0",
-          "text-align": "center",
-          "font-size": "16px",
-          "font-weight": "700",
-          color: config()!.color,
-          opacity: String(getOpacity()),
-          "pointer-events": "none",
-          "text-transform": "uppercase",
-          "letter-spacing": "2px",
+          position: "absolute", top: "16px", left: "0", right: "0",
+          "text-align": "center", "font-size": "16px", "font-weight": "700",
+          color: config()!.color, opacity: String(getOpacity()),
+          "pointer-events": "none", "text-transform": "uppercase", "letter-spacing": "2px",
         }}>
           {config()!.icon} {config()!.label}
         </div>
       </Show>
 
-      {/* Task content */}
+      {/* Content — adapts by entity type */}
       <div style={{ "margin-top": "16px" }}>
-        {/* Priority + Status */}
+        {/* Entity type badge + priority/source */}
         <div style={{ display: "flex", "align-items": "center", gap: "8px", "margin-bottom": "12px" }}>
-          <Show when={props.task.priority}>
+          <span style={{
+            "font-size": "10px", "font-weight": "700", padding: "2px 6px",
+            "border-radius": "var(--radius-sm)", background: entityTypeColor(props.item.entityType),
+            color: "#fff",
+          }}>
+            {entityTypeIcon(props.item.entityType)}
+          </span>
+          <Show when={props.item.priority}>
             <span style={{
-              "font-size": "11px",
-              padding: "2px 8px",
-              "border-radius": "var(--radius-sm)",
-              background: priorityColor(props.task.priority),
-              color: "#fff",
-              "font-weight": "600",
+              "font-size": "11px", padding: "2px 8px", "border-radius": "var(--radius-sm)",
+              background: priorityColor(props.item.priority), color: "#fff", "font-weight": "600",
               "text-transform": "capitalize",
             }}>
-              {props.task.priority}
+              {props.item.priority}
             </span>
           </Show>
-          <span style={{
-            "font-size": "11px",
-            padding: "2px 8px",
-            "border-radius": "var(--radius-sm)",
-            background: "var(--bg-elevated)",
-            color: "var(--text-secondary)",
-          }}>
-            {props.task.status}
-          </span>
-          <span style={{
-            "font-size": "10px",
-            color: "var(--text-muted)",
-            "margin-left": "auto",
-          }}>
-            {props.task.labels[0] ?? ""}
+          <span style={{ "font-size": "11px", color: "var(--text-secondary)", "margin-left": "auto" }}>
+            {props.item.source}
           </span>
         </div>
 
-        {/* Task name */}
+        {/* Title */}
         <h3 style={{
-          "font-size": "18px",
-          "font-weight": "600",
-          color: "var(--text-primary)",
-          "line-height": "1.3",
-          "margin-bottom": "12px",
+          "font-size": "18px", "font-weight": "600", color: "var(--text-primary)",
+          "line-height": "1.3", "margin-bottom": "12px",
         }}>
-          {props.task.title}
+          {props.item.title}
         </h3>
 
-        {/* Assignees */}
-        <Show when={props.task.assignees.length > 0}>
+        {/* Preview text */}
+        <Show when={props.item.preview}>
+          <p style={{ "font-size": "13px", color: "var(--text-secondary)", "line-height": "1.5", "margin-bottom": "8px" }}>
+            {props.item.preview}
+          </p>
+        </Show>
+
+        {/* Labels (tasks) */}
+        <Show when={props.item.labels && props.item.labels.length > 0}>
           <div style={{ display: "flex", gap: "6px", "flex-wrap": "wrap" }}>
-            {props.task.assignees.map((a) => (
+            {props.item.labels!.slice(0, 3).map((l) => (
               <span style={{
-                "font-size": "10px",
-                padding: "2px 6px",
-                "border-radius": "var(--radius-sm)",
-                background: "var(--bg-elevated)",
-                color: "var(--text-secondary)",
-              }}>
-                {a}
-              </span>
+                "font-size": "10px", padding: "2px 6px", "border-radius": "var(--radius-sm)",
+                background: "var(--bg-elevated)", color: "var(--text-secondary)",
+              }}>{l}</span>
             ))}
           </div>
         </Show>
+
+        {/* Timestamp */}
+        <div style={{ "font-size": "10px", color: "var(--text-muted)", "margin-top": "8px" }}>
+          {new Date(props.item.timestamp).toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" })}
+        </div>
       </div>
 
       {/* Bottom hint */}
       <div style={{
-        "margin-top": "auto",
-        "padding-top": "12px",
+        "margin-top": "auto", "padding-top": "12px",
         "border-top": "1px solid var(--border-color)",
-        display: "grid",
-        "grid-template-columns": "1fr 1fr",
-        gap: "4px",
-        "font-size": "10px",
-        color: "var(--text-muted)",
+        display: "grid", "grid-template-columns": "1fr 1fr", gap: "4px",
+        "font-size": "10px", color: "var(--text-muted)",
       }}>
         <span style={{ color: "#8b5cf6" }}>&#8593; Archiver</span>
         <span style={{ "text-align": "right", color: "#ef4444" }}>Prioritaire &#8594;</span>
