@@ -343,6 +343,7 @@ export function AppLayout(props: AppLayoutProps) {
                 { id: "cicd", label: "CI/CD", match: (v: string) => v === "cicd" },
                 { id: "vps", label: "Serveurs", match: (v: string) => v === "vps" },
                 { id: "tools", label: "Outils", match: (v: string) => v === "tools" },
+                { id: "bench", label: "Bench", match: (v: string) => v === "bench" },
               ] as const}>
                 {(item) => (
                   <button

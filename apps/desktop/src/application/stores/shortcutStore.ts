@@ -18,6 +18,7 @@ export const ACTIONS: ShortcutAction[] = [
   { id: "nav-library", label: "Bibliotheque", defaultShortcut: "Ctrl+7", category: "Navigation" },
   { id: "nav-chat", label: "Chat", defaultShortcut: "Ctrl+8", category: "Navigation" },
   { id: "nav-vps", label: "Serveurs", defaultShortcut: "Ctrl+9", category: "Navigation" },
+  { id: "nav-bench", label: "Benchmark", defaultShortcut: "", category: "Navigation" },
   { id: "command-palette", label: "Command Palette", defaultShortcut: "Ctrl+K", category: "General" },
   { id: "settings", label: "Parametres", defaultShortcut: "Ctrl+,", category: "General" },
   { id: "start-pomodoro", label: "Demarrer Pomodoro", defaultShortcut: "", category: "Timer" },

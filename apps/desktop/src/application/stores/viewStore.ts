@@ -29,6 +29,7 @@ export function useViewStore() {
       case "chat":
       case "settings":
       case "tools":
+      case "bench":
       case "dashboard": return;
       case "month": d.setMonth(d.getMonth() - 1); break;
       case "week": d.setDate(d.getDate() - 7); break;
@@ -47,6 +48,7 @@ export function useViewStore() {
       case "chat":
       case "settings":
       case "tools":
+      case "bench":
       case "dashboard": return;
       case "month": d.setMonth(d.getMonth() + 1); break;
       case "week": d.setDate(d.getDate() + 7); break;

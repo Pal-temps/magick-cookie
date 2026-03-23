@@ -62,6 +62,7 @@ apps/
 - **Snippets** — code clipboard avec syntax highlighting et categories
 - **Changelog generator** — git scan + LLM
 - **Environment checker** — sante services locaux
+- **Bench** — benchmark fonctions JS/TS + stress test HTTP, timing/memoire/charge, resultats dans Notes, comparaison
 
 ### UX
 - **3 themes** — Dark, Light, Cookie (chocolat/caramel)

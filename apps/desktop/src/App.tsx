@@ -15,6 +15,7 @@ import { RssView } from "./ui/components/rss/RssView";
 import { CiCdView } from "./ui/components/github/CiCdView";
 import { SettingsView } from "./ui/components/settings/SettingsView";
 import { ToolsView } from "./ui/components/tools/ToolsView";
+import { BenchView } from "./ui/components/bench/BenchView";
 import { useCalendarStore } from "./application/stores/calendarStore";
 import { useViewStore } from "./application/stores/viewStore";
 import { useWellnessStore } from "./application/stores/wellnessStore";
@@ -141,6 +142,7 @@ export function App() {
       case "nav-library": setViewMode("library"); break;
       case "nav-chat": setViewMode("chat"); break;
       case "nav-vps": setViewMode("vps"); break;
+      case "nav-bench": setViewMode("bench"); break;
       case "command-palette": openCommandPalette(); break;
       case "settings": setViewMode("settings"); break;
       case "start-pomodoro": startPomodoro(); break;
@@ -280,7 +282,10 @@ export function App() {
         <Show when={viewMode() === "tools"}>
           <ToolsView />
         </Show>
-        <Show when={viewMode() !== "notes" && viewMode() !== "ide" && viewMode() !== "flux" && viewMode() !== "email" && viewMode() !== "chat" && viewMode() !== "vps" && viewMode() !== "cicd" && viewMode() !== "library" && viewMode() !== "rss" && viewMode() !== "settings" && viewMode() !== "tools"}>
+        <Show when={viewMode() === "bench"}>
+          <BenchView />
+        </Show>
+        <Show when={viewMode() !== "notes" && viewMode() !== "ide" && viewMode() !== "flux" && viewMode() !== "email" && viewMode() !== "chat" && viewMode() !== "vps" && viewMode() !== "cicd" && viewMode() !== "library" && viewMode() !== "rss" && viewMode() !== "settings" && viewMode() !== "tools" && viewMode() !== "bench"}>
           <CalendarGrid />
           <EventForm />
           <AiEventGenerator />

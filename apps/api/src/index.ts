@@ -111,6 +111,8 @@ import { createWellnessConfigRoutes } from "./presentation/routes/wellness-confi
 import { createWellnessLogRoutes } from "./presentation/routes/wellness-log.routes";
 import { createDogWalkRoutes } from "./presentation/routes/dog-walk.routes";
 import { createFluxRoutes } from "./presentation/routes/flux.routes";
+import { BenchService } from "./application/bench/bench.service";
+import { createBenchRoutes } from "./presentation/routes/bench.routes";
 import { createEmailRoutes, createEmailAccountRoutes } from "./presentation/routes/email.routes";
 import { createAnalyticsRoutes } from "./presentation/routes/analytics.routes";
 import { createLlmRoutes } from "./presentation/routes/llm.routes";
@@ -259,6 +261,8 @@ app.route("/api/wellness-configs", createWellnessConfigRoutes(wellnessConfigServ
 app.route("/api/wellness-logs", createWellnessLogRoutes(wellnessLogService));
 app.route("/api/dog-walks", createDogWalkRoutes(dogWalkService));
 app.route("/api/flux", createFluxRoutes(fluxService));
+const benchService = new BenchService();
+app.route("/api/bench", createBenchRoutes(benchService));
 app.route("/api/emails", createEmailRoutes(emailService, llmService));
 app.route("/api/email-accounts", createEmailAccountRoutes(emailService));
 app.route("/api/analytics", createAnalyticsRoutes(analyticsService, llmService));
