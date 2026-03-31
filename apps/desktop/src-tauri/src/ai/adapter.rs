@@ -4,6 +4,7 @@ use std::sync::mpsc;
 /// Trait that all AI providers must implement.
 /// The session manager calls these methods; the adapter translates
 /// provider-specific protocols into generic AdapterEvents.
+#[allow(dead_code)]
 pub trait BackendAdapter: Send {
     /// Start a session. The adapter should begin emitting events
     /// through the provided sender.

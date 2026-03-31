@@ -21,6 +21,18 @@ export interface SecretGroup {
   children: SecretGroup[];
 }
 
+// ─── Auto-lock ───
+
+const AUTO_LOCK_KEY = "magick-cookie-autolock-minutes";
+const DEFAULT_AUTO_LOCK_MINUTES = 15;
+
+let lastActivity = Date.now();
+let autoLockTimer: ReturnType<typeof setInterval> | null = null;
+
+function resetActivity() {
+  lastActivity = Date.now();
+}
+
 // ─── State ───
 
 const [isUnlocked, setIsUnlocked] = createSignal(false);
@@ -28,20 +40,58 @@ const [entries, setEntries] = createSignal<SecretEntry[]>([]);
 const [groups, setGroups] = createSignal<SecretGroup | null>(null);
 const [searchQuery, setSearchQuery] = createSignal("");
 const [activeGroup, setActiveGroup] = createSignal<string | null>(null);
+const [autoLockMinutes, setAutoLockMinutesSignal] = createSignal(
+  parseInt(localStorage.getItem(AUTO_LOCK_KEY) ?? String(DEFAULT_AUTO_LOCK_MINUTES), 10)
+);
 
 // ─── Store ───
 
 export function useSecretsStore() {
 
+  function startAutoLock() {
+    stopAutoLock();
+    // Track user activity
+    for (const evt of ["mousedown", "keydown", "scroll", "touchstart"] as const) {
+      document.addEventListener(evt, resetActivity, { passive: true });
+    }
+    // Check every 30s if idle time exceeded
+    autoLockTimer = setInterval(async () => {
+      const minutes = autoLockMinutes();
+      if (minutes <= 0 || !isUnlocked()) return;
+      const elapsed = (Date.now() - lastActivity) / 60_000;
+      if (elapsed >= minutes) {
+        await lock();
+      }
+    }, 30_000);
+  }
+
+  function stopAutoLock() {
+    if (autoLockTimer) {
+      clearInterval(autoLockTimer);
+      autoLockTimer = null;
+    }
+    for (const evt of ["mousedown", "keydown", "scroll", "touchstart"] as const) {
+      document.removeEventListener(evt, resetActivity);
+    }
+  }
+
+  function setAutoLockMinutes(minutes: number) {
+    setAutoLockMinutesSignal(minutes);
+    localStorage.setItem(AUTO_LOCK_KEY, String(minutes));
+  }
+
   async function checkUnlocked(): Promise<boolean> {
     const unlocked = await invoke<boolean>("secrets_is_unlocked");
     setIsUnlocked(unlocked);
+    if (unlocked) startAutoLock();
     return unlocked;
   }
 
   async function unlock(masterPassword: string): Promise<void> {
     await invoke("secrets_init", { masterPassword });
     setIsUnlocked(true);
+    resetActivity();
+    startAutoLock();
     await fetchGroups();
     await fetchEntries();
     // Migrate legacy secrets on first unlock
@@ -51,6 +101,7 @@ export function useSecretsStore() {
   }
 
   async function lock(): Promise<void> {
+    stopAutoLock();
     await invoke("secrets_lock");
     setIsUnlocked(false);
     setEntries([]);
@@ -279,5 +330,9 @@ export function useSecretsStore() {
     setAppSecret,
     generatePassword,
     syncAppSecretsToBackend,
+
+    // Auto-lock
+    autoLockMinutes,
+    setAutoLockMinutes,
   };
 }

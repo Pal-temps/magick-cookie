@@ -289,6 +289,21 @@ export function PasswordsView() {
           <button class="pwd-btn pwd-btn--primary" onClick={startCreate}>+ Nouveau</button>
           <button class="pwd-btn" onClick={() => setShowGenerator((v) => !v)}>Generateur</button>
           <button class={`pwd-btn ${showSshKeys() ? "pwd-btn--primary" : ""}`} onClick={() => setShowSshKeys((v) => !v)}>Cles SSH</button>
+          <div style={{ "margin-left": "auto", display: "flex", "align-items": "center", gap: "6px", "font-size": "11px", color: "var(--text-secondary)" }}>
+            <span>Auto-lock:</span>
+            <select
+              value={secrets.autoLockMinutes()}
+              onChange={(e) => secrets.setAutoLockMinutes(parseInt(e.currentTarget.value, 10))}
+              style={{ padding: "2px 4px", "font-size": "11px", background: "var(--bg-base)", border: "1px solid var(--border-color)", "border-radius": "var(--radius-sm)", color: "var(--text-primary)" }}
+            >
+              <option value="0">Jamais</option>
+              <option value="5">5 min</option>
+              <option value="15">15 min</option>
+              <option value="30">30 min</option>
+              <option value="60">1 heure</option>
+            </select>
+            <button class="pwd-btn pwd-btn--sm" onClick={() => secrets.lock()} title="Verrouiller maintenant">&#x1F512;</button>
+          </div>
         </div>
 
         <Show when={showGenerator()}>

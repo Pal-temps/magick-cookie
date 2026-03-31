@@ -24,13 +24,14 @@ export interface TreeNode {
 
 export interface EditorTab {
   id: string;
-  path: string;       // absolute path for project files, "snippet::{id}" for snippets
+  path: string;       // absolute path for project files, "snippet::{id}" for snippets, "vault::{relPath}" for vault
   name: string;
   content: string;
   language: string;
   isDirty: boolean;
-  source: "project" | "snippet";
+  source: "project" | "snippet" | "vault";
   snippetId?: string;
+  vaultPath?: string;  // relative vault path (e.g. "_ide/skills/foo.md")
 }
 
 export type SidePanel = "files" | "git";
@@ -108,8 +109,9 @@ interface PersistedTab {
   path: string;
   name: string;
   language: string;
-  source: "project" | "snippet";
+  source: "project" | "snippet" | "vault";
   snippetId?: string;
+  vaultPath?: string;
 }
 
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
@@ -123,7 +125,7 @@ function persistState() {
   // Save tabs (without content — we reload from disk)
   const tabData: PersistedTab[] = tabs().map((t) => ({
     id: t.id, path: t.path, name: t.name,
-    language: t.language, source: t.source, snippetId: t.snippetId,
+    language: t.language, source: t.source, snippetId: t.snippetId, vaultPath: t.vaultPath,
   }));
   localStorage.setItem(STORAGE_KEYS.tabs, JSON.stringify(tabData));
   localStorage.setItem(STORAGE_KEYS.activeTab, activeTabId() ?? "");
@@ -282,6 +284,13 @@ export function useIdeStore() {
               restored.push({ ...pt, content, isDirty: false });
             } catch {
               // File was deleted/moved — skip it
+            }
+          } else if (pt.source === "vault" && pt.vaultPath) {
+            try {
+              const content = await invoke<string>("vault_read_json", { relPath: pt.vaultPath });
+              restored.push({ ...pt, content, isDirty: false });
+            } catch {
+              // Vault file was deleted — skip it
             }
           } else if (pt.source === "snippet" && pt.snippetId) {
             // Snippets are loaded separately; add placeholder that gets filled
@@ -517,6 +526,54 @@ export function useIdeStore() {
     debouncedSave();
   }
 
+  // ─── Vault files (skills, hooks, prompts) ───
+
+  async function listVaultSection(section: string): Promise<{ name: string; path: string }[]> {
+    try {
+      return await invoke<{ name: string; path: string }[]>("vault_list_section", { section, ext: ".md" });
+    } catch {
+      return [];
+    }
+  }
+
+  async function openVaultFile(relPath: string) {
+    const id = `vault::${relPath}`;
+    const existing = tabs().find((t) => t.id === id);
+    if (existing) {
+      setActiveTabId(id);
+      if (!codeDrawerOpen()) toggleCodeDrawer();
+      return;
+    }
+
+    try {
+      const content = await invoke<string>("vault_read_json", { relPath });
+      const name = relPath.split("/").pop() ?? relPath;
+      const tab: EditorTab = {
+        id,
+        path: `vault::${relPath}`,
+        name,
+        content,
+        language: detectLanguage(name),
+        isDirty: false,
+        source: "vault",
+        vaultPath: relPath,
+      };
+      setTabs((prev) => [...prev, tab]);
+      setActiveTabId(id);
+      if (!codeDrawerOpen()) toggleCodeDrawer();
+      debouncedSave();
+    } catch (e) {
+      console.error("vault_read_json error:", e);
+    }
+  }
+
+  async function createVaultFile(section: string, name: string) {
+    const relPath = `${section}/${name}`;
+    const template = `# ${name.replace(/\.md$/, "")}\n\n`;
+    await invoke("vault_write_json", { relPath, content: template });
+    await openVaultFile(relPath);
+  }
+
   function closeTab(id: string) {
     const idx = tabs().findIndex((t) => t.id === id);
     if (idx === -1) return;
@@ -554,6 +611,8 @@ export function useIdeStore() {
       await invoke("fs_write_file", { path: tab.path, content: tab.content });
     } else if (tab.source === "snippet" && tab.snippetId) {
       await snippetStore.updateSnippet(tab.snippetId, { content: tab.content });
+    } else if (tab.source === "vault" && tab.vaultPath) {
+      await invoke("vault_write_json", { relPath: tab.vaultPath, content: tab.content });
     }
 
     setTabs((prev) =>
@@ -828,6 +887,11 @@ export function useIdeStore() {
     closeOtherTabs,
     closeAllTabs,
     copyPath,
+
+    // Vault files
+    listVaultSection,
+    openVaultFile,
+    createVaultFile,
 
     // State restore + watcher + vault
     restoreState,

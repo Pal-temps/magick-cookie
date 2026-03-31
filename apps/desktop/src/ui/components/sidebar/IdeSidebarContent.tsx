@@ -104,6 +104,91 @@ export function IdeSidebarContent() {
   const ai = useAiSessionStore();
   const hasProject = () => ide.projectPath() !== null;
 
+  // ─── Vault section (skills / hooks / prompts) ───
+  function VaultSectionLink(props: { icon: string; label: string; section: string }) {
+    const [expanded, setExpanded] = createSignal(false);
+    const [files, setFiles] = createSignal<{ name: string; path: string }[]>([]);
+    const [creating, setCreating] = createSignal(false);
+    const [newName, setNewName] = createSignal("");
+
+    async function toggle() {
+      if (!expanded()) {
+        const entries = await ide.listVaultSection(props.section);
+        setFiles(entries);
+      }
+      setExpanded(!expanded());
+    }
+
+    async function handleCreate() {
+      const name = newName().trim();
+      if (!name) return;
+      const fileName = name.endsWith(".md") ? name : `${name}.md`;
+      await ide.createVaultFile(props.section, fileName);
+      setCreating(false);
+      setNewName("");
+      // Refresh list
+      const entries = await ide.listVaultSection(props.section);
+      setFiles(entries);
+    }
+
+    return (
+      <div>
+        <button class="ide-sidebar-link" onClick={toggle}>
+          <span class="ide-sidebar-link__icon">{props.icon}</span>
+          {props.label}
+          <span style={{ "margin-left": "auto", "font-size": "10px", opacity: "0.5" }}>
+            {expanded() ? "\u25B4" : "\u25BE"}
+          </span>
+        </button>
+        <Show when={expanded()}>
+          <div style={{ "padding-left": "20px" }}>
+            <For each={files()} fallback={
+              <div style={{ "font-size": "11px", color: "var(--text-muted)", padding: "4px 0" }}>
+                Aucun fichier
+              </div>
+            }>
+              {(entry) => (
+                <button
+                  class="ide-sidebar-link"
+                  style={{ "font-size": "11px" }}
+                  onClick={() => ide.openVaultFile(`${props.section}/${entry.path}`)}
+                >
+                  {entry.name.replace(/\.md$/, "")}
+                </button>
+              )}
+            </For>
+            <Show when={creating()}>
+              <div style={{ display: "flex", gap: "4px", padding: "4px 0" }}>
+                <input
+                  autofocus
+                  value={newName()}
+                  onInput={(e) => setNewName(e.currentTarget.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleCreate();
+                    if (e.key === "Escape") setCreating(false);
+                  }}
+                  placeholder="nom.md"
+                  style={{
+                    flex: "1", padding: "3px 6px", "font-size": "11px",
+                    background: "var(--bg-base)", border: "1px solid var(--border-color)",
+                    "border-radius": "var(--radius-sm)", color: "var(--text-primary)", outline: "none",
+                  }}
+                />
+              </div>
+            </Show>
+            <button
+              class="ide-sidebar-link ide-sidebar-link--accent"
+              style={{ "font-size": "11px" }}
+              onClick={() => setCreating(true)}
+            >
+              <span class="ide-sidebar-link__icon">+</span> Nouveau
+            </button>
+          </div>
+        </Show>
+      </div>
+    );
+  }
+
   // Short path for display (last 2 segments)
   function shortPath(fullPath: string): string {
     const parts = fullPath.replace(/\\/g, "/").split("/");
@@ -296,15 +381,9 @@ export function IdeSidebarContent() {
               <span class="ide-sidebar-link__icon" style={{ background: "var(--accent-primary)", color: "#fff" }}>AI</span> CLAUDE.md
             </button>
           </Show>
-          <button class="ide-sidebar-link" onClick={() => {/* TODO: open vault _ide/skills/ */}}>
-            <span class="ide-sidebar-link__icon">S</span> Skills
-          </button>
-          <button class="ide-sidebar-link" onClick={() => {/* TODO: open vault _ide/hooks/ */}}>
-            <span class="ide-sidebar-link__icon">H</span> Hooks
-          </button>
-          <button class="ide-sidebar-link" onClick={() => {/* TODO: open prompts manager */}}>
-            <span class="ide-sidebar-link__icon">P</span> Prompts
-          </button>
+          <VaultSectionLink icon="S" label="Skills" section="_ide/skills" />
+          <VaultSectionLink icon="H" label="Hooks" section="_ide/hooks" />
+          <VaultSectionLink icon="P" label="Prompts" section="_ide/prompts" />
           <button class="ide-sidebar-link" onClick={() => openSystemTerminalWindow(ide.projectPath() ?? ".")}>
             <span class="ide-sidebar-link__icon">$</span> Terminal
           </button>

@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::sync::{mpsc, Arc, Mutex};
 
-use tauri::{AppHandle, Emitter, Manager};
+use tauri::{AppHandle, Emitter};
 
 use crate::ai::adapter::BackendAdapter;
 use crate::ai::dedup::DedupState;
@@ -10,6 +10,7 @@ use crate::ai::types::*;
 
 // ─── Session ───
 
+#[allow(dead_code)]
 pub struct AiSession {
     pub id: String,
     pub adapter: Box<dyn BackendAdapter>,
@@ -42,10 +43,6 @@ impl SessionManager {
             config,
         };
         self.sessions.insert(id, session);
-    }
-
-    pub fn get_session(&self, id: &str) -> Option<&AiSession> {
-        self.sessions.get(id)
     }
 
     pub fn get_session_mut(&mut self, id: &str) -> Option<&mut AiSession> {
