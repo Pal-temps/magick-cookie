@@ -1,0 +1,15 @@
+[package]
+name = "screenshot-cli"
+version = "0.1.0"
+edition = "2021"
+description = "Screenshot capture with region selection overlay"
+
+[[bin]]
+name = "screenshot"
+path = "src/main.rs"
+
+[dependencies]
+xcap = "0.2"
+image = "0.25"
+minifb = "0.28"
+clap = { version = "4", features = ["derive"] }
