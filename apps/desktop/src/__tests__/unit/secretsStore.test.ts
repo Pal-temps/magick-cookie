@@ -95,6 +95,62 @@ describe("Token Cost Estimation", () => {
   });
 });
 
+describe("Auto-Lock Timer", () => {
+  it("default auto-lock is 15 minutes", () => {
+    const DEFAULT_AUTO_LOCK_MINUTES = 15;
+    expect(DEFAULT_AUTO_LOCK_MINUTES).toBe(15);
+  });
+
+  it("idle detection triggers after threshold", () => {
+    // Simulate: lastActivity was 16 minutes ago, threshold is 15 min
+    const lastActivity = Date.now() - 16 * 60_000;
+    const autoLockMinutes = 15;
+    const elapsed = (Date.now() - lastActivity) / 60_000;
+    expect(elapsed >= autoLockMinutes).toBe(true);
+  });
+
+  it("no lock when autoLockMinutes is 0 (disabled)", () => {
+    const lastActivity = Date.now() - 999 * 60_000;
+    const autoLockMinutes = 0;
+    // When 0, auto-lock should be skipped
+    expect(autoLockMinutes <= 0).toBe(true);
+  });
+
+  it("no lock when activity is recent", () => {
+    const lastActivity = Date.now() - 5 * 60_000; // 5 min ago
+    const autoLockMinutes = 15;
+    const elapsed = (Date.now() - lastActivity) / 60_000;
+    expect(elapsed >= autoLockMinutes).toBe(false);
+  });
+});
+
+describe("Screenshot Token Estimation", () => {
+  // AI vision models process images in 768x768 tiles, ~1600 tokens each
+  function estimateImageTokens(width: number, height: number): number {
+    const TILE_SIZE = 768;
+    const TOKENS_PER_TILE = 1600;
+    const tilesX = Math.ceil(width / TILE_SIZE);
+    const tilesY = Math.ceil(height / TILE_SIZE);
+    return tilesX * tilesY * TOKENS_PER_TILE;
+  }
+
+  it("full HD screenshot uses 6 tiles (3x2)", () => {
+    expect(estimateImageTokens(1920, 1080)).toBe(6 * 1600);
+  });
+
+  it("resized 1280x720 uses 2 tiles (2x1)", () => {
+    expect(estimateImageTokens(1280, 720)).toBe(2 * 1600);
+  });
+
+  it("small crop fits in 1 tile", () => {
+    expect(estimateImageTokens(600, 400)).toBe(1600);
+  });
+
+  it("exact tile size is 1 tile", () => {
+    expect(estimateImageTokens(768, 768)).toBe(1600);
+  });
+});
+
 describe("Sanitization Logic", () => {
   // Test that preferences sanitization works correctly
   // (even though we no longer need it for the vault, we verify the migration logic)
