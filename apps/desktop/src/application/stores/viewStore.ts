@@ -27,7 +27,6 @@ export function useViewStore() {
       case "notes":
       case "ide":
       case "email":
-      case "chat":
       case "settings":
       case "tools":
       case "bench":
@@ -46,7 +45,6 @@ export function useViewStore() {
       case "notes":
       case "ide":
       case "email":
-      case "chat":
       case "settings":
       case "tools":
       case "bench":

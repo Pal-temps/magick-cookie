@@ -1,1 +1,1 @@
-export type ViewMode = "dashboard" | "month" | "week" | "day" | "notes" | "ide" | "flux" | "email" | "chat" | "settings" | "vps" | "library" | "rss" | "cicd" | "tools" | "bench" | "passwords";
+export type ViewMode = "dashboard" | "month" | "week" | "day" | "notes" | "ide" | "flux" | "email" | "settings" | "vps" | "library" | "rss" | "cicd" | "tools" | "bench" | "passwords";

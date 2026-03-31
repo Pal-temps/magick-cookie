@@ -65,7 +65,6 @@ export function useCommandStore() {
     { id: "nav-notes", label: "Notes", sublabel: "Vue notes", category: "Navigation", icon: "📝", shortcut: "Alt+3", action: () => setViewMode("notes") },
     { id: "nav-flux", label: "Flux", sublabel: "Vue flux", category: "Navigation", icon: "📍", shortcut: "Alt+4", action: () => setViewMode("flux") },
     { id: "nav-email", label: "Email", sublabel: "Vue email", category: "Navigation", icon: "📧", shortcut: "Alt+5", action: () => setViewMode("email") },
-    { id: "nav-chat", label: "Chat", sublabel: "Chat avec le LLM", category: "Navigation", icon: "💬", shortcut: "Alt+7", action: () => setViewMode("chat") },
     { id: "nav-settings", label: "Paramètres", sublabel: "Ouvrir settings", category: "Navigation", icon: "📍", shortcut: "Alt+6", action: () => setViewMode("settings") },
     { id: "nav-vps", label: "VPS Monitoring", sublabel: "Vue monitoring VPS", category: "Navigation", icon: "📍", action: () => setViewMode("vps") },
   ];

@@ -8,7 +8,6 @@ import { NotesView } from "./ui/components/notes/NotesView";
 import { IdeView } from "./ui/components/ide/IdeView";
 import { FluxView } from "./ui/components/flux/FluxView";
 import { EmailView } from "./ui/components/email/EmailView";
-import { ChatView } from "./ui/components/chat/ChatView";
 import { VpsView } from "./ui/components/vps/VpsView";
 import { LibraryView } from "./ui/components/library/LibraryView";
 import { RssView } from "./ui/components/rss/RssView";
@@ -93,7 +92,6 @@ export function App() {
       case "flux":
       case "notes":
       case "email":
-      case "chat":
       case "vps":
       case "cicd":
       case "tools":
@@ -155,7 +153,6 @@ export function App() {
       case "nav-flux": setViewMode("flux"); break;
       case "nav-email": setViewMode("email"); break;
       case "nav-library": setViewMode("library"); break;
-      case "nav-chat": setViewMode("chat"); break;
       case "nav-vps": setViewMode("vps"); break;
       case "nav-bench": setViewMode("bench"); break;
       case "command-palette": openCommandPalette(); break;
@@ -293,9 +290,6 @@ export function App() {
         <Show when={viewMode() === "email"}>
           <EmailView />
         </Show>
-        <Show when={viewMode() === "chat"}>
-          <ChatView />
-        </Show>
         <Show when={viewMode() === "vps"}>
           <VpsView />
         </Show>
@@ -320,7 +314,7 @@ export function App() {
         <Show when={viewMode() === "passwords"}>
           <PasswordsView />
         </Show>
-        <Show when={viewMode() !== "notes" && viewMode() !== "ide" && viewMode() !== "flux" && viewMode() !== "email" && viewMode() !== "chat" && viewMode() !== "vps" && viewMode() !== "cicd" && viewMode() !== "library" && viewMode() !== "rss" && viewMode() !== "settings" && viewMode() !== "tools" && viewMode() !== "bench" && viewMode() !== "passwords"}>
+        <Show when={viewMode() !== "notes" && viewMode() !== "ide" && viewMode() !== "flux" && viewMode() !== "email" && viewMode() !== "vps" && viewMode() !== "cicd" && viewMode() !== "library" && viewMode() !== "rss" && viewMode() !== "settings" && viewMode() !== "tools" && viewMode() !== "bench" && viewMode() !== "passwords"}>
           <CalendarGrid />
           <EventForm />
           <AiEventGenerator />

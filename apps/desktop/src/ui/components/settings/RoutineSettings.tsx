@@ -15,7 +15,6 @@ const NAVIGATE_VIEWS = [
   { value: "dashboard", label: "Tableau de bord" },
   { value: "flux", label: "Flux" },
   { value: "email", label: "Email" },
-  { value: "chat", label: "Chat" },
   { value: "rss", label: "RSS" },
   { value: "library", label: "Bibliotheque" },
 ];

@@ -234,7 +234,7 @@
       "Bash(cargo doc:*)",
       "Bash(./target/release/screenshot.exe --full --output /tmp/test-screenshot.png 2>&1)",
       "Skill(update-config)",
-      "Bash(cargo clippy:**)"
+      "Bash(pnpm --filter api exec tsc --noEmit)"
     ]
   }
 }
