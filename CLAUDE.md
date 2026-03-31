@@ -17,7 +17,6 @@ apps/
     src/           → SolidJS: stores, components, styles
     src-tauri/     → Rust: AI adapters, secrets KDBX, screenshot, pty, git, fs
   api/             → Backend Bun/Hono: agent tools, flux, analytics, deploy
-  mail-server/     → Docker mail stack (Postfix/Dovecot)
 tools/
   screenshot-cli/  → CLI Rust standalone pour capture d'ecran
 ```
