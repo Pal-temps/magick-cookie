@@ -20,7 +20,10 @@
     "mail:up": "docker compose -f apps/mail-server/docker-compose.yml up -d",
     "mail:down": "docker compose -f apps/mail-server/docker-compose.yml down",
     "mail:setup": "bash apps/mail-server/setup.sh",
-    "mail:up:prod": "docker compose -f apps/mail-server/docker-compose.yml -f apps/mail-server/docker-compose.prod.yml up -d"
+    "mail:up:prod": "docker compose -f apps/mail-server/docker-compose.yml -f apps/mail-server/docker-compose.prod.yml up -d",
+    "screenshot": "tools/screenshot-cli/target/release/screenshot.exe",
+    "screenshot:full": "tools/screenshot-cli/target/release/screenshot.exe --full -o screenshot.png",
+    "screenshot:build": "cd tools/screenshot-cli && cargo build --release"
   },
   "devDependencies": {
     "concurrently": "^9.2.1"
