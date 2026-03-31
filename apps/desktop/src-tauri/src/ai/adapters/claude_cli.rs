@@ -290,14 +290,32 @@ impl BackendAdapter for ClaudeCliAdapter {
     fn send_message(
         &mut self,
         content: String,
-        _images: Option<Vec<ImageData>>,
+        images: Option<Vec<ImageData>>,
     ) -> Result<(), String> {
         let child = self.process.as_mut().ok_or("No process running")?;
         let stdin = child.stdin.as_mut().ok_or("No stdin available")?;
 
+        // Build content: plain string or array with image blocks (Anthropic format)
+        let msg_content = if let Some(imgs) = images.filter(|v| !v.is_empty()) {
+            let mut blocks: Vec<serde_json::Value> = imgs.iter().map(|img| {
+                serde_json::json!({
+                    "type": "image",
+                    "source": {
+                        "type": "base64",
+                        "media_type": &img.media_type,
+                        "data": &img.data,
+                    }
+                })
+            }).collect();
+            blocks.push(serde_json::json!({ "type": "text", "text": &content }));
+            serde_json::json!(blocks)
+        } else {
+            serde_json::json!(content)
+        };
+
         let msg = serde_json::json!({
             "type": "user_message",
-            "content": content,
+            "content": msg_content,
         });
 
         let mut line = serde_json::to_string(&msg).map_err(|e| format!("JSON error: {e}"))?;
@@ -321,6 +339,31 @@ impl BackendAdapter for ClaudeCliAdapter {
             "type": "permission_response",
             "request_id": request_id,
             "behavior": if allowed { "allow" } else { "deny" },
+        });
+
+        let mut line = serde_json::to_string(&msg).map_err(|e| format!("JSON error: {e}"))?;
+        line.push('\n');
+
+        stdin.write_all(line.as_bytes()).map_err(|e| format!("Write error: {e}"))?;
+        stdin.flush().map_err(|e| format!("Flush error: {e}"))?;
+
+        Ok(())
+    }
+
+    fn send_tool_result(
+        &mut self,
+        tool_use_id: String,
+        content: String,
+        is_error: bool,
+    ) -> Result<(), String> {
+        let child = self.process.as_mut().ok_or("No process running")?;
+        let stdin = child.stdin.as_mut().ok_or("No stdin available")?;
+
+        let msg = serde_json::json!({
+            "type": "tool_result",
+            "tool_use_id": tool_use_id,
+            "content": content,
+            "is_error": is_error,
         });
 
         let mut line = serde_json::to_string(&msg).map_err(|e| format!("JSON error: {e}"))?;

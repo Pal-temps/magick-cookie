@@ -1,4 +1,4 @@
-import { Show, createSignal } from "solid-js";
+import { Show, For, createSignal } from "solid-js";
 import { marked } from "marked";
 import type { AiMessage } from "../../../application/stores/aiSessionStore";
 
@@ -21,6 +21,19 @@ export function AiMessageBubble(props: AiMessageBubbleProps) {
       >
         {/* User messages */}
         <Show when={msg().type === "user"}>
+          <Show when={msg().images && msg().images!.length > 0}>
+            <div class="cc-bubble__images">
+              <For each={msg().images!}>
+                {(img) => (
+                  <img
+                    src={`data:${img.media_type};base64,${img.data}`}
+                    alt="Screenshot"
+                    class="cc-bubble__image-thumb"
+                  />
+                )}
+              </For>
+            </div>
+          </Show>
           <div class="cc-bubble__content">{msg().content}</div>
         </Show>
 

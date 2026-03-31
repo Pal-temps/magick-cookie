@@ -28,6 +28,16 @@ pub trait BackendAdapter: Send {
         allowed: bool,
     ) -> Result<(), String>;
 
+    /// Send a tool result back to the AI (for built-in tools like screenshot).
+    fn send_tool_result(
+        &mut self,
+        _tool_use_id: String,
+        _content: String,
+        _is_error: bool,
+    ) -> Result<(), String> {
+        Ok(()) // Default no-op for providers that don't support tools
+    }
+
     /// Interrupt the current generation.
     fn interrupt(&mut self) -> Result<(), String>;
 

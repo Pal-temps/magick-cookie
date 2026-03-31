@@ -40,7 +40,7 @@ impl ApiProvider {
 #[derive(Debug, Clone, serde::Serialize)]
 struct ChatMessage {
     role: String,
-    content: String,
+    content: serde_json::Value, // String or array of content blocks (for images)
 }
 
 // ─── HTTP API Adapter ───
@@ -333,7 +333,7 @@ impl HttpApiAdapter {
             // Add assistant response to history for context in next turn
             if !accumulated_content.is_empty() {
                 if let Ok(mut h) = history.lock() {
-                    h.push(ChatMessage { role: "assistant".into(), content: accumulated_content });
+                    h.push(ChatMessage { role: "assistant".into(), content: serde_json::json!(accumulated_content) });
                 }
             }
         });
@@ -361,7 +361,7 @@ impl BackendAdapter for HttpApiAdapter {
     fn send_message(
         &mut self,
         content: String,
-        _images: Option<Vec<ImageData>>,
+        images: Option<Vec<ImageData>>,
     ) -> Result<(), String> {
         if !self.alive {
             return Err("Session not started".into());
@@ -371,10 +371,40 @@ impl BackendAdapter for HttpApiAdapter {
             .ok_or("Event channel not initialized — call start() first")?
             .clone();
 
+        // Build content: plain string or array with image blocks
+        let msg_content = if let Some(imgs) = images.filter(|v| !v.is_empty()) {
+            let mut blocks: Vec<serde_json::Value> = imgs.iter().map(|img| {
+                match self.provider {
+                    ApiProvider::Anthropic => serde_json::json!({
+                        "type": "image",
+                        "source": {
+                            "type": "base64",
+                            "media_type": &img.media_type,
+                            "data": &img.data,
+                        }
+                    }),
+                    ApiProvider::OpenAi | ApiProvider::LmStudio => serde_json::json!({
+                        "type": "image_url",
+                        "image_url": {
+                            "url": format!("data:{};base64,{}", img.media_type, img.data),
+                        }
+                    }),
+                    ApiProvider::Ollama => serde_json::json!({
+                        "type": "text",
+                        "text": "[image attached]"
+                    }),
+                }
+            }).collect();
+            blocks.push(serde_json::json!({ "type": "text", "text": &content }));
+            serde_json::json!(blocks)
+        } else {
+            serde_json::json!(content)
+        };
+
         // Add user message to history
         {
             let mut history = self.history.lock().map_err(|e| format!("Lock error: {e}"))?;
-            history.push(ChatMessage { role: "user".into(), content: content.clone() });
+            history.push(ChatMessage { role: "user".into(), content: msg_content });
         }
 
         // Stream the response in background

@@ -45,6 +45,7 @@ export interface AiMessage {
   seq: number;
   type: "user" | "assistant" | "system" | "tool_use" | "tool_result" | "permission_request" | "error";
   content: string;
+  images?: { media_type: string; data: string }[];
   toolName?: string;
   toolInput?: unknown;
   toolResult?: string;
@@ -339,6 +340,7 @@ export function useAiSessionStore() {
     addMessage(id, {
       id: nextMsgId(), seq: 0, type: "user",
       content,
+      images,
       timestamp: Date.now(),
     });
 

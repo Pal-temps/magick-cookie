@@ -1590,6 +1590,83 @@
   font-family: monospace;
 }
 
+/* ─── Screenshot button & preview ─── */
+
+.cc-composer__screenshot-btn {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all 0.15s;
+}
+.cc-composer__screenshot-btn:hover {
+  background: var(--bg-elevated);
+  color: var(--accent-primary);
+  border-color: var(--accent-primary);
+}
+.cc-composer__screenshot-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.cc-composer__screenshot-preview {
+  position: relative;
+  display: inline-block;
+  padding: 6px 8px 2px;
+}
+.cc-composer__screenshot-thumb {
+  max-width: 140px;
+  max-height: 90px;
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+  object-fit: cover;
+}
+.cc-composer__screenshot-remove {
+  position: absolute;
+  top: 0;
+  right: 2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+.cc-composer__screenshot-remove:hover {
+  background: var(--danger);
+  color: #fff;
+  border-color: var(--danger);
+}
+
+/* ─── Image thumbnails in bubbles ─── */
+
+.cc-bubble__images {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+.cc-bubble__image-thumb {
+  max-width: 200px;
+  max-height: 150px;
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+  object-fit: cover;
+}
+
 /* ─── Context Panel ─── */
 
 .cc-context-panel {

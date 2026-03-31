@@ -4,6 +4,7 @@ mod fs;
 mod git;
 mod notes;
 mod pty;
+mod screenshot;
 mod secrets;
 mod watcher;
 mod whisper;
@@ -245,6 +246,9 @@ pub fn run() {
             secrets::secrets_list_ssh_keys,
             secrets::secrets_get_ssh_private_key,
             secrets::secrets_export_ssh_key,
+            screenshot::capture_app_screenshot,
+            screenshot::capture_app_region,
+            screenshot::capture_screen_screenshot,
             open_detached_window,
         ])
         .on_window_event(|window, event| {

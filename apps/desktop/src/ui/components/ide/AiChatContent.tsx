@@ -31,7 +31,7 @@ export function AiChatContent(props: AiChatContentProps) {
   // Track whether project context has been injected for this session
   const [contextInjected, setContextInjected] = createSignal(false);
 
-  async function handleSend(content: string) {
+  async function handleSend(content: string, images?: { media_type: string; data: string }[]) {
     // Ensure this session is active
     if (ai.activeSessionId() !== props.sessionId) {
       ai.switchSession(props.sessionId);
@@ -48,7 +48,7 @@ export function AiChatContent(props: AiChatContentProps) {
       } catch { /* no context */ }
     }
 
-    await ai.sendMessage(content);
+    await ai.sendMessage(content, images);
   }
 
   function getActiveFileName(): string | null {

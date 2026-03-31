@@ -176,6 +176,77 @@ pub fn ai_start_session(
 
     std::thread::spawn(move || {
         for event in event_rx {
+            // ─── Built-in tool interception (screenshot) ───
+            if let AdapterEvent::ToolUse { ref id, ref name, ref input } = event {
+                if name == "screenshot" {
+                    // Emit the ToolUse event to frontend first (so it shows in the UI)
+                    {
+                        let mut mgr = match state_clone.lock() {
+                            Ok(m) => m,
+                            Err(_) => break,
+                        };
+                        if let Some(session) = mgr.get_session_mut(&sid) {
+                            let event_json = serde_json::to_string(&event).unwrap_or_default();
+                            let seq = session.event_buffer.push(event_json);
+                            let _ = app_handle.emit("ai-event", &AiEventPayload {
+                                session_id: sid.clone(), seq, event: event.clone(),
+                            });
+                        }
+                    }
+                    // Release lock, execute capture
+                    let tool_id = id.clone();
+                    let region = input.get("region");
+                    let result = if let Some(r) = region {
+                        let x = r.get("x").and_then(|v| v.as_u64()).unwrap_or(0) as u32;
+                        let y = r.get("y").and_then(|v| v.as_u64()).unwrap_or(0) as u32;
+                        let w = r.get("width").and_then(|v| v.as_u64()).unwrap_or(800) as u32;
+                        let h = r.get("height").and_then(|v| v.as_u64()).unwrap_or(600) as u32;
+                        crate::screenshot::capture_app_region(app_handle.clone(), x, y, w, h)
+                    } else {
+                        crate::screenshot::capture_app_screenshot(app_handle.clone())
+                    };
+
+                    // Send tool result back to adapter + emit to frontend
+                    let (content, is_error) = match result {
+                        Ok(img) => {
+                            // Return image as a JSON payload the AI can reference
+                            let json = serde_json::json!({
+                                "image": { "media_type": img.media_type, "data": img.data },
+                                "width_hint": "max 1280px, resized for AI",
+                            });
+                            (serde_json::to_string(&json).unwrap_or_default(), false)
+                        }
+                        Err(e) => (format!("Screenshot failed: {e}"), true),
+                    };
+
+                    {
+                        let mut mgr = match state_clone.lock() {
+                            Ok(m) => m,
+                            Err(_) => break,
+                        };
+                        if let Some(session) = mgr.get_session_mut(&sid) {
+                            // Send result to adapter (so AI continues)
+                            let _ = session.adapter.send_tool_result(
+                                tool_id.clone(), content.clone(), is_error,
+                            );
+                            // Emit ToolResult to frontend
+                            let result_event = AdapterEvent::ToolResult {
+                                tool_use_id: tool_id,
+                                content,
+                                is_error,
+                            };
+                            let ej = serde_json::to_string(&result_event).unwrap_or_default();
+                            let seq = session.event_buffer.push(ej);
+                            let _ = app_handle.emit("ai-event", &AiEventPayload {
+                                session_id: sid.clone(), seq, event: result_event,
+                            });
+                        }
+                    }
+                    continue; // Don't process this event further
+                }
+            }
+
+            // ─── Normal event forwarding ───
             let mut mgr = match state_clone.lock() {
                 Ok(m) => m,
                 Err(_) => break,
