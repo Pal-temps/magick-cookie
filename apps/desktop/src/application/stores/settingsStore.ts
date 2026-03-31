@@ -1,5 +1,6 @@
 import { createSignal } from "solid-js";
 import { DEFAULT_PREFERENCES, type UserPreferences } from "../../domain/models/UserPreferences";
+import { scheduleSyncToVault } from "../services/vaultSyncService";
 
 const STORAGE_KEY = "magick-cookie-preferences";
 
@@ -20,6 +21,8 @@ const [preferences, setPreferences] = createSignal<UserPreferences>(loadPreferen
 function persist(prefs: UserPreferences) {
   setPreferences(prefs);
   localStorage.setItem(STORAGE_KEY, JSON.stringify(prefs));
+  // Debounced sync to vault (sanitized, no secrets)
+  scheduleSyncToVault(prefs);
 }
 
 function patch<K extends keyof Omit<UserPreferences, "version">>(
@@ -73,6 +76,14 @@ export function useSettingsStore() {
   function getRss() { return preferences().rss ?? { retentionDays: 90 }; }
   function patchRss(update: Partial<UserPreferences["rss"]>) { patch("rss", update); }
 
+  // Workspace
+  function getWorkspace() { return preferences().workspace ?? { rootDirs: [], manualProjects: [], favorites: [], activeProjectPath: null }; }
+  function patchWorkspace(update: Partial<UserPreferences["workspace"]>) { patch("workspace", update); }
+
+  // Infrastructure (DNS, SSH, Git remotes)
+  function getInfra() { return preferences().infra ?? { ovhAppKey: "", ovhAppSecret: "", ovhConsumerKey: "", cfApiToken: "", githubToken: "", gitlabToken: "", gitlabUrl: "https://gitlab.com", servers: [] }; }
+  function patchInfra(update: Partial<UserPreferences["infra"]>) { patch("infra", update); }
+
   // Snapshot for sync
   function getSnapshot(): UserPreferences { return preferences(); }
 
@@ -92,6 +103,8 @@ export function useSettingsStore() {
     getVps, patchVps,
     getSidebar, patchSidebar,
     getRss, patchRss,
+    getWorkspace, patchWorkspace,
+    getInfra, patchInfra,
     getSnapshot,
     importFromSync,
   };

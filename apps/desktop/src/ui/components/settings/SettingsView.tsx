@@ -17,8 +17,9 @@ import { ShortcutSettings } from "./ShortcutSettings";
 import { DataSettings } from "./DataSettings";
 import { ConnectorSettings } from "./ConnectorSettings";
 import { RssSettings } from "./RssSettings";
+import { InfraSettings } from "./InfraSettings";
 
-type SettingsTab = "theme" | "llm" | "focus" | "connectors" | "github" | "brief" | "vps" | "bookmarks" | "projects" | "routines" | "webhooks" | "caldav" | "email-rules" | "habits" | "shortcuts" | "rss" | "data";
+type SettingsTab = "theme" | "llm" | "focus" | "connectors" | "github" | "brief" | "vps" | "bookmarks" | "projects" | "routines" | "webhooks" | "caldav" | "email-rules" | "habits" | "shortcuts" | "rss" | "infra" | "data";
 
 export function SettingsView() {
   const { settingsTab, setSettingsTab } = useViewStore();
@@ -49,6 +50,7 @@ export function SettingsView() {
     { id: "connectors", label: "Connecteurs" },
     { id: "github", label: "GitHub" },
     { id: "vps", label: "VPS" },
+    { id: "infra", label: "Infrastructure" },
     { id: "data", label: "Donnees" },
   ];
 
@@ -142,6 +144,9 @@ export function SettingsView() {
         </Show>
         <Show when={tab() === "vps"}>
           <VpsSettings />
+        </Show>
+        <Show when={tab() === "infra"}>
+          <InfraSettings />
         </Show>
         <Show when={tab() === "data"}>
           <DataSettings />

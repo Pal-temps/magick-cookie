@@ -86,8 +86,10 @@ export function AiMessageFeed(props: AiMessageFeedProps) {
       </Show>
 
       <Show when={props.session.isStreaming && !props.session.streamingContent}>
-        <div style={{ color: "var(--accent-primary)", "font-size": "12px", padding: "8px" }}>
-          Reflexion en cours...
+        <div class="cc-thinking-indicator">
+          <span class="cc-thinking-indicator__dot" />
+          <span class="cc-thinking-indicator__dot" />
+          <span class="cc-thinking-indicator__dot" />
         </div>
       </Show>
 

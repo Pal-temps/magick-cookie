@@ -9,6 +9,7 @@ interface EditorTabsProps {
   onCloseOthers: (id: string) => void;
   onCloseAll: () => void;
   onCopyPath: (path: string) => void;
+  displayNames?: Map<string, string>;
 }
 
 export function EditorTabs(props: EditorTabsProps) {
@@ -41,7 +42,7 @@ export function EditorTabs(props: EditorTabsProps) {
             <Show when={tab.source === "snippet"}>
               <span class="ide-tab__icon" title="Snippet">S</span>
             </Show>
-            <span class="ide-tab__name">{tab.name}</span>
+            <span class="ide-tab__name">{props.displayNames?.get(tab.id) ?? tab.name}</span>
             <Show when={tab.isDirty}>
               <span class="ide-tab__dirty" title="Non sauvegarde" />
             </Show>

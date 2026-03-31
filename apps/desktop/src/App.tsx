@@ -1,4 +1,4 @@
-import { onMount, onCleanup, createEffect, Show } from "solid-js";
+import { onMount, onCleanup, createEffect, createSignal, Show } from "solid-js";
 import { AppLayout } from "./ui/layouts/AppLayout";
 import { DesktopWidgets } from "./ui/layouts/DesktopWidgets";
 import { CalendarGrid } from "./ui/components/calendar/CalendarGrid";
@@ -16,6 +16,7 @@ import { CiCdView } from "./ui/components/github/CiCdView";
 import { SettingsView } from "./ui/components/settings/SettingsView";
 import { ToolsView } from "./ui/components/tools/ToolsView";
 import { BenchView } from "./ui/components/bench/BenchView";
+import { PasswordsView } from "./ui/components/passwords/PasswordsView";
 import { useCalendarStore } from "./application/stores/calendarStore";
 import { useViewStore } from "./application/stores/viewStore";
 import { useWellnessStore } from "./application/stores/wellnessStore";
@@ -41,11 +42,25 @@ import { ConfirmDialog } from "./ui/components/common/ConfirmDialog";
 import { AiActivityIndicator } from "./ui/components/common/AiActivityIndicator";
 import { QuickCapture } from "./ui/components/capture/QuickCapture";
 import { initNotifications, notify } from "./infrastructure/tauri/notifications";
+import { ensureVaultStructure, syncConfigsToVault } from "./application/services/vaultSyncService";
+import { VaultUnlock } from "./ui/components/common/VaultUnlock";
 import { connectSSE } from "./infrastructure/api/sseClient";
 import { listen } from "@tauri-apps/api/event";
 import { useOfflineQueue } from "./infrastructure/offline/offlineQueue";
 
 export function App() {
+  const [vaultReady, setVaultReady] = createSignal(false);
+  const [vaultAnimating, setVaultAnimating] = createSignal(false);
+
+  function handleVaultUnlocked() {
+    setVaultAnimating(true);
+    // Wait for fly animation to finish (0.7s), then show the app
+    setTimeout(() => {
+      setVaultReady(true);
+      setVaultAnimating(false);
+    }, 750);
+  }
+
   const { fetchCalendars, fetchEvents, fetchContacts, openCreateForm, setAlarmGetter } = useCalendarStore();
   const { fetchTasks } = useTaskStore();
   const { currentDate, viewMode, setViewMode, goToToday } = useViewStore();
@@ -184,6 +199,17 @@ export function App() {
     await initNotifications();
     startSmartReminders();
     autoSetupLlm();
+
+    // Vault: scaffold structure + sync configs (non-secret prefs)
+    ensureVaultStructure().catch(() => {});
+    try {
+      const prefs = JSON.parse(localStorage.getItem("magick-cookie-preferences") ?? "{}");
+      if (prefs.version) syncConfigsToVault(prefs).catch(() => {});
+    } catch {}
+
+    // Secrets: sync app secrets to backend (done after vault unlock in VaultUnlock callback)
+    // The old inline sync is replaced by secretsStore.syncAppSecretsToBackend()
+
     await fetchConfigs();
     fetchTodayLogs();
     startAll();
@@ -242,6 +268,12 @@ export function App() {
 
   return (
     <>
+    {/* Vault unlock gate — animates to lock icon when unlocked */}
+    <Show when={!vaultReady()}>
+      <VaultUnlock onUnlocked={handleVaultUnlocked} animating={vaultAnimating()} />
+    </Show>
+
+    <Show when={vaultReady()}>
     <CommandPalette />
     <FocusOverlay />
     <QuickCapture />
@@ -285,12 +317,16 @@ export function App() {
         <Show when={viewMode() === "bench"}>
           <BenchView />
         </Show>
-        <Show when={viewMode() !== "notes" && viewMode() !== "ide" && viewMode() !== "flux" && viewMode() !== "email" && viewMode() !== "chat" && viewMode() !== "vps" && viewMode() !== "cicd" && viewMode() !== "library" && viewMode() !== "rss" && viewMode() !== "settings" && viewMode() !== "tools" && viewMode() !== "bench"}>
+        <Show when={viewMode() === "passwords"}>
+          <PasswordsView />
+        </Show>
+        <Show when={viewMode() !== "notes" && viewMode() !== "ide" && viewMode() !== "flux" && viewMode() !== "email" && viewMode() !== "chat" && viewMode() !== "vps" && viewMode() !== "cicd" && viewMode() !== "library" && viewMode() !== "rss" && viewMode() !== "settings" && viewMode() !== "tools" && viewMode() !== "bench" && viewMode() !== "passwords"}>
           <CalendarGrid />
           <EventForm />
           <AiEventGenerator />
         </Show>
       </AppLayout>
+    </Show>
     </Show>
     </>
   );

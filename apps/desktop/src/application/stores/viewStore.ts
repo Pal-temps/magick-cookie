@@ -6,6 +6,7 @@ const [navTick, setNavTick] = createSignal(0);
 const [currentDate, setCurrentDate] = createSignal(new Date());
 const [selectedDate, setSelectedDate] = createSignal<Date | null>(null);
 const [settingsTab, setSettingsTab] = createSignal<string | null>(null);
+const [sidebarVisible, setSidebarVisible] = createSignal(true);
 
 function setViewMode(mode: ViewMode) {
   setViewModeRaw(mode);
@@ -61,10 +62,13 @@ export function useViewStore() {
     setCurrentDate(new Date());
   }
 
+  function toggleSidebar() { setSidebarVisible((v) => !v); }
+
   return {
     viewMode, setViewMode, navTick, settingsTab, setSettingsTab, openSettings,
     currentDate, setCurrentDate,
     selectedDate, setSelectedDate,
     navigatePrev, navigateNext, goToToday,
+    sidebarVisible, toggleSidebar,
   };
 }

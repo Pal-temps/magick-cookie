@@ -4,6 +4,8 @@ mod fs;
 mod git;
 mod notes;
 mod pty;
+mod secrets;
+mod watcher;
 mod whisper;
 
 use tauri::{
@@ -12,6 +14,33 @@ use tauri::{
     Emitter, Manager,
 };
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut};
+
+/// Open a detached window (terminal or AI session).
+#[tauri::command]
+async fn open_detached_window(
+    app: tauri::AppHandle,
+    label: String,
+    title: String,
+    route: String,
+) -> Result<(), String> {
+    use tauri::WebviewWindowBuilder;
+
+    // If window already exists, focus it
+    if let Some(win) = app.get_webview_window(&label) {
+        let _ = win.set_focus();
+        return Ok(());
+    }
+
+    let url = format!("index.html#{}", route);
+    WebviewWindowBuilder::new(&app, &label, tauri::WebviewUrl::App(url.into()))
+        .title(&title)
+        .inner_size(800.0, 600.0)
+        .min_inner_size(400.0, 300.0)
+        .build()
+        .map_err(|e| format!("Failed to create window: {e}"))?;
+
+    Ok(())
+}
 
 /// Restore the main window: exit desktop mode, show, and focus.
 fn restore_main_window(app: &tauri::AppHandle) {
@@ -35,10 +64,14 @@ pub fn run() {
     let session_manager: ai::session_manager::SharedSessionManager =
         std::sync::Arc::new(std::sync::Mutex::new(ai::session_manager::SessionManager::new()));
     let pty_store: std::sync::Arc<pty::PtyStore> = pty::new_pty_store();
+    let watcher_state: watcher::SharedWatcher = watcher::new_shared_watcher();
+    let secrets_state: secrets::SharedSecrets = std::sync::Mutex::new(secrets::SecretsState::new());
 
     tauri::Builder::default()
         .manage(session_manager)
         .manage(pty_store)
+        .manage(watcher_state)
+        .manage(secrets_state)
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_dialog::init())
@@ -159,14 +192,18 @@ pub fn run() {
             notes::notes_git_status,
             notes::notes_git_pull,
             notes::notes_git_push,
-            notes::notes_ssh_status,
-            notes::notes_ssh_generate,
+            // notes_ssh_status and notes_ssh_generate removed — SSH keys are now in the KDBX vault
+            notes::vault_ensure_structure,
+            notes::vault_read_json,
+            notes::vault_write_json,
+            notes::vault_list_section,
             fs::fs_list_dir,
             fs::fs_read_file,
             fs::fs_write_file,
             fs::fs_delete,
             fs::fs_create_dir,
             fs::fs_rename,
+            fs::fs_scan_projects,
             git::git_is_repo,
             git::git_status,
             git::git_diff,
@@ -191,6 +228,24 @@ pub fn run() {
             pty::pty_write,
             pty::pty_resize,
             pty::pty_kill,
+            watcher::fs_watch_start,
+            watcher::fs_watch_stop,
+            secrets::secrets_init,
+            secrets::secrets_lock,
+            secrets::secrets_is_unlocked,
+            secrets::secrets_list,
+            secrets::secrets_get,
+            secrets::secrets_set,
+            secrets::secrets_delete,
+            secrets::secrets_search,
+            secrets::secrets_groups,
+            secrets::secrets_get_app_secret,
+            secrets::secrets_set_app_secret,
+            secrets::secrets_generate_ssh_key,
+            secrets::secrets_list_ssh_keys,
+            secrets::secrets_get_ssh_private_key,
+            secrets::secrets_export_ssh_key,
+            open_detached_window,
         ])
         .on_window_event(|window, event| {
             // X button → enter desktop mode (Rainmeter-style background widgets)

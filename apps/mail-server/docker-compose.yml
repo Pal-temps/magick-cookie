@@ -2,8 +2,8 @@ services:
   mailserver:
     image: ghcr.io/docker-mailserver/docker-mailserver:latest
     container_name: magick-cookie-mail
-    hostname: mail.localhost
-    domainname: localhost
+    hostname: mail.paltemps.fr
+    domainname: paltemps.fr
     restart: unless-stopped
     ports:
       - "1025:25"    # SMTP
@@ -16,7 +16,7 @@ services:
       - mail-logs:/var/log/mail
       - ./config/:/tmp/docker-mailserver/
     environment:
-      - OVERRIDE_HOSTNAME=mail.localhost
+      - OVERRIDE_HOSTNAME=mail.paltemps.fr
       - PERMIT_DOCKER=network
       - SSL_TYPE=self-signed
       - ONE_DIR=1

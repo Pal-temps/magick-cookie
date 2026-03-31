@@ -53,8 +53,24 @@ function saveHidden(hidden: Set<WidgetId>) {
   settings.patchDashboard({ hiddenWidgets: [...hidden] });
 }
 
+function loadPinned(): WidgetId[] {
+  try {
+    const ids = settings.getDashboard().pinnedWidgets;
+    if (ids?.length > 0) {
+      const known = new Set<string>(WIDGET_IDS);
+      return ids.filter((id) => known.has(id)) as WidgetId[];
+    }
+  } catch {}
+  return [];
+}
+
+function savePinned(ids: WidgetId[]) {
+  settings.patchDashboard({ pinnedWidgets: ids });
+}
+
 const [widgetOrder, setWidgetOrder] = createSignal<WidgetId[]>(loadOrder());
 const [hiddenWidgets, setHiddenWidgets] = createSignal<Set<WidgetId>>(loadHidden());
+const [pinnedWidgets, setPinnedWidgets] = createSignal<WidgetId[]>(loadPinned());
 
 export function useDashboardStore() {
   function reorderWidget(fromId: WidgetId, toId: WidgetId) {
@@ -87,11 +103,34 @@ export function useDashboardStore() {
     saveHidden(new Set<WidgetId>());
   }
 
+  function pinWidget(id: WidgetId) {
+    const current = pinnedWidgets();
+    if (!current.includes(id)) {
+      const next = [...current, id];
+      setPinnedWidgets(next);
+      savePinned(next);
+    }
+  }
+
+  function unpinWidget(id: WidgetId) {
+    const next = pinnedWidgets().filter((w) => w !== id);
+    setPinnedWidgets(next);
+    savePinned(next);
+  }
+
+  function isPinned(id: WidgetId): boolean {
+    return pinnedWidgets().includes(id);
+  }
+
   return {
     widgetOrder,
     hiddenWidgets,
+    pinnedWidgets,
     reorderWidget,
     toggleWidget,
     resetLayout,
+    pinWidget,
+    unpinWidget,
+    isPinned,
   };
 }

@@ -5,10 +5,12 @@ const WINDOW_SIZE: usize = 50;
 
 /// Rolling hash window for message deduplication.
 /// Prevents duplicate messages on reconnect (pattern from Companion).
+#[allow(dead_code)]
 pub struct DedupState {
     recent_hashes: VecDeque<u64>,
 }
 
+#[allow(dead_code)]
 impl DedupState {
     pub fn new() -> Self {
         Self {

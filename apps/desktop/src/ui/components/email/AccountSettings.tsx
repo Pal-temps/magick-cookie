@@ -18,7 +18,7 @@ const PRESETS: Record<string, { imapHost: string; imapPort: number; smtpHost: st
   Apple: { imapHost: "imap.mail.me.com", imapPort: 993, smtpHost: "smtp.mail.me.com", smtpPort: 587, smtpSecure: false },
   "Proton Bridge": { imapHost: "127.0.0.1", imapPort: 1143, smtpHost: "127.0.0.1", smtpPort: 1025, smtpSecure: false },
   OVH: { imapHost: "imap.mail.ovh.net", imapPort: 993, smtpHost: "ssl0.ovh.net", smtpPort: 465, smtpSecure: true },
-  "Self-hosted": { imapHost: "localhost", imapPort: 1993, smtpHost: "localhost", smtpPort: 1587, smtpSecure: false, selfSigned: true },
+  "Self-hosted": { imapHost: "mail.paltemps.fr", imapPort: 1993, smtpHost: "mail.paltemps.fr", smtpPort: 1587, smtpSecure: false, selfSigned: true },
 };
 
 const EMAIL_DOMAIN_PRESET: Record<string, string> = {
@@ -34,6 +34,7 @@ const EMAIL_DOMAIN_PRESET: Record<string, string> = {
   "mac.com": "Apple",
   "ovh.net": "OVH",
   "ovh.com": "OVH",
+  "paltemps.fr": "Self-hosted",
 };
 
 export function AccountSettings(props: AccountSettingsProps) {

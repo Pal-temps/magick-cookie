@@ -139,6 +139,37 @@
   white-space: nowrap;
 }
 
+.dashboard-card-pin {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: var(--text-muted);
+  opacity: 0;
+  transition: opacity 150ms ease, background 150ms ease, color 150ms ease;
+  flex-shrink: 0;
+}
+
+.dashboard-card:hover .dashboard-card-pin {
+  opacity: 0.6;
+}
+
+.dashboard-card-pin:hover {
+  opacity: 1 !important;
+  background: color-mix(in srgb, var(--accent-primary) 15%, transparent);
+  color: var(--accent-primary);
+}
+
+.dashboard-card-pin--active {
+  opacity: 1 !important;
+  color: var(--accent-primary);
+}
+
 .dashboard-card-body {
   padding: 16px;
 }

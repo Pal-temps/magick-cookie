@@ -50,7 +50,7 @@ export class DrizzleAgentMemoryRepository implements AgentMemoryRepository {
   }
 
   async deleteExpired(): Promise<number> {
-    const now = new Date();
+    const now = new Date().toISOString();
     const rows = await this.db.delete(agentMemory)
       .where(and(
         sql`${agentMemory.expiresAt} IS NOT NULL`,

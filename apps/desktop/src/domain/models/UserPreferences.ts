@@ -6,7 +6,7 @@ export interface UserPreferences {
     schedule: { darkStart: number; darkEnd: number };
   };
   focus: { enabled: boolean };
-  dashboard: { widgetOrder: string[]; hiddenWidgets: string[] };
+  dashboard: { widgetOrder: string[]; hiddenWidgets: string[]; pinnedWidgets: string[] };
   shortcuts: { custom: [string, string][] };
   brief: {
     customTemplates: { id: string; name: string; prompt: string }[];
@@ -16,7 +16,21 @@ export interface UserPreferences {
   vps: { notificationsEnabled: boolean };
   sidebar: { sectionOrder: string[] };
   rss: { retentionDays: number };
+  workspace: {
+    rootDirs: string[];
+    manualProjects: string[];
+    favorites: string[];
+    activeProjectPath: string | null;
+  };
+  infra: {
+    // Secrets (ovhAppKey, cfApiToken, githubToken, etc.) are now in the KDBX vault
+    gitlabUrl: string;
+    servers: { id: string; label: string; host: string; port: number; user: string; authMethod: "key" | "password" }[];
+    // keyPath and passwords are in the KDBX vault
+  };
 }
+
+// Secrets are now stored in the KDBX vault, not in UserPreferences
 
 export const DEFAULT_PREFERENCES: UserPreferences = {
   version: 1,
@@ -33,6 +47,7 @@ export const DEFAULT_PREFERENCES: UserPreferences = {
       "vps", "analytics",
     ],
     hiddenWidgets: [],
+    pinnedWidgets: [],
   },
   shortcuts: { custom: [] },
   brief: { customTemplates: [], activeTemplateId: "standup-fr" },
@@ -40,4 +55,14 @@ export const DEFAULT_PREFERENCES: UserPreferences = {
   vps: { notificationsEnabled: true },
   sidebar: { sectionOrder: ["favoris", "filtres", "contacts", "taches"] },
   rss: { retentionDays: 90 },
+  workspace: {
+    rootDirs: [],
+    manualProjects: [],
+    favorites: [],
+    activeProjectPath: null,
+  },
+  infra: {
+    gitlabUrl: "https://gitlab.com",
+    servers: [],
+  },
 };

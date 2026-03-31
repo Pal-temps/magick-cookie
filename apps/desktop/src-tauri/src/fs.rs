@@ -104,3 +104,61 @@ pub fn fs_create_dir(path: String) -> Result<(), String> {
 pub fn fs_rename(old_path: String, new_path: String) -> Result<(), String> {
     std::fs::rename(&old_path, &new_path).map_err(|e| format!("rename error: {e}"))
 }
+
+// ─── Workspace project scanning ───
+
+#[derive(Debug, Serialize)]
+pub struct ProjectEntry {
+    pub path: String,
+    pub name: String,
+    pub markers: Vec<String>,
+}
+
+const DEFAULT_MARKERS: &[&str] = &[
+    ".git",
+    "package.json",
+    "Cargo.toml",
+    "go.mod",
+    "pyproject.toml",
+    "pom.xml",
+    "build.gradle",
+    ".project",
+];
+
+#[tauri::command]
+pub fn fs_scan_projects(root_dirs: Vec<String>) -> Result<Vec<ProjectEntry>, String> {
+    let mut projects = Vec::new();
+
+    for root in &root_dirs {
+        let root_path = PathBuf::from(root);
+        if !root_path.is_dir() {
+            continue;
+        }
+
+        let entries = std::fs::read_dir(&root_path).map_err(|e| format!("scan error: {e}"))?;
+
+        for entry in entries.flatten() {
+            if !entry.metadata().map(|m| m.is_dir()).unwrap_or(false) {
+                continue;
+            }
+
+            let child_path = entry.path();
+            let mut markers = Vec::new();
+
+            for marker in DEFAULT_MARKERS {
+                if child_path.join(marker).exists() {
+                    markers.push(marker.to_string());
+                }
+            }
+
+            if !markers.is_empty() {
+                let name = entry.file_name().to_string_lossy().to_string();
+                let path = child_path.to_string_lossy().to_string().replace('\\', "/");
+                projects.push(ProjectEntry { path, name, markers });
+            }
+        }
+    }
+
+    projects.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+    Ok(projects)
+}

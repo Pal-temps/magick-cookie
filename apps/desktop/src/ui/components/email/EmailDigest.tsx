@@ -41,7 +41,7 @@ export function EmailDigest(props: EmailDigestProps) {
   const store = useEmailStore();
   const notes = useNotesStore();
 
-  const [deletingGroup, setDeletingGroup] = createSignal<string | null>(null);
+  const [deletingGroups, setDeletingGroups] = createSignal<Set<string>>(new Set());
   const [generatingReport, setGeneratingReport] = createSignal(false);
 
   onMount(() => store.fetchDigest());
@@ -52,13 +52,13 @@ export function EmailDigest(props: EmailDigestProps) {
     );
     if (!confirmed) return;
 
-    setDeletingGroup(sender);
+    setDeletingGroups((prev) => new Set([...prev, sender]));
     try {
       await store.deleteSenderFromDigest(sender, emailIds);
     } catch (err) {
       console.error(`Failed to delete emails from ${sender}:`, err);
     } finally {
-      setDeletingGroup(null);
+      setDeletingGroups((prev) => { const next = new Set(prev); next.delete(sender); return next; });
     }
   }
 
@@ -199,12 +199,12 @@ export function EmailDigest(props: EmailDigestProps) {
                           }}>
                             {entry.count}
                           </span>
-                          <Show when={deletingGroup() === entry.sender} fallback={
+                          <Show when={deletingGroups().has(entry.sender)} fallback={
                             <Button
                               variant="danger"
                               size="sm"
                               onClick={() => handleDeleteGroup(entry.sender, entry.emailIds, entry.count)}
-                              disabled={deletingGroup() !== null}
+                              disabled={deletingGroups().has(entry.sender)}
                             >
                               Supprimer
                             </Button>

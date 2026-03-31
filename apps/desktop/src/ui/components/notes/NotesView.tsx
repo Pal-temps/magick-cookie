@@ -21,10 +21,7 @@ export function NotesView() {
   const [showSettings, setShowSettings] = createSignal(false);
   const [settingsPath, setSettingsPath] = createSignal("");
   const [settingsRemote, setSettingsRemote] = createSignal("");
-  const [generatedPubkey, setGeneratedPubkey] = createSignal<string | null>(null);
-  const [sshError, setSshError] = createSignal<string | null>(null);
-  const [isGenerating, setIsGenerating] = createSignal(false);
-  const [copied, setCopied] = createSignal(false);
+  // SSH management removed — keys are in KDBX vault, managed via Coffre > Cles SSH
   const [isLoadingExcalidraw, setIsLoadingExcalidraw] = createSignal(false);
   const [sidebarOpen, setSidebarOpen] = createSignal(false);
 
@@ -51,7 +48,7 @@ export function NotesView() {
 
   onMount(async () => {
     const cfg = await store.loadConfig();
-    await store.checkSshKey();
+    // SSH key check removed — keys are in KDBX vault
     if (cfg) {
       await store.fetchAll();
       await store.refreshGitStatus();
@@ -149,24 +146,10 @@ export function NotesView() {
     await store.refreshGitStatus();
   }
 
-  async function handleGenerateSshKey() {
-    setIsGenerating(true);
-    setSshError(null);
-    try { setGeneratedPubkey(await store.generateSshKey()); }
-    catch (e: any) { setSshError(e?.message || String(e)); }
-    finally { setIsGenerating(false); }
-  }
-
-  async function handleCopyPubkey() {
-    const key = generatedPubkey();
-    if (!key) return;
-    try { await navigator.clipboard.writeText(key); setCopied(true); setTimeout(() => setCopied(false), 3000); } catch {}
-  }
-
   function openSettings() {
     const cfg = store.config();
     if (cfg) { setSettingsPath(cfg.path); setSettingsRemote(cfg.remote); }
-    setGeneratedPubkey(null); setSshError(null); store.checkSshKey(); setShowSettings(true);
+    setShowSettings(true);
   }
 
   // ─── Context menu ───
@@ -278,34 +261,23 @@ export function NotesView() {
             <label style={{ "font-size": "12px", color: "var(--text-secondary)", "font-weight": "500" }}>Remote Git (optionnel)</label>
             <input type="text" value={settingsRemote()} onInput={(e) => setSettingsRemote(e.currentTarget.value)} placeholder="git@gitlab.com:user/notes.git" style={inputStyle()} />
           </div>
-          {/* SSH */}
+          {/* SSH Key selection (from KDBX vault) */}
           <div style={{ display: "flex", "flex-direction": "column", gap: "10px", padding: "14px", background: "var(--bg-elevated)", "border-radius": "var(--radius-md)", border: "1px solid var(--border-color)" }}>
-            <div style={{ display: "flex", "align-items": "center", "justify-content": "space-between" }}>
-              <div>
-                <div style={{ "font-size": "13px", "font-weight": "600", color: "var(--text-primary)" }}>Cle SSH dediee</div>
-                <div style={{ "font-size": "11px", color: "var(--text-muted)", "margin-top": "2px" }}>Genere une cle SSH utilisee uniquement par Magick Cookie.</div>
-              </div>
-              <Show when={store.sshKeyExists()}>
-                <span style={{ "font-size": "10px", padding: "2px 8px", "border-radius": "var(--radius-sm)", background: "var(--cal-green)", color: "#fff" }}>Cle configuree</span>
-              </Show>
+            <div>
+              <div style={{ "font-size": "13px", "font-weight": "600", color: "var(--text-primary)" }}>Cle SSH pour le sync</div>
+              <div style={{ "font-size": "11px", color: "var(--text-muted)", "margin-top": "2px" }}>Selectionnez une cle SSH du coffre-fort pour les operations Git.</div>
             </div>
-            <Show when={!store.sshKeyExists() && !generatedPubkey()}>
-              <Button size="sm" variant="primary" onClick={handleGenerateSshKey} disabled={isGenerating()}>{isGenerating() ? "Generation..." : "Generer une cle SSH"}</Button>
-            </Show>
-            <Show when={sshError()}><div style={{ "font-size": "12px", color: "var(--cal-red)", padding: "6px 10px", background: "rgba(239,68,68,0.1)", "border-radius": "var(--radius-sm)" }}>{sshError()}</div></Show>
-            <Show when={generatedPubkey()}>
-              <div style={{ display: "flex", "flex-direction": "column", gap: "8px", padding: "12px", background: "var(--bg-base)", "border-radius": "var(--radius-sm)", border: "1px solid var(--cal-orange)" }}>
-                <div style={{ "font-size": "12px", "font-weight": "600", color: "var(--cal-orange)" }}>IMPORTANT : Copiez cette cle publique maintenant</div>
-                <textarea readOnly value={generatedPubkey()!} onClick={(e) => e.currentTarget.select()} style={{ width: "100%", padding: "8px", "font-family": "monospace", "font-size": "11px", background: "var(--bg-elevated)", color: "var(--text-primary)", border: "1px solid var(--border-color)", "border-radius": "var(--radius-sm)", resize: "none", height: "60px", outline: "none" }} />
-                <div style={{ display: "flex", gap: "8px" }}>
-                  <Button size="sm" variant="primary" onClick={handleCopyPubkey}>{copied() ? "Copie !" : "Copier"}</Button>
-                  <Button size="sm" variant="ghost" onClick={() => setGeneratedPubkey(null)}>J'ai copie, fermer</Button>
-                </div>
-              </div>
-            </Show>
-            <Show when={store.sshKeyExists() && !generatedPubkey()}>
-              <div style={{ "font-size": "11px", color: "var(--text-muted)" }}>Cle deja configuree. Les operations Git l'utiliseront automatiquement.</div>
-            </Show>
+            <select
+              style={{ padding: "7px 10px", "font-size": "13px", background: "var(--bg-base)", border: "1px solid var(--border-color)", "border-radius": "var(--radius-sm)", color: "var(--text-primary)", outline: "none" }}
+              value={store.sshKeyName() ?? ""}
+              onChange={(e) => store.selectSshKey(e.currentTarget.value || null)}
+            >
+              <option value="">Aucune (pas de SSH)</option>
+              {/* The keys will be populated by the caller after loading from secrets_list_ssh_keys */}
+            </select>
+            <div style={{ "font-size": "11px", color: "var(--text-muted)" }}>
+              Generez et gerez vos cles SSH dans Coffre &gt; Cles SSH.
+            </div>
           </div>
           <div style={{ display: "flex", gap: "8px", "align-items": "center" }}>
             <Button variant="primary" onClick={handleSaveSettings}>Enregistrer</Button>

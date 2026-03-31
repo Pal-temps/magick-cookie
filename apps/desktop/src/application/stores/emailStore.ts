@@ -71,6 +71,8 @@ export interface EmailDigest {
 
 const [digest, setDigest] = createSignal<EmailDigest | null>(null);
 const [digestLoading, setDigestLoading] = createSignal(false);
+const [digestSummary, setDigestSummary] = createSignal<string>("");
+const [digestSummaryLoading, setDigestSummaryLoading] = createSignal(false);
 
 export function useEmailStore() {
   async function fetchAccounts() {
@@ -275,13 +277,40 @@ export function useEmailStore() {
   async function fetchDigest(days: number = 7) {
     setDigestLoading(true);
     try {
-      const data = await api.get<EmailDigest>(`/emails/digest?days=${days}`);
+      const data = await api.get<EmailDigest>(`/emails/digest?days=${days}&summary=true`);
       setDigest(data);
     } catch (err) {
       console.error("Failed to fetch email digest:", err);
       setDigest(null);
     } finally {
       setDigestLoading(false);
+    }
+  }
+
+  async function fetchInlineDigest(days: number = 7) {
+    setDigestLoading(true);
+    setDigestSummary("");
+    setDigestSummaryLoading(true);
+    try {
+      // Fast call: structured data only (no LLM)
+      const structData = api.get<EmailDigest>(`/emails/digest?days=${days}`);
+      // Slow call: with LLM summary
+      const summaryData = api.get<EmailDigest>(`/emails/digest?days=${days}&summary=true`);
+
+      // Structure arrives first → display groups immediately
+      const fast = await structData;
+      setDigest(fast);
+      setDigestLoading(false);
+
+      // Summary arrives later → replace loader
+      const slow = await summaryData;
+      setDigestSummary(slow.summary);
+    } catch (err) {
+      console.error("Failed to fetch inline digest:", err);
+      setDigest(null);
+    } finally {
+      setDigestLoading(false);
+      setDigestSummaryLoading(false);
     }
   }
 
@@ -300,17 +329,17 @@ export function useEmailStore() {
   }
 
   async function deleteSenderFromDigest(sender: string, emailIds: string[]): Promise<void> {
-    await bulkDeleteEmails(emailIds);
-    // Remove sender group from digest
+    // Optimistic: remove sender card from digest immediately
     setDigest((prev) => {
       if (!prev) return null;
-      const updated = {
+      return {
         ...prev,
         bySender: prev.bySender.filter((s) => s.sender !== sender),
         totalUnread: prev.totalUnread - emailIds.length,
       };
-      return updated;
     });
+    // API call in background — UI already updated
+    await bulkDeleteEmails(emailIds);
     await fetchUnreadCount();
   }
 
@@ -352,9 +381,9 @@ export function useEmailStore() {
     emails, accounts, selectedEmail, activeAccountId, activeFolder,
     isLoading, isSyncing, isDeleting, unreadCount, isStale,
     focusedIndex, emailSummary, summaryLoading,
-    digest, digestLoading,
+    digest, digestLoading, digestSummary, digestSummaryLoading,
     setActiveAccountId, setActiveFolder, setSelectedEmail, setFocusedIndex, setEmailSummary,
-    fetchAccounts, fetchEmails, fetchUnreadCount, fetchDigest,
+    fetchAccounts, fetchEmails, fetchUnreadCount, fetchDigest, fetchInlineDigest,
     selectEmail, toggleStar, archiveEmail, deleteEmail,
     syncEmails, addAccount, removeAccount, testConnection,
     moveFocus, selectFocused, toggleReadStatus, summarizeEmail,

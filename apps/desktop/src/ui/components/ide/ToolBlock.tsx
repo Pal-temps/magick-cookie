@@ -6,68 +6,106 @@ interface ToolBlockProps {
   result?: AiMessage;
 }
 
-function toolIconClass(name: string): string {
-  const n = name.toLowerCase();
-  if (n.includes("read") || n === "glob" || n === "grep") return "ide-tool-block__icon--read";
-  if (n.includes("write") || n === "edit") return "ide-tool-block__icon--write";
-  if (n === "bash" || n.includes("terminal")) return "ide-tool-block__icon--bash";
-  if (n.includes("edit")) return "ide-tool-block__icon--edit";
-  return "ide-tool-block__icon--default";
-}
-
 function toolIcon(name: string): string {
   const n = name.toLowerCase();
   if (n.includes("read") || n === "glob" || n === "grep") return "R";
   if (n.includes("write")) return "W";
   if (n === "bash" || n.includes("terminal")) return "$";
   if (n.includes("edit")) return "E";
+  if (n.includes("agent")) return "A";
   return "T";
+}
+
+function toolColor(name: string): string {
+  const n = name.toLowerCase();
+  if (n.includes("read") || n === "glob" || n === "grep") return "var(--cc-info, #2b6cb0)";
+  if (n.includes("write")) return "var(--cc-success, #2d7d46)";
+  if (n === "bash" || n.includes("terminal")) return "var(--cc-warning, #b7791f)";
+  if (n.includes("edit")) return "var(--cc-primary, #d97757)";
+  return "var(--text-muted)";
 }
 
 function formatInput(input: unknown): string {
   if (!input) return "";
   if (typeof input === "string") return input;
   try {
+    const obj = input as Record<string, unknown>;
+    // Show the most relevant field
+    if (obj.command) return String(obj.command);
+    if (obj.file_path) return String(obj.file_path);
+    if (obj.path) return String(obj.path);
+    if (obj.pattern) return `pattern: ${obj.pattern}`;
     return JSON.stringify(input, null, 2);
   } catch {
     return String(input);
   }
 }
 
+function truncateOutput(output: string, maxLines = 20): { text: string; truncated: boolean } {
+  const lines = output.split("\n");
+  if (lines.length <= maxLines) return { text: output, truncated: false };
+  return {
+    text: lines.slice(-maxLines).join("\n"),
+    truncated: true,
+  };
+}
+
 export function ToolBlock(props: ToolBlockProps) {
   const [expanded, setExpanded] = createSignal(false);
+  const [showFullOutput, setShowFullOutput] = createSignal(false);
   const name = () => props.message.toolName ?? "Tool";
   const input = () => props.message.toolInput;
   const result = () => props.result;
+  const isError = () => result()?.toolIsError ?? false;
+
+  const outputPreview = () => {
+    const raw = result()?.toolResult ?? "";
+    if (showFullOutput()) return { text: raw, truncated: false };
+    return truncateOutput(raw);
+  };
 
   return (
-    <div class="ide-tool-block">
-      <div class="ide-tool-block__header" onClick={() => setExpanded((v) => !v)}>
-        <div class={`ide-tool-block__icon ${toolIconClass(name())}`}>
+    <div class={`cc-tool ${isError() ? "cc-tool--error" : ""}`}>
+      <div class="cc-tool__header" onClick={() => setExpanded((v) => !v)}>
+        <span class="cc-tool__icon" style={{ color: toolColor(name()) }}>
           {toolIcon(name())}
-        </div>
-        <span class="ide-tool-block__name">{name()}</span>
+        </span>
+        <span class="cc-tool__name">{name()}</span>
+        <span class="cc-tool__summary">{formatInput(input())}</span>
         <Show when={result()}>
-          <span class="ide-tool-block__status" style={{ color: result()!.toolIsError ? "var(--danger)" : "var(--success)" }}>
-            {result()!.toolIsError ? "erreur" : "ok"}
+          <span class={`cc-tool__status ${isError() ? "cc-tool__status--error" : "cc-tool__status--ok"}`}>
+            {isError() ? "erreur" : "ok"}
           </span>
         </Show>
         <Show when={!result()}>
-          <span class="ide-tool-block__status">en cours...</span>
+          <span class="cc-tool__spinner" />
         </Show>
-        <span class={`ide-tool-block__chevron ${expanded() ? "ide-tool-block__chevron--open" : ""}`}>▸</span>
+        <span class={`cc-tool__chevron ${expanded() ? "cc-tool__chevron--open" : ""}`}>&#x25B8;</span>
       </div>
+
       <Show when={expanded()}>
-        <div class="ide-tool-block__body">
+        <div class="cc-tool__body">
           <Show when={input()}>
-            <div style={{ color: "var(--text-muted)", "margin-bottom": "4px" }}>Input:</div>
-            {formatInput(input())}
+            <div class="cc-tool__section">
+              <div class="cc-tool__section-label">Input</div>
+              <pre class="cc-tool__pre">{formatInput(input())}</pre>
+            </div>
           </Show>
           <Show when={result()?.toolResult}>
-            <div style={{ color: "var(--text-muted)", "margin-top": "8px", "margin-bottom": "4px" }}>
-              Output{result()!.toolIsError ? " (error)" : ""}:
+            <div class="cc-tool__section">
+              <div class="cc-tool__section-label">
+                Output
+                <Show when={outputPreview().truncated}>
+                  <button
+                    class="cc-tool__show-more"
+                    onClick={(e) => { e.stopPropagation(); setShowFullOutput(true); }}
+                  >Voir tout</button>
+                </Show>
+              </div>
+              <pre class={`cc-tool__pre ${isError() ? "cc-tool__pre--error" : ""}`}>
+                {outputPreview().text}
+              </pre>
             </div>
-            {result()!.toolResult}
           </Show>
         </div>
       </Show>

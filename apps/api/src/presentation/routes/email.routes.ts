@@ -24,9 +24,10 @@ export function createEmailRoutes(emailService: EmailService, llmService?: LlmSe
   // GET /api/emails/digest
   app.get("/digest", async (c) => {
     const days = Number(c.req.query("days") || "7");
+    const withSummary = c.req.query("summary") === "true";
     const digest = await emailService.getDigest(days);
     let summary = "";
-    if (llmService) {
+    if (withSummary && llmService) {
       try {
         summary = await llmService.summarize(
           JSON.stringify(digest),

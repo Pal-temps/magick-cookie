@@ -8,7 +8,7 @@ services:
     volumes:
       - /etc/letsencrypt:/etc/letsencrypt:ro
     environment:
-      - OVERRIDE_HOSTNAME=mail.example.com
+      - OVERRIDE_HOSTNAME=mail.paltemps.fr
       - PERMIT_DOCKER=none
       - SSL_TYPE=letsencrypt
       - ENABLE_SPAMASSASSIN=1

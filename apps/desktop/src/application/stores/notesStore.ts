@@ -19,10 +19,7 @@ export interface GitStatus {
   summary: string;
 }
 
-export interface SshKeyInfo {
-  exists: boolean;
-  pubkey: string | null;
-}
+// SshKeyInfo removed — SSH keys are now in the KDBX vault
 
 export interface TreeNode {
   name: string;
@@ -43,7 +40,10 @@ const [gitStatus, setGitStatus] = createSignal<GitStatus | null>(null);
 const [isSyncing, setIsSyncing] = createSignal(false);
 const [isPreview, setIsPreview] = createSignal(false);
 const [searchQuery, setSearchQuery] = createSignal("");
-const [sshKeyExists, setSshKeyExists] = createSignal(false);
+// sshKeyExists removed — SSH keys are now managed via the KDBX vault (secretsStore)
+const [sshKeyName, setSshKeyName] = createSignal<string | null>(
+  localStorage.getItem("notes-ssh-key-name") || null
+);
 const [expandedFolders, setExpandedFolders] = createSignal<Set<string>>(new Set());
 
 export function useNotesStore() {
@@ -276,7 +276,7 @@ export function useNotesStore() {
   async function gitPull() {
     setIsSyncing(true);
     try {
-      await invoke<string>("notes_git_pull");
+      await invoke<string>("notes_git_pull", { sshKeyName: sshKeyName() });
       await fetchAll();
       if (activeFile()) {
         try {
@@ -295,7 +295,7 @@ export function useNotesStore() {
     if (isDirty()) await saveCurrentFile();
     setIsSyncing(true);
     try {
-      await invoke<string>("notes_git_push", { message: message ?? "" });
+      await invoke<string>("notes_git_push", { message: message ?? "", sshKeyName: sshKeyName() });
       await refreshGitStatus();
     } finally {
       setIsSyncing(false);
@@ -306,9 +306,7 @@ export function useNotesStore() {
     if (isDirty()) await saveCurrentFile();
     setIsSyncing(true);
     try {
-      // Pull remote changes first
-      await invoke<string>("notes_git_pull");
-      // Reload files after pull (may have new content)
+      await invoke<string>("notes_git_pull", { sshKeyName: sshKeyName() });
       await fetchAll();
       if (activeFile()) {
         try {
@@ -317,30 +315,18 @@ export function useNotesStore() {
           setIsDirty(false);
         } catch { /* file may have been deleted */ }
       }
-      // Push local changes (add + commit + push)
-      await invoke<string>("notes_git_push", { message: "" });
+      await invoke<string>("notes_git_push", { message: "", sshKeyName: sshKeyName() });
       await refreshGitStatus();
     } finally {
       setIsSyncing(false);
     }
   }
 
-  // ─── SSH ───
-  async function checkSshKey(): Promise<boolean> {
-    try {
-      const info = await invoke<SshKeyInfo>("notes_ssh_status");
-      setSshKeyExists(info.exists);
-      return info.exists;
-    } catch {
-      setSshKeyExists(false);
-      return false;
-    }
-  }
-
-  async function generateSshKey(): Promise<string> {
-    const pubkey = await invoke<string>("notes_ssh_generate");
-    setSshKeyExists(true);
-    return pubkey;
+  // ─── SSH Key selection ───
+  function selectSshKey(name: string | null) {
+    setSshKeyName(name);
+    if (name) localStorage.setItem("notes-ssh-key-name", name);
+    else localStorage.removeItem("notes-ssh-key-name");
   }
 
   // ─── Search ───
@@ -361,11 +347,11 @@ export function useNotesStore() {
 
   return {
     notes, drawings, config, activeFile, activeFileType, noteContent, isDirty, gitStatus, isSyncing,
-    isPreview, setIsPreview, searchQuery, setSearchQuery, sshKeyExists,
+    isPreview, setIsPreview, searchQuery, setSearchQuery, sshKeyName, selectSshKey,
     expandedFolders, toggleFolder, expandFolder, isFolderExpanded, buildTree,
     loadConfig, saveConfig, fetchNotes, fetchDrawings, fetchAll, allFiles, openFile, updateContent,
     saveCurrentFile, createNote, createDrawing, createFolder, renameFile, deleteFile, deleteFolder,
     refreshGitStatus, gitPull, gitPush, gitSync, filteredFiles,
-    checkSshKey, generateSshKey, readNoteContent,
+    readNoteContent,
   };
 }

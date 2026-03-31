@@ -1,6 +1,9 @@
 import { createSignal } from "solid-js";
 import { invoke } from "@tauri-apps/api/core";
+import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { useSnippetStore, type Snippet } from "./snippetStore";
+import { useViewStore } from "./viewStore";
+import { useSettingsStore } from "./settingsStore";
 
 // ─── Types ───
 
@@ -32,6 +35,33 @@ export interface EditorTab {
 
 export type SidePanel = "files" | "git";
 
+// ─── Grid layout for AI terminals ───
+
+export interface GridTemplate {
+  id: string;
+  name: string;
+  icon: string;
+  columns: string;
+  rows: string;
+  areas: string;
+  slotCount: number;
+}
+
+export const GRID_TEMPLATES: GridTemplate[] = [
+  { id: "single",  name: "1 terminal",    icon: "1",  columns: "1fr",     rows: "1fr",     areas: '"a"',               slotCount: 1 },
+  { id: "side",    name: "2 cote a cote", icon: "2h", columns: "1fr 1fr", rows: "1fr",     areas: '"a b"',             slotCount: 2 },
+  { id: "stack",   name: "2 empiles",     icon: "2v", columns: "1fr",     rows: "1fr 1fr", areas: '"a" "b"',           slotCount: 2 },
+  { id: "grid",    name: "Grille 2x2",    icon: "4",  columns: "1fr 1fr", rows: "1fr 1fr", areas: '"a b" "c d"',       slotCount: 4 },
+  { id: "left-2r", name: "1 + 2 droite",  icon: "L",  columns: "1fr 1fr", rows: "1fr 1fr", areas: '"a b" "a c"',       slotCount: 3 },
+  { id: "top-2b",  name: "1 + 2 bas",     icon: "T",  columns: "1fr 1fr", rows: "1fr 1fr", areas: '"a a" "b c"',       slotCount: 3 },
+];
+
+export interface WorkspaceProject {
+  path: string;
+  name: string;
+  markers: string[];
+}
+
 // ─── State ───
 
 const [projectPath, setProjectPath] = createSignal<string | null>(null);
@@ -40,17 +70,108 @@ const [projectFiles, setProjectFiles] = createSignal<FsEntry[]>([]);
 const [tabs, setTabs] = createSignal<EditorTab[]>([]);
 const [activeTabId, setActiveTabId] = createSignal<string | null>(null);
 const [sidePanel, setSidePanel] = createSignal<SidePanel>("files");
-const [showBottomPanel, setShowBottomPanel] = createSignal(false);
-const [showSidePanel, setShowSidePanel] = createSignal(true);
-const [aiPanelOpen, setAiPanelOpen] = createSignal(false);
-const [aiPanelWidth, setAiPanelWidth] = createSignal(
-  parseInt(localStorage.getItem("ide-ai-panel-width") ?? "380", 10)
+// showBottomPanel and showSidePanel removed — panels are now managed by grid layout + drawers
+const [gridLayout, setGridLayout] = createSignal<string>(
+  localStorage.getItem("ide-grid-layout") ?? "single"
+);
+const [gridSlots, setGridSlots] = createSignal<(string | null)[]>(
+  JSON.parse(localStorage.getItem("ide-grid-slots") ?? "[null, null, null, null]")
+);
+const [codeDrawerOpen, setCodeDrawerOpen] = createSignal(
+  localStorage.getItem("ide-code-drawer") === "true"
+);
+const [codeDrawerWidth, setCodeDrawerWidth] = createSignal(
+  parseInt(localStorage.getItem("ide-code-drawer-width") ?? "550", 10)
+);
+const [contextPanelOpen, setContextPanelOpen] = createSignal(
+  localStorage.getItem("ide-context-open") !== "false"
 );
 const [expandedFolders, setExpandedFolders] = createSignal<Set<string>>(new Set([""]));
 
-function persistAiPanelWidth(w: number) {
-  setAiPanelWidth(w);
-  localStorage.setItem("ide-ai-panel-width", String(w));
+// ─── File watcher state ───
+
+let fsChangeUnlisten: UnlistenFn | null = null;
+let refreshDebounce: ReturnType<typeof setTimeout> | null = null;
+
+// ─── Persistence helpers ───
+
+const STORAGE_KEYS = {
+  tabs: "ide-tabs",
+  activeTab: "ide-active-tab",
+  expandedFolders: "ide-expanded-folders",
+  sidePanel: "ide-side-panel",
+  projectPath: "ide-project-path",
+} as const;
+
+interface PersistedTab {
+  id: string;
+  path: string;
+  name: string;
+  language: string;
+  source: "project" | "snippet";
+  snippetId?: string;
+}
+
+let saveTimer: ReturnType<typeof setTimeout> | null = null;
+
+function debouncedSave() {
+  if (saveTimer) clearTimeout(saveTimer);
+  saveTimer = setTimeout(persistState, 300);
+}
+
+function persistState() {
+  // Save tabs (without content — we reload from disk)
+  const tabData: PersistedTab[] = tabs().map((t) => ({
+    id: t.id, path: t.path, name: t.name,
+    language: t.language, source: t.source, snippetId: t.snippetId,
+  }));
+  localStorage.setItem(STORAGE_KEYS.tabs, JSON.stringify(tabData));
+  localStorage.setItem(STORAGE_KEYS.activeTab, activeTabId() ?? "");
+  localStorage.setItem(STORAGE_KEYS.expandedFolders, JSON.stringify([...expandedFolders()]));
+  localStorage.setItem(STORAGE_KEYS.sidePanel, sidePanel());
+  localStorage.setItem(STORAGE_KEYS.projectPath, projectPath() ?? "");
+}
+
+// ─── Workspace state ───
+
+const [discoveredProjects, setDiscoveredProjects] = createSignal<WorkspaceProject[]>([]);
+const [workspaceSearchQuery, setWorkspaceSearchQuery] = createSignal("");
+const workspaceSettings = useSettingsStore();
+
+function switchGridLayout(templateId: string) {
+  setGridLayout(templateId);
+  localStorage.setItem("ide-grid-layout", templateId);
+}
+
+function assignSlot(slotIndex: number, sessionId: string | null) {
+  setGridSlots((prev) => {
+    const next = [...prev];
+    while (next.length <= slotIndex) next.push(null);
+    next[slotIndex] = sessionId;
+    localStorage.setItem("ide-grid-slots", JSON.stringify(next));
+    return next;
+  });
+}
+
+function currentGrid(): GridTemplate {
+  return GRID_TEMPLATES.find((t) => t.id === gridLayout()) ?? GRID_TEMPLATES[0];
+}
+
+function toggleCodeDrawer() {
+  const next = !codeDrawerOpen();
+  setCodeDrawerOpen(next);
+  localStorage.setItem("ide-code-drawer", String(next));
+}
+
+function persistCodeDrawerWidth(w: number) {
+  setCodeDrawerWidth(w);
+  localStorage.setItem("ide-code-drawer-width", String(w));
+}
+
+function toggleContextPanel() {
+  const next = !contextPanelOpen();
+  setContextPanelOpen(next);
+  localStorage.setItem("ide-context-open", String(next));
 }
 
 // ─── Helpers ───
@@ -122,13 +243,184 @@ function buildTree(files: FsEntry[], rootName: string): TreeNode {
 export function useIdeStore() {
   const snippetStore = useSnippetStore();
 
+  // ─── Restore persisted state ───
+
+  async function restoreState() {
+    // Restore project path first
+    const savedProject = localStorage.getItem(STORAGE_KEYS.projectPath);
+    if (savedProject) {
+      setProjectPath(savedProject);
+      setProjectName(fileNameFromPath(savedProject));
+      await refreshFiles();
+      await startWatcher(savedProject);
+    }
+
+    // Restore side panel
+    const savedPanel = localStorage.getItem(STORAGE_KEYS.sidePanel);
+    if (savedPanel === "files" || savedPanel === "git") setSidePanel(savedPanel);
+
+    // Restore expanded folders
+    const savedFolders = localStorage.getItem(STORAGE_KEYS.expandedFolders);
+    if (savedFolders) {
+      try {
+        const arr = JSON.parse(savedFolders) as string[];
+        setExpandedFolders(new Set(arr));
+      } catch { /* ignore */ }
+    }
+
+    // Restore tabs — reload content from disk
+    const savedTabs = localStorage.getItem(STORAGE_KEYS.tabs);
+    if (savedTabs && projectPath()) {
+      try {
+        const persisted = JSON.parse(savedTabs) as PersistedTab[];
+        const restored: EditorTab[] = [];
+
+        for (const pt of persisted) {
+          if (pt.source === "project") {
+            try {
+              const content = await invoke<string>("fs_read_file", { path: pt.path });
+              restored.push({ ...pt, content, isDirty: false });
+            } catch {
+              // File was deleted/moved — skip it
+            }
+          } else if (pt.source === "snippet" && pt.snippetId) {
+            // Snippets are loaded separately; add placeholder that gets filled
+            restored.push({ ...pt, content: "", isDirty: false });
+          }
+        }
+
+        if (restored.length > 0) {
+          setTabs(restored);
+          const savedActive = localStorage.getItem(STORAGE_KEYS.activeTab);
+          if (savedActive && restored.some((t) => t.id === savedActive)) {
+            setActiveTabId(savedActive);
+          } else {
+            setActiveTabId(restored[0].id);
+          }
+        }
+      } catch { /* ignore */ }
+    }
+  }
+
+  // ─── File watcher ───
+
+  async function startWatcher(watchPath: string) {
+    // Listen for fs-change events (only once)
+    if (!fsChangeUnlisten) {
+      fsChangeUnlisten = await listen<{ path: string; kind: string }>("fs-change", (event) => {
+        const { path: changedPath, kind } = event.payload;
+
+        // Debounce file tree refresh
+        if (refreshDebounce) clearTimeout(refreshDebounce);
+        refreshDebounce = setTimeout(() => refreshFiles(), 200);
+
+        // Reload content for open tabs if modified externally
+        if (kind === "modify") {
+          const tab = tabs().find((t) => t.source === "project" && t.path.replace(/\\/g, "/") === changedPath);
+          if (tab && !tab.isDirty) {
+            invoke<string>("fs_read_file", { path: tab.path }).then((content) => {
+              if (content !== tab.content) {
+                setTabs((prev) => prev.map((t) => t.id === tab.id ? { ...t, content } : t));
+              }
+            }).catch(() => {});
+          }
+        }
+
+        // Close tabs for removed files
+        if (kind === "remove") {
+          const tab = tabs().find((t) => t.source === "project" && t.path.replace(/\\/g, "/") === changedPath);
+          if (tab) closeTab(tab.id);
+        }
+      });
+    }
+
+    // Start Rust watcher
+    try {
+      await invoke("fs_watch_start", { path: watchPath });
+    } catch (e) {
+      console.error("fs_watch_start error:", e);
+    }
+  }
+
+  async function stopWatcher() {
+    try {
+      await invoke("fs_watch_stop");
+    } catch { /* ignore */ }
+  }
+
   // ─── Project management ───
+
+  async function ensureProjectVault(name: string) {
+    try {
+      // Don't overwrite existing CLAUDE.md
+      try {
+        await invoke<string>("vault_read_json", { relPath: `_projects/${name}/CLAUDE.md` });
+        return; // Already exists
+      } catch { /* File doesn't exist — create it */ }
+
+      const claudeMd = `# ${name}
+
+## Stack technique
+- Langage : (TypeScript, Rust, Python, etc.)
+- Framework : (Next.js, SolidJS, etc.)
+- Runtime : (Bun, Node, Deno)
+- Base de donnees : (PostgreSQL, SQLite, etc.)
+- Reverse proxy : Caddy (auto-HTTPS)
+
+## Conventions
+- Style de code : (camelCase, snake_case)
+- Tests : (bun test, vitest, etc.)
+- Linter : (ESLint, Biome)
+- Formatter : (Prettier, Biome)
+
+## Deploiement
+- Provider : vps-bare (bare git + post-receive hook)
+- Serveur : (ID du serveur dans Settings > Infrastructure)
+- Domaine : (ex: ${name}.paltemps.fr)
+- Port : 3000
+- Process manager : pm2
+- Build : npm install && npm run build
+- Start : pm2 start npm --name ${name} -- start
+
+## Regles pour l'IA
+- Toujours utiliser Caddy comme reverse proxy (pas nginx)
+- Toujours deployer via git push (pas de SCP/rsync direct)
+- Ne jamais stocker de secrets dans le code (utiliser le coffre-fort KDBX)
+- Ecrire des tests pour chaque nouvelle feature
+- Commenter uniquement le code non-evident
+
+## Structure du projet
+(Decrivez l'arborescence cle du projet ici)
+
+## Notes
+(Notes libres pour donner du contexte a l'IA)
+`;
+      await invoke("vault_write_json", { relPath: `_projects/${name}/CLAUDE.md`, content: claudeMd });
+    } catch { /* vault might not be configured */ }
+  }
+
+  async function readProjectContext(): Promise<string | null> {
+    const name = projectName();
+    if (!name || name === "Aucun projet") return null;
+    try {
+      return await invoke<string>("vault_read_json", { relPath: `_projects/${name}/CLAUDE.md` });
+    } catch {
+      return null;
+    }
+  }
 
   async function openProject(path: string) {
     setProjectPath(path);
     setProjectName(fileNameFromPath(path));
     setExpandedFolders(new Set([""]));
+    setTabs([]);
+    setActiveTabId(null);
     await refreshFiles();
+    await startWatcher(path);
+    workspaceSettings.patchWorkspace({ activeProjectPath: path });
+    debouncedSave();
+    // Ensure vault folder for this project
+    ensureProjectVault(fileNameFromPath(path)).catch(() => {});
   }
 
   async function refreshFiles() {
@@ -159,6 +451,7 @@ export function useIdeStore() {
       else next.add(path);
       return next;
     });
+    debouncedSave();
   }
 
   // ─── Tab management ───
@@ -193,6 +486,7 @@ export function useIdeStore() {
       };
       setTabs((prev) => [...prev, tab]);
       setActiveTabId(id);
+      debouncedSave();
     } catch (e) {
       console.error("fs_read_file error:", e);
     }
@@ -220,6 +514,7 @@ export function useIdeStore() {
 
     setTabs((prev) => [...prev, tab]);
     setActiveTabId(id);
+    debouncedSave();
   }
 
   function closeTab(id: string) {
@@ -237,10 +532,12 @@ export function useIdeStore() {
         setActiveTabId(newTabs[nextIdx].id);
       }
     }
+    debouncedSave();
   }
 
   function switchTab(id: string) {
     setActiveTabId(id);
+    debouncedSave();
   }
 
   function updateTabContent(id: string, content: string) {
@@ -350,6 +647,7 @@ export function useIdeStore() {
   function closeAllTabs() {
     setTabs([]);
     setActiveTabId(null);
+    debouncedSave();
   }
 
   function copyPath(relOrAbsPath: string) {
@@ -372,18 +670,129 @@ export function useIdeStore() {
       const id = activeTabId();
       if (id) closeTab(id);
     }
-    if (e.key === "`" && (e.ctrlKey || e.metaKey)) {
-      e.preventDefault();
-      setShowBottomPanel((v) => !v);
-    }
+    // Ctrl+` reserved for future use
     if (e.key === "b" && (e.ctrlKey || e.metaKey)) {
       e.preventDefault();
-      setShowSidePanel((v) => !v);
+      const { toggleSidebar } = useViewStore();
+      toggleSidebar();
     }
-    if (e.key === "i" && (e.ctrlKey || e.metaKey)) {
+    if (e.key === "e" && (e.ctrlKey || e.metaKey)) {
       e.preventDefault();
-      setAiPanelOpen((v) => !v);
+      toggleCodeDrawer();
     }
+    if (e.key === "\\" && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault();
+      toggleContextPanel();
+    }
+    if (e.key === "l" && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault();
+      document.querySelector<HTMLTextAreaElement>(".cc-composer__textarea")?.focus();
+    }
+    if (e.key === "Escape") {
+      // Dispatch custom event for AI interrupt (handled by AiChatContent)
+      document.dispatchEvent(new CustomEvent("ide-escape"));
+    }
+  }
+
+  // ─── Workspace management ───
+
+  async function refreshWorkspace() {
+    const ws = workspaceSettings.getWorkspace();
+    const rootDirs = ws.rootDirs ?? [];
+    const manualPaths = ws.manualProjects ?? [];
+
+    let scanned: WorkspaceProject[] = [];
+    if (rootDirs.length > 0) {
+      try {
+        scanned = await invoke<WorkspaceProject[]>("fs_scan_projects", { rootDirs });
+      } catch (e) {
+        console.error("fs_scan_projects error:", e);
+      }
+    }
+
+    // Merge manual projects (add them if not already discovered)
+    const scannedPaths = new Set(scanned.map((p) => p.path));
+    for (const mp of manualPaths) {
+      if (!scannedPaths.has(mp)) {
+        scanned.push({ path: mp, name: fileNameFromPath(mp), markers: ["manual"] });
+      }
+    }
+
+    scanned.sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
+    setDiscoveredProjects(scanned);
+  }
+
+  function switchProject(path: string) {
+    openProject(path);
+  }
+
+  function toggleFavorite(path: string) {
+    const ws = workspaceSettings.getWorkspace();
+    const favs = ws.favorites ?? [];
+    const idx = favs.indexOf(path);
+    if (idx >= 0) {
+      workspaceSettings.patchWorkspace({ favorites: favs.filter((f) => f !== path) });
+    } else {
+      workspaceSettings.patchWorkspace({ favorites: [...favs, path] });
+    }
+  }
+
+  function isFavorite(path: string): boolean {
+    const ws = workspaceSettings.getWorkspace();
+    return (ws.favorites ?? []).includes(path);
+  }
+
+  async function addManualProject(path: string) {
+    const ws = workspaceSettings.getWorkspace();
+    const manuals = ws.manualProjects ?? [];
+    if (!manuals.includes(path)) {
+      workspaceSettings.patchWorkspace({ manualProjects: [...manuals, path] });
+    }
+    await refreshWorkspace();
+  }
+
+  async function removeProject(path: string) {
+    const ws = workspaceSettings.getWorkspace();
+    workspaceSettings.patchWorkspace({
+      manualProjects: (ws.manualProjects ?? []).filter((p) => p !== path),
+      favorites: (ws.favorites ?? []).filter((p) => p !== path),
+    });
+    await refreshWorkspace();
+  }
+
+  function filteredProjects(): WorkspaceProject[] {
+    const q = workspaceSearchQuery().toLowerCase().trim();
+    if (!q) return discoveredProjects();
+    return discoveredProjects().filter((p) =>
+      p.name.toLowerCase().includes(q) || p.path.toLowerCase().includes(q)
+    );
+  }
+
+  function favoriteProjects(): WorkspaceProject[] {
+    const ws = workspaceSettings.getWorkspace();
+    const favSet = new Set(ws.favorites ?? []);
+    return discoveredProjects().filter((p) => favSet.has(p.path));
+  }
+
+  async function addRootDir(path: string) {
+    const ws = workspaceSettings.getWorkspace();
+    const dirs = ws.rootDirs ?? [];
+    if (!dirs.includes(path)) {
+      workspaceSettings.patchWorkspace({ rootDirs: [...dirs, path] });
+    }
+    await refreshWorkspace();
+  }
+
+  async function removeRootDir(path: string) {
+    const ws = workspaceSettings.getWorkspace();
+    workspaceSettings.patchWorkspace({
+      rootDirs: (ws.rootDirs ?? []).filter((d) => d !== path),
+    });
+    await refreshWorkspace();
+  }
+
+  function getRootDirs(): string[] {
+    return workspaceSettings.getWorkspace().rootDirs ?? [];
   }
 
   return {
@@ -420,19 +829,49 @@ export function useIdeStore() {
     closeAllTabs,
     copyPath,
 
+    // State restore + watcher + vault
+    restoreState,
+    stopWatcher,
+    readProjectContext,
+
     // Panels
     sidePanel,
-    setSidePanel,
-    showBottomPanel,
-    setShowBottomPanel,
-    showSidePanel,
-    setShowSidePanel,
-    aiPanelOpen,
-    setAiPanelOpen,
-    aiPanelWidth,
-    persistAiPanelWidth,
+    setSidePanel: (val: SidePanel | ((prev: SidePanel) => SidePanel)) => {
+      if (typeof val === "function") setSidePanel(val);
+      else setSidePanel(val);
+      debouncedSave();
+    },
+    // Grid layout
+    gridLayout,
+    gridSlots,
+    switchGridLayout,
+    assignSlot,
+    currentGrid,
+
+    codeDrawerOpen,
+    toggleCodeDrawer,
+    codeDrawerWidth,
+    persistCodeDrawerWidth,
+    contextPanelOpen,
+    toggleContextPanel,
 
     // Keyboard
     handleKeyDown,
+
+    // Workspace
+    discoveredProjects,
+    workspaceSearchQuery: workspaceSearchQuery,
+    setWorkspaceSearchQuery: setWorkspaceSearchQuery,
+    refreshWorkspace,
+    switchProject,
+    toggleFavorite,
+    isFavorite,
+    addManualProject,
+    removeProject,
+    filteredProjects,
+    favoriteProjects,
+    addRootDir,
+    removeRootDir,
+    getRootDirs,
   };
 }

@@ -1,20 +1,19 @@
 import type { JSX } from "solid-js";
-import { Show, For, createSignal } from "solid-js";
+import { Show, For, Switch, Match } from "solid-js";
 import { useViewStore } from "../../application/stores/viewStore";
 import { useCalendarStore } from "../../application/stores/calendarStore";
 import { useTaskStore } from "../../application/stores/taskStore";
 import { useDesktopModeStore } from "../../application/stores/desktopModeStore";
 import { useSpeechStore } from "../../application/stores/speechStore";
 import { useDogWalkStore } from "../../application/stores/dogWalkStore";
-import { useSettingsStore } from "../../application/stores/settingsStore";
 import { TitleBar } from "../components/common/TitleBar";
 import { OfflineIndicator } from "../components/common/OfflineIndicator";
 import { MiniTimer } from "../components/common/MiniTimer";
 import { MiniDogWalk } from "../components/common/MiniDogWalk";
 import { MiniCalendar } from "../components/sidebar/MiniCalendar";
-import { CalendarList } from "../components/sidebar/CalendarList";
-import { UnscheduledTasks } from "../components/sidebar/UnscheduledTasks";
-import { ContactManager } from "../components/sidebar/ContactManager";
+import { CalendarSidebarContent } from "../components/sidebar/CalendarSidebarContent";
+import { DashboardSidebarContent } from "../components/sidebar/DashboardSidebarContent";
+import { IdeSidebarContent } from "../components/sidebar/IdeSidebarContent";
 import { CollapsibleSection } from "../components/common/CollapsibleSection";
 import { Button } from "../components/common/Button";
 import { TaskDetail } from "../components/tasks/TaskDetail";
@@ -26,95 +25,13 @@ interface AppLayoutProps {
 }
 
 export function AppLayout(props: AppLayoutProps) {
-  const { viewMode, setViewMode, currentDate, navigatePrev, navigateNext, goToToday } = useViewStore();
-  const { openCreateForm, contacts, setShowAiGenerator } = useCalendarStore();
-  const { syncConnector, isSyncing, tasks: unscheduledTasks } = useTaskStore();
+  const { viewMode, setViewMode, currentDate, navigatePrev, navigateNext, goToToday, sidebarVisible } = useViewStore();
+  const { openCreateForm, setShowAiGenerator } = useCalendarStore();
+  const { syncConnector, isSyncing } = useTaskStore();
   const { enterDesktop } = useDesktopModeStore();
   const { startSpeechRecording } = useSpeechStore();
   const { startWalk, stopWalk, activeWalk } = useDogWalkStore();
   const { favorites } = useBookmarkStore();
-
-  // Sidebar section order (persisted via settingsStore)
-  const settingsStore = useSettingsStore();
-  const DEFAULT_ORDER = ["favoris", "filtres", "contacts", "taches"];
-  const savedOrder = (() => {
-    try {
-      const stored = settingsStore.getSidebar().sectionOrder;
-      if (stored.length > 0) {
-        const allSections = new Set(DEFAULT_ORDER);
-        const valid = stored.filter((s) => allSections.has(s));
-        for (const s of DEFAULT_ORDER) { if (!valid.includes(s)) valid.push(s); }
-        return valid;
-      }
-    } catch { /* ignore */ }
-    return DEFAULT_ORDER;
-  })();
-  const [sectionOrder, setSectionOrder] = createSignal<string[]>(savedOrder);
-  const [draggedSection, setDraggedSection] = createSignal<string | null>(null);
-  const [dragOverSection, setDragOverSection] = createSignal<string | null>(null);
-
-  function handleSectionPointerDown(e: PointerEvent, id: string) {
-    if (e.button !== 0) return;
-    // Only initiate drag from the header zone (top 36px)
-    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-    if (e.clientY - rect.top > 36) return;
-
-    const startX = e.clientX;
-    const startY = e.clientY;
-    const el = e.currentTarget as HTMLElement;
-    const pointerId = e.pointerId;
-    let dragging = false;
-
-    function onPointerMove(ev: PointerEvent) {
-      // Require 5px movement to start drag (avoid interfering with click)
-      if (!dragging) {
-        const dx = ev.clientX - startX;
-        const dy = ev.clientY - startY;
-        if (Math.abs(dx) + Math.abs(dy) < 5) return;
-        dragging = true;
-        el.setPointerCapture(pointerId);
-        setDraggedSection(id);
-      }
-      const target = document.elementFromPoint(ev.clientX, ev.clientY);
-      if (!target) { setDragOverSection(null); return; }
-      const section = target.closest("[data-section-id]") as HTMLElement | null;
-      if (section && section.dataset.sectionId !== id) {
-        setDragOverSection(section.dataset.sectionId!);
-      } else {
-        setDragOverSection(null);
-      }
-    }
-
-    function cleanup() {
-      if (dragging) {
-        const from = draggedSection();
-        const target = dragOverSection();
-        if (from && target && from !== target) {
-          const order = [...sectionOrder()];
-          const fromIdx = order.indexOf(from);
-          const toIdx = order.indexOf(target);
-          if (fromIdx !== -1 && toIdx !== -1) {
-            order.splice(fromIdx, 1);
-            order.splice(toIdx, 0, from);
-            setSectionOrder(order);
-            settingsStore.patchSidebar({ sectionOrder: order });
-          }
-        }
-        setDraggedSection(null);
-        setDragOverSection(null);
-        try { el.releasePointerCapture(pointerId); } catch {}
-      }
-      el.removeEventListener("pointermove", onPointerMove);
-      el.removeEventListener("pointerup", cleanup);
-      el.removeEventListener("pointercancel", cleanup);
-      window.removeEventListener("blur", cleanup);
-    }
-
-    el.addEventListener("pointermove", onPointerMove);
-    el.addEventListener("pointerup", cleanup);
-    el.addEventListener("pointercancel", cleanup);
-    window.addEventListener("blur", cleanup);
-  }
 
   const headerTitle = () => {
     const d = currentDate();
@@ -194,6 +111,7 @@ export function AppLayout(props: AppLayoutProps) {
       {/* Main layout */}
       <div style={{ display: "flex", flex: "1", overflow: "hidden" }}>
         {/* Sidebar */}
+        <Show when={sidebarVisible()}>
         <aside style={{
           width: "var(--sidebar-width)",
           "min-width": "var(--sidebar-width)",
@@ -203,119 +121,60 @@ export function AppLayout(props: AppLayoutProps) {
           "flex-direction": "column",
           overflow: "hidden",
         }}>
-          {/* Top actions */}
-          <div style={{ padding: "10px 12px", display: "flex", gap: "6px" }}>
-            <Button variant="primary" onClick={openCreateForm} style={{ flex: "1" }} size="sm">
-              + Evenement
-            </Button>
-          </div>
+          {/* Mini calendar — hidden in IDE mode */}
+          <Show when={viewMode() !== "ide"}>
+            <MiniCalendar />
+          </Show>
 
-          {/* Mini calendar */}
-          <MiniCalendar />
-
-          {/* Scrollable sections */}
-          <div style={{
-            flex: "1",
-            "overflow-y": "auto",
-            "border-top": "1px solid var(--border-color)",
-          }}>
-            <For each={sectionOrder()}>
-              {(sectionId) => {
-                const sectionWrap = (content: JSX.Element) => (
-                  <div
-                    data-section-id={sectionId}
-                    onPointerDown={(e) => {
-                      // Only drag from the header area (first 36px height)
-                      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                      if (e.clientY - rect.top > 36) return;
-                      handleSectionPointerDown(e, sectionId);
-                    }}
-                    style={{
-                      "border-top": dragOverSection() === sectionId ? "2px solid var(--accent-primary)" : "2px solid transparent",
-                      opacity: draggedSection() === sectionId ? "0.4" : "1",
-                      transition: "opacity 0.15s",
-                      "touch-action": "none",
-                    }}
+          {/* Context-aware content */}
+          <Switch>
+            <Match when={viewMode() === "dashboard"}>
+              <DashboardSidebarContent />
+            </Match>
+            <Match when={["month", "week", "day"].includes(viewMode())}>
+              <CalendarSidebarContent />
+            </Match>
+            <Match when={viewMode() === "ide"}>
+              <IdeSidebarContent />
+            </Match>
+            <Match when={true}>
+              {/* Default: favoris only */}
+              <Show when={favorites().length > 0}>
+                <div style={{ "border-top": "1px solid var(--border-color)" }}>
+                  <CollapsibleSection
+                    title="Favoris"
+                    defaultOpen={false}
+                    badge={
+                      <span style={{ "font-size": "10px", color: "var(--text-muted)", background: "var(--bg-elevated)", padding: "1px 6px", "border-radius": "var(--radius-sm)" }}>
+                        {favorites().length}
+                      </span>
+                    }
                   >
-                    {content}
-                    <div style={{ height: "1px", background: "var(--border-color)" }} />
-                  </div>
-                );
-
-                if (sectionId === "favoris") {
-                  return (
-                    <Show when={favorites().length > 0}>
-                      {sectionWrap(
-                        <CollapsibleSection
-                          title="Favoris"
-                          defaultOpen={false}
-                          badge={
-                            <span style={{ "font-size": "10px", color: "var(--text-muted)", background: "var(--bg-elevated)", padding: "1px 6px", "border-radius": "var(--radius-sm)" }}>
-                              {favorites().length}
-                            </span>
-                          }
-                        >
-                          <div style={{ display: "flex", "flex-direction": "column", gap: "2px" }}>
-                            <For each={favorites()}>
-                              {(bookmark) => (
-                                <button
-                                  onClick={() => openUrl(bookmark.url)}
-                                  style={{ display: "flex", "align-items": "center", gap: "6px", padding: "4px 0", "font-size": "12px", color: "var(--text-primary)", cursor: "pointer", background: "none", border: "none", width: "100%", "text-align": "left" }}
-                                  title={bookmark.url}
-                                >
-                                  <span style={{ "font-size": "13px" }}>{bookmark.emoji ?? "🔗"}</span>
-                                  <span style={{ overflow: "hidden", "text-overflow": "ellipsis", "white-space": "nowrap" }}>{bookmark.name}</span>
-                                </button>
-                              )}
-                            </For>
-                            <button
-                              onClick={() => setViewMode("library")}
-                              style={{ display: "flex", "align-items": "center", gap: "6px", padding: "4px 0", "font-size": "11px", color: "var(--text-muted)", cursor: "pointer", background: "none", border: "none", width: "100%", "text-align": "left", "margin-top": "4px" }}
-                            >Gerer les signets...</button>
-                          </div>
-                        </CollapsibleSection>
-                      )}
-                    </Show>
-                  );
-                }
-
-                if (sectionId === "filtres") {
-                  return sectionWrap(
-                    <CollapsibleSection title="Filtres" defaultOpen={false}>
-                      <CalendarList />
-                    </CollapsibleSection>
-                  );
-                }
-
-                if (sectionId === "contacts") {
-                  return sectionWrap(
-                    <CollapsibleSection
-                      title="Contacts"
-                      defaultOpen={false}
-                      badge={<span style={{ "font-size": "10px", color: "var(--text-muted)", background: "var(--bg-elevated)", padding: "1px 6px", "border-radius": "var(--radius-sm)" }}>{contacts().length}</span>}
-                    >
-                      <ContactManager />
-                    </CollapsibleSection>
-                  );
-                }
-
-                if (sectionId === "taches") {
-                  return sectionWrap(
-                    <CollapsibleSection
-                      title="Taches sans date"
-                      defaultOpen={false}
-                      badge={<span style={{ "font-size": "10px", color: "var(--text-muted)", background: "var(--bg-elevated)", padding: "1px 6px", "border-radius": "var(--radius-sm)" }}>{unscheduledTasks().length}</span>}
-                    >
-                      <UnscheduledTasks />
-                    </CollapsibleSection>
-                  );
-                }
-
-                return null;
-              }}
-            </For>
-          </div>
+                    <div style={{ display: "flex", "flex-direction": "column", gap: "2px" }}>
+                      <For each={favorites()}>
+                        {(bookmark) => (
+                          <button
+                            onClick={() => openUrl(bookmark.url)}
+                            style={{ display: "flex", "align-items": "center", gap: "6px", padding: "4px 0", "font-size": "12px", color: "var(--text-primary)", cursor: "pointer", background: "none", border: "none", width: "100%", "text-align": "left" }}
+                            title={bookmark.url}
+                          >
+                            <span style={{ "font-size": "13px" }}>{bookmark.emoji ?? "🔗"}</span>
+                            <span style={{ overflow: "hidden", "text-overflow": "ellipsis", "white-space": "nowrap" }}>{bookmark.name}</span>
+                          </button>
+                        )}
+                      </For>
+                      <button
+                        onClick={() => setViewMode("library")}
+                        style={{ display: "flex", "align-items": "center", gap: "6px", padding: "4px 0", "font-size": "11px", color: "var(--text-muted)", cursor: "pointer", background: "none", border: "none", width: "100%", "text-align": "left", "margin-top": "4px" }}
+                      >Gerer les signets...</button>
+                    </div>
+                  </CollapsibleSection>
+                </div>
+              </Show>
+            </Match>
+          </Switch>
         </aside>
+        </Show>
 
         {/* Main */}
         <main style={{ flex: "1", display: "flex", "flex-direction": "column", overflow: "hidden" }}>
@@ -369,6 +228,19 @@ export function AppLayout(props: AppLayoutProps) {
                 )}
               </For>
             </div>
+
+            {/* Vault lock button — always pinned right, separated */}
+            <button
+              onClick={() => setViewMode("passwords" as any)}
+              class={`vault-tab-btn ${viewMode() === "passwords" ? "vault-tab-btn--active" : ""}`}
+              title="Coffre-fort"
+            >
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                <rect x="2" y="6" width="10" height="7" rx="1.5" stroke="currentColor" stroke-width="1.3" />
+                <path d="M4.5 6V4.5C4.5 3.12 5.62 2 7 2C8.38 2 9.5 3.12 9.5 4.5V6" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" />
+                <circle cx="7" cy="10" r="1" fill="currentColor" />
+              </svg>
+            </button>
           </header>
 
           {/* Calendar sub-bar */}

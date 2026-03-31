@@ -5,6 +5,7 @@ import { EmailDetail } from "./EmailDetail";
 import { EmailDigest } from "./EmailDigest";
 import { AccountSettings } from "./AccountSettings";
 import { ComposeEmail } from "./ComposeEmail";
+import { InlineEmailDigest } from "./InlineEmailDigest";
 import { Button } from "../common/Button";
 import { CookieLoader } from "../common/CookieLoader";
 import type { SendEmailDTO } from "../../../domain/models/Email";
@@ -222,71 +223,76 @@ export function EmailView() {
         </Show>
 
         {/* Main area */}
-        <div style={{ flex: "1", display: "flex", overflow: "hidden" }}>
-          {/* Folder sidebar */}
-          <div style={{
-            width: "100px",
-            "flex-shrink": "0",
-            "border-right": "1px solid var(--border-color)",
-            padding: "8px 0",
-          }}>
-            {folders.map((folder) => (
-              <button
-                onClick={() => store.setActiveFolder(folder)}
-                style={{
-                  display: "block",
-                  width: "100%",
-                  padding: "6px 14px",
-                  border: "none",
-                  background: store.activeFolder() === folder ? "var(--bg-elevated)" : "transparent",
-                  color: store.activeFolder() === folder ? "var(--text-primary)" : "var(--text-muted)",
-                  "font-size": "12px",
-                  "text-align": "left",
-                  cursor: "pointer",
-                  "font-weight": store.activeFolder() === folder ? "500" : "400",
-                }}
-              >
-                {folder === "INBOX" ? "Inbox" : folder === "Sent" ? "Envoyes" : "Archive"}
-              </button>
-            ))}
-          </div>
+        <div style={{ flex: "1", display: "flex", "flex-direction": "column", overflow: "hidden" }}>
+          <div style={{ flex: "1", display: "flex", overflow: "hidden" }}>
+            {/* Folder sidebar */}
+            <div style={{
+              width: "100px",
+              "flex-shrink": "0",
+              "border-right": "1px solid var(--border-color)",
+              padding: "8px 0",
+            }}>
+              {folders.map((folder) => (
+                <button
+                  onClick={() => store.setActiveFolder(folder)}
+                  style={{
+                    display: "block",
+                    width: "100%",
+                    padding: "6px 14px",
+                    border: "none",
+                    background: store.activeFolder() === folder ? "var(--bg-elevated)" : "transparent",
+                    color: store.activeFolder() === folder ? "var(--text-primary)" : "var(--text-muted)",
+                    "font-size": "12px",
+                    "text-align": "left",
+                    cursor: "pointer",
+                    "font-weight": store.activeFolder() === folder ? "500" : "400",
+                  }}
+                >
+                  {folder === "INBOX" ? "Inbox" : folder === "Sent" ? "Envoyes" : "Archive"}
+                </button>
+              ))}
+            </div>
 
-          {/* Email list */}
-          <div style={{
-            width: "320px",
-            "flex-shrink": "0",
-            "border-right": "1px solid var(--border-color)",
-            overflow: "hidden",
-          }}>
-            <Show when={!store.isLoading()} fallback={
-              <div style={{ padding: "20px", display: "flex", "justify-content": "center" }}>
-                <CookieLoader size={32} message="Chargement..." />
-              </div>
-            }>
-              <EmailList
-                emails={store.emails()}
-                selectedId={store.selectedEmail()?.id ?? null}
-                focusedIndex={store.focusedIndex()}
-                onSelect={store.selectEmail}
+            {/* Email list */}
+            <div style={{
+              width: "320px",
+              "flex-shrink": "0",
+              "border-right": "1px solid var(--border-color)",
+              overflow: "hidden",
+            }}>
+              <Show when={!store.isLoading()} fallback={
+                <div style={{ padding: "20px", display: "flex", "justify-content": "center" }}>
+                  <CookieLoader size={32} message="Chargement..." />
+                </div>
+              }>
+                <EmailList
+                  emails={store.emails()}
+                  selectedId={store.selectedEmail()?.id ?? null}
+                  focusedIndex={store.focusedIndex()}
+                  onSelect={store.selectEmail}
+                  onToggleStar={store.toggleStar}
+                />
+              </Show>
+            </div>
+
+            {/* Email detail */}
+            <div style={{ flex: "1", overflow: "hidden" }}>
+              <EmailDetail
+                email={store.selectedEmail()}
+                onArchive={store.archiveEmail}
+                onDelete={store.deleteEmail}
                 onToggleStar={store.toggleStar}
+                onSummarize={store.summarizeEmail}
+                onReply={handleReply}
+                onForward={handleForward}
+                summary={store.emailSummary()}
+                summaryLoading={store.summaryLoading()}
               />
-            </Show>
+            </div>
           </div>
 
-          {/* Email detail */}
-          <div style={{ flex: "1", overflow: "hidden" }}>
-            <EmailDetail
-              email={store.selectedEmail()}
-              onArchive={store.archiveEmail}
-              onDelete={store.deleteEmail}
-              onToggleStar={store.toggleStar}
-              onSummarize={store.summarizeEmail}
-              onReply={handleReply}
-              onForward={handleForward}
-              summary={store.emailSummary()}
-              summaryLoading={store.summaryLoading()}
-            />
-          </div>
+          {/* Inline digest at the bottom */}
+          <InlineEmailDigest />
         </div>
       </div>
     </Show>

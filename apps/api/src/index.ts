@@ -77,6 +77,19 @@ import { createTaskTools } from "./application/agent/tools/task.tools";
 import { createTimerTools } from "./application/agent/tools/timer.tools";
 import { createBriefTools, createEmailTools, createCalendarTools, createBookmarkTools, createProjectTools } from "./application/agent/tools/brief.tools";
 import { createMemoryTools } from "./application/agent/tools/memory.tools";
+import { createDnsTools } from "./application/agent/tools/dns.tools";
+import { createSshTools } from "./application/agent/tools/ssh.tools";
+import { createDeployTools } from "./application/agent/tools/deploy.tools";
+import { createSkillTools } from "./application/agent/tools/skill.tools";
+import { DnsService } from "./infrastructure/dns/dns.service";
+import { SshService } from "./infrastructure/ssh/ssh.service";
+import { DeployService } from "./application/deploy/deploy.service";
+import { SkillService } from "./application/skills/skill.service";
+import { createGitRemoteTools } from "./application/agent/tools/git-remote.tools";
+import { GitRemoteService } from "./infrastructure/git-remote/git-remote.service";
+import { VaultService } from "./infrastructure/vault/vault.service";
+import { SnapshotService } from "./application/snapshot/snapshot.service";
+import { createInfraRoutes } from "./presentation/routes/infra.routes";
 
 // Adapters
 import { GitExecAdapter } from "./infrastructure/adapters/git-exec.adapter";
@@ -227,6 +240,20 @@ toolRegistry.registerAll(createCalendarTools(eventService));
 toolRegistry.registerAll(createBookmarkTools(bookmarkService));
 toolRegistry.registerAll(createProjectTools(projectService));
 toolRegistry.registerAll(createMemoryTools(agentMemoryRepo));
+
+// Infrastructure tools (DNS, SSH, Deploy, Skills)
+const vaultService = new VaultService();
+const dnsService = new DnsService();
+const sshService = new SshService(vaultService);
+const gitRemoteService = new GitRemoteService(sshService);
+const deployService = new DeployService(dnsService, sshService, gitRemoteService);
+const skillService = new SkillService(vaultService);
+const snapshotService = new SnapshotService(vaultService);
+toolRegistry.registerAll(createDnsTools(dnsService));
+toolRegistry.registerAll(createSshTools(sshService));
+toolRegistry.registerAll(createDeployTools(deployService, sshService));
+toolRegistry.registerAll(createGitRemoteTools(gitRemoteService));
+toolRegistry.registerAll(createSkillTools(skillService));
 const agentService = new AgentService(chatRepo, llmService, toolRegistry, agentMemoryRepo);
 
 const clickUpSyncService = new ClickUpSyncService(connectorConfigRepo, calendarService, eventRepo, taskRepo);
@@ -271,6 +298,7 @@ app.route("/api/brief", createBriefRoutes(briefService));
 app.route("/api/chat", createChatRoutes(chatService));
 app.route("/api/github", createGitHubRoutes(githubService));
 app.route("/api/vps", createVpsRoutes(vpsProxyService));
+app.route("/api/infra", createInfraRoutes(dnsService, sshService, deployService, skillService, vaultService, snapshotService));
 app.route("/api/bookmarks", createBookmarkRoutes(bookmarkService));
 app.route("/api/projects", createProjectRoutes(projectService));
 app.route("/api/smart-reminders", createSmartReminderRoutes(smartReminderService));

@@ -5,6 +5,7 @@ const DEFAULT_CAPACITY: usize = 200;
 /// Circular event buffer that stores serialized events with sequence numbers.
 /// Enables replay of missed events on reconnect.
 #[derive(Debug)]
+#[allow(dead_code)]
 pub struct EventBuffer {
     buffer: VecDeque<BufferedEvent>,
     capacity: usize,
@@ -12,11 +13,13 @@ pub struct EventBuffer {
 }
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct BufferedEvent {
     pub seq: u32,
     pub data: String, // JSON-serialized AdapterEvent
 }
 
+#[allow(dead_code)]
 impl EventBuffer {
     pub fn new() -> Self {
         Self {
