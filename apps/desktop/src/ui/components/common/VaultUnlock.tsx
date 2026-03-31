@@ -4,6 +4,8 @@ import { useSecretsStore } from "../../../application/stores/secretsStore";
 interface VaultUnlockProps {
   onUnlocked: () => void;
   animating?: boolean;
+  /** Inline mode: no auto-skip countdown, no overlay, just the form */
+  inline?: boolean;
 }
 
 export function VaultUnlock(props: VaultUnlockProps) {
@@ -21,6 +23,8 @@ export function VaultUnlock(props: VaultUnlockProps) {
   let countdownInterval: ReturnType<typeof setInterval> | undefined;
 
   onMount(() => {
+    if (props.inline) return; // No auto-skip in inline mode
+
     countdownInterval = setInterval(() => {
       setCountdown((prev) => {
         if (prev <= 1) {
@@ -96,6 +100,111 @@ export function VaultUnlock(props: VaultUnlockProps) {
     } as Record<string, string>;
   };
 
+  // ─── Shared form card ───
+  function UnlockCard() {
+    return (
+      <div class="vault-unlock-card">
+        <div class="vault-unlock-icon">
+          <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+            <rect x="8" y="20" width="32" height="24" rx="4" stroke="currentColor" stroke-width="2.5" />
+            <path d="M16 20V14C16 9.58 19.58 6 24 6C28.42 6 32 9.58 32 14V20" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" />
+            <circle cx="24" cy="32" r="3" fill="currentColor" />
+          </svg>
+        </div>
+
+        <h2 class="vault-unlock-title">
+          {isCreating() ? "Creer un mot de passe maitre" : "Deverrouiller le coffre"}
+        </h2>
+
+        <p class="vault-unlock-desc">
+          {isCreating()
+            ? "Ce mot de passe protege toutes vos cles API, tokens et mots de passe. Choisissez un mot de passe fort."
+            : "Entrez votre mot de passe maitre pour acceder a vos secrets."
+          }
+        </p>
+
+        <div class="vault-unlock-form">
+          <input
+            autofocus
+            type="password"
+            class="vault-unlock-input"
+            value={password()}
+            onInput={(e) => setPassword(e.currentTarget.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Mot de passe maitre"
+            disabled={loading()}
+          />
+
+          <Show when={isCreating()}>
+            <input
+              type="password"
+              class="vault-unlock-input"
+              value={confirmPassword()}
+              onInput={(e) => setConfirmPassword(e.currentTarget.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="Confirmer le mot de passe"
+              disabled={loading()}
+            />
+          </Show>
+
+          <Show when={error()}>
+            <div class="vault-unlock-error">{error()}</div>
+          </Show>
+
+          <button
+            class="vault-unlock-btn"
+            onClick={handleUnlock}
+            disabled={loading() || !password().trim()}
+          >
+            {loading() ? "..." : isCreating() ? "Creer et deverrouiller" : "Deverrouiller"}
+          </button>
+
+          <Show when={!isCreating()}>
+            <button
+              class="vault-unlock-link"
+              onClick={() => setIsCreating(true)}
+            >
+              Premiere fois ? Creer un coffre
+            </button>
+          </Show>
+
+          <Show when={isCreating()}>
+            <button
+              class="vault-unlock-link"
+              onClick={() => { setIsCreating(false); setError(""); }}
+            >
+              J'ai deja un coffre
+            </button>
+          </Show>
+        </div>
+
+        <Show when={!props.inline}>
+          <button
+            class="vault-unlock-link"
+            onClick={() => { clearTimeout(autoSkipTimer); clearInterval(countdownInterval); props.onUnlocked(); }}
+            style={{ "margin-top": "16px" }}
+          >
+            Passer sans coffre-fort ({countdown()}s)
+          </button>
+        </Show>
+
+        <p class="vault-unlock-hint">
+          Chiffrement AES-256 · Format KeePass (KDBX4) · Compatible KeePassXC
+        </p>
+      </div>
+    );
+  }
+
+  // ─── Inline mode: just the form centered, no overlay ───
+  if (props.inline) {
+    return (
+      <div style={{ display: "flex", "align-items": "center", "justify-content": "center", height: "100%" }}>
+        <UnlockCard />
+      </div>
+    );
+  }
+
+  // ─── Overlay mode (startup) ───
   return (
     <div
       class={`vault-unlock-overlay ${props.animating ? "vault-unlock-overlay--animating" : ""}`}
@@ -112,95 +221,8 @@ export function VaultUnlock(props: VaultUnlockProps) {
         </div>
       </Show>
 
-      {/* Normal state: the form */}
       <Show when={!props.animating}>
-        <div class="vault-unlock-card">
-          <div class="vault-unlock-icon">
-            <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
-              <rect x="8" y="20" width="32" height="24" rx="4" stroke="currentColor" stroke-width="2.5" />
-              <path d="M16 20V14C16 9.58 19.58 6 24 6C28.42 6 32 9.58 32 14V20" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" />
-              <circle cx="24" cy="32" r="3" fill="currentColor" />
-            </svg>
-          </div>
-
-          <h2 class="vault-unlock-title">
-            {isCreating() ? "Creer un mot de passe maitre" : "Deverrouiller le coffre"}
-          </h2>
-
-          <p class="vault-unlock-desc">
-            {isCreating()
-              ? "Ce mot de passe protege toutes vos cles API, tokens et mots de passe. Choisissez un mot de passe fort."
-              : "Entrez votre mot de passe maitre pour acceder a vos secrets."
-            }
-          </p>
-
-          <div class="vault-unlock-form">
-            <input
-              autofocus
-              type="password"
-              class="vault-unlock-input"
-              value={password()}
-              onInput={(e) => setPassword(e.currentTarget.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="Mot de passe maitre"
-              disabled={loading()}
-            />
-
-            <Show when={isCreating()}>
-              <input
-                type="password"
-                class="vault-unlock-input"
-                value={confirmPassword()}
-                onInput={(e) => setConfirmPassword(e.currentTarget.value)}
-                onKeyDown={handleKeyDown}
-                placeholder="Confirmer le mot de passe"
-                disabled={loading()}
-              />
-            </Show>
-
-            <Show when={error()}>
-              <div class="vault-unlock-error">{error()}</div>
-            </Show>
-
-            <button
-              class="vault-unlock-btn"
-              onClick={handleUnlock}
-              disabled={loading() || !password().trim()}
-            >
-              {loading() ? "..." : isCreating() ? "Creer et deverrouiller" : "Deverrouiller"}
-            </button>
-
-            <Show when={!isCreating()}>
-              <button
-                class="vault-unlock-link"
-                onClick={() => setIsCreating(true)}
-              >
-                Premiere fois ? Creer un coffre
-              </button>
-            </Show>
-
-            <Show when={isCreating()}>
-              <button
-                class="vault-unlock-link"
-                onClick={() => { setIsCreating(false); setError(""); }}
-              >
-                J'ai deja un coffre
-              </button>
-            </Show>
-          </div>
-
-          <button
-            class="vault-unlock-link"
-            onClick={() => { clearTimeout(autoSkipTimer); clearInterval(countdownInterval); props.onUnlocked(); }}
-            style={{ "margin-top": "16px" }}
-          >
-            Passer sans coffre-fort ({countdown()}s)
-          </button>
-
-          <p class="vault-unlock-hint">
-            Chiffrement AES-256 · Format KeePass (KDBX4) · Compatible KeePassXC
-          </p>
-        </div>
+        <UnlockCard />
       </Show>
     </div>
   );

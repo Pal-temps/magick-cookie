@@ -1,5 +1,6 @@
 import { createSignal, Show, For, onMount } from "solid-js";
 import { useSecretsStore, type SecretEntry, type SecretGroup } from "../../../application/stores/secretsStore";
+import { VaultUnlock } from "../common/VaultUnlock";
 import { PasswordGenerator } from "./PasswordGenerator";
 import { SshKeyManager } from "./SshKeyManager";
 import "../../styles/passwords.css";
@@ -212,16 +213,16 @@ export function PasswordsView() {
     );
   }
 
-  // ─── Guard ───
+  // ─── Guard: show inline unlock form when locked ───
   if (!secrets.isUnlocked()) {
     return (
-      <div style={{ display: "flex", "align-items": "center", "justify-content": "center", height: "100%", "flex-direction": "column", gap: "12px", color: "var(--text-muted)" }}>
-        <div style={{ "font-size": "32px", opacity: "0.4" }}>&#x1F512;</div>
-        <div style={{ "font-size": "15px", "font-weight": "600", color: "var(--text-primary)" }}>Coffre-fort verrouille</div>
-        <div style={{ "font-size": "13px", "max-width": "300px", "text-align": "center" }}>
-          Configurez un vault notes et deverrouillez le coffre-fort pour acceder au gestionnaire de mots de passe.
-        </div>
-      </div>
+      <VaultUnlock
+        inline
+        onUnlocked={async () => {
+          await secrets.fetchGroups();
+          await secrets.fetchEntries();
+        }}
+      />
     );
   }
 
