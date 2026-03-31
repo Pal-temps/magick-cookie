@@ -30,8 +30,8 @@ function formatBrief(brief: BriefResponse): string {
     lines.push(`- Hier : ${h}h${String(m).padStart(2, "0")} de focus (${raw.yesterday.timerSessions.length} sessions)`);
   }
 
-  if (raw.yesterday.triagedTasks.length > 0) {
-    lines.push(`- ${raw.yesterday.triagedTasks.length} taches triees hier`);
+  if (raw.yesterday.fluxedItems.length > 0) {
+    lines.push(`- ${raw.yesterday.fluxedItems.length} taches triees hier`);
   }
 
   // Today

@@ -62,10 +62,10 @@ function RawDataFallback(props: { rawData: BriefRawData }) {
               </For>
             </ul>
           </Show>
-          <Show when={props.rawData.yesterday.triagedTasks.length > 0}>
+          <Show when={props.rawData.yesterday.fluxedItems.length > 0}>
             <div style={{ "font-size": "12px", color: "var(--text-muted)", "margin-bottom": "4px" }}>Taches triees :</div>
             <ul style={{ margin: "0", "padding-left": "16px" }}>
-              <For each={props.rawData.yesterday.triagedTasks}>
+              <For each={props.rawData.yesterday.fluxedItems}>
                 {(t) => <li style={{ "font-size": "12px", color: "var(--text-secondary)" }}>{t.title} ({t.status})</li>}
               </For>
             </ul>
@@ -112,7 +112,7 @@ function RawDataFallback(props: { rawData: BriefRawData }) {
               <div style={{ "font-size": "12px", color: "var(--text-muted)", "margin-bottom": "4px" }}>Taches stagnantes :</div>
               <ul style={{ margin: "0 0 6px", "padding-left": "16px" }}>
                 <For each={props.rawData.blockers.staleTasks}>
-                  {(t) => <li style={{ "font-size": "12px", color: "var(--text-secondary)" }}>{t.title} ({t.daysSinceTriaged}j)</li>}
+                  {(t) => <li style={{ "font-size": "12px", color: "var(--text-secondary)" }}>{t.title} ({t.daysSinceFluxed}j)</li>}
                 </For>
               </ul>
             </Show>

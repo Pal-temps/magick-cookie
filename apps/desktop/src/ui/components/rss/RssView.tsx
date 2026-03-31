@@ -1,5 +1,5 @@
 import { createSignal, createEffect, onMount, For, Show } from "solid-js";
-import { useRssStore, type RssFeed, type RssArticle } from "../../../application/stores/rssStore";
+import { useRssStore, type RssFeed } from "../../../application/stores/rssStore";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { Button } from "../common/Button";
 import { AiButton } from "../common/AiButton";
@@ -9,7 +9,7 @@ import { RssCatalog } from "./RssCatalog";
 export function RssView() {
   const {
     feeds, articles, selectedArticle, activeFeedId, setActiveFeedId,
-    isLoading, unreadCount, unreadPerFeed, fetchFeeds, fetchArticles, selectArticle,
+    isLoading, unreadCount, unreadPerFeed, fetchArticles, selectArticle,
     toggleStar, markAllRead, syncAll, addFeed, updateFeed, removeFeed, fetchFullContent, fetchUnreadCount, fetchUnreadCounts,
     digest, digestLoading, fetchDigest, generateDigest, saveDigestToNotes, digestSavedToNotes,
   } = useRssStore();

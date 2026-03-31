@@ -151,7 +151,7 @@ export function BenchHistoryPanel() {
                     Chargement...
                   </div>
                 </Show>
-                <Show when={expandedResult() && loadingPath() !== entry.path}>
+                <Show when={loadingPath() !== entry.path ? expandedResult() : null}>
                   {(result) => <BenchResultCard result={result()} />}
                 </Show>
                 <Show when={!expandedResult() && loadingPath() !== entry.path}>

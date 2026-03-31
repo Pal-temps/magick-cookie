@@ -65,7 +65,7 @@ export function EmailDigest(props: EmailDigestProps) {
   async function handleGenerateReport() {
     setGeneratingReport(true);
     try {
-      const { markdown, emailCount } = await store.generateReport(7);
+      const { markdown } = await store.generateReport(7);
       // Create a note with the report
       const date = new Date().toISOString().slice(0, 10);
       const noteName = `rapport-emails-${date}`;

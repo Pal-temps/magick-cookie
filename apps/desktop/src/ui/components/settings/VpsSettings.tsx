@@ -31,17 +31,6 @@ export function VpsSettings() {
     settings.patchVps({ notificationsEnabled: next });
   }
 
-  const inputStyle = {
-    width: "100%",
-    padding: "8px 10px",
-    "border-radius": "var(--radius-md)",
-    border: "1px solid var(--border-color)",
-    background: "var(--bg-elevated)",
-    color: "var(--text-primary)",
-    "font-size": "13px",
-    "box-sizing": "border-box" as const,
-  };
-
   const labelStyle = {
     "font-size": "12px",
     "font-weight": "500" as const,

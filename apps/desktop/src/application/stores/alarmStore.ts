@@ -113,7 +113,7 @@ export function useAlarmStore() {
       // Detect day change: clear firedToday
       if (storedDate !== today) {
         storedDate = today;
-        setFiredToday(new Set());
+        setFiredToday(new Set<string>());
       }
 
       const now = getCurrentTime();

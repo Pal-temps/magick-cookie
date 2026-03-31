@@ -1,6 +1,5 @@
 import { onMount, onCleanup, createEffect, createSignal, Show, For } from "solid-js";
 import { useVpsStore } from "../../../application/stores/vpsStore";
-import type { VpsLogLine, VpsAlert } from "../../../application/stores/vpsStore";
 import { Button } from "../common/Button";
 import { CookieLoader } from "../common/CookieLoader";
 

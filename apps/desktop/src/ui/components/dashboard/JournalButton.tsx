@@ -1,7 +1,6 @@
 import { useJournalStore } from "../../../application/stores/journalStore";
 import { useNotesStore } from "../../../application/stores/notesStore";
 import { useViewStore } from "../../../application/stores/viewStore";
-import { Button } from "../common/Button";
 import { AiButton } from "../common/AiButton";
 
 export function JournalButton() {

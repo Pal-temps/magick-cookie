@@ -7,7 +7,7 @@ import type { LlmService } from "../../application/llm/llm.service";
 const fakeOverview = {
   period: { from: "2026-03-10", to: "2026-03-16" },
   focus: { totalSeconds: 5400, sessionCount: 6, completedCount: 5, dailyStats: [] },
-  triage: { byStatus: { priority: 5, later: 3, archived: 2 }, totalTriaged: 10 },
+  flux: { byStatus: { priority: 5, later: 3, archived: 2 }, totalFluxed: 10 },
   wellness: { waterAvg: 1750, fruitAvg: 5, daysTracked: 5 },
   email: { received: 25, unread: 8, dailyStats: [] },
   events: { total: 12, dailyStats: [] },
@@ -21,7 +21,7 @@ const fakeWeeklyReview = {
   deltas: {
     focusSeconds: 10,
     sessionCount: 0,
-    totalTriaged: -5,
+    totalFluxed: -5,
     emailReceived: 20,
     eventsTotal: null,
     dogWalks: 0,

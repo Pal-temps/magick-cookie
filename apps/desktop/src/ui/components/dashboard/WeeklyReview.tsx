@@ -129,7 +129,7 @@ export function WeeklyReview(props: WeeklyReviewProps) {
             <DeltaBadge value={review().deltas.sessionCount} label="Sessions" />
             <DeltaBadge value={review().deltas.emailReceived} label="Emails recus" />
             <DeltaBadge value={review().deltas.eventsTotal} label="Evenements" />
-            <DeltaBadge value={review().deltas.totalTriaged} label="Taches triees" />
+            <DeltaBadge value={review().deltas.totalFluxed} label="Items flux" />
             <DeltaBadge value={review().deltas.dogWalks} label="Balades" />
 
             {/* Wellness */}

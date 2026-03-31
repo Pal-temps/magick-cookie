@@ -47,7 +47,7 @@ export function RoutineSettings() {
   const [newStepParam1, setNewStepParam1] = createSignal("dashboard");
   const [newStepParam2, setNewStepParam2] = createSignal("");
 
-  const inputStyle = {
+  const inputStyle: Record<string, string> = {
     width: "100%",
     padding: "6px 10px",
     "border-radius": "var(--radius-sm)",

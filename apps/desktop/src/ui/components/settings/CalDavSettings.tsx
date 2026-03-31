@@ -4,7 +4,7 @@ import { useCalendarStore } from "../../../application/stores/calendarStore";
 import { Button } from "../common/Button";
 
 export function CalDavSettings() {
-  const { accounts, isLoading, isSyncing, fetchAccounts, createAccount, updateAccount, deleteAccount, syncAccount, testConnection } = useCalDavStore();
+  const { accounts, isSyncing, fetchAccounts, createAccount, updateAccount, deleteAccount, syncAccount, testConnection } = useCalDavStore();
   const calendarStore = useCalendarStore();
 
   const [showForm, setShowForm] = createSignal(false);

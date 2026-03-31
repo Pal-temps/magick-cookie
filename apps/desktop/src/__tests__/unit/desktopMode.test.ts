@@ -9,9 +9,9 @@ interface DesktopModeState {
 }
 
 function enterDesktopMode(
-  state: DesktopModeState,
+  _state: DesktopModeState,
   currentWindow: { x: number; y: number; width: number; height: number },
-  monitor: { width: number; height: number; x: number; y: number },
+  _monitor: { width: number; height: number; x: number; y: number },
 ): DesktopModeState {
   return {
     isDesktopMode: true,

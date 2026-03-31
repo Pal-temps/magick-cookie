@@ -110,7 +110,6 @@ describe("Auto-Lock Timer", () => {
   });
 
   it("no lock when autoLockMinutes is 0 (disabled)", () => {
-    const lastActivity = Date.now() - 999 * 60_000;
     const autoLockMinutes = 0;
     // When 0, auto-lock should be skipped
     expect(autoLockMinutes <= 0).toBe(true);

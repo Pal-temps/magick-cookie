@@ -3,7 +3,6 @@ import type { Email, EmailAccount, CreateEmailAccountDTO, SendEmailDTO } from ".
 import { api } from "../../infrastructure/api/apiClient";
 
 const CACHE_KEY = "magick-cookie-email-cache";
-const CACHE_MAX_AGE_MS = 10 * 60 * 1000; // 10 minutes
 
 interface EmailCache {
   emails: Omit<Email, "bodyText" | "bodyHtml">[];

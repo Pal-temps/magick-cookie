@@ -7,7 +7,7 @@ export interface BriefRawData {
     timerSessions: { label: string | null; actualSeconds: number; completed: boolean }[];
     totalFocusSeconds: number;
     events: { title: string; startAt: string }[];
-    triagedTasks: { title: string; status: string }[];
+    fluxedItems: { title: string; status: string }[];
   };
   today: {
     events: { title: string; startAt: string }[];
@@ -15,7 +15,7 @@ export interface BriefRawData {
     unreadEmails: number;
   };
   blockers: {
-    staleTasks: { title: string; daysSinceTriaged: number }[];
+    staleTasks: { title: string; daysSinceFluxed: number }[];
     overdueEvents: { title: string; endAt: string }[];
   };
 }
@@ -29,7 +29,7 @@ export interface BriefResponse {
 export interface AnalyticsOverview {
   period: { from: string; to: string };
   focus: { totalSeconds: number; sessionCount: number; completedCount: number; dailyStats: { date: string; totalSeconds: number }[] };
-  triage: { byStatus: Record<string, number>; totalTriaged: number };
+  flux: { byStatus: Record<string, number>; totalFluxed: number };
   wellness: { waterAvg: number; fruitAvg: number; daysTracked: number };
   email: { received: number; unread: number; dailyStats: { date: string; count: number }[] };
   events: { total: number; dailyStats: { date: string; count: number }[] };
@@ -49,7 +49,7 @@ export interface WeeklyReview {
   deltas: {
     focusSeconds: number | null;
     sessionCount: number | null;
-    totalTriaged: number | null;
+    totalFluxed: number | null;
     emailReceived: number | null;
     eventsTotal: number | null;
     dogWalks: number | null;

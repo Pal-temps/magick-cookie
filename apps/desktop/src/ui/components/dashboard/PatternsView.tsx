@@ -23,11 +23,6 @@ export function PatternsView(props: PatternsViewProps) {
     return Math.max(...p.hourlyDistribution.map(h => h.avgMinutes), 1);
   });
 
-  const maxWeekday = createMemo(() => {
-    const p = patterns();
-    if (!p) return 1;
-    return Math.max(...p.weekdayDistribution.map(d => d.avgMinutes), 1);
-  });
 
   // Build heatmap data: 7 rows (days) x 24 cols (hours)
   // We approximate intensity from hourly + weekday distributions

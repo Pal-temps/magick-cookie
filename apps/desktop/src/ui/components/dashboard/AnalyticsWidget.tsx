@@ -99,9 +99,9 @@ export function AnalyticsWidget() {
               </div>
               <div style={cardStyle}>
                 <div style={{ "font-size": "18px", "font-weight": "700", color: "var(--accent-primary)" }}>
-                  {data().triage?.totalTriaged ?? 0}
+                  {data().flux?.totalFluxed ?? 0}
                 </div>
-                <div style={{ "font-size": "10px", color: "var(--text-muted)", "margin-top": "2px" }}>Tries</div>
+                <div style={{ "font-size": "10px", color: "var(--text-muted)", "margin-top": "2px" }}>Flux</div>
               </div>
               <div style={cardStyle}>
                 <div style={{ "font-size": "18px", "font-weight": "700", color: "var(--accent-primary)" }}>

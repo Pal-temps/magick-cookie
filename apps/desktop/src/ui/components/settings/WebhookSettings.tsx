@@ -16,7 +16,7 @@ export function WebhookSettings() {
   const [source, setSource] = createSignal("");
   const [copiedId, setCopiedId] = createSignal<string | null>(null);
 
-  const inputStyle = {
+  const inputStyle: Record<string, string> = {
     width: "100%",
     padding: "6px 10px",
     "border-radius": "var(--radius-sm)",

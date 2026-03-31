@@ -12,7 +12,6 @@ export function ShortcutSettings() {
     findConflict,
     getCategories,
     getActionsByCategory,
-    ACTIONS,
   } = useShortcutStore();
 
   const [recordingId, setRecordingId] = createSignal<string | null>(null);
