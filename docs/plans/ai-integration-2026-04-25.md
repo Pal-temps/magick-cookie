@@ -236,7 +236,7 @@ Un nouveau tool s'écrit en ~20 lignes. Les actions sensibles demandent confirma
 
 ## Phase 3 — Notes bridge (le gros pavé)
 
-**Statut** : ⬜ À faire
+**Statut** : ✅ Terminé (2026-04-25)
 **Durée estimée** : 1-2 sessions
 **Dépend de** : P2
 **Débloque** : Phases 4, 6 (beaucoup de tools écrivent dans les notes)
@@ -245,24 +245,25 @@ Un nouveau tool s'écrit en ~20 lignes. Les actions sensibles demandent confirma
 Cookia peut CRUD les choco'notes.
 
 ### Décision architecturale
-L'API a besoin d'accéder au vault sur disque. Le path est partagé (`~/.local/share/magick-cookie-vault/`). Ajouter un `VaultService` dans l'API qui lit le même path. Git sync reste côté Tauri (desktop, pas AI).
+L'API a besoin d'accéder au vault sur disque. Le path est partagé (`~/.local/share/magick-cookie-vault/`). Ajouter un `VaultService` dans l'API qui lit le même path. Git sync reste côté Tauri (desktop, pas AI). **Le `VaultService` existait déjà** (`infrastructure/vault/`) avec protection anti path-traversal + symlink — on l'a réutilisé via un `FsVaultNoteRepository` qui délègue le `resolvePath`.
 
 ### Tâches
 
-- [ ] `VaultService` dans l'API : lecture/écriture markdown vault
-- [ ] Nouveaux endpoints `/api/vault/notes` :
-  - [ ] `GET list`
-  - [ ] `GET read`
-  - [ ] `POST create`
-  - [ ] `PUT update`
-  - [ ] `DELETE` (user-confirm)
-  - [ ] `POST rename`
-- [ ] Tools AI : `notes_list`, `notes_read`, `notes_create`, `notes_edit`, `notes_append`, `notes_delete`
-- [ ] Permission levels : create/edit/append = `auto`, delete = `user-confirm`
-- [ ] Préserver les frontmatter YAML existants lors des edits
-- [ ] Lock file par note pour éviter collisions Tauri ↔ API
-- [ ] Politique : l'AI écrit par défaut dans `_ai/` sauf chemin explicite
-- [ ] Tests : créer note, lire, éditer, supprimer depuis tool
+- [x] `VaultService` dans l'API : lecture/écriture markdown vault (réutilisé, + nouveau `FsVaultNoteRepository` par-dessus)
+- [x] Nouveaux endpoints `/api/vault/notes` :
+  - [x] `GET /` list (prefix + limit)
+  - [x] `GET /raw?path=` read
+  - [x] `POST /` create
+  - [x] `PUT /raw?path=` update (body et/ou frontmatter merge)
+  - [x] `DELETE /?path=` delete
+  - [x] `POST /rename?path=` rename
+  - [x] `POST /append?path=` append
+- [x] Tools AI : `notes_list`, `notes_read`, `notes_create`, `notes_edit`, `notes_append`, `notes_delete`, `notes_rename`
+- [x] Permission levels : create/edit/append/rename = `auto`, delete = `user-confirm`
+- [x] Préserver les frontmatter YAML existants lors des edits (parser + merge, null = delete key)
+- [x] Lock file par note (`.lock` adjacent, stale > 5s)
+- [x] Politique : `notes_create` applique `_ai/` par défaut si path sans dossier (via `applyAiDefaultPrefix`)
+- [x] Tests : 29 nouveaux (22 repository + 7 service)
 
 ### Risques
 - Collision d'écriture simultanée Tauri ↔ API sur le même fichier
@@ -492,7 +493,7 @@ L'AI enchaîne intelligemment plusieurs features. Observability complète.
 |-------|--------|------------|-----------|
 | P1 GitHub unification | ✅ | 1 dense | — |
 | P2 Tool convention | ✅ | 1 | — |
-| P3 Notes bridge | ⬜ | 1-2 | P2 |
+| P3 Notes bridge | ✅ | 1-2 | P2 |
 | P4 Domaines CRUD | ⬜ | 2-3 | P2 |
 | P5 Providers tools | ⬜ | 1 | P1, P2 |
 | P6 Orchestration | ⬜ | 1-2 | P3, P4, P5 |
@@ -532,3 +533,12 @@ L'AI enchaîne intelligemment plusieurs features. Observability complète.
   - Les 10 tool files migrés vers `defineTool` (task, memory, timer, analytics, brief, email, calendar, bookmark, project, skill, git-remote, deploy, dns, ssh)
   - Tests : 1070 pass (+13 dans `tool-registry.test.ts`, 3 `memory.tools.test.ts` mis à jour pour matcher le nouveau shape d'erreur). 0 fail, TS 0 erreur.
   - Note : le flux `permission_request` interactif côté API-agent est reporté à P4/P6 quand un UI le consomme. Le foundation (permissionLevel + dispatch deny) est en place.
+- **P3 implémenté** :
+  - Domain `VaultNote` entity + `VaultNoteRepository` interface + 5 error classes (`VaultNotFoundError`, `NoteNotFoundError`, `NoteAlreadyExistsError`, `InvalidNotePathError`, `NoteLockedError`)
+  - Infra `FsVaultNoteRepository` : délègue à `VaultService` pour le `resolvePath` (anti path-traversal + symlink existant). Frontmatter YAML préservé/merged. Lock file adjacent `.lock` avec détection stale > 5s.
+  - App `VaultNoteService` + helper `applyAiDefaultPrefix` qui ajoute `_ai/` aux paths sans dossier
+  - Routes `/api/vault/notes` (7 endpoints GET/POST/PUT/DELETE) avec mapping domain errors → HTTP (400/404/409/423)
+  - Validators `vault-note.validator.ts` (zod) — rejette `..`, byte null, chemins sans `.md`
+  - 7 tools AI : `notes_list`, `notes_read`, `notes_create` (apply `_ai/` default), `notes_edit`, `notes_append`, `notes_rename`, `notes_delete` (user-confirm)
+  - Tests : 1099 pass (+29 nouveaux : 22 repo unit tests avec tmp vault, 7 service tests avec mocked repo). Couvrent path-traversal, frontmatter preservation/merge, stale lock override, `.lock` file exclusion from list.
+  - TS 0 erreur
