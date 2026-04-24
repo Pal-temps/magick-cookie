@@ -208,9 +208,13 @@ pub fn ai_start_session(
             // ─── MCP tool interception ───
             if let AdapterEvent::ToolUse { ref id, ref name, ref input } = event {
                 if name.contains("__") || {
-                    // Check if any connected MCP server provides this tool
-                    let mgr = mcp_clone.lock().unwrap();
-                    mgr.all_tools().iter().any(|(_, t)| t.name == *name)
+                    // Check if any connected MCP server provides this tool. A poisoned mutex
+                    // here means another thread panicked with the lock — we degrade rather than
+                    // crash the forwarder.
+                    match mcp_clone.lock() {
+                        Ok(mgr) => mgr.all_tools().iter().any(|(_, t)| t.name == *name),
+                        Err(_) => false,
+                    }
                 } {
                     // Emit ToolUse event to frontend
                     {
@@ -234,12 +238,16 @@ pub fn ai_start_session(
                     let tool_id = id.clone();
                     let tool_name = name.clone();
                     let args = input.clone();
-                    let mcp_mgr = mcp_clone.lock().unwrap();
-                    let (content, is_error) = match mcp_mgr.call_tool(&tool_name, args) {
-                        Ok(result) => (result, false),
-                        Err(e) => (format!("MCP tool error: {e}"), true),
+                    let (content, is_error) = match mcp_clone.lock() {
+                        Ok(mcp_mgr) => match mcp_mgr.call_tool(&tool_name, args) {
+                            Ok(result) => (result, false),
+                            Err(e) => (format!("MCP tool error: {e}"), true),
+                        },
+                        Err(_) => (
+                            "MCP manager unavailable (mutex poisoned)".to_string(),
+                            true,
+                        ),
                     };
-                    drop(mcp_mgr);
 
                     // Send result back to adapter + emit to frontend
                     {

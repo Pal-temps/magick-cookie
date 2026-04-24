@@ -69,6 +69,7 @@ export function CodeDrawer(props: CodeDrawerProps) {
             class="cc-code-drawer__close"
             onClick={() => { wfStore.setEditingWorkflowId(null); ide.toggleCodeDrawer(); }}
             title={`${t("common.close")} (Ctrl+E)`}
+            aria-label={t("common.close")}
           >&times;</button>
         </div>
 

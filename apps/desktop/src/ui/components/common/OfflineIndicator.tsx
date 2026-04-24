@@ -9,7 +9,7 @@ export function OfflineIndicator() {
   return (
     <>
       <Show when={!isOnline()}>
-        <div style={{
+        <div role="status" aria-live="polite" style={{
           padding: "4px 12px",
           background: "rgba(255, 170, 0, 0.15)",
           "border-bottom": "1px solid rgba(255, 170, 0, 0.3)",
@@ -25,7 +25,7 @@ export function OfflineIndicator() {
         </div>
       </Show>
       <Show when={isOnline() && isSyncing()}>
-        <div style={{
+        <div role="status" aria-live="polite" style={{
           padding: "4px 12px",
           background: "rgba(0, 170, 255, 0.1)",
           "border-bottom": "1px solid rgba(0, 170, 255, 0.2)",

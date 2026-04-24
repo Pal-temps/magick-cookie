@@ -173,6 +173,7 @@ export function EventForm() {
             </div>
             <button
               onClick={closeForm}
+              aria-label="Close"
               style={{
                 width: "28px", height: "28px", display: "flex",
                 "align-items": "center", "justify-content": "center",

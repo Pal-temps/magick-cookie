@@ -1,7 +1,21 @@
+use std::sync::OnceLock;
 use std::time::{Duration, Instant};
 use serde::Serialize;
 
 const API_BASE: &str = "http://localhost:47300";
+
+// Reusable reqwest client. Creating a Client per stress call rebuilt the TCP pool every time,
+// which skews throughput measurements downward. OnceLock builds the client lazily on first use
+// and hands out references afterwards.
+fn http_client() -> &'static reqwest::blocking::Client {
+    static CLIENT: OnceLock<reqwest::blocking::Client> = OnceLock::new();
+    CLIENT.get_or_init(|| {
+        reqwest::blocking::Client::builder()
+            .timeout(Duration::from_secs(30))
+            .build()
+            .expect("reqwest client build")
+    })
+}
 
 #[derive(Debug, Serialize)]
 pub struct StressResult {
@@ -38,10 +52,7 @@ fn stress_sse(count: u32) -> StressResult {
     let mut latencies = Vec::new();
 
     // Open N SSE connections concurrently, hold for 2s, then close
-    let client = reqwest::blocking::Client::builder()
-        .timeout(Duration::from_secs(5))
-        .build()
-        .unwrap();
+    let client = http_client();
 
     for _ in 0..count {
         let t = Instant::now();
@@ -63,10 +74,7 @@ fn stress_sse(count: u32) -> StressResult {
 fn stress_rss_sync() -> StressResult {
     let mem_before = get_app_memory_mb();
     let start = Instant::now();
-    let client = reqwest::blocking::Client::builder()
-        .timeout(Duration::from_secs(30))
-        .build()
-        .unwrap();
+    let client = http_client();
 
     let resp = client.post(format!("{API_BASE}/api/rss-feeds/sync-all")).send();
     let (successes, failures) = match resp {
@@ -100,10 +108,7 @@ fn stress_concurrent(count: u32) -> StressResult {
     let mut failures = 0u32;
     let mut latencies = Vec::new();
 
-    let client = reqwest::blocking::Client::builder()
-        .timeout(Duration::from_secs(10))
-        .build()
-        .unwrap();
+    let client = http_client();
 
     for i in 0..count {
         let endpoint = endpoints[i as usize % endpoints.len()];
@@ -132,10 +137,7 @@ fn run_get_stress(name: &str, path: &str, count: u32) -> StressResult {
     let mut failures = 0u32;
     let mut latencies = Vec::new();
 
-    let client = reqwest::blocking::Client::builder()
-        .timeout(Duration::from_secs(10))
-        .build()
-        .unwrap();
+    let client = http_client();
 
     for _ in 0..count {
         let t = Instant::now();
