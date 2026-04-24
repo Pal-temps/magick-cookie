@@ -326,14 +326,61 @@ export function FluxSidebarContent() {
             {(src) => {
               const count = () => taskCountBySource()[src.key] || 0;
               const configured = () => taskStore.isConnectorConfigured(src.key);
+              const syncing = () => taskStore.isSyncing() && taskStore.sourceFilter() === src.key;
+              const canSync = () => src.key !== "manual" && configured();
               return (
-                <button
+                <div
+                  role="button"
+                  tabIndex={0}
                   style={{ ...subRowStyle(isSourceActive(src.key)), opacity: configured() ? "1" : "0.4" }}
                   onClick={() => selectSource(src.key)}
+                  onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); selectSource(src.key); } }}
                 >
-                  <span>{src.label}</span>
+                  <span style={{ flex: "1" }}>{src.label}</span>
                   <span style={badgeStyle(isSourceActive(src.key))}>{count()}</span>
-                </button>
+                  <Show when={canSync()}>
+                    <button
+                      type="button"
+                      title={`Sync ${src.label}`}
+                      aria-label={`Sync ${src.label}`}
+                      disabled={syncing()}
+                      onClick={(e) => { e.stopPropagation(); taskStore.syncConnector(src.key); }}
+                      style={{
+                        background: "transparent",
+                        border: "none",
+                        color: isSourceActive(src.key) ? "#fff" : "var(--text-secondary)",
+                        cursor: syncing() ? "wait" : "pointer",
+                        padding: "2px 4px",
+                        "border-radius": "4px",
+                        "font-size": "12px",
+                        "line-height": "1",
+                        opacity: syncing() ? "0.6" : "1",
+                      }}
+                    >
+                      <Show when={syncing()} fallback={<span style={{ display: "inline-block" }}>⟳</span>}>
+                        <CookieLoader size={12} />
+                      </Show>
+                    </button>
+                  </Show>
+                  <Show when={!configured() && src.key !== "manual"}>
+                    <button
+                      type="button"
+                      title={`Configurer ${src.label}`}
+                      aria-label={`Configurer ${src.label}`}
+                      onClick={(e) => { e.stopPropagation(); openSettings("connectors"); }}
+                      style={{
+                        background: "transparent",
+                        border: "none",
+                        color: "var(--text-muted)",
+                        cursor: "pointer",
+                        padding: "2px 4px",
+                        "border-radius": "4px",
+                        "font-size": "11px",
+                        "line-height": "1",
+                      }}
+                    >⚙</button>
+                  </Show>
+                </div>
               );
             }}
           </For>
