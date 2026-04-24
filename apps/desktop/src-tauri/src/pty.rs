@@ -9,6 +9,21 @@ use tauri::{AppHandle, Emitter};
 
 const MAX_PTY_COUNT: usize = 10;
 
+// Characters that are interpreted specially by cmd.exe and /bin/sh. If a caller wants to run
+// `ls | grep`, they should pass the full pipeline as a single `command` string — we refuse to
+// concatenate multi-arg values that could smuggle extra commands past the shell.
+fn reject_shell_metacharacters(value: &str, field: &str) -> Result<(), String> {
+    if value
+        .chars()
+        .any(|c| matches!(c, ';' | '|' | '&' | '`' | '$' | '\n' | '\r' | '<' | '>' | '\0'))
+    {
+        return Err(format!(
+            "Invalid {field}: contains shell metacharacter (;, |, &, `, $, <, >, newline)"
+        ));
+    }
+    Ok(())
+}
+
 // ─── Types ───
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -61,6 +76,20 @@ pub fn pty_spawn(
             return Err(format!(
                 "Maximum PTY count ({MAX_PTY_COUNT}) reached. Close unused terminals first."
             ));
+        }
+    }
+
+    // Reject extra args that contain shell metacharacters — otherwise they'd be concatenated into
+    // the /C or -c string and smuggled past the shell. The `command` itself is trusted (the
+    // caller intentionally authored it), but we also refuse NUL / CR bytes.
+    if let Some(cmd) = command.as_deref() {
+        if cmd.contains('\0') {
+            return Err("Invalid command: contains NUL".into());
+        }
+    }
+    if let Some(ref extra) = args {
+        for a in extra {
+            reject_shell_metacharacters(a, "arg")?;
         }
     }
 

@@ -7,6 +7,23 @@ use serde::Serialize;
 
 use crate::ai::types::AdapterEvent;
 
+// Session IDs are joined into a file path (`_sessions/{id}.jsonl`). Without validation the
+// caller could escape the vault by passing `../../etc/passwd` or a name containing `/` / `\`.
+// We accept only a conservative charset — alphanumerics, `-`, `_` — matching both UUIDs and
+// the shorter internal identifiers used by the adapters.
+fn validate_session_id(session_id: &str) -> Result<(), String> {
+    if session_id.is_empty() || session_id.len() > 128 {
+        return Err("Invalid session id: length must be 1..128".into());
+    }
+    if !session_id
+        .chars()
+        .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
+    {
+        return Err("Invalid session id: only [A-Za-z0-9_-] allowed".into());
+    }
+    Ok(())
+}
+
 #[derive(Serialize)]
 struct SessionMeta {
     #[serde(rename = "type")]
@@ -37,6 +54,7 @@ impl SessionRecorder {
         provider: &str,
         model: &str,
     ) -> Result<Self, String> {
+        validate_session_id(session_id)?;
         let dir = PathBuf::from(vault_path).join("_sessions");
         fs::create_dir_all(&dir).map_err(|e| format!("mkdir _sessions: {e}"))?;
 
@@ -165,6 +183,7 @@ pub fn list_past_sessions(vault_path: &str) -> Vec<PastSessionInfo> {
 }
 
 pub fn read_past_session(vault_path: &str, session_id: &str) -> Result<Vec<String>, String> {
+    validate_session_id(session_id)?;
     let path = PathBuf::from(vault_path)
         .join("_sessions")
         .join(format!("{session_id}.jsonl"));
@@ -178,6 +197,7 @@ pub fn read_past_session(vault_path: &str, session_id: &str) -> Result<Vec<Strin
 }
 
 pub fn update_session_label(vault_path: &str, session_id: &str, label: &str) -> Result<(), String> {
+    validate_session_id(session_id)?;
     let path = PathBuf::from(vault_path)
         .join("_sessions")
         .join(format!("{session_id}.jsonl"));

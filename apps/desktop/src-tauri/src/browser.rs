@@ -2,6 +2,17 @@ use std::collections::HashMap;
 use std::sync::Mutex;
 use tauri::{Manager, WebviewBuilder, WebviewUrl};
 
+// Only HTTP(S) is accepted for browser.navigate — file://, javascript:, data:, and similar
+// schemes would let an attacker-controlled URL read local files or execute code inside the
+// webview context.
+fn parse_web_url(raw: &str) -> Result<url::Url, String> {
+    let parsed: url::Url = raw.parse().map_err(|e| format!("Invalid URL: {e}"))?;
+    match parsed.scheme() {
+        "http" | "https" => Ok(parsed),
+        other => Err(format!("Blocked URL scheme: {other} (only http/https allowed)")),
+    }
+}
+
 // ─── State ───
 
 pub struct BrowserInstance {
@@ -36,7 +47,7 @@ pub async fn browser_create(
 
     // If already exists, just navigate
     if let Some(wv) = app.get_webview(&label) {
-        let parsed: url::Url = url.parse().map_err(|e| format!("Invalid URL: {e}"))?;
+        let parsed = parse_web_url(&url)?;
         wv.navigate(parsed).map_err(|e| format!("navigate failed: {e}"))?;
         state.instances.lock().unwrap().get_mut(&id).map(|i| i.url = url);
         return Ok(());
@@ -59,7 +70,7 @@ pub async fn browser_create(
     webview.hide().map_err(|e| format!("hide failed: {e}"))?;
 
     // Navigate to the actual URL
-    let parsed: url::Url = url.parse().map_err(|e| format!("Invalid URL: {e}"))?;
+    let parsed = parse_web_url(&url)?;
     webview.navigate(parsed).map_err(|e| format!("navigate failed: {e}"))?;
 
     state
@@ -104,7 +115,7 @@ pub async fn browser_navigate(
         inst.label.clone()
     };
     let wv = app.get_webview(&label).ok_or("Webview not found")?;
-    let parsed: url::Url = url.parse().map_err(|e| format!("Invalid URL: {e}"))?;
+    let parsed = parse_web_url(&url)?;
     wv.navigate(parsed).map_err(|e| format!("navigate failed: {e}"))?;
     Ok(())
 }
@@ -284,7 +295,7 @@ pub async fn browser_pop_out(
 
     // Create a new detached WebviewWindow pointing to the same URL
     use tauri::WebviewWindowBuilder;
-    let parsed: url::Url = url.parse().map_err(|e| format!("Invalid URL: {e}"))?;
+    let parsed = parse_web_url(&url)?;
     WebviewWindowBuilder::new(&app, &detached_label, WebviewUrl::External(parsed))
         .title(&format!("Browser — {url}"))
         .inner_size(1024.0, 768.0)
