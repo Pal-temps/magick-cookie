@@ -3,6 +3,7 @@ import { cors } from "hono/cors";
 import { config } from "./config";
 import { db } from "./infrastructure/database/client";
 import { errorHandler } from "./presentation/middleware/error-handler";
+import { authMiddleware } from "./presentation/middleware/auth";
 
 // Repositories
 import { DrizzleCalendarRepository } from "./infrastructure/repositories/calendar.repository.impl";
@@ -20,7 +21,6 @@ import { DrizzleEmailRepository } from "./infrastructure/repositories/email.repo
 import { DrizzleLlmConfigRepository } from "./infrastructure/repositories/llm-config.repository.impl";
 import { DrizzleChatRepository } from "./infrastructure/repositories/chat.repository.impl";
 import { DrizzleBookmarkRepository } from "./infrastructure/repositories/bookmark.repository.impl";
-import { DrizzleBookmarkTagRepository } from "./infrastructure/repositories/bookmark-tag.repository.impl";
 import { DrizzleBookmarkCategoryRepository } from "./infrastructure/repositories/bookmark-category.repository.impl";
 import { DrizzleProjectRepository } from "./infrastructure/repositories/project.repository.impl";
 import { DrizzlePushNotificationRepository } from "./infrastructure/repositories/push-notification.repository.impl";
@@ -31,7 +31,6 @@ import { DrizzleAlarmRepository } from "./infrastructure/repositories/alarm.repo
 import { DrizzleRssFeedRepository } from "./infrastructure/repositories/rss-feed.repository.impl";
 import { DrizzleRssArticleRepository } from "./infrastructure/repositories/rss-article.repository.impl";
 import { DrizzleSnippetRepository } from "./infrastructure/repositories/snippet.repository.impl";
-import { DrizzleSnippetCategoryRepository } from "./infrastructure/repositories/snippet-category.repository.impl";
 import { DrizzleCalDavAccountRepository } from "./infrastructure/repositories/caldav-account.repository.impl";
 import { DrizzleEmailRuleRepository } from "./infrastructure/repositories/email-rule.repository.impl";
 import { DrizzleRoutineRepository } from "./infrastructure/repositories/routine.repository.impl";
@@ -44,6 +43,7 @@ import { EventService } from "./application/event/event.service";
 import { ReminderService } from "./application/reminder/reminder.service";
 import { ContactService } from "./application/contact/contact.service";
 import { TaskService } from "./application/task/task.service";
+import { TaskDetailService } from "./application/task/task-detail.service";
 import { ClickUpSyncService } from "./application/connector/clickup-sync.service";
 import { TimerSessionService } from "./application/timer-session/timer-session.service";
 import { WellnessConfigService } from "./application/wellness-config/wellness-config.service";
@@ -170,7 +170,6 @@ const emailRepo = new DrizzleEmailRepository(db);
 const llmConfigRepo = new DrizzleLlmConfigRepository(db);
 const chatRepo = new DrizzleChatRepository(db);
 const bookmarkRepo = new DrizzleBookmarkRepository(db);
-const bookmarkTagRepo = new DrizzleBookmarkTagRepository(db);
 const bookmarkCategoryRepo = new DrizzleBookmarkCategoryRepository(db);
 const projectRepo = new DrizzleProjectRepository(db);
 const pushRepo = new DrizzlePushNotificationRepository(db);
@@ -181,7 +180,6 @@ const alarmRepo = new DrizzleAlarmRepository(db);
 const rssFeedRepo = new DrizzleRssFeedRepository(db);
 const rssArticleRepo = new DrizzleRssArticleRepository(db);
 const snippetRepo = new DrizzleSnippetRepository(db);
-const snippetCategoryRepo = new DrizzleSnippetCategoryRepository(db);
 const caldavAccountRepo = new DrizzleCalDavAccountRepository(db);
 const emailRuleRepo = new DrizzleEmailRuleRepository(db);
 const routineRepo = new DrizzleRoutineRepository(db);
@@ -194,6 +192,7 @@ const eventService = new EventService(eventRepo, reminderRepo);
 const reminderService = new ReminderService(reminderRepo, eventRepo);
 const contactService = new ContactService(contactRepo);
 const taskService = new TaskService(taskRepo);
+const taskDetailService = new TaskDetailService(taskService, connectorConfigRepo);
 const timerSessionService = new TimerSessionService(timerSessionRepo);
 const wellnessConfigService = new WellnessConfigService(wellnessConfigRepo);
 const wellnessLogService = new WellnessLogService(wellnessLogRepo);
@@ -203,20 +202,20 @@ const smtpConnector = new SmtpConnector();
 const emailService = new EmailService(emailAccountRepo, emailRepo, imapConnector, smtpConnector);
 const analyticsService = new AnalyticsService(timerSessionRepo, dogWalkRepo, wellnessLogRepo, fluxRepo, emailRepo, eventRepo, taskRepo, projectRepo);
 const llmService = new LlmService(llmConfigRepo);
-const fluxService = new FluxService(fluxRepo, taskRepo, llmService);
+const fluxService = new FluxService(fluxRepo, taskRepo, llmService, emailRepo, rssArticleRepo, rssFeedRepo);
 const gitRepoPaths = process.env.GIT_SCAN_REPOS?.split(",").map((p) => p.trim()).filter(Boolean) || [];
 const gitExecAdapter = new GitExecAdapter();
 const gitScanService = gitRepoPaths.length > 0 ? new GitScanService(gitRepoPaths, gitExecAdapter) : undefined;
 const briefService = new BriefService(timerSessionRepo, eventRepo, taskRepo, fluxRepo, emailRepo, llmService, gitScanService);
 const githubService = new GitHubService(githubConfigRepo, githubPrRepo);
 const vpsProxyService = new VpsProxyService(config.vpsApiUrl, config.vpsApiToken);
-const bookmarkService = new BookmarkService(bookmarkRepo, bookmarkTagRepo, bookmarkCategoryRepo);
+const bookmarkService = new BookmarkService(bookmarkRepo, bookmarkCategoryRepo);
 const projectService = new ProjectService(projectRepo);
 const smartReminderService = new SmartReminderService(fluxRepo, taskRepo, emailRepo);
 const alarmService = new AlarmService(alarmRepo);
 const rssService = new RssService(rssFeedRepo, rssArticleRepo);
 rssService.setLlmService(llmService);
-const snippetService = new SnippetService(snippetRepo, snippetCategoryRepo);
+const snippetService = new SnippetService(snippetRepo);
 const changelogService = new ChangelogService(gitScanService, llmService);
 const caldavConnector = new CalDavConnector();
 const caldavService = new CalDavService(caldavAccountRepo, caldavConnector, eventRepo);
@@ -245,10 +244,10 @@ const sshService = new SshService(vaultService);
 const gitRemoteService = new GitRemoteService(sshService);
 const deployService = new DeployService(dnsService, sshService, gitRemoteService);
 const skillService = new SkillService(vaultService);
-const snapshotService = new SnapshotService(vaultService);
+const snapshotService = new SnapshotService(vaultService, taskRepo, eventRepo, contactRepo, bookmarkRepo);
 toolRegistry.registerAll(createDnsTools(dnsService));
 toolRegistry.registerAll(createSshTools(sshService));
-toolRegistry.registerAll(createDeployTools(deployService, sshService));
+toolRegistry.registerAll(createDeployTools(sshService));
 toolRegistry.registerAll(createGitRemoteTools(gitRemoteService));
 toolRegistry.registerAll(createSkillTools(skillService));
 const agentService = new AgentService(chatRepo, llmService, toolRegistry, agentMemoryRepo);
@@ -263,7 +262,20 @@ const reminderEmitter = new InMemoryReminderEmitter();
 // --- App ---
 const app = new Hono();
 
-app.use("/*", cors());
+app.use(
+  "/*",
+  cors({
+    origin: (origin) => {
+      // No Origin header → same-origin / native fetch → allow (local Tauri, curl, tests)
+      if (!origin) return origin ?? "*";
+      return config.corsOrigins.includes(origin) ? origin : null;
+    },
+    credentials: true,
+    allowHeaders: ["Content-Type", "Authorization", "X-Webhook-Secret"],
+    allowMethods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  }),
+);
+app.use("/api/*", authMiddleware);
 app.onError(errorHandler);
 
 // Health
@@ -278,7 +290,7 @@ app.route("/api/events/:eventId/reminders", createEventReminderRoutes(reminderSe
 app.route("/api/sse", createSSERoutes(reminderEmitter));
 app.route("/api/contacts", createContactRoutes(contactService));
 app.route("/api/connectors", createConnectorRoutes({ clickup: clickUpSyncService, github: githubSyncService, gitlab: gitlabSyncService }));
-app.route("/api/tasks", createTaskRoutes(taskService, connectorConfigRepo));
+app.route("/api/tasks", createTaskRoutes(taskService, taskDetailService));
 app.route("/api/connector-configs", createConnectorConfigRoutes(connectorConfigService));
 app.route("/api/timer-sessions", createTimerSessionRoutes(timerSessionService));
 app.route("/api/wellness-configs", createWellnessConfigRoutes(wellnessConfigService));
@@ -311,17 +323,81 @@ app.route("/api/routines", createRoutineRoutes(routineService));
 app.route("/api/webhooks", createWebhookRoutes(webhookService));
 app.route("/api/user-preferences", createUserPreferencesRoutes(userPreferencesService));
 
-// Start reminder checker — pushes to SSE, does NOT mark as sent
-startReminderChecker(reminderService, eventRepo, reminderEmitter);
+// --- Jobs ---
+const timers: Timer[] = [];
 
-// Start email sync job
-startEmailSyncJob(emailService);
+timers.push(startReminderChecker(reminderService, eventRepo, reminderEmitter));
 
-// Start GitHub sync job
-startGitHubSyncJob(githubService);
+// Conditional jobs — only start if the relevant feature is configured
+(async () => {
+  try {
+    const emailAccounts = await emailAccountRepo.findAll();
+    if (emailAccounts.length > 0) {
+      timers.push(startEmailSyncJob(emailService));
+    } else {
+      console.log("[email-sync] Skipped — no email accounts configured");
+    }
+  } catch (err) {
+    console.error("[email-sync] Failed to check config:", err);
+  }
 
-// Start agent scheduler (proactive notifications)
-startAgentScheduler({
+  try {
+    const ghConfig = await githubConfigRepo.get();
+    if (ghConfig) {
+      timers.push(startGitHubSyncJob(githubService));
+    } else {
+      console.log("[github-sync] Skipped — no GitHub config");
+    }
+  } catch (err) {
+    console.error("[github-sync] Failed to check config:", err);
+  }
+
+  try {
+    const ghConnector = await connectorConfigRepo.findByType("github");
+    if (ghConnector?.enabled) {
+      timers.push(startGitHubIssueSyncJob(githubSyncService));
+    } else {
+      console.log("[github-issue-sync] Skipped — no GitHub connector configured");
+    }
+  } catch (err) {
+    console.error("[github-issue-sync] Failed to check config:", err);
+  }
+
+  try {
+    const glConnector = await connectorConfigRepo.findByType("gitlab");
+    if (glConnector?.enabled) {
+      timers.push(startGitLabSyncJob(gitlabSyncService));
+    } else {
+      console.log("[gitlab-sync] Skipped — no GitLab connector configured");
+    }
+  } catch (err) {
+    console.error("[gitlab-sync] Failed to check config:", err);
+  }
+
+  try {
+    const rssFeeds = await rssFeedRepo.findAll();
+    if (rssFeeds.length > 0) {
+      timers.push(startRssSyncJob(rssService));
+    } else {
+      console.log("[rss-sync] Skipped — no RSS feeds configured");
+    }
+  } catch (err) {
+    console.error("[rss-sync] Failed to check config:", err);
+  }
+
+  try {
+    const caldavAccounts = await caldavAccountRepo.findAll();
+    if (caldavAccounts.length > 0) {
+      timers.push(startCalDavSyncJob(caldavService));
+    } else {
+      console.log("[caldav-sync] Skipped — no CalDAV accounts configured");
+    }
+  } catch (err) {
+    console.error("[caldav-sync] Failed to check config:", err);
+  }
+})();
+
+const schedulerTimers = startAgentScheduler({
   pushRepo,
   agentMemoryRepo,
   analyticsService,
@@ -329,22 +405,21 @@ startAgentScheduler({
   emailService,
   timerService: timerSessionService,
 });
-
-// Start GitHub issue sync job
-startGitHubIssueSyncJob(githubSyncService);
-
-// Start GitLab sync job
-startGitLabSyncJob(gitlabSyncService);
-
-// Start RSS sync job
-startRssSyncJob(rssService);
-
-// Start CalDAV sync job
-startCalDavSyncJob(caldavService);
+timers.push(schedulerTimers.mainTimer, schedulerTimers.cleanupTimer, schedulerTimers.memoryCleanupTimer);
 
 // Seed default wellness configs
 wellnessConfigService.seedDefaults().catch(console.error);
 
+// --- Graceful shutdown ---
+function shutdown() {
+  console.log("[api] Shutting down gracefully...");
+  for (const t of timers) clearInterval(t);
+  console.log(`[api] Cleared ${timers.length} job timers`);
+  process.exit(0);
+}
+
+process.on("SIGTERM", shutdown);
+process.on("SIGINT", shutdown);
 
 export default {
   port: config.port,

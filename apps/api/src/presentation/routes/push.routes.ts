@@ -1,14 +1,21 @@
 import { Hono } from "hono";
 import { streamSSE } from "hono/streaming";
+import { z } from "zod";
 import type { PushNotificationRepository } from "../../domain/push/push-notification.repository";
+import { uuidSchema } from "../validators/shared.validator";
+
+const listQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(500).default(50),
+});
 
 export function createPushRoutes(pushRepo: PushNotificationRepository) {
   const app = new Hono();
 
   // GET / — all notifications (recent, with limit)
   app.get("/", async (c) => {
-    const limit = parseInt(c.req.query("limit") ?? "50", 10);
-    const data = await pushRepo.findAll(limit);
+    const parsed = listQuerySchema.safeParse({ limit: c.req.query("limit") });
+    if (!parsed.success) return c.json({ error: parsed.error.flatten() }, 400);
+    const data = await pushRepo.findAll(parsed.data.limit);
     return c.json({ data });
   });
 
@@ -20,7 +27,9 @@ export function createPushRoutes(pushRepo: PushNotificationRepository) {
 
   // POST /:id/read — mark as read
   app.post("/:id/read", async (c) => {
-    await pushRepo.markAsRead(c.req.param("id"));
+    const id = uuidSchema.safeParse(c.req.param("id"));
+    if (!id.success) return c.json({ error: "Invalid id" }, 400);
+    await pushRepo.markAsRead(id.data);
     return c.json({ success: true });
   });
 

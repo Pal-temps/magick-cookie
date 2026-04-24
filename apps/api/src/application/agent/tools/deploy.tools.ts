@@ -1,51 +1,17 @@
 import type { AgentTool } from "../tool-registry";
-import type { DeployService } from "../../deploy/deploy.service";
 import type { SshService } from "../../../infrastructure/ssh/ssh.service";
+import {
+  assertSafeIdentifier,
+  assertSafeDnsLabel,
+  assertSafeDnsZone,
+} from "../../../infrastructure/security/safe-names";
 
-export function createDeployTools(deploy: DeployService, ssh: SshService): AgentTool[] {
+// NOTE: the full `deploy_app` tool used to live here. It let the LLM supply arbitrary
+// `build_command` / `start_command` strings that were piped through `ssh.exec`, which is a
+// command-injection footgun the moment the model is nudged by a prompt-injection payload. Deploys
+// now have to go through the UI (`/api/infra/deploy`) where a human reviews the config.
+export function createDeployTools(ssh: SshService): AgentTool[] {
   return [
-    {
-      name: "deploy_app",
-      description: "Deploy complet d'une application : cree le sous-domaine DNS, clone le repo sur le serveur, build, configure Caddy (auto-HTTPS), demarre l'app. Retourne le resultat de chaque etape.",
-      parameters: {
-        app_name: { type: "string", description: "Nom unique de l'app (ex: 'mon-app')", required: true },
-        subdomain: { type: "string", description: "Sous-domaine (ex: 'app' pour app.paltemps.fr)", required: true },
-        zone: { type: "string", description: "Zone DNS (ex: 'paltemps.fr')", required: true },
-        server_id: { type: "string", description: "ID du serveur cible", required: true },
-        server_ip: { type: "string", description: "IP publique du serveur (pour le record DNS A)", required: true },
-        repo_url: { type: "string", description: "URL du repo git a cloner", required: true },
-        build_command: { type: "string", description: "Commande de build (ex: 'npm install && npm run build')", required: true },
-        start_command: { type: "string", description: "Commande de demarrage (ex: 'pm2 start npm --name app -- start')", required: true },
-        port: { type: "number", description: "Port de l'app (ex: 3000)", required: true },
-      },
-      execute: async (params) => {
-        const steps: { step: string; status: string; message?: string }[] = [];
-
-        for await (const event of deploy.deploy({
-          appName: params.app_name as string,
-          subdomain: params.subdomain as string,
-          zone: params.zone as string,
-          serverId: params.server_id as string,
-          serverIp: params.server_ip as string,
-          repoUrl: params.repo_url as string,
-          buildCommand: params.build_command as string,
-          startCommand: params.start_command as string,
-          appPort: params.port as number,
-        })) {
-          steps.push(event);
-        }
-
-        const lastStep = steps[steps.length - 1];
-        const success = lastStep?.status !== "error";
-        const domain = `${params.subdomain}.${params.zone}`;
-
-        return {
-          success,
-          url: success ? `https://${domain}` : null,
-          steps,
-        };
-      },
-    },
     {
       name: "caddy_add_site",
       description: "Ajoute un site dans la config Caddy (reverse proxy + auto-HTTPS). Ne cree PAS de record DNS — utilise dns_create_record d'abord.",
@@ -58,7 +24,16 @@ export function createDeployTools(deploy: DeployService, ssh: SshService): Agent
         const domain = params.domain as string;
         const port = params.port as number;
         const serverId = params.server_id as string;
-        const appName = domain.split(".")[0];
+
+        assertSafeIdentifier(serverId, "server_id");
+        if (!Number.isInteger(port) || port < 1 || port > 65535) {
+          throw new Error("Invalid port");
+        }
+        const parts = domain.split(".");
+        if (parts.length < 2) throw new Error("Invalid domain");
+        const appName = parts[0];
+        assertSafeDnsLabel(appName, "domain label");
+        assertSafeDnsZone(parts.slice(1).join("."), "domain zone");
 
         const caddyConf = `${domain} {\n  reverse_proxy localhost:${port}\n}\n`;
         await ssh.upload(serverId, caddyConf, `/etc/caddy/sites/${appName}.caddy`);
@@ -75,7 +50,9 @@ export function createDeployTools(deploy: DeployService, ssh: SshService): Agent
         server_id: { type: "string", description: "ID du serveur", required: true },
       },
       execute: async (params) => {
-        const result = await ssh.exec(params.server_id as string, "ls /etc/caddy/sites/ 2>/dev/null || echo '(no sites dir)'");
+        const serverId = params.server_id as string;
+        assertSafeIdentifier(serverId, "server_id");
+        const result = await ssh.exec(serverId, "ls /etc/caddy/sites/ 2>/dev/null || echo '(no sites dir)'");
         const files = result.stdout.split("\n").filter(Boolean);
         return { count: files.length, sites: files };
       },

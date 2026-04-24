@@ -35,9 +35,10 @@ export function createWebhookRoutes(service: WebhookService) {
     return c.json({ data: { success: true } });
   });
 
-  // Public endpoint — validates secret via query param
+  // Public endpoint — validates secret via X-Webhook-Secret header (preferred) or query for
+  // compatibility with senders that cannot set headers. Comparison is timing-safe in the service.
   app.post("/:id/receive", async (c) => {
-    const secret = c.req.query("secret");
+    const secret = c.req.header("x-webhook-secret") ?? c.req.query("secret");
     if (!secret) return c.json({ error: "Missing secret" }, 401);
 
     const payload = await c.req.json();

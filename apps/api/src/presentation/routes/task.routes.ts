@@ -1,24 +1,30 @@
 import { Hono } from "hono";
 import type { TaskService } from "../../application/task/task.service";
-import { ClickUpApiClient } from "../../infrastructure/connectors/clickup-api.client";
-import { GitHubApiClient } from "../../infrastructure/connectors/github-api.client";
-import { GitLabApiClient } from "../../infrastructure/connectors/gitlab-api.client";
-import type { ConnectorConfigRepository } from "../../domain/connector-config/connector-config.repository";
-import type { TaskSource } from "../../domain/task/task.entity";
+import type { TaskDetailService } from "../../application/task/task-detail.service";
+import { taskQuerySchema } from "../validators/task.validator";
 
 export function createTaskRoutes(
   taskService: TaskService,
-  connectorConfigRepo: ConnectorConfigRepository,
+  taskDetailService: TaskDetailService,
 ) {
   const app = new Hono();
 
-  // GET /api/tasks — optional ?source=clickup filter
+  // GET /api/tasks — paginated, optional ?source=clickup filter
   app.get("/", async (c) => {
-    const source = c.req.query("source") as TaskSource | undefined;
-    const data = source
-      ? await taskService.getBySource(source)
-      : await taskService.getAll();
-    return c.json({ data });
+    const parsed = taskQuerySchema.safeParse({
+      source: c.req.query("source"),
+      limit: c.req.query("limit"),
+      offset: c.req.query("offset"),
+    });
+    if (!parsed.success) {
+      return c.json({ error: parsed.error.flatten().fieldErrors }, 400);
+    }
+    const { source, limit, offset } = parsed.data;
+    const [data, total] = await Promise.all([
+      taskService.getAll({ source, limit, offset }),
+      taskService.count(source),
+    ]);
+    return c.json({ data, total });
   });
 
   // POST /api/tasks — create manual task
@@ -38,10 +44,21 @@ export function createTaskRoutes(
     return c.json({ data }, 201);
   });
 
-  // GET /api/tasks/unscheduled — tasks with no due date
+  // GET /api/tasks/unscheduled — paginated tasks with no due date
   app.get("/unscheduled", async (c) => {
-    const data = await taskService.getUnscheduled();
-    return c.json({ data });
+    const parsed = taskQuerySchema.safeParse({
+      limit: c.req.query("limit"),
+      offset: c.req.query("offset"),
+    });
+    if (!parsed.success) {
+      return c.json({ error: parsed.error.flatten().fieldErrors }, 400);
+    }
+    const { limit, offset } = parsed.data;
+    const [data, total] = await Promise.all([
+      taskService.getUnscheduled({ limit, offset }),
+      taskService.countUnscheduled(),
+    ]);
+    return c.json({ data, total });
   });
 
   // GET /api/tasks/:id — single task
@@ -54,76 +71,27 @@ export function createTaskRoutes(
     return c.json({ data });
   });
 
+  // PATCH /api/tasks/:id — update task fields
+  app.patch("/:id", async (c) => {
+    const body = await c.req.json();
+    const input: Record<string, unknown> = {};
+    if (body.title !== undefined) input.title = body.title;
+    if (body.description !== undefined) input.description = body.description;
+    if (body.status !== undefined) input.status = body.status;
+    if (body.priority !== undefined) input.priority = body.priority;
+    if (body.startDate !== undefined) input.startDate = body.startDate ? new Date(body.startDate) : null;
+    if (body.dueDate !== undefined) input.dueDate = body.dueDate ? new Date(body.dueDate) : null;
+
+    const data = await taskService.update(c.req.param("id"), input as any);
+    if (!data) return c.json({ error: "Task not found" }, 404);
+    return c.json({ data });
+  });
+
   // GET /api/tasks/:id/detail — fetch detail from external source
   app.get("/:id/detail", async (c) => {
-    const id = c.req.param("id");
-    const task = await taskService.getById(id);
-    if (!task) {
-      return c.json({ error: "Task not found" }, 404);
-    }
-
-    if (task.source === "clickup" && task.externalId) {
-      const cfg = await connectorConfigRepo.findByType("clickup");
-      if (cfg) {
-        const client = new ClickUpApiClient(cfg.token);
-        const [detail, comments] = await Promise.all([
-          client.fetchTaskDetail(task.externalId),
-          client.fetchTaskComments(task.externalId),
-        ]);
-        return c.json({
-          data: {
-            description: detail.markdownDescription || detail.textContent,
-            comments,
-          },
-        });
-      }
-    }
-
-    if (task.source === "github" && task.externalId) {
-      // externalId format: "owner/repo#123"
-      const hashIdx = task.externalId.lastIndexOf("#");
-      const repo = task.externalId.slice(0, hashIdx);
-      const issueNumber = parseInt(task.externalId.slice(hashIdx + 1), 10);
-
-      const cfg = await connectorConfigRepo.findByType("github");
-      if (cfg) {
-        const settings = cfg.settings as { username?: string };
-        const client = new GitHubApiClient(cfg.token, settings.username || "");
-        const [detail, comments] = await Promise.all([
-          client.fetchIssueDetail(repo, issueNumber),
-          client.fetchIssueComments(repo, issueNumber),
-        ]);
-        return c.json({ data: { description: detail.body, comments } });
-      }
-    }
-
-    if (task.source === "gitlab" && task.externalId) {
-      // externalId format: "project:123#iid:456"
-      const match = task.externalId.match(/^project:(\d+)#iid:(\d+)$/);
-      if (match) {
-        const projectId = parseInt(match[1], 10);
-        const iid = parseInt(match[2], 10);
-
-        const cfg = await connectorConfigRepo.findByType("gitlab");
-        if (cfg) {
-          const settings = cfg.settings as { baseUrl?: string };
-          const client = new GitLabApiClient(cfg.token, settings.baseUrl || "https://gitlab.com");
-          const [detail, comments] = await Promise.all([
-            client.fetchIssueDetail(projectId, iid),
-            client.fetchIssueNotes(projectId, iid),
-          ]);
-          return c.json({ data: { description: detail.description, comments } });
-        }
-      }
-    }
-
-    // For manual tasks or missing config, return what we have
-    return c.json({
-      data: {
-        description: task.description,
-        comments: [],
-      },
-    });
+    const detail = await taskDetailService.getDetail(c.req.param("id"));
+    if (!detail) return c.json({ error: "Task not found" }, 404);
+    return c.json({ data: detail });
   });
 
   return app;

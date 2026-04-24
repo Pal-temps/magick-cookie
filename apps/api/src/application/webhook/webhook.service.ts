@@ -1,6 +1,13 @@
-import { randomBytes } from "crypto";
+import { randomBytes, timingSafeEqual } from "crypto";
 import type { WebhookRepository } from "../../domain/webhook/webhook.repository";
 import type { Webhook, WebhookEvent, CreateWebhookInput, UpdateWebhookInput } from "../../domain/webhook/webhook.entity";
+
+function secretsMatch(a: string, b: string): boolean {
+  const bufA = Buffer.from(a);
+  const bufB = Buffer.from(b);
+  if (bufA.length !== bufB.length) return false;
+  return timingSafeEqual(bufA, bufB);
+}
 
 export class WebhookService {
   constructor(private webhookRepo: WebhookRepository) {}
@@ -28,7 +35,8 @@ export class WebhookService {
 
   async receiveEvent(id: string, secret: string, payload: unknown): Promise<WebhookEvent | null> {
     const webhook = await this.webhookRepo.findById(id);
-    if (!webhook || webhook.secret !== secret || !webhook.enabled) return null;
+    if (!webhook || !webhook.enabled) return null;
+    if (!secret || !secretsMatch(webhook.secret, secret)) return null;
     return this.webhookRepo.createEvent(id, JSON.stringify(payload));
   }
 

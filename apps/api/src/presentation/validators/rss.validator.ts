@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { paginationSchema } from "./shared.validator";
 
 export const createRssFeedSchema = z.object({
   label: z.string().min(1).max(255),
@@ -18,10 +19,8 @@ export const updateArticleFlagsSchema = z.object({
   isStarred: z.boolean().optional(),
 });
 
-export const articleQuerySchema = z.object({
+export const articleQuerySchema = paginationSchema.extend({
   feedId: z.string().uuid().optional(),
   unread: z.coerce.boolean().optional(),
   starred: z.coerce.boolean().optional(),
-  limit: z.coerce.number().int().min(1).max(200).default(50),
-  offset: z.coerce.number().int().min(0).default(0),
 });

@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, writeFileSync, readdirSync, mkdirSync } from "fs";
+import { existsSync, readFileSync, writeFileSync, readdirSync, mkdirSync, realpathSync } from "fs";
 import { join, resolve, sep } from "path";
 
 export class VaultService {
@@ -15,13 +15,29 @@ export class VaultService {
   /** Resolve a relative path within the vault, with safety checks */
   resolvePath(relPath: string): string | null {
     if (!this._vaultPath) return null;
+    if (typeof relPath !== "string") return null;
+    if (relPath.includes("\0")) return null;
     if (relPath.includes("..")) return null;
-    const full = join(this._vaultPath, relPath);
-    // Ensure resolved path is within vault
-    if (!resolve(full).startsWith(resolve(this._vaultPath) + sep) &&
-        resolve(full) !== resolve(this._vaultPath)) {
-      return null;
+
+    const vaultRoot = resolve(this._vaultPath);
+    const full = resolve(join(vaultRoot, relPath));
+
+    // Lexical boundary check (covers non-existent write targets).
+    if (full !== vaultRoot && !full.startsWith(vaultRoot + sep)) return null;
+
+    // Symlink boundary check: walk upward until an existing ancestor is found, resolve it via
+    // realpath, then ensure the realpath is still inside the vault root. This defeats attackers
+    // who planted a symlink inside the vault pointing at /etc or similar.
+    let probe = full;
+    while (!existsSync(probe)) {
+      const parent = resolve(probe, "..");
+      if (parent === probe) return null; // reached filesystem root without finding the vault
+      probe = parent;
     }
+    const realProbe = realpathSync(probe);
+    const realVault = realpathSync(vaultRoot);
+    if (realProbe !== realVault && !realProbe.startsWith(realVault + sep)) return null;
+
     return full;
   }
 

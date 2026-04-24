@@ -1,5 +1,9 @@
 import type { SshService } from "../ssh/ssh.service";
 import { infraConfig } from "../../config";
+import {
+  assertSafeIdentifier,
+  assertSafeShellFragment,
+} from "../security/safe-names";
 
 // ─── Types ───
 
@@ -41,6 +45,9 @@ export class VpsBareGitAdapter implements GitRemoteAdapter {
 
   async createRepo(opts: CreateRepoOptions): Promise<GitRepo> {
     if (!opts.serverId) throw new Error("serverId required for vps-bare repos");
+    assertSafeIdentifier(opts.name, "repo name");
+    if (opts.buildCommand) assertSafeShellFragment(opts.buildCommand, "buildCommand");
+    if (opts.startCommand) assertSafeShellFragment(opts.startCommand, "startCommand");
 
     const server = this.ssh.getServer(opts.serverId);
     if (!server) throw new Error(`Server "${opts.serverId}" not found`);
@@ -96,6 +103,7 @@ echo "==> Deploy complete!"
   }
 
   async deleteRepo(name: string): Promise<void> {
+    assertSafeIdentifier(name, "repo name");
     // Find which server has this repo — check all servers
     for (const server of this.ssh.listServers()) {
       try {
@@ -137,6 +145,7 @@ export class GitHubRemoteAdapter implements GitRemoteAdapter {
   readonly provider = "github" as const;
 
   async createRepo(opts: CreateRepoOptions): Promise<GitRepo> {
+    assertSafeIdentifier(opts.name, "repo name");
     const res = await fetch("https://api.github.com/user/repos", {
       method: "POST",
       headers: {
@@ -167,6 +176,7 @@ export class GitHubRemoteAdapter implements GitRemoteAdapter {
   }
 
   async deleteRepo(name: string): Promise<void> {
+    assertSafeIdentifier(name, "repo name");
     // Need owner — get from authenticated user
     const userRes = await fetch("https://api.github.com/user", {
       headers: { "Authorization": `Bearer ${infraConfig.githubToken}` },
@@ -208,6 +218,7 @@ export class GitLabRemoteAdapter implements GitRemoteAdapter {
   private get baseUrl() { return infraConfig.gitlabUrl || "https://gitlab.com"; }
 
   async createRepo(opts: CreateRepoOptions): Promise<GitRepo> {
+    assertSafeIdentifier(opts.name, "repo name");
     const res = await fetch(`${this.baseUrl}/api/v4/projects`, {
       method: "POST",
       headers: {
@@ -237,8 +248,9 @@ export class GitLabRemoteAdapter implements GitRemoteAdapter {
   }
 
   async deleteRepo(name: string): Promise<void> {
+    assertSafeIdentifier(name, "repo name");
     // Need project ID — search by name
-    const searchRes = await fetch(`${this.baseUrl}/api/v4/projects?search=${name}&owned=true`, {
+    const searchRes = await fetch(`${this.baseUrl}/api/v4/projects?search=${encodeURIComponent(name)}&owned=true`, {
       headers: { "PRIVATE-TOKEN": infraConfig.gitlabToken },
     });
     const projects = await searchRes.json() as { id: number; name: string }[];

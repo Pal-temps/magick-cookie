@@ -1,7 +1,15 @@
 import { Hono } from "hono";
 import type { ConnectorConfigService } from "../../application/connector-config/connector-config.service";
 import { connectorTypeSchema, upsertConnectorConfigSchema } from "../validators/connector-config.validator";
-import type { ConnectorType } from "../../domain/connector-config/connector-config.entity";
+import type { ConnectorType, ConnectorConfig } from "../../domain/connector-config/connector-config.entity";
+
+function toPublic(cfg: ConnectorConfig) {
+  const { token, ...rest } = cfg;
+  return {
+    ...rest,
+    tokenPreview: token.length >= 8 ? token.slice(0, 4) + "..." + token.slice(-4) : "***",
+  };
+}
 
 export function createConnectorConfigRoutes(service: ConnectorConfigService) {
   const app = new Hono();
@@ -9,11 +17,7 @@ export function createConnectorConfigRoutes(service: ConnectorConfigService) {
   // GET /api/connector-configs — list all (tokens masked)
   app.get("/", async (c) => {
     const configs = await service.getAll();
-    const masked = configs.map((cfg) => ({
-      ...cfg,
-      token: cfg.token.slice(0, 4) + "..." + cfg.token.slice(-4),
-    }));
-    return c.json({ data: masked });
+    return c.json({ data: configs.map(toPublic) });
   });
 
   // GET /api/connector-configs/:type
@@ -24,12 +28,7 @@ export function createConnectorConfigRoutes(service: ConnectorConfigService) {
     const config = await service.getByType(parsed.data);
     if (!config) return c.json({ error: "Not found" }, 404);
 
-    return c.json({
-      data: {
-        ...config,
-        token: config.token.slice(0, 4) + "..." + config.token.slice(-4),
-      },
-    });
+    return c.json({ data: toPublic(config) });
   });
 
   // PUT /api/connector-configs/:type — upsert
@@ -42,12 +41,7 @@ export function createConnectorConfigRoutes(service: ConnectorConfigService) {
     if (!parsed.success) return c.json({ error: parsed.error.flatten() }, 400);
 
     const config = await service.save(typeParsed.data as ConnectorType, parsed.data.token, parsed.data.settings);
-    return c.json({
-      data: {
-        ...config,
-        token: config.token.slice(0, 4) + "..." + config.token.slice(-4),
-      },
-    });
+    return c.json({ data: toPublic(config) });
   });
 
   // DELETE /api/connector-configs/:type

@@ -1,6 +1,12 @@
 import type { DnsService } from "../../infrastructure/dns/dns.service";
 import type { SshService } from "../../infrastructure/ssh/ssh.service";
 import type { GitRemoteService } from "../../infrastructure/git-remote/git-remote.service";
+import {
+  assertSafeIdentifier,
+  assertSafeDnsLabel,
+  assertSafeDnsZone,
+  assertSafeShellFragment,
+} from "../../infrastructure/security/safe-names";
 
 // ─── Types ───
 
@@ -40,6 +46,24 @@ export class DeployService {
   ) {}
 
   async *deploy(config: DeployConfig): AsyncGenerator<DeployStep> {
+    // Guard every value that will be interpolated into a shell command or path. The HTTP entry
+    // point also validates via Zod, but this is the last line of defence for any direct caller.
+    assertSafeIdentifier(config.appName, "appName");
+    assertSafeIdentifier(config.serverId, "serverId");
+    assertSafeDnsLabel(config.subdomain, "subdomain");
+    assertSafeDnsZone(config.zone, "zone");
+    assertSafeShellFragment(config.buildCommand, "buildCommand");
+    assertSafeShellFragment(config.startCommand, "startCommand");
+    if (!Number.isInteger(config.appPort) || config.appPort < 1 || config.appPort > 65535) {
+      throw new Error("Invalid appPort");
+    }
+    if (config.repoUrl !== undefined && !/^(https:\/\/|git:\/\/|git@|ssh:\/\/)[A-Za-z0-9._~:/?#@!$&'()*+,;=%-]+$/.test(config.repoUrl)) {
+      throw new Error("Invalid repoUrl: only https://, git://, ssh://, or git@ schemes are allowed");
+    }
+    if (config.appPath !== undefined && !/^\/opt\/apps\/[a-zA-Z0-9_-]{1,63}$/.test(config.appPath)) {
+      throw new Error("Invalid appPath: must match /opt/apps/<alphanum-name>");
+    }
+
     const appPath = config.appPath ?? `/opt/apps/${config.appName}`;
     const domain = `${config.subdomain}.${config.zone}`;
 

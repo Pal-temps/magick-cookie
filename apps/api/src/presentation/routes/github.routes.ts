@@ -1,32 +1,35 @@
 import { Hono } from "hono";
+import { z } from "zod";
 import type { GitHubService } from "../../application/github/github.service";
+import type { GitHubConfig } from "../../domain/github/github.entity";
+
+const saveConfigSchema = z.object({
+  token: z.string().min(10).max(255),
+  username: z.string().min(1).max(80),
+  repos: z.array(z.string().min(1).max(140)).max(200).default([]),
+});
+
+function toPublic(cfg: GitHubConfig) {
+  const { token, ...rest } = cfg;
+  return {
+    ...rest,
+    tokenPreview: token.length >= 8 ? token.slice(0, 4) + "..." + token.slice(-4) : "***",
+  };
+}
 
 export function createGitHubRoutes(githubService: GitHubService) {
   const app = new Hono();
 
   app.get("/config", async (c) => {
     const config = await githubService.getConfig();
-    if (config) {
-      // Mask token in response
-      return c.json({
-        data: {
-          ...config,
-          token: config.token.substring(0, 8) + "...",
-        },
-      });
-    }
-    return c.json({ data: null });
+    return c.json({ data: config ? toPublic(config) : null });
   });
 
   app.put("/config", async (c) => {
-    const body = await c.req.json<{ token: string; username: string; repos: string[] }>();
-    const data = await githubService.saveConfig(body);
-    return c.json({
-      data: {
-        ...data,
-        token: data.token.substring(0, 8) + "...",
-      },
-    });
+    const parsed = saveConfigSchema.safeParse(await c.req.json());
+    if (!parsed.success) return c.json({ error: parsed.error.flatten() }, 400);
+    const data = await githubService.saveConfig(parsed.data);
+    return c.json({ data: toPublic(data) });
   });
 
   app.delete("/config", async (c) => {

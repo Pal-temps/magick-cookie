@@ -12,12 +12,19 @@ import { DrizzleCalendarRepository } from "../../infrastructure/repositories/cal
 import { DrizzleEventRepository } from "../../infrastructure/repositories/event.repository.impl";
 import { DrizzleReminderRepository } from "../../infrastructure/repositories/reminder.repository.impl";
 import { DrizzleContactRepository } from "../../infrastructure/repositories/contact.repository.impl";
+import { DrizzleEmailAccountRepository } from "../../infrastructure/repositories/email-account.repository.impl";
+import { DrizzleEmailRepository } from "../../infrastructure/repositories/email.repository.impl";
+import { DrizzleConnectorConfigRepository } from "../../infrastructure/repositories/connector-config.repository.impl";
+import { DrizzleLlmConfigRepository } from "../../infrastructure/repositories/llm-config.repository.impl";
 
 // Services
 import { CalendarService } from "../../application/calendar/calendar.service";
 import { EventService } from "../../application/event/event.service";
 import { ReminderService } from "../../application/reminder/reminder.service";
 import { ContactService } from "../../application/contact/contact.service";
+import { EmailService } from "../../application/email/email.service";
+import { ConnectorConfigService } from "../../application/connector-config/connector-config.service";
+import { LlmService } from "../../application/llm/llm.service";
 
 // SSE
 import { InMemoryReminderEmitter } from "../../infrastructure/sse/reminder-emitter.impl";
@@ -28,11 +35,14 @@ import { createEventRoutes, createCalendarEventRoutes } from "../../presentation
 import { createReminderRoutes, createEventReminderRoutes } from "../../presentation/routes/reminder.routes";
 import { createContactRoutes } from "../../presentation/routes/contact.routes";
 import { createSSERoutes } from "../../presentation/routes/sse.routes";
+import { createEmailRoutes, createEmailAccountRoutes } from "../../presentation/routes/email.routes";
+import { createConnectorConfigRoutes } from "../../presentation/routes/connector-config.routes";
+import { createLlmRoutes } from "../../presentation/routes/llm.routes";
 
 // --- Test Database ---
 const databaseUrl =
   process.env.DATABASE_URL ||
-  "postgres://postgres:postgres@localhost:47532/do_it_now_test";
+  "postgres://postgres:postgres@localhost:47532/magick_cookie_test";
 
 const queryClient = postgres(databaseUrl);
 const db = drizzle(queryClient, { schema });
@@ -42,12 +52,24 @@ const calendarRepo = new DrizzleCalendarRepository(db);
 const eventRepo = new DrizzleEventRepository(db);
 const reminderRepo = new DrizzleReminderRepository(db);
 const contactRepo = new DrizzleContactRepository(db);
+const emailAccountRepo = new DrizzleEmailAccountRepository(db);
+const emailRepo = new DrizzleEmailRepository(db);
+const connectorConfigRepo = new DrizzleConnectorConfigRepository(db);
+const llmConfigRepo = new DrizzleLlmConfigRepository(db);
 
 const calendarService = new CalendarService(calendarRepo);
 const eventService = new EventService(eventRepo, reminderRepo);
 const reminderService = new ReminderService(reminderRepo, eventRepo);
 const contactService = new ContactService(contactRepo);
 const reminderEmitter = new InMemoryReminderEmitter();
+
+// Email service wired with connectors that never touch the network. Integration tests that need
+// real IMAP/SMTP behaviour should mock these two at the call site.
+const noopImap = { syncInbox: async () => [], watchInbox: async () => {} } as any;
+const noopSmtp = { sendEmail: async () => {} } as any;
+const emailService = new EmailService(emailAccountRepo, emailRepo, noopImap, noopSmtp);
+const connectorConfigService = new ConnectorConfigService(connectorConfigRepo);
+const llmService = new LlmService(llmConfigRepo);
 
 // --- App ---
 const app = new Hono();
@@ -72,6 +94,10 @@ app.route(
 );
 app.route("/api/contacts", createContactRoutes(contactService));
 app.route("/api/sse", createSSERoutes(reminderEmitter));
+app.route("/api/emails", createEmailRoutes(emailService, llmService));
+app.route("/api/email-accounts", createEmailAccountRoutes(emailService));
+app.route("/api/connector-configs", createConnectorConfigRoutes(connectorConfigService));
+app.route("/api/llm", createLlmRoutes(llmService));
 
 export const testApp = app;
 
@@ -97,12 +123,12 @@ export async function request(
  * Truncate all tables in dependency-safe order.
  */
 export async function cleanDb() {
-  await db.execute(sql`TRUNCATE TABLE reminders, events, calendars, contacts CASCADE`);
+  await db.execute(sql`TRUNCATE TABLE reminders, events, calendars, contacts, emails, email_accounts, connector_configs, llm_configs CASCADE`);
 }
 
-/**
- * Close the underlying postgres connection (call in afterAll).
- */
+// bun test loads setup.ts once for the whole suite and runs test files concurrently. Closing the
+// pool in one file's afterAll would kill every other file's pending queries, so we let the pool
+// drain naturally when the process exits (postgres-js registers its own teardown).
 export async function closeDb() {
-  await queryClient.end();
+  // no-op by design — see comment above
 }

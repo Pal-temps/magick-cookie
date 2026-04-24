@@ -7,6 +7,13 @@ import type { SkillService } from "../../application/skills/skill.service";
 import type { VaultService } from "../../infrastructure/vault/vault.service";
 import type { SnapshotService } from "../../application/snapshot/snapshot.service";
 import { updateInfraConfig, infraConfig } from "../../config";
+import {
+  infraConfigSchema,
+  sshExecSchema,
+  dnsRecordSchema,
+  addServerSchema,
+  deployConfigSchema,
+} from "../validators/infra.validator";
 
 export function createInfraRoutes(
   dns: DnsService,
@@ -21,14 +28,12 @@ export function createInfraRoutes(
   // ─── Config sync (from desktop app settings) ───
 
   app.post("/config", async (c) => {
-    const body = await c.req.json();
+    const parsed = infraConfigSchema.safeParse(await c.req.json().catch(() => ({})));
+    if (!parsed.success) return c.json({ error: parsed.error.flatten() }, 400);
+    const body = parsed.data;
     updateInfraConfig(body);
-    // Set vault path if provided
-    if (body.vaultPath) {
-      vault.setVaultPath(body.vaultPath);
-    }
-    // Also sync servers to SshService
-    if (body.servers && Array.isArray(body.servers)) {
+    if (body.vaultPath) vault.setVaultPath(body.vaultPath);
+    if (body.servers) {
       for (const s of body.servers) {
         if (!ssh.getServer(s.id)) {
           ssh.addServer({ label: s.label, host: s.host, port: s.port, user: s.user, authMethod: s.authMethod, keyPath: s.keyPath });
@@ -64,8 +69,9 @@ export function createInfraRoutes(
 
   app.post("/dns/records/:zone", async (c) => {
     const zone = c.req.param("zone");
-    const body = await c.req.json();
-    const record = await dns.createRecord(zone, body);
+    const parsed = dnsRecordSchema.safeParse(await c.req.json().catch(() => ({})));
+    if (!parsed.success) return c.json({ error: parsed.error.flatten() }, 400);
+    const record = await dns.createRecord(zone, parsed.data);
     return c.json(record, 201);
   });
 
@@ -83,8 +89,9 @@ export function createInfraRoutes(
   });
 
   app.post("/servers", async (c) => {
-    const body = await c.req.json();
-    const server = ssh.addServer(body);
+    const parsed = addServerSchema.safeParse(await c.req.json().catch(() => ({})));
+    if (!parsed.success) return c.json({ error: parsed.error.flatten() }, 400);
+    const server = ssh.addServer(parsed.data);
     return c.json(server, 201);
   });
 
@@ -96,18 +103,20 @@ export function createInfraRoutes(
   // ─── SSH ───
 
   app.post("/ssh/exec", async (c) => {
-    const { server_id, command } = await c.req.json();
-    const result = await ssh.exec(server_id, command);
+    const parsed = sshExecSchema.safeParse(await c.req.json().catch(() => ({})));
+    if (!parsed.success) return c.json({ error: parsed.error.flatten() }, 400);
+    const result = await ssh.exec(parsed.data.server_id, parsed.data.command);
     return c.json(result);
   });
 
   // ─── Deploy (SSE streaming) ───
 
   app.post("/deploy", async (c) => {
-    const config = await c.req.json();
+    const parsed = deployConfigSchema.safeParse(await c.req.json().catch(() => ({})));
+    if (!parsed.success) return c.json({ error: parsed.error.flatten() }, 400);
 
     return streamSSE(c, async (stream) => {
-      for await (const event of deploy.deploy(config)) {
+      for await (const event of deploy.deploy(parsed.data)) {
         await stream.writeSSE({ data: JSON.stringify(event) });
       }
     });

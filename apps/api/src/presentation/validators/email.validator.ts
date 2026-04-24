@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { paginationSchema } from "./shared.validator";
 
 export const createEmailAccountSchema = z.object({
   label: z.string().min(1).max(255),
@@ -34,10 +35,8 @@ export const updateEmailFlagsSchema = z.object({
   isArchived: z.boolean().optional(),
 });
 
-export const emailQuerySchema = z.object({
+export const emailQuerySchema = paginationSchema.extend({
   accountId: z.string().uuid().optional(),
   folder: z.string().max(255).optional(),
   unread: z.coerce.boolean().optional(),
-  limit: z.coerce.number().int().min(1).max(200).default(50),
-  offset: z.coerce.number().int().min(0).default(0),
 });
