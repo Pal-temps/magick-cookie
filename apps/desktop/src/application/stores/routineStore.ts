@@ -3,6 +3,7 @@ import { api } from "../../infrastructure/api/apiClient";
 import { notify } from "../../infrastructure/tauri/notifications";
 import { useViewStore } from "./viewStore";
 import type { ViewMode } from "../../domain/models/types";
+import { createCrudStore } from "./createCrudStore";
 
 export type RoutineStepAction = "navigate" | "sync" | "generate" | "notify";
 
@@ -40,7 +41,10 @@ export interface UpdateRoutineInput {
   enabled?: boolean;
 }
 
-const [routines, setRoutines] = createSignal<Routine[]>([]);
+const crud = createCrudStore<Routine, CreateRoutineInput, UpdateRoutineInput>({
+  endpoint: "/routines",
+  label: "routines",
+});
 const [firedToday, setFiredToday] = createSignal<Set<string>>(new Set());
 
 let checkerInterval: ReturnType<typeof setInterval> | null = null;
@@ -105,44 +109,6 @@ async function executeRoutine(routine: Routine): Promise<void> {
 }
 
 export function useRoutineStore() {
-  async function fetchRoutines() {
-    try {
-      const data = await api.get<Routine[]>("/routines");
-      setRoutines(data);
-    } catch (e) {
-      console.error("Failed to fetch routines:", e);
-    }
-  }
-
-  async function createRoutine(input: CreateRoutineInput) {
-    try {
-      const routine = await api.post<Routine>("/routines", input);
-      setRoutines((prev) => [...prev, routine]);
-      return routine;
-    } catch (e) {
-      console.error("Failed to create routine:", e);
-    }
-  }
-
-  async function updateRoutine(id: string, input: UpdateRoutineInput) {
-    try {
-      const routine = await api.put<Routine>(`/routines/${id}`, input);
-      setRoutines((prev) => prev.map((r) => (r.id === id ? routine : r)));
-      return routine;
-    } catch (e) {
-      console.error("Failed to update routine:", e);
-    }
-  }
-
-  async function deleteRoutine(id: string) {
-    try {
-      await api.delete(`/routines/${id}`);
-      setRoutines((prev) => prev.filter((r) => r.id !== id));
-    } catch (e) {
-      console.error("Failed to delete routine:", e);
-    }
-  }
-
   function startRoutineChecker() {
     stopRoutineChecker();
     storedDate = getTodayDate();
@@ -160,7 +126,7 @@ export function useRoutineStore() {
       const dayOfWeek = new Date().getDay(); // 0=Sun..6=Sat
       const fired = firedToday();
 
-      for (const routine of routines()) {
+      for (const routine of crud.items()) {
         if (!routine.enabled) continue;
         if (routine.triggerTime !== now) continue;
         if (!routine.triggerDays.includes(dayOfWeek)) continue;
@@ -187,18 +153,18 @@ export function useRoutineStore() {
   }
 
   async function runRoutineNow(id: string) {
-    const routine = routines().find((r) => r.id === id);
+    const routine = crud.items().find((r) => r.id === id);
     if (routine) {
       await executeRoutine(routine);
     }
   }
 
   return {
-    routines,
-    fetchRoutines,
-    createRoutine,
-    updateRoutine,
-    deleteRoutine,
+    routines: crud.items,
+    fetchRoutines: crud.fetchAll,
+    createRoutine: crud.create,
+    updateRoutine: crud.update,
+    deleteRoutine: crud.delete,
     startRoutineChecker,
     stopRoutineChecker,
     runRoutineNow,

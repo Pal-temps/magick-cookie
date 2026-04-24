@@ -1,4 +1,5 @@
 import { createSignal } from "solid-js";
+import { API_BASE, authHeaders } from "../config";
 
 export interface QueuedRequest {
   id: string;
@@ -9,6 +10,7 @@ export interface QueuedRequest {
 }
 
 const QUEUE_KEY = "magick-cookie-offline-queue";
+const MAX_QUEUE_SIZE = 5000;
 
 function loadQueue(): QueuedRequest[] {
   try {
@@ -39,7 +41,11 @@ export function useOfflineQueue() {
       body,
       timestamp: Date.now(),
     };
-    const updated = [...queue(), request];
+    let updated = [...queue(), request];
+    // Drop oldest entries if queue exceeds max size
+    if (updated.length > MAX_QUEUE_SIZE) {
+      updated = updated.slice(updated.length - MAX_QUEUE_SIZE);
+    }
     setQueue(updated);
     saveQueue(updated);
   }
@@ -65,7 +71,7 @@ export function useOfflineQueue() {
         try {
           const res = await fetch(request.url, {
             method: request.method,
-            headers: { "Content-Type": "application/json" },
+            headers: { "Content-Type": "application/json", ...authHeaders() },
             body: request.body ? JSON.stringify(request.body) : undefined,
           });
           if (res.ok) {
@@ -86,8 +92,9 @@ export function useOfflineQueue() {
 
   async function checkConnectivity(): Promise<boolean> {
     try {
-      const res = await fetch("http://localhost:47300/api/health", {
+      const res = await fetch(`${API_BASE}/health`, {
         method: "GET",
+        headers: authHeaders(),
         signal: AbortSignal.timeout(5000),
       });
       const online = res.ok;

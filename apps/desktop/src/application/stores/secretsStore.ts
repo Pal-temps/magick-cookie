@@ -1,5 +1,6 @@
 import { createSignal } from "solid-js";
 import { invoke } from "@tauri-apps/api/core";
+import { API_BASE, authHeaders } from "../../infrastructure/config";
 
 // ─── Types (mirror Rust secrets.rs) ───
 
@@ -261,6 +262,32 @@ export function useSecretsStore() {
     }
   }
 
+  // ─── KDBX storage mode ───
+
+  async function isLocalMode(): Promise<boolean> {
+    try {
+      return await invoke<boolean>("secrets_is_local_mode");
+    } catch {
+      return true; // fall back to local when notes/git isn't configured
+    }
+  }
+
+  async function setLocalMode(local: boolean): Promise<void> {
+    await invoke("secrets_set_local_mode", { local });
+  }
+
+  async function exportKdbx(outputPath: string): Promise<void> {
+    await invoke("secrets_export_kdbx", { outputPath });
+  }
+
+  async function importKdbx(inputPath: string, importPassword: string): Promise<number> {
+    return invoke<number>("secrets_import_kdbx", { inputPath, importPassword });
+  }
+
+  async function deleteGroup(path: string): Promise<void> {
+    await invoke("secrets_delete_group", { path });
+  }
+
   // ─── Sync app secrets to backend API ───
 
   async function syncAppSecretsToBackend(): Promise<void> {
@@ -299,9 +326,9 @@ export function useSecretsStore() {
         if (prefs?.infra?.servers) infraConfig.servers = prefs.infra.servers;
       }
 
-      await fetch("http://localhost:47300/api/infra/config", {
+      await fetch(`${API_BASE}/infra/config`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...authHeaders() },
         body: JSON.stringify(infraConfig),
       });
     } catch { /* API might not be running */ }
@@ -330,6 +357,13 @@ export function useSecretsStore() {
     setAppSecret,
     generatePassword,
     syncAppSecretsToBackend,
+
+    // KDBX storage mode + import/export
+    isLocalMode,
+    setLocalMode,
+    exportKdbx,
+    importKdbx,
+    deleteGroup,
 
     // Auto-lock
     autoLockMinutes,

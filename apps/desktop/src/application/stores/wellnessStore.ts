@@ -4,8 +4,12 @@ import type { WellnessConfig, CreateWellnessConfigDTO, UpdateWellnessConfigDTO }
 import type { WellnessLog } from "../../domain/models/WellnessLog";
 import { notify } from "../../infrastructure/tauri/notifications";
 import type { SoundName } from "../../infrastructure/audio/soundPlayer";
+import { createCrudStore } from "./createCrudStore";
 
-const [configs, setConfigs] = createSignal<WellnessConfig[]>([]);
+const crud = createCrudStore<WellnessConfig, CreateWellnessConfigDTO, UpdateWellnessConfigDTO>({
+  endpoint: "/wellness-configs",
+  label: "wellness-configs",
+});
 const [todayLogs, setTodayLogs] = createSignal<WellnessLog[]>([]);
 const activeIntervals = new Map<string, ReturnType<typeof setInterval>>();
 
@@ -21,59 +25,6 @@ async function sendWellnessNotification(config: WellnessConfig) {
 }
 
 export function useWellnessStore() {
-  async function fetchConfigs() {
-    try {
-      const data = await api.get<WellnessConfig[]>("/wellness-configs");
-      setConfigs(data);
-    } catch (e) {
-      console.error("Failed to fetch wellness configs:", e);
-    }
-  }
-
-  async function createConfig(input: CreateWellnessConfigDTO) {
-    try {
-      const config = await api.post<WellnessConfig>("/wellness-configs", input);
-      if (config) {
-        setConfigs((prev) => [...prev, config]);
-        if (config.enabled) {
-          startInterval(config);
-        }
-      }
-      return config;
-    } catch (err) {
-      console.error("[wellness] Failed to create config:", err);
-      throw err;
-    }
-  }
-
-  async function updateConfig(id: string, input: UpdateWellnessConfigDTO) {
-    try {
-      const config = await api.put<WellnessConfig>(`/wellness-configs/${id}`, input);
-      if (config) {
-        setConfigs((prev) => prev.map((c) => (c.id === id ? config : c)));
-        stopInterval(id);
-        if (config.enabled) {
-          startInterval(config);
-        }
-      }
-      return config;
-    } catch (err) {
-      console.error("[wellness] Failed to update config:", err);
-      throw err;
-    }
-  }
-
-  async function deleteConfig(id: string) {
-    // Optimistic update
-    stopInterval(id);
-    setConfigs((prev) => prev.filter((c) => c.id !== id));
-    try {
-      await api.delete(`/wellness-configs/${id}`);
-    } catch (err) {
-      console.error("[wellness] Failed to delete config:", err);
-    }
-  }
-
   function startInterval(config: WellnessConfig) {
     stopInterval(config.id);
     const ms = config.intervalMinutes * 60_000;
@@ -89,9 +40,29 @@ export function useWellnessStore() {
     }
   }
 
+  async function createConfig(input: CreateWellnessConfigDTO) {
+    const config = await crud.create(input);
+    if (config && config.enabled) startInterval(config);
+    return config;
+  }
+
+  async function updateConfig(id: string, input: UpdateWellnessConfigDTO) {
+    const config = await crud.update(id, input);
+    if (config) {
+      stopInterval(id);
+      if (config.enabled) startInterval(config);
+    }
+    return config;
+  }
+
+  async function deleteConfig(id: string) {
+    stopInterval(id);
+    await crud.delete(id);
+  }
+
   function startAll() {
     stopAll();
-    for (const config of configs()) {
+    for (const config of crud.items()) {
       if (config.enabled) {
         startInterval(config);
       }
@@ -107,7 +78,7 @@ export function useWellnessStore() {
 
   function snooze(configId: string, minutes: number) {
     stopInterval(configId);
-    const config = configs().find((c) => c.id === configId);
+    const config = crud.items().find((c) => c.id === configId);
     if (!config) return;
 
     setTimeout(() => {
@@ -170,9 +141,9 @@ export function useWellnessStore() {
   }
 
   return {
-    configs,
+    configs: crud.items,
     todayLogs,
-    fetchConfigs,
+    fetchConfigs: crud.fetchAll,
     createConfig,
     updateConfig,
     deleteConfig,

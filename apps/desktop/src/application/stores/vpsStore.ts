@@ -2,6 +2,8 @@ import { createSignal } from "solid-js";
 import { api } from "../../infrastructure/api/apiClient";
 import { connectGenericSSE } from "../../infrastructure/api/genericSSEClient";
 import { notify } from "../../infrastructure/tauri/notifications";
+import { API_BASE } from "../../infrastructure/config";
+import { safeGetJSON } from "../../infrastructure/storage";
 
 export interface VpsLogLine {
   file: string;
@@ -34,10 +36,37 @@ export interface VpsLogFile {
   last_modified: string | null;
 }
 
+export interface SseFlux {
+  id: string;
+  name: string;
+  url: string;
+  events: string[]; // event names to listen to, empty = listen to "message"
+}
+
+export interface SseEvent {
+  type: string;
+  data: string;
+  timestamp: string;
+}
+
 const MAX_LOG_LINES = 500;
+const MAX_SSE_EVENTS = 200;
 
 const [logs, setLogs] = createSignal<VpsLogLine[]>([]);
 const [alerts, setAlerts] = createSignal<VpsAlert[]>([]);
+
+// SSE flux
+const [sseFluxList, setSseFluxList] = createSignal<SseFlux[]>(
+  safeGetJSON<SseFlux[]>(
+    "vps-sse-flux",
+    [],
+    (v): v is SseFlux[] => Array.isArray(v),
+  ),
+);
+const [activeSseFluxId, setActiveSseFluxId] = createSignal<string | null>(null);
+const [sseEvents, setSseEvents] = createSignal<SseEvent[]>([]);
+const [sseConnected, setSseConnected] = createSignal(false);
+let disconnectSseFlux: (() => void) | null = null;
 const [health, setHealth] = createSignal<VpsHealth | null>(null);
 const [logFiles, setLogFiles] = createSignal<VpsLogFile[]>([]);
 const [isConnected, setIsConnected] = createSignal(false);
@@ -57,7 +86,7 @@ export function useVpsStore() {
     const level = levelFilter();
     if (level !== "ALL") params.set("level", level);
 
-    const url = `http://localhost:47300/api/vps/stream?${params.toString()}`;
+    const url = `${API_BASE}/vps/stream?${params.toString()}`;
 
     disconnectSSE = connectGenericSSE(url, {
       log: (data: VpsLogLine) => {
@@ -157,6 +186,59 @@ export function useVpsStore() {
     setAlertCount(0);
   }
 
+  // ─── SSE Flux management ───
+
+  function persistFluxList(list: SseFlux[]) {
+    localStorage.setItem("vps-sse-flux", JSON.stringify(list));
+  }
+
+  function addSseFlux(name: string, url: string, events: string[]) {
+    const flux: SseFlux = { id: crypto.randomUUID(), name, url, events };
+    setSseFluxList((prev) => { const next = [...prev, flux]; persistFluxList(next); return next; });
+    return flux;
+  }
+
+  function removeSseFlux(id: string) {
+    if (activeSseFluxId() === id) disconnectSseFluxFn();
+    setSseFluxList((prev) => { const next = prev.filter((f) => f.id !== id); persistFluxList(next); return next; });
+  }
+
+  function connectSseFlux(id: string) {
+    disconnectSseFluxFn();
+    const flux = sseFluxList().find((f) => f.id === id);
+    if (!flux) return;
+
+    setActiveSseFluxId(id);
+    setSseEvents([]);
+    setSseConnected(false);
+
+    const eventNames = flux.events.length > 0 ? flux.events : ["message"];
+    const handlers: Record<string, (data: any) => void> = {};
+
+    for (const evt of eventNames) {
+      handlers[evt] = (data: any) => {
+        const text = typeof data === "string" ? data : JSON.stringify(data);
+        setSseEvents((prev) => {
+          const next = [{ type: evt, data: text, timestamp: new Date().toISOString() }, ...prev];
+          return next.length > MAX_SSE_EVENTS ? next.slice(0, MAX_SSE_EVENTS) : next;
+        });
+      };
+    }
+
+    handlers.heartbeat = () => setSseConnected(true);
+    handlers.error = () => setSseConnected(false);
+
+    disconnectSseFlux = connectGenericSSE(flux.url, handlers, { reconnectMs: 5000, maxRetries: 10 });
+    setSseConnected(true);
+  }
+
+  function disconnectSseFluxFn() {
+    disconnectSseFlux?.();
+    disconnectSseFlux = null;
+    setActiveSseFluxId(null);
+    setSseConnected(false);
+  }
+
   return {
     logs,
     alerts,
@@ -176,5 +258,13 @@ export function useVpsStore() {
     flushLogs,
     fetchAlerts,
     clearAlertCount,
+    sseFluxList,
+    activeSseFluxId,
+    sseEvents,
+    sseConnected,
+    addSseFlux,
+    removeSseFlux,
+    connectSseFlux,
+    disconnectSseFlux: disconnectSseFluxFn,
   };
 }

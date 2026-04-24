@@ -10,9 +10,34 @@ export default defineConfig(async () => ({
   plugins: [
     solid(),
     (monacoEditorPlugin as any).default({
-      languageWorkers: ["editorWorkerService", "typescript", "json", "css", "html"],
+      languageWorkers: ["editorWorkerService", "typescript"],
     }),
   ],
+
+  // Ensure a single instance of Solid (prevents "multiple instances" warning)
+  resolve: {
+    dedupe: ["solid-js", "solid-js/web", "solid-js/store"],
+  },
+
+  // Code-split heavy dependencies into separate chunks (loaded on demand with lazy views).
+  // Each entry here pulls ~0.5-4 MB out of the main bundle; the chunks are only fetched when the
+  // corresponding lazy view mounts.
+  build: {
+    // Heavy editors/renderers exceed 500kB individually — the default warning is noise here
+    // since these chunks are loaded on demand, not on first paint.
+    chunkSizeWarningLimit: 1200,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          "monaco": ["monaco-editor"],
+          "react-excalidraw": ["react", "react-dom", "@excalidraw/excalidraw"],
+          "xterm": ["xterm", "@xterm/addon-fit"],
+          "leaflet": ["leaflet"],
+          "markdown": ["marked", "highlight.js"],
+        },
+      },
+    },
+  },
 
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
   //

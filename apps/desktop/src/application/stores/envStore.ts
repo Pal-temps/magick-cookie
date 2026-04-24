@@ -1,5 +1,6 @@
 import { createSignal } from "solid-js";
 import { useSettingsStore } from "./settingsStore";
+import { API_BASE } from "../../infrastructure/config";
 
 export interface EnvCheck {
   name: string;
@@ -24,8 +25,8 @@ function saveCustomChecks(checks: EnvCheck[]) {
 }
 
 const DEFAULT_CHECKS: EnvCheck[] = [
-  { name: "API", url: "http://localhost:47300/api/health", status: "checking" },
-  { name: "PostgreSQL", url: "http://localhost:47300/api/health", status: "checking" },
+  { name: "API", url: `${API_BASE}/health`, status: "checking" },
+  { name: "PostgreSQL", url: `${API_BASE}/health`, status: "checking" },
 ];
 
 const [checks, setChecks] = createSignal<EnvCheck[]>([

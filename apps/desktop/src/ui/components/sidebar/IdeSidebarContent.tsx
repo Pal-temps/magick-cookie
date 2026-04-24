@@ -1,24 +1,25 @@
-import { Show, For, createSignal, onMount, onCleanup } from "solid-js";
-import { open as openDialog } from "@tauri-apps/plugin-dialog";
+import { Show, For, createSignal, onMount } from "solid-js";
+import { vaultService } from "../../../application/services/vaultService";
 import { useIdeStore } from "../../../application/stores/ideStore";
 import { useSnippetStore } from "../../../application/stores/snippetStore";
 import { useSettingsStore } from "../../../application/stores/settingsStore";
 import { useAiSessionStore } from "../../../application/stores/aiSessionStore";
+import { useCliTabStore } from "../../../application/stores/cliTabStore";
+import { useWorkflowStore } from "../../../application/stores/workflowStore";
+import { useCiCdStore } from "../../../application/stores/cicdStore";
+import { useT } from "../../../i18n/context";
 import { FileExplorer } from "../ide/FileExplorer";
 import { GitPanel } from "../ide/GitPanel";
-import { openSystemTerminalWindow } from "../ide/AiTerminalTabs";
+import { McpPanel } from "../ide/McpPanel";
 
 export function IdeSidebarContent() {
+  const { t } = useT();
   const ide = useIdeStore();
   const { snippets } = useSnippetStore();
 
   const [newFileDialog, setNewFileDialog] = createSignal<{ folder: string; type: "file" | "folder" } | null>(null);
   const [newFileInput, setNewFileInput] = createSignal("");
-  const [dropdownOpen, setDropdownOpen] = createSignal(false);
-  const [showWorkspaceSettings, setShowWorkspaceSettings] = createSignal(false);
 
-  let dropdownRef: HTMLDivElement | undefined;
-  let searchRef: HTMLInputElement | undefined;
 
   const settings = useSettingsStore();
 
@@ -28,19 +29,19 @@ export function IdeSidebarContent() {
     if (!ide.projectPath()) {
       const lastProject = settings.getWorkspace().activeProjectPath;
       if (lastProject) {
-        await ide.openProject(lastProject);
+        // Only restore if the project is still in the workspace
+        const projects = ide.discoveredProjects();
+        const exists = projects.some((p) => p.path === lastProject);
+        if (exists) {
+          await ide.openProject(lastProject);
+        } else {
+          // Clean up stale reference
+          settings.patchWorkspace({ activeProjectPath: null });
+        }
       }
     }
   });
 
-  // Close dropdown on outside click
-  function handleGlobalClick(e: MouseEvent) {
-    if (dropdownOpen() && dropdownRef && !dropdownRef.contains(e.target as Node)) {
-      setDropdownOpen(false);
-    }
-  }
-  onMount(() => document.addEventListener("mousedown", handleGlobalClick));
-  onCleanup(() => document.removeEventListener("mousedown", handleGlobalClick));
 
   function handleCreateFile(folder: string) {
     setNewFileDialog({ folder, type: "file" });
@@ -65,44 +66,21 @@ export function IdeSidebarContent() {
     setNewFileDialog(null);
   }
 
-  async function pickAndAddProject() {
-    const selected = await openDialog({
-      directory: true,
-      multiple: false,
-      title: "Ajouter un projet",
-    });
-    if (selected && typeof selected === "string") {
-      await ide.addManualProject(selected);
-      ide.switchProject(selected);
-      setDropdownOpen(false);
-    }
-  }
-
-  async function pickRootDir() {
-    const selected = await openDialog({
-      directory: true,
-      multiple: false,
-      title: "Ajouter un dossier racine",
-    });
-    if (selected && typeof selected === "string") {
-      await ide.addRootDir(selected);
-    }
-  }
-
-  function openDropdown() {
-    setDropdownOpen(true);
-    ide.setWorkspaceSearchQuery("");
-    // Focus search after render
-    requestAnimationFrame(() => searchRef?.focus());
-  }
-
   function selectProject(path: string) {
     ide.switchProject(path);
-    setDropdownOpen(false);
   }
 
   const ai = useAiSessionStore();
   const hasProject = () => ide.projectPath() !== null;
+
+  // ─── Context menu (shared for vault files & workflows) ───
+  const [ctxMenu, setCtxMenu] = createSignal<{ x: number; y: number; action: () => Promise<void> | void } | null>(null);
+
+  function showCtxMenu(e: MouseEvent, onDelete: () => Promise<void> | void) {
+    e.preventDefault();
+    e.stopPropagation();
+    setCtxMenu({ x: e.clientX, y: e.clientY, action: onDelete });
+  }
 
   // ─── Vault section (skills / hooks / prompts) ───
   function VaultSectionLink(props: { icon: string; label: string; section: string }) {
@@ -126,7 +104,16 @@ export function IdeSidebarContent() {
       await ide.createVaultFile(props.section, fileName);
       setCreating(false);
       setNewName("");
-      // Refresh list
+      const entries = await ide.listVaultSection(props.section);
+      setFiles(entries);
+    }
+
+    async function handleDelete(relPath: string) {
+      try {
+        await vaultService.deleteFile(`${props.section}/${relPath}`);
+      } catch (e) {
+        console.error("Failed to delete vault file:", e);
+      }
       const entries = await ide.listVaultSection(props.section);
       setFiles(entries);
     }
@@ -144,7 +131,7 @@ export function IdeSidebarContent() {
           <div style={{ "padding-left": "20px" }}>
             <For each={files()} fallback={
               <div style={{ "font-size": "11px", color: "var(--text-muted)", padding: "4px 0" }}>
-                Aucun fichier
+                {t("ide.noFile")}
               </div>
             }>
               {(entry) => (
@@ -152,6 +139,7 @@ export function IdeSidebarContent() {
                   class="ide-sidebar-link"
                   style={{ "font-size": "11px" }}
                   onClick={() => ide.openVaultFile(`${props.section}/${entry.path}`)}
+                  onContextMenu={(e) => showCtxMenu(e, () => handleDelete(entry.path))}
                 >
                   {entry.name.replace(/\.md$/, "")}
                 </button>
@@ -181,7 +169,7 @@ export function IdeSidebarContent() {
               style={{ "font-size": "11px" }}
               onClick={() => setCreating(true)}
             >
-              <span class="ide-sidebar-link__icon">+</span> Nouveau
+              <span class="ide-sidebar-link__icon">+</span> {t("common.new")}
             </button>
           </div>
         </Show>
@@ -190,10 +178,7 @@ export function IdeSidebarContent() {
   }
 
   // Short path for display (last 2 segments)
-  function shortPath(fullPath: string): string {
-    const parts = fullPath.replace(/\\/g, "/").split("/");
-    return parts.length > 2 ? parts.slice(-2).join("/") : fullPath;
-  }
+
 
   // ─── Sidebar Section (collapsible) ───
   function SidebarSection(props: { id: string; title: string; defaultOpen?: boolean; children: any }) {
@@ -223,152 +208,351 @@ export function IdeSidebarContent() {
 
   // ─── Sessions List ───
   function SessionsList() {
+    const cliStore = useCliTabStore();
     const sessionList = () => Array.from(ai.sessions().values());
+    const [editingId, setEditingId] = createSignal<string | null>(null);
+    const [editValue, setEditValue] = createSignal("");
 
     async function newSession() {
       await ai.fetchProviders();
-      const available = ai.providers().find((p) => p.available);
-      if (!available) return;
       const cwd = ide.projectPath() ?? ".";
-      await ai.startSession({ provider: available.id, model: "", cwd });
+      try {
+        await ai.startSession({ provider: "claude-cli", model: "", cwd });
+      } catch (e) {
+        cliStore.launchCliTerminal();
+      }
+    }
+
+    function startRename(id: string, currentLabel: string) {
+      setEditingId(id);
+      setEditValue(currentLabel);
+    }
+
+    function commitRename(id: string) {
+      const val = editValue().trim();
+      if (val) ai.renameSession(id, val);
+      setEditingId(null);
+    }
+
+    function sessionDisplayName(session: { label: string; model: string; provider: string }): string {
+      return session.label || session.model || session.provider;
     }
 
     return (
       <div class="ide-sessions-list">
-        <For each={sessionList()} fallback={
-          <div style={{ padding: "8px 0", "font-size": "11px", color: "var(--text-muted)" }}>
-            Aucune session active
-          </div>
-        }>
-          {(session) => (
+        {/* CLI terminals */}
+        <For each={cliStore.cliTabs()}>
+          {(tab) => (
             <button
-              class={`ide-session-item ${ai.activeSessionId() === session.id ? "ide-session-item--active" : ""}`}
-              onClick={() => ai.switchSession(session.id)}
+              class={`ide-session-item ${cliStore.activeCliTabId() === tab.id ? "ide-session-item--active" : ""}`}
+              onClick={() => cliStore.setActiveCliTabId(tab.id)}
             >
-              <span class={`cc-status-dot ${session.phase === "ready" ? "cc-status-dot--ready" : session.isStreaming ? "cc-status-dot--active" : ""}`} />
-              <span class="ide-session-item__name">{session.model || session.provider}</span>
-              <span class="ide-session-item__badge">
-                {session.provider.toLowerCase().includes("claude") ? "CC" :
-                 session.provider.toLowerCase().includes("openai") ? "GPT" :
-                 session.provider.toLowerCase().includes("ollama") ? "OL" :
-                 session.provider.slice(0, 2).toUpperCase()}
-              </span>
+              <span class="cc-status-dot cc-status-dot--ready" />
+              <span class="ide-session-item__name">{tab.label}</span>
+              <span class="ide-session-item__badge">PTY</span>
             </button>
           )}
         </For>
+        {/* AI sessions */}
+        <For each={sessionList()}>
+          {(session) => {
+            const wfStore = useWorkflowStore();
+            const sessionWf = () => wfStore.getWorkflowForSession(session.id);
+            return (
+              <div class="ide-session-wrap">
+                <div
+                  class={`ide-session-item ${ai.activeSessionId() === session.id ? "ide-session-item--active" : ""}`}
+                  onClick={() => ai.switchSession(session.id)}
+                  onDblClick={(e) => { e.stopPropagation(); startRename(session.id, sessionDisplayName(session)); }}
+                >
+                  <span class={`cc-status-dot ${session.phase === "ready" ? "cc-status-dot--ready" : session.isStreaming ? "cc-status-dot--active" : ""}`} />
+                  <Show when={editingId() === session.id} fallback={
+                    <span class="ide-session-item__name" title={t("ide.dblClickRename")}>{sessionDisplayName(session)}</span>
+                  }>
+                    <input
+                      class="ide-session-item__rename"
+                      type="text"
+                      value={editValue()}
+                      onInput={(e) => setEditValue(e.currentTarget.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") commitRename(session.id);
+                        if (e.key === "Escape") setEditingId(null);
+                      }}
+                      onBlur={() => commitRename(session.id)}
+                      onClick={(e) => e.stopPropagation()}
+                      ref={(el) => requestAnimationFrame(() => el.focus())}
+                    />
+                  </Show>
+                  <span class="ide-session-item__badge">
+                    {session.provider.toLowerCase().includes("claude") ? "CC" :
+                     session.provider.toLowerCase().includes("openai") ? "GPT" :
+                     session.provider.toLowerCase().includes("ollama") ? "OL" :
+                     session.provider.slice(0, 2).toUpperCase()}
+                  </span>
+                </div>
+                {/* Workflow selector per session */}
+                <select
+                  class="ide-session-wf-select"
+                  value={sessionWf()?.id ?? ""}
+                  onChange={(e) => {
+                    e.stopPropagation();
+                    wfStore.assignWorkflowToSession(session.id, e.currentTarget.value || null);
+                  }}
+                  onClick={(e) => e.stopPropagation()}
+                  title="Workflow pour cette session"
+                >
+                  <option value="">— {wfStore.activeWorkflow() ? `defaut: ${wfStore.activeWorkflow()!.name}` : "aucun workflow"} —</option>
+                  <For each={wfStore.workflows()}>
+                    {(w) => <option value={w.id}>{w.name}</option>}
+                  </For>
+                </select>
+              </div>
+            );
+          }}
+        </For>
+        <Show when={cliStore.cliTabs().length === 0 && sessionList().length === 0}>
+          <div style={{ padding: "8px 0", "font-size": "11px", color: "var(--text-muted)" }}>
+            {t("ide.noSession")}
+          </div>
+        </Show>
         <button class="ide-sidebar-link ide-sidebar-link--accent" onClick={newSession}>
-          <span class="ide-sidebar-link__icon">+</span> Nouvelle session
+          <span class="ide-sidebar-link__icon">+</span> {t("ide.newSession")}
         </button>
       </div>
     );
   }
 
-  return (
-    <>
-      {/* Project switcher */}
-      <div ref={dropdownRef} style={{ position: "relative", "flex-shrink": "0" }}>
-        {/* Trigger */}
-        <button
-          onClick={() => dropdownOpen() ? setDropdownOpen(false) : openDropdown()}
-          class="ws-dropdown-trigger"
-        >
-          <span class="ws-dropdown-trigger__name">{ide.projectName()}</span>
-          <span class="ws-dropdown-trigger__chevron">{dropdownOpen() ? "\u25B4" : "\u25BE"}</span>
-        </button>
+  // ─── Workflows List ───
+  function WorkflowsList() {
+    const wf = useWorkflowStore();
+    const [showPresets, setShowPresets] = createSignal(false);
+    const [creating, setCreating] = createSignal(false);
+    const [newName, setNewName] = createSignal("");
 
-        {/* Dropdown panel */}
-        <Show when={dropdownOpen()}>
-          <div class="ws-dropdown-panel">
-            {/* Search */}
-            <div style={{ padding: "6px 8px", "border-bottom": "1px solid var(--border-color)" }}>
-              <input
-                ref={searchRef}
-                type="text"
-                placeholder="Rechercher un projet..."
-                value={ide.workspaceSearchQuery()}
-                onInput={(e) => ide.setWorkspaceSearchQuery(e.currentTarget.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Escape") setDropdownOpen(false);
-                }}
-                class="ws-dropdown-search"
-              />
-            </div>
+    onMount(() => { wf.fetchWorkflows(); });
 
-            <div class="ws-dropdown-list">
-              {/* Favorites section */}
-              <Show when={ide.favoriteProjects().length > 0}>
-                <div class="ws-dropdown-section-label">Favoris</div>
-                <For each={ide.favoriteProjects()}>
-                  {(project) => (
-                    <div
-                      class="ws-dropdown-item"
-                      classList={{ "ws-dropdown-item--active": project.path === ide.projectPath() }}
-                      onClick={() => selectProject(project.path)}
-                    >
-                      <button
-                        class="ws-star ws-star--active"
-                        onClick={(e) => { e.stopPropagation(); ide.toggleFavorite(project.path); }}
-                        title="Retirer des favoris"
-                      >&#9733;</button>
-                      <span class="ws-dropdown-item__name">{project.name}</span>
-                    </div>
-                  )}
-                </For>
-                <div style={{ height: "1px", background: "var(--border-color)", margin: "4px 0" }} />
-              </Show>
+    async function handleCreatePreset(presetId: string) {
+      await wf.createFromPreset(presetId);
+      setShowPresets(false);
+    }
 
-              {/* All projects */}
-              <Show when={ide.filteredProjects().length > 0} fallback={
-                <div style={{ padding: "12px", "text-align": "center", color: "var(--text-muted)", "font-size": "12px" }}>
-                  {ide.discoveredProjects().length === 0
-                    ? "Aucun projet. Ajoutez un dossier racine ou un projet."
-                    : "Aucun resultat"
-                  }
+    async function handleCreate() {
+      const name = newName().trim();
+      if (!name) return;
+      await wf.createWorkflow(name);
+      setCreating(false);
+      setNewName("");
+    }
+
+    function openInEditor(templateId: string) {
+      wf.setEditingWorkflowId(templateId);
+      if (!ide.codeDrawerOpen()) ide.toggleCodeDrawer();
+    }
+
+    return (
+      <div class="ide-workflows-list">
+        <For each={wf.workflows()}>
+          {(template) => {
+            const isDefault = () => wf.activeWorkflowId() === template.id;
+            return (
+              <div
+                class={`ide-workflow-item ${isDefault() ? "ide-workflow-item--active" : ""}`}
+                onClick={() => wf.selectWorkflow(isDefault() ? null : template.id)}
+                onContextMenu={(e) => showCtxMenu(e, () => wf.deleteWorkflow(template.id))}
+                title={template.description || template.name}
+              >
+                <div class="ide-workflow-item__info">
+                  <span class="ide-workflow-item__name">{template.name}</span>
+                  <Show when={template.description}>
+                    <span class="ide-workflow-item__desc">{template.description}</span>
+                  </Show>
                 </div>
-              }>
-                <div class="ws-dropdown-section-label">Projets</div>
-                <For each={ide.filteredProjects()}>
-                  {(project) => (
-                    <div
-                      class="ws-dropdown-item"
-                      classList={{ "ws-dropdown-item--active": project.path === ide.projectPath() }}
-                      onClick={() => selectProject(project.path)}
-                    >
-                      <button
-                        class={`ws-star ${ide.isFavorite(project.path) ? "ws-star--active" : ""}`}
-                        onClick={(e) => { e.stopPropagation(); ide.toggleFavorite(project.path); }}
-                        title={ide.isFavorite(project.path) ? "Retirer des favoris" : "Ajouter aux favoris"}
-                      >{ide.isFavorite(project.path) ? "\u2733" : "\u2606"}</button>
-                      <span class="ws-dropdown-item__name">{project.name}</span>
-                      <span class="ws-dropdown-item__path">{shortPath(project.path)}</span>
-                    </div>
-                  )}
-                </For>
-              </Show>
-            </div>
+                <Show when={isDefault()}>
+                  <span class="ide-workflow-item__active-badge">{t("ide.default")}</span>
+                </Show>
+                <button
+                  class="ide-workflow-item__edit"
+                  onClick={(e) => { e.stopPropagation(); openInEditor(template.id); }}
+                  title="Editer"
+                >
+                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M8.5 1.5l2 2-7 7H1.5V8.5l7-7z" stroke="currentColor" stroke-width="1.2" /></svg>
+                </button>
+              </div>
+            );
+          }}
+        </For>
 
-            {/* Actions */}
-            <div class="ws-dropdown-actions">
-              <button class="ws-dropdown-action" onClick={pickAndAddProject}>
-                + Ajouter un projet
-              </button>
-              <button class="ws-dropdown-action" onClick={() => { setShowWorkspaceSettings(true); setDropdownOpen(false); }}>
-                Parametres workspace
-              </button>
-            </div>
+        <Show when={wf.workflows().length === 0}>
+          <div style={{ padding: "6px 0", "font-size": "11px", color: "var(--text-muted)" }}>
+            {t("ide.noWorkflow")} — {t("ide.noWorkflowHint")}
           </div>
         </Show>
+
+        {/* Create actions */}
+        <Show when={creating()}>
+          <div style={{ display: "flex", gap: "4px", padding: "4px 0" }}>
+            <input
+              class="ide-session-item__rename"
+              type="text"
+              placeholder="Nom du workflow..."
+              value={newName()}
+              onInput={(e) => setNewName(e.currentTarget.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") handleCreate(); if (e.key === "Escape") setCreating(false); }}
+              ref={(el) => requestAnimationFrame(() => el.focus())}
+              style={{ flex: "1" }}
+            />
+          </div>
+        </Show>
+
+        <div style={{ display: "flex", gap: "4px" }}>
+          <button class="ide-sidebar-link ide-sidebar-link--accent" style={{ flex: "1" }} onClick={() => setCreating(true)}>
+            <span class="ide-sidebar-link__icon">+</span> {t("common.new")}
+          </button>
+          <div style={{ position: "relative" }}>
+            <button class="ide-sidebar-link" onClick={() => setShowPresets(!showPresets())}>
+              <span class="ide-sidebar-link__icon">T</span> {t("ide.presets")}
+            </button>
+            <Show when={showPresets()}>
+              <div class="ide-context-menu" style={{ position: "absolute", bottom: "100%", right: "0", "min-width": "180px" }} onMouseDown={(e) => e.stopPropagation()}>
+                <div class="ide-context-label">{t("ide.predefinedTemplates")}</div>
+                <For each={wf.presetIds}>
+                  {(presetId) => {
+                    const preset = wf.presets[presetId]();
+                    return (
+                      <div class="ide-context-item" onClick={() => handleCreatePreset(presetId)}>
+                        <span>{preset.name}</span>
+                        <span style={{ "margin-left": "auto", "font-size": "9px", color: "var(--text-muted)" }}>
+                          {preset.preCommit.length > 0 ? `${preset.preCommit.length} hooks` : ""}
+                        </span>
+                      </div>
+                    );
+                  }}
+                </For>
+              </div>
+            </Show>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ─── Monorepo scanner ───
+  const cicd = useCiCdStore();
+  const MONOREPO_ROOT = "C:/Users/bumbl/Documents/Perso/magick-cookie";
+  const [linkDialog, setLinkDialog] = createSignal<{ projectName: string } | null>(null);
+  const [linkProvider, setLinkProvider] = createSignal<"github" | "gitlab">("github");
+  const [linkRepo, setLinkRepo] = createSignal("");
+  const [linkBranch, setLinkBranch] = createSignal("main");
+  const [monorepoProjects, setMonorepoProjects] = createSignal<{ name: string; path: string; markers: string[] }[]>([]);
+  const [projectSearch, setProjectSearch] = createSignal("");
+  // Internal app projects — hidden from the explorer
+  const INTERNAL_PROJECTS = new Set(["api", "desktop", "llm", "screenshot-cli"]);
+
+  async function scanMonorepo() {
+    try {
+      const scanned = await invoke<{ name: string; path: string; markers: string[] }[]>(
+        "fs_scan_projects", { rootDirs: [MONOREPO_ROOT + "/apps", MONOREPO_ROOT + "/tools"] }
+      );
+      // Add the root itself
+      scanned.unshift({ name: "magick-cookie", path: MONOREPO_ROOT, markers: ["monorepo"] });
+      setMonorepoProjects(scanned);
+    } catch (e) {
+      console.error("Scan monorepo failed:", e);
+      // Fallback
+      setMonorepoProjects([{ name: "magick-cookie", path: MONOREPO_ROOT, markers: ["monorepo"] }]);
+    }
+  }
+
+  onMount(() => { scanMonorepo(); });
+
+  const filteredMonorepoProjects = () => {
+    const q = projectSearch().toLowerCase();
+    const visible = monorepoProjects().filter((p) => !INTERNAL_PROJECTS.has(p.name));
+    if (!q) return visible;
+    return visible.filter((p) => p.name.toLowerCase().includes(q));
+  };
+
+  function markerBadge(markers: string[]): { label: string; color: string } {
+    if (markers.includes("monorepo")) return { label: "MONO", color: "var(--accent-primary)" };
+    const m = markers[0] || "";
+    if (m === "package.json") return { label: "JS", color: "#f0db4f" };
+    if (m === "Cargo.toml") return { label: "RS", color: "#ce422b" };
+    if (m === "go.mod") return { label: "GO", color: "#00add8" };
+    if (m === "pyproject.toml" || m === "setup.py") return { label: "PY", color: "#3776ab" };
+    return { label: "DIR", color: "var(--text-muted)" };
+  }
+
+  return (
+    <>
+      {/* Project explorer */}
+      <div class="proj-explorer" style={{ "flex-shrink": "0" }}>
+        {/* Active project header */}
+        <div class="proj-explorer__active">
+          <div class="proj-explorer__active-name">
+            {ide.projectPath() ? ide.projectName() : "Magick Cookie"}
+          </div>
+          <Show when={ide.projectPath() && ide.projectPath() !== MONOREPO_ROOT}>
+            <button class="proj-explorer__root-btn" onClick={() => selectProject(MONOREPO_ROOT)} title={t("ide.openMonorepo")}>
+              ↑ Monorepo
+            </button>
+          </Show>
+        </div>
+
+        {/* Search */}
+        <div class="proj-explorer__search">
+          <input
+            type="text"
+            placeholder={t("ide.filterProjects")}
+            value={projectSearch()}
+            onInput={(e) => setProjectSearch(e.currentTarget.value)}
+            class="proj-explorer__search-input"
+          />
+        </div>
+
+        {/* Project list */}
+        <div class="proj-explorer__list">
+          <For each={filteredMonorepoProjects()}>
+            {(project) => {
+              const badge = () => markerBadge(project.markers);
+              const isActive = () => project.path.replace(/\\/g, "/") === ide.projectPath()?.replace(/\\/g, "/");
+              const gitLink = () => cicd.getProjectLink(project.name);
+              return (
+                <button
+                  class={`proj-explorer__item ${isActive() ? "proj-explorer__item--active" : ""}`}
+                  onClick={() => selectProject(project.path)}
+                  onContextMenu={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const existing = gitLink();
+                    setLinkProvider(existing?.provider ?? "github");
+                    setLinkRepo(existing?.repo ?? "");
+                    setLinkBranch(existing?.branch ?? "main");
+                    setLinkDialog({ projectName: project.name });
+                  }}
+                >
+                  <span class="proj-explorer__badge" style={{ background: badge().color }}>{badge().label}</span>
+                  <span class="proj-explorer__name">{project.name}</span>
+                  <Show when={gitLink()}>
+                    <span class={`proj-explorer__git proj-explorer__git--${gitLink()!.provider}`} title={`${gitLink()!.provider}: ${gitLink()!.repo}`}>
+                      {gitLink()!.provider === "github" ? "GH" : "GL"}
+                    </span>
+                  </Show>
+                </button>
+              );
+            }}
+          </For>
+        </div>
       </div>
 
       {/* Sections */}
       <div class="ide-sidebar-sections">
         {/* ─── SESSIONS ─── */}
-        <SidebarSection id="sessions" title="SESSIONS">
+        <SidebarSection id="sessions" title={t("ide.sessions")}>
           <SessionsList />
         </SidebarSection>
 
         {/* ─── WORKBENCH ─── */}
-        <SidebarSection id="workbench" title="WORKBENCH">
+        <SidebarSection id="workbench" title={t("ide.workbench")}>
           <Show when={ide.projectPath()}>
             <button class="ide-sidebar-link ide-sidebar-link--highlight" onClick={() => {
               const name = ide.projectName();
@@ -384,30 +568,40 @@ export function IdeSidebarContent() {
           <VaultSectionLink icon="S" label="Skills" section="_ide/skills" />
           <VaultSectionLink icon="H" label="Hooks" section="_ide/hooks" />
           <VaultSectionLink icon="P" label="Prompts" section="_ide/prompts" />
-          <button class="ide-sidebar-link" onClick={() => openSystemTerminalWindow(ide.projectPath() ?? ".")}>
+          <button class="ide-sidebar-link" onClick={() => { const cliStore = useCliTabStore(); cliStore.launchShellTerminal(); }}>
             <span class="ide-sidebar-link__icon">$</span> Terminal
           </button>
         </SidebarSection>
 
+        {/* ─── WORKFLOWS ─── */}
+        <SidebarSection id="workflows" title={t("ide.workflows")}>
+          <WorkflowsList />
+        </SidebarSection>
+
+        {/* ─── MCP SERVERS ─── */}
+        <SidebarSection id="mcp" title={t("ide.mcpServers")} defaultOpen={false}>
+          <McpPanel />
+        </SidebarSection>
+
         {/* ─── WORKSPACE ─── */}
-        <SidebarSection id="workspace" title="WORKSPACE" defaultOpen={true}>
+        <SidebarSection id="workspace" title={t("ide.workspace")} defaultOpen={true}>
           {/* Sub-tabs for Files/Git */}
           <div class="ide-sidebar-tabs">
             <button
               class={`ide-sidebar-tab ${ide.sidePanel() === "files" ? "ide-sidebar-tab--active" : ""}`}
               onClick={() => ide.setSidePanel("files")}
-            >Fichiers</button>
+            >{t("ide.files")}</button>
             <button
               class={`ide-sidebar-tab ${ide.sidePanel() === "git" ? "ide-sidebar-tab--active" : ""}`}
               onClick={() => ide.setSidePanel("git")}
-            >Git</button>
+            >{t("ide.git")}</button>
           </div>
 
           {/* Files panel */}
           <Show when={ide.sidePanel() === "files"}>
             <Show when={hasProject()} fallback={
               <div style={{ padding: "12px", "text-align": "center", color: "var(--text-muted)", "font-size": "12px" }}>
-                Aucun projet ouvert
+                {t("ide.noProjectOpen")}
               </div>
             }>
               <FileExplorer
@@ -439,63 +633,6 @@ export function IdeSidebarContent() {
       </div>
 
       {/* Workspace settings modal */}
-      <Show when={showWorkspaceSettings()}>
-        <div style={{
-          position: "fixed", inset: "0", "z-index": "1000",
-          display: "flex", "align-items": "center", "justify-content": "center",
-          background: "rgba(0,0,0,0.5)",
-        }} onClick={() => setShowWorkspaceSettings(false)}>
-          <div style={{
-            background: "var(--bg-surface)", padding: "20px", "border-radius": "var(--radius-md)",
-            border: "1px solid var(--border-color)", "min-width": "400px", "max-width": "500px",
-          }} onClick={(e) => e.stopPropagation()}>
-            <div style={{ "font-size": "14px", "font-weight": "600", "margin-bottom": "16px", color: "var(--text-primary)" }}>
-              Parametres Workspace
-            </div>
-
-            <div style={{ "margin-bottom": "12px" }}>
-              <div style={{ "font-size": "12px", "font-weight": "600", color: "var(--text-secondary)", "margin-bottom": "8px" }}>
-                Dossiers racines
-              </div>
-              <div style={{ display: "flex", "flex-direction": "column", gap: "4px" }}>
-                <For each={ide.getRootDirs()} fallback={
-                  <div style={{ "font-size": "12px", color: "var(--text-muted)", padding: "8px 0" }}>
-                    Aucun dossier racine configure.
-                  </div>
-                }>
-                  {(dir) => (
-                    <div style={{ display: "flex", "align-items": "center", gap: "8px", padding: "4px 0" }}>
-                      <span style={{ flex: "1", "font-size": "12px", color: "var(--text-primary)", overflow: "hidden", "text-overflow": "ellipsis", "white-space": "nowrap" }}>
-                        {dir}
-                      </span>
-                      <button
-                        onClick={() => ide.removeRootDir(dir)}
-                        style={{ background: "none", border: "none", color: "var(--danger)", cursor: "pointer", "font-size": "14px", padding: "0 4px" }}
-                        title="Supprimer"
-                      >&#10005;</button>
-                    </div>
-                  )}
-                </For>
-              </div>
-              <button
-                onClick={pickRootDir}
-                style={{
-                  "margin-top": "8px", padding: "6px 12px", "font-size": "12px",
-                  background: "var(--bg-elevated)", border: "1px solid var(--border-color)",
-                  "border-radius": "var(--radius-sm)", color: "var(--text-secondary)", cursor: "pointer",
-                }}
-              >+ Ajouter un dossier racine</button>
-            </div>
-
-            <div style={{ display: "flex", "justify-content": "flex-end", "margin-top": "16px" }}>
-              <button
-                onClick={() => setShowWorkspaceSettings(false)}
-                style={{ padding: "6px 14px", background: "var(--accent-primary)", border: "none", "border-radius": "var(--radius-sm)", color: "#fff", cursor: "pointer", "font-size": "12px" }}
-              >Fermer</button>
-            </div>
-          </div>
-        </div>
-      </Show>
 
       {/* New file/folder dialog */}
       <Show when={newFileDialog()}>
@@ -509,7 +646,7 @@ export function IdeSidebarContent() {
             border: "1px solid var(--border-color)", "min-width": "300px",
           }} onClick={(e) => e.stopPropagation()}>
             <div style={{ "font-size": "14px", "font-weight": "600", "margin-bottom": "12px", color: "var(--text-primary)" }}>
-              {newFileDialog()!.type === "file" ? "Nouveau fichier" : "Nouveau dossier"}
+              {newFileDialog()!.type === "file" ? t("ide.newFile") : t("ide.newFolder")}
             </div>
             <input
               autofocus
@@ -527,12 +664,76 @@ export function IdeSidebarContent() {
               <button
                 onClick={() => setNewFileDialog(null)}
                 style={{ padding: "6px 14px", background: "var(--bg-elevated)", border: "1px solid var(--border-color)", "border-radius": "var(--radius-sm)", color: "var(--text-secondary)", cursor: "pointer", "font-size": "12px" }}
-              >Annuler</button>
+              >{t("common.cancel")}</button>
               <button
                 onClick={confirmCreate}
                 style={{ padding: "6px 14px", background: "var(--accent-primary)", border: "none", "border-radius": "var(--radius-sm)", color: "#fff", cursor: "pointer", "font-size": "12px" }}
-              >Creer</button>
+              >{t("common.create")}</button>
             </div>
+          </div>
+        </div>
+      </Show>
+
+      {/* Git link dialog */}
+      <Show when={linkDialog()}>
+        <div class="cicd-overlay" onClick={() => setLinkDialog(null)}>
+          <div class="cicd-dialog" onClick={(e) => e.stopPropagation()} style={{ width: "360px" }}>
+            <div class="cicd-dialog__header">
+              <span>{t("ide.linkToGitRepo")} — {linkDialog()!.projectName}</span>
+              <button class="cicd-dialog__close" onClick={() => setLinkDialog(null)}>&times;</button>
+            </div>
+            <div class="cicd-dialog__body">
+              <label class="cicd-field">
+                <span class="cicd-field__label">Provider</span>
+                <select class="cicd-field__input" value={linkProvider()} onChange={(e) => setLinkProvider(e.currentTarget.value as "github" | "gitlab")}>
+                  <option value="github">GitHub</option>
+                  <option value="gitlab">GitLab</option>
+                </select>
+              </label>
+              <label class="cicd-field">
+                <span class="cicd-field__label">{linkProvider() === "github" ? "Repo (owner/repo)" : "ID du projet"}</span>
+                <input class="cicd-field__input" type="text" value={linkRepo()} onInput={(e) => setLinkRepo(e.currentTarget.value)}
+                  placeholder={linkProvider() === "github" ? "user/repo" : "12345"} />
+              </label>
+              <label class="cicd-field">
+                <span class="cicd-field__label">{t("ide.defaultBranch")}</span>
+                <input class="cicd-field__input" type="text" value={linkBranch()} onInput={(e) => setLinkBranch(e.currentTarget.value)} placeholder="main" />
+              </label>
+            </div>
+            <div class="cicd-dialog__footer">
+              <Show when={cicd.getProjectLink(linkDialog()!.projectName)}>
+                <button class="cicd-dialog__btn cicd-dialog__btn--danger" onClick={() => { cicd.unlinkProject(linkDialog()!.projectName); setLinkDialog(null); }}>
+                  {t("ide.unlink")}
+                </button>
+              </Show>
+              <div style={{ flex: "1" }} />
+              <button class="cicd-dialog__btn" onClick={() => setLinkDialog(null)}>{t("common.cancel")}</button>
+              <button class="cicd-dialog__btn cicd-dialog__btn--primary" disabled={!linkRepo().trim()} onClick={() => {
+                cicd.linkProject(linkDialog()!.projectName, linkProvider(), linkRepo().trim(), linkBranch().trim() || "main");
+                setLinkDialog(null);
+              }}>{t("ide.link")}</button>
+            </div>
+          </div>
+        </div>
+      </Show>
+
+      {/* Shared context menu (delete) */}
+      <Show when={ctxMenu()}>
+        <div
+          class="ide-context-overlay"
+          style={{ position: "fixed", inset: "0", "z-index": "9998" }}
+          onClick={() => setCtxMenu(null)}
+        />
+        <div
+          class="ide-context-menu"
+          style={{ left: `${ctxMenu()!.x}px`, top: `${ctxMenu()!.y}px`, position: "fixed", "z-index": "9999" }}
+        >
+          <div class="ide-context-item ide-context-item--danger" onClick={async () => {
+            const action = ctxMenu()!.action;
+            setCtxMenu(null);
+            await action();
+          }}>
+            {t("common.delete")}
           </div>
         </div>
       </Show>

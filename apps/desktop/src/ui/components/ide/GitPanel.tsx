@@ -1,24 +1,11 @@
 import { createSignal, For, Show, onMount } from "solid-js";
-import { invoke } from "@tauri-apps/api/core";
-
-interface GitFileStatus {
-  path: string;
-  status: string;
-  staged: boolean;
-}
-
-interface GitLogEntry {
-  hash: string;
-  message: string;
-  author: string;
-  date: string;
-}
-
-interface GitBranch {
-  name: string;
-  is_current: boolean;
-  is_remote: boolean;
-}
+import { useT } from "../../../i18n/context";
+import {
+  gitService,
+  type GitFileStatus,
+  type GitLogEntry,
+  type GitBranch,
+} from "../../../application/services/gitService";
 
 interface GitPanelProps {
   projectPath: string | null;
@@ -36,6 +23,7 @@ function statusColor(status: string): string {
 }
 
 export function GitPanel(props: GitPanelProps) {
+  const { t } = useT();
   const [files, setFiles] = createSignal<GitFileStatus[]>([]);
   const [log, setLog] = createSignal<GitLogEntry[]>([]);
   const [commitMsg, setCommitMsg] = createSignal("");
@@ -51,21 +39,18 @@ export function GitPanel(props: GitPanelProps) {
 
   async function refresh() {
     if (!props.projectPath) return;
+    const path = props.projectPath;
     setLoading(true);
     try {
-      const repo = await invoke<boolean>("git_is_repo", { projectPath: props.projectPath });
+      const repo = await gitService.isRepo(path);
       setIsRepo(repo);
       if (!repo) return;
 
-      const status = await invoke<GitFileStatus[]>("git_status", { projectPath: props.projectPath });
-      setFiles(status);
-
-      const br = await invoke<GitBranch[]>("git_branches", { projectPath: props.projectPath });
-      setBranches(br);
+      setFiles(await gitService.status(path));
+      setBranches(await gitService.branches(path));
 
       if (showLog()) {
-        const entries = await invoke<GitLogEntry[]>("git_log", { projectPath: props.projectPath, limit: 20 });
-        setLog(entries);
+        setLog(await gitService.log(path));
       }
     } catch (e) {
       console.error("git refresh error:", e);
@@ -78,13 +63,13 @@ export function GitPanel(props: GitPanelProps) {
 
   async function stageFile(path: string) {
     if (!props.projectPath) return;
-    await invoke("git_stage", { projectPath: props.projectPath, files: [path] });
+    await gitService.stage(props.projectPath, [path]);
     await refresh();
   }
 
   async function unstageFile(path: string) {
     if (!props.projectPath) return;
-    await invoke("git_unstage", { projectPath: props.projectPath, files: [path] });
+    await gitService.unstage(props.projectPath, [path]);
     await refresh();
   }
 
@@ -92,7 +77,7 @@ export function GitPanel(props: GitPanelProps) {
     if (!props.projectPath) return;
     const paths = unstaged().map((f) => f.path);
     if (paths.length === 0) return;
-    await invoke("git_stage", { projectPath: props.projectPath, files: paths });
+    await gitService.stage(props.projectPath, paths);
     await refresh();
   }
 
@@ -100,20 +85,20 @@ export function GitPanel(props: GitPanelProps) {
     if (!props.projectPath) return;
     const paths = staged().map((f) => f.path);
     if (paths.length === 0) return;
-    await invoke("git_unstage", { projectPath: props.projectPath, files: paths });
+    await gitService.unstage(props.projectPath, paths);
     await refresh();
   }
 
   async function discardFile(path: string) {
     if (!props.projectPath) return;
-    await invoke("git_discard", { projectPath: props.projectPath, files: [path] });
+    await gitService.discard(props.projectPath, [path]);
     await refresh();
   }
 
   async function commit() {
     if (!props.projectPath || !commitMsg().trim()) return;
     try {
-      await invoke("git_commit", { projectPath: props.projectPath, message: commitMsg().trim() });
+      await gitService.commit(props.projectPath, commitMsg().trim());
       setCommitMsg("");
       await refresh();
     } catch (e) {
@@ -126,15 +111,14 @@ export function GitPanel(props: GitPanelProps) {
     if (!showLog()) return;
     if (!props.projectPath) return;
     try {
-      const entries = await invoke<GitLogEntry[]>("git_log", { projectPath: props.projectPath, limit: 20 });
-      setLog(entries);
+      setLog(await gitService.log(props.projectPath));
     } catch {}
   }
 
   async function gitPull() {
     if (!props.projectPath) return;
     try {
-      await invoke("git_pull", { projectPath: props.projectPath });
+      await gitService.pull(props.projectPath);
       await refresh();
     } catch (e) { console.error("git pull error:", e); }
   }
@@ -142,7 +126,7 @@ export function GitPanel(props: GitPanelProps) {
   async function gitPush() {
     if (!props.projectPath) return;
     try {
-      await invoke("git_push", { projectPath: props.projectPath });
+      await gitService.push(props.projectPath);
       await refresh();
     } catch (e) { console.error("git push error:", e); }
   }
@@ -150,7 +134,7 @@ export function GitPanel(props: GitPanelProps) {
   async function checkoutBranch(branch: string) {
     if (!props.projectPath) return;
     try {
-      await invoke("git_checkout", { projectPath: props.projectPath, branch });
+      await gitService.checkout(props.projectPath, branch);
       setShowBranches(false);
       await refresh();
     } catch (e) { console.error("git checkout error:", e); }
@@ -178,12 +162,12 @@ export function GitPanel(props: GitPanelProps) {
   return (
     <div class="ide-explorer" style={{ display: "flex", "flex-direction": "column" }}>
       <div class="ide-explorer__header" style={{ display: "flex", "align-items": "center" }}>
-        SOURCE CONTROL
+        {t("ide.sourceControl")}
         <span style={{ "margin-left": "auto", display: "flex", gap: "4px" }}>
           <button style={btnSmall} onClick={() => gitPull()} title="Pull">↓</button>
           <button style={btnSmall} onClick={() => gitPush()} title="Push">↑</button>
-          <button style={btnSmall} onClick={() => refresh()} title="Rafraichir">↻</button>
-          <button style={btnSmall} onClick={() => toggleLog()} title="Historique">{showLog() ? "✕" : "☰"}</button>
+          <button style={btnSmall} onClick={() => refresh()} title={t("common.refresh")}>↻</button>
+          <button style={btnSmall} onClick={() => toggleLog()} title={t("ide.historyLabel")}>{showLog() ? "✕" : "☰"}</button>
         </span>
       </div>
 
@@ -225,13 +209,13 @@ export function GitPanel(props: GitPanelProps) {
 
       <Show when={!props.projectPath}>
         <div style={{ padding: "16px", color: "var(--text-muted)", "font-size": "12px", "text-align": "center" }}>
-          Aucun projet ouvert
+          {t("ide.noProjectOpen")}
         </div>
       </Show>
 
       <Show when={props.projectPath && !isRepo()}>
         <div style={{ padding: "16px", color: "var(--text-muted)", "font-size": "12px", "text-align": "center" }}>
-          Ce dossier n'est pas un depot git
+          {t("ide.notGitRepo")}
         </div>
       </Show>
 
@@ -243,7 +227,7 @@ export function GitPanel(props: GitPanelProps) {
               value={commitMsg()}
               onInput={(e) => setCommitMsg(e.currentTarget.value)}
               onKeyDown={(e) => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) commit(); }}
-              placeholder="Message de commit (Ctrl+Enter)"
+              placeholder={t("ide.commitPlaceholder")}
               style={{
                 width: "100%", padding: "6px 8px", "font-size": "12px",
                 background: "var(--bg-base)", border: "1px solid var(--border-color)",
@@ -271,8 +255,8 @@ export function GitPanel(props: GitPanelProps) {
                 display: "flex", "align-items": "center", padding: "6px 8px",
                 "font-size": "11px", "font-weight": "600", color: "var(--text-muted)",
               }}>
-                STAGED ({staged().length})
-                <button style={{ ...btnSmall, "margin-left": "auto" }} onClick={unstageAll}>− Tout</button>
+                {t("ide.staged")} ({staged().length})
+                <button style={{ ...btnSmall, "margin-left": "auto" }} onClick={unstageAll}>− {t("ide.all")}</button>
               </div>
               <For each={staged()}>
                 {(file) => (
@@ -293,8 +277,8 @@ export function GitPanel(props: GitPanelProps) {
                 display: "flex", "align-items": "center", padding: "6px 8px",
                 "font-size": "11px", "font-weight": "600", color: "var(--text-muted)",
               }}>
-                CHANGES ({unstaged().length})
-                <button style={{ ...btnSmall, "margin-left": "auto" }} onClick={stageAll}>+ Tout</button>
+                {t("ide.changes")} ({unstaged().length})
+                <button style={{ ...btnSmall, "margin-left": "auto" }} onClick={stageAll}>+ {t("ide.all")}</button>
               </div>
               <For each={unstaged()}>
                 {(file) => (
@@ -302,7 +286,7 @@ export function GitPanel(props: GitPanelProps) {
                     <span style={{ color: statusColor(file.status), "font-weight": "700", width: "14px", "font-size": "11px" }}>{file.status}</span>
                     <span style={{ flex: "1", overflow: "hidden", "text-overflow": "ellipsis", "white-space": "nowrap", color: "var(--text-primary)" }}>{file.path}</span>
                     <Show when={file.status !== "?"}>
-                      <button style={btnSmall} onClick={() => discardFile(file.path)} title="Annuler les modifications">↩</button>
+                      <button style={btnSmall} onClick={() => discardFile(file.path)} title={t("ide.discardChanges")}>↩</button>
                     </Show>
                     <button style={btnSmall} onClick={() => stageFile(file.path)} title="Stage">+</button>
                   </div>
@@ -313,7 +297,7 @@ export function GitPanel(props: GitPanelProps) {
 
           <Show when={staged().length === 0 && unstaged().length === 0 && !loading()}>
             <div style={{ padding: "16px", "text-align": "center", color: "var(--text-muted)", "font-size": "12px" }}>
-              Aucun changement
+              {t("ide.noChanges")}
             </div>
           </Show>
 
@@ -324,7 +308,7 @@ export function GitPanel(props: GitPanelProps) {
                 padding: "6px 8px", "font-size": "11px", "font-weight": "600",
                 color: "var(--text-muted)", "border-bottom": "1px solid var(--border-color)",
               }}>
-                HISTORIQUE
+                {t("ide.historyLabel")}
               </div>
               <For each={log()}>
                 {(entry) => (

@@ -4,6 +4,7 @@ import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { useSnippetStore, type Snippet } from "./snippetStore";
 import { useViewStore } from "./viewStore";
 import { useSettingsStore } from "./settingsStore";
+import { safeGetJSON } from "../../infrastructure/storage";
 
 // ─── Types ───
 
@@ -76,7 +77,11 @@ const [gridLayout, setGridLayout] = createSignal<string>(
   localStorage.getItem("ide-grid-layout") ?? "single"
 );
 const [gridSlots, setGridSlots] = createSignal<(string | null)[]>(
-  JSON.parse(localStorage.getItem("ide-grid-slots") ?? "[null, null, null, null]")
+  safeGetJSON<(string | null)[]>(
+    "ide-grid-slots",
+    [null, null, null, null],
+    (v): v is (string | null)[] => Array.isArray(v) && v.every((x) => x === null || typeof x === "string"),
+  ),
 );
 const [codeDrawerOpen, setCodeDrawerOpen] = createSignal(
   localStorage.getItem("ide-code-drawer") === "true"
@@ -248,13 +253,24 @@ export function useIdeStore() {
   // ─── Restore persisted state ───
 
   async function restoreState() {
-    // Restore project path first
+    // Restore project path — verify it still exists and is valid
     const savedProject = localStorage.getItem(STORAGE_KEYS.projectPath);
-    if (savedProject) {
-      setProjectPath(savedProject);
-      setProjectName(fileNameFromPath(savedProject));
-      await refreshFiles();
-      await startWatcher(savedProject);
+    if (savedProject && savedProject.length > 3) {
+      try {
+        await invoke<FsEntry[]>("fs_list_dir", { basePath: savedProject });
+        setProjectPath(savedProject);
+        setProjectName(fileNameFromPath(savedProject));
+        await refreshFiles();
+        await startWatcher(savedProject);
+      } catch {
+        // Stale path — clear everything
+        localStorage.removeItem(STORAGE_KEYS.projectPath);
+        setProjectPath(null);
+        setProjectName("Aucun projet");
+      }
+    } else if (savedProject) {
+      // Invalid short path — clear
+      localStorage.removeItem(STORAGE_KEYS.projectPath);
     }
 
     // Restore side panel
@@ -432,6 +448,14 @@ export function useIdeStore() {
     ensureProjectVault(fileNameFromPath(path)).catch(() => {});
   }
 
+  // Internal app folders to hide from the explorer when at monorepo root
+  const INTERNAL_PATHS = new Set([
+    "apps/api", "apps/desktop", "apps/llm",
+    "tools", "tools/screenshot-cli",
+    ".claude", ".github", ".vscode",
+    "bun.lockb", "pnpm-lock.yaml", "pnpm-workspace.yaml",
+  ]);
+
   async function refreshFiles() {
     const base = projectPath();
     if (!base) {
@@ -440,7 +464,24 @@ export function useIdeStore() {
     }
     try {
       const files = await invoke<FsEntry[]>("fs_list_dir", { basePath: base });
-      setProjectFiles(files);
+
+      // At monorepo root: only show apps/ folder and filter out internal projects
+      const isMonorepo = base.replace(/\\/g, "/").endsWith("magick-cookie");
+      if (isMonorepo) {
+        const filtered = files.filter((f) => {
+          // Hide root-level config files and internal dirs
+          if (!f.path.includes("/") && !f.is_dir) return false; // hide root files (CLAUDE.md, package.json, etc.)
+          if (INTERNAL_PATHS.has(f.path)) return false;
+          // Hide anything inside internal paths
+          for (const ip of INTERNAL_PATHS) {
+            if (f.path.startsWith(ip + "/")) return false;
+          }
+          return true;
+        });
+        setProjectFiles(filtered);
+      } else {
+        setProjectFiles(files);
+      }
     } catch (e) {
       console.error("fs_list_dir error:", e);
       setProjectFiles([]);

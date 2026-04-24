@@ -1,5 +1,5 @@
 import { createSignal } from "solid-js";
-import { api } from "../../infrastructure/api/apiClient";
+import { createCrudStore } from "./createCrudStore";
 
 export interface EmailRule {
   id: string;
@@ -37,69 +37,33 @@ export interface UpdateEmailRuleInput {
   sortOrder?: number;
 }
 
-const [rules, setRules] = createSignal<EmailRule[]>([]);
+const crud = createCrudStore<EmailRule, CreateEmailRuleInput, UpdateEmailRuleInput>({
+  endpoint: "/email-rules",
+  label: "email-rules",
+});
 const [isLoading, setIsLoading] = createSignal(false);
 
 export function useEmailRuleStore() {
   async function fetchRules() {
     setIsLoading(true);
     try {
-      const data = await api.get<EmailRule[]>("/email-rules");
-      setRules(data);
-    } catch (err) {
-      console.error("Failed to fetch email rules:", err);
+      await crud.fetchAll();
     } finally {
       setIsLoading(false);
     }
   }
 
-  async function createRule(input: CreateEmailRuleInput) {
-    try {
-      const data = await api.post<EmailRule>("/email-rules", input);
-      if (data) {
-        setRules((prev) => [...prev, data]);
-      }
-      return data;
-    } catch (err) {
-      console.error("[email-rules] Failed to create rule:", err);
-      throw err;
-    }
-  }
-
-  async function updateRule(id: string, input: UpdateEmailRuleInput) {
-    try {
-      const data = await api.put<EmailRule>(`/email-rules/${id}`, input);
-      if (data) {
-        setRules((prev) => prev.map((r) => (r.id === id ? data : r)));
-      }
-      return data;
-    } catch (err) {
-      console.error("[email-rules] Failed to update rule:", err);
-      throw err;
-    }
-  }
-
-  async function deleteRule(id: string) {
-    // Optimistic update
-    setRules((prev) => prev.filter((r) => r.id !== id));
-    try {
-      await api.delete(`/email-rules/${id}`);
-    } catch (err) {
-      console.error("[email-rules] Failed to delete rule:", err);
-    }
-  }
-
   async function toggleRule(id: string, enabled: boolean) {
-    return updateRule(id, { enabled });
+    return crud.update(id, { enabled });
   }
 
   return {
-    rules,
+    rules: crud.items,
     isLoading,
     fetchRules,
-    createRule,
-    updateRule,
-    deleteRule,
+    createRule: crud.create,
+    updateRule: crud.update,
+    deleteRule: crud.delete,
     toggleRule,
   };
 }

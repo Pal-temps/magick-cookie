@@ -1,13 +1,15 @@
 import { onMount, onCleanup } from "solid-js";
-import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { Terminal as XTerm } from "xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { useThemeStore, type Theme } from "../../../application/stores/themeStore";
+import { ptyService } from "../../../application/services/ptyService";
 import "xterm/css/xterm.css";
 
 interface TerminalProps {
   cwd?: string;
+  /** Command to auto-type into the shell once PTY is ready (e.g. "claude") */
+  autoCommand?: string;
 }
 
 const THEME_COLORS: Record<Theme, { background: string; foreground: string; cursor: string; selection: string }> = {
@@ -57,10 +59,7 @@ export function Terminal(props: TerminalProps) {
     resizeObserver = new ResizeObserver(() => {
       requestAnimationFrame(() => {
         fitAddon?.fit();
-        // Notify PTY of new size
-        if (xterm) {
-          invoke("pty_resize", { id: ptyId, cols: xterm.cols, rows: xterm.rows }).catch(() => {});
-        }
+        if (xterm) ptyService.resize(ptyId, xterm.cols, xterm.rows);
       });
     });
     resizeObserver.observe(containerRef);
@@ -73,20 +72,17 @@ export function Terminal(props: TerminalProps) {
     });
 
     // Forward all xterm input to PTY (keystroke by keystroke)
-    xterm.onData((data) => {
-      invoke("pty_write", { id: ptyId, data }).catch(() => {});
-    });
+    xterm.onData((data) => ptyService.write(ptyId, data));
 
-    // Spawn the PTY shell
+    // Spawn the PTY shell (always a real shell — no custom command)
     try {
-      const cols = xterm.cols;
-      const rows = xterm.rows;
-      await invoke("pty_spawn", {
-        id: ptyId,
-        cwd: props.cwd ?? ".",
-        cols,
-        rows,
-      });
+      await ptyService.spawn(ptyId, props.cwd ?? ".", xterm.cols, xterm.rows);
+
+      // Auto-type a command into the shell once it's ready
+      if (props.autoCommand) {
+        const cmd = props.autoCommand;
+        setTimeout(() => ptyService.write(ptyId, cmd + "\r"), 500);
+      }
     } catch (err) {
       xterm.write(`\x1b[31mErreur PTY: ${err}\x1b[0m\r\n`);
       xterm.write("\x1b[2mFallback: utilisez le terminal systeme.\x1b[0m\r\n");
@@ -96,7 +92,7 @@ export function Terminal(props: TerminalProps) {
   onCleanup(() => {
     unlisten?.();
     resizeObserver?.disconnect();
-    invoke("pty_kill", { id: ptyId }).catch(() => {});
+    ptyService.kill(ptyId);
     xterm?.dispose();
   });
 

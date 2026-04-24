@@ -1,5 +1,6 @@
 import { createSignal } from "solid-js";
 import { api } from "../../infrastructure/api/apiClient";
+import { createCrudStore } from "./createCrudStore";
 
 export interface Webhook {
   id: string;
@@ -30,50 +31,19 @@ export interface UpdateWebhookInput {
   enabled?: boolean;
 }
 
-const [webhooks, setWebhooks] = createSignal<Webhook[]>([]);
+const crud = createCrudStore<Webhook, CreateWebhookInput, UpdateWebhookInput>({
+  endpoint: "/webhooks",
+  label: "webhooks",
+});
 const [webhookEvents, setWebhookEvents] = createSignal<WebhookEvent[]>([]);
 const [selectedWebhookId, setSelectedWebhookId] = createSignal<string | null>(null);
 
 export function useWebhookStore() {
-  async function fetchWebhooks() {
-    try {
-      const data = await api.get<Webhook[]>("/webhooks");
-      setWebhooks(data);
-    } catch (e) {
-      console.error("Failed to fetch webhooks:", e);
-    }
-  }
-
-  async function createWebhook(input: CreateWebhookInput) {
-    try {
-      const webhook = await api.post<Webhook>("/webhooks", input);
-      setWebhooks((prev) => [...prev, webhook]);
-      return webhook;
-    } catch (e) {
-      console.error("Failed to create webhook:", e);
-    }
-  }
-
-  async function updateWebhook(id: string, input: UpdateWebhookInput) {
-    try {
-      const webhook = await api.put<Webhook>(`/webhooks/${id}`, input);
-      setWebhooks((prev) => prev.map((w) => (w.id === id ? webhook : w)));
-      return webhook;
-    } catch (e) {
-      console.error("Failed to update webhook:", e);
-    }
-  }
-
   async function deleteWebhook(id: string) {
-    try {
-      await api.delete(`/webhooks/${id}`);
-      setWebhooks((prev) => prev.filter((w) => w.id !== id));
-      if (selectedWebhookId() === id) {
-        setSelectedWebhookId(null);
-        setWebhookEvents([]);
-      }
-    } catch (e) {
-      console.error("Failed to delete webhook:", e);
+    await crud.delete(id);
+    if (selectedWebhookId() === id) {
+      setSelectedWebhookId(null);
+      setWebhookEvents([]);
     }
   }
 
@@ -97,12 +67,12 @@ export function useWebhookStore() {
   }
 
   return {
-    webhooks,
+    webhooks: crud.items,
     webhookEvents,
     selectedWebhookId,
-    fetchWebhooks,
-    createWebhook,
-    updateWebhook,
+    fetchWebhooks: crud.fetchAll,
+    createWebhook: crud.create,
+    updateWebhook: crud.update,
     deleteWebhook,
     fetchEvents,
     markEventRead,

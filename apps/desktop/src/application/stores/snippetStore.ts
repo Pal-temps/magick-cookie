@@ -1,31 +1,24 @@
 import { createSignal, createMemo } from "solid-js";
 import { invoke } from "@tauri-apps/api/core";
 import { api } from "../../infrastructure/api/apiClient";
+import { createCrudStore } from "./createCrudStore";
 
 export interface Snippet {
   id: string;
   title: string;
   content: string;
   language: string;
-  category: string;
+  tags: string[];
   isFavorite: boolean;
   createdAt: string;
   updatedAt: string;
-}
-
-export interface SnippetCategory {
-  id: string;
-  value: string;
-  label: string;
-  sortOrder: number;
-  createdAt: string;
 }
 
 export interface CreateSnippetInput {
   title: string;
   content: string;
   language?: string;
-  category?: string;
+  tags?: string[];
   isFavorite?: boolean;
 }
 
@@ -33,63 +26,42 @@ export interface UpdateSnippetInput {
   title?: string;
   content?: string;
   language?: string;
-  category?: string;
+  tags?: string[];
   isFavorite?: boolean;
 }
 
-const [snippets, setSnippets] = createSignal<Snippet[]>([]);
-const [categories, setCategories] = createSignal<SnippetCategory[]>([]);
+const crud = createCrudStore<Snippet, CreateSnippetInput, UpdateSnippetInput>({
+  endpoint: "/snippets",
+  label: "snippets",
+});
 const [selectedSnippet, setSelectedSnippet] = createSignal<Snippet | null>(null);
+const [filterQuery, setFilterQuery] = createSignal("");
+const [filterLanguage, setFilterLanguage] = createSignal("all");
+const [filterTag, setFilterTag] = createSignal("all");
+const [filterFavorites, setFilterFavorites] = createSignal(false);
 
 export function useSnippetStore() {
-  const favorites = createMemo(() => snippets().filter((s) => s.isFavorite));
+  const favorites = createMemo(() => crud.items().filter((s) => s.isFavorite));
 
-  async function fetchCategories() {
-    try {
-      const data = await api.get<SnippetCategory[]>("/snippets/categories");
-      setCategories(data);
-    } catch (e) {
-      console.error("Failed to fetch snippet categories:", e);
+  const allTags = createMemo(() => {
+    const map: Record<string, number> = {};
+    for (const s of crud.items()) {
+      for (const tag of s.tags) {
+        map[tag] = (map[tag] || 0) + 1;
+      }
     }
-  }
+    return Object.entries(map).sort((a, b) => b[1] - a[1]);
+  });
 
-  async function createCategory(input: { value: string; label: string }) {
+  async function fetchSnippets(options?: { tag?: string; language?: string }) {
     try {
-      await api.post("/snippets/categories", input);
-      await fetchCategories();
-    } catch (e) {
-      console.error("Failed to create snippet category:", e);
-    }
-  }
-
-  async function updateCategory(id: string, input: { label?: string }) {
-    try {
-      await api.put(`/snippets/categories/${id}`, input);
-      await fetchCategories();
-    } catch (e) {
-      console.error("Failed to update snippet category:", e);
-    }
-  }
-
-  async function deleteCategory(id: string) {
-    try {
-      await api.delete(`/snippets/categories/${id}`);
-      await fetchCategories();
-    } catch (e) {
-      console.error("Failed to delete snippet category:", e);
-    }
-  }
-
-  async function fetchSnippets(options?: { category?: string; language?: string }) {
-    try {
-      await fetchCategories();
       let url = "/snippets";
       const params: string[] = [];
-      if (options?.category) params.push(`category=${encodeURIComponent(options.category)}`);
+      if (options?.tag) params.push(`tag=${encodeURIComponent(options.tag)}`);
       if (options?.language) params.push(`language=${encodeURIComponent(options.language)}`);
       if (params.length > 0) url += "?" + params.join("&");
       const data = await api.get<Snippet[]>(url);
-      setSnippets(data);
+      crud.setItems(() => data);
       syncSnippetsToVault();
     } catch (e) {
       console.error("Failed to fetch snippets:", e);
@@ -97,41 +69,28 @@ export function useSnippetStore() {
   }
 
   async function createSnippet(input: CreateSnippetInput) {
-    try {
-      const snippet = await api.post<Snippet>("/snippets", input);
-      setSnippets((prev) => [...prev, snippet]);
-      syncSnippetsToVault();
-      return snippet;
-    } catch (e) {
-      console.error("Failed to create snippet:", e);
-    }
+    const snippet = await crud.create(input);
+    if (snippet) syncSnippetsToVault();
+    return snippet;
   }
 
   async function updateSnippet(id: string, input: UpdateSnippetInput) {
-    try {
-      const snippet = await api.put<Snippet>(`/snippets/${id}`, input);
-      setSnippets((prev) => prev.map((s) => (s.id === id ? snippet : s)));
+    const snippet = await crud.update(id, input);
+    if (snippet) {
       if (selectedSnippet()?.id === id) setSelectedSnippet(snippet);
       syncSnippetsToVault();
-      return snippet;
-    } catch (e) {
-      console.error("Failed to update snippet:", e);
     }
+    return snippet;
   }
 
   async function deleteSnippet(id: string) {
-    try {
-      await api.delete(`/snippets/${id}`);
-      setSnippets((prev) => prev.filter((s) => s.id !== id));
-      if (selectedSnippet()?.id === id) setSelectedSnippet(null);
-      syncSnippetsToVault();
-    } catch (e) {
-      console.error("Failed to delete snippet:", e);
-    }
+    await crud.delete(id);
+    if (selectedSnippet()?.id === id) setSelectedSnippet(null);
+    syncSnippetsToVault();
   }
 
   async function toggleFavorite(id: string) {
-    const snippet = snippets().find((s) => s.id === id);
+    const snippet = crud.items().find((s) => s.id === id);
     if (snippet) {
       await updateSnippet(id, { isFavorite: !snippet.isFavorite });
     }
@@ -139,28 +98,34 @@ export function useSnippetStore() {
 
   async function syncSnippetsToVault() {
     try {
-      const all = snippets();
+      const all = crud.items();
       if (all.length === 0) {
         await invoke("notes_save", { path: "_snippets/snippets.md", content: "# Snippets\n\nAucun snippet.\n" });
         return;
       }
 
-      const cats = categories();
-      const catLabels: Record<string, string> = { none: "Sans categorie" };
-      for (const c of cats) catLabels[c.value] = c.label;
-
       const grouped = new Map<string, Snippet[]>();
       for (const s of all) {
-        const key = s.category || "none";
-        if (!grouped.has(key)) grouped.set(key, []);
-        grouped.get(key)!.push(s);
+        if (s.tags.length === 0) {
+          const key = "sans-tag";
+          if (!grouped.has(key)) grouped.set(key, []);
+          grouped.get(key)!.push(s);
+        } else {
+          for (const tag of s.tags) {
+            if (!grouped.has(tag)) grouped.set(tag, []);
+            grouped.get(tag)!.push(s);
+          }
+        }
       }
 
       const lines: string[] = ["# Snippets", ""];
 
-      for (const [cat, items] of grouped) {
-        lines.push(`## ${catLabels[cat] || cat}`, "");
+      for (const [tag, items] of grouped) {
+        lines.push(`## ${tag === "sans-tag" ? "Sans tag" : tag}`, "");
+        const seen = new Set<string>();
         for (const s of items) {
+          if (seen.has(s.id)) continue;
+          seen.add(s.id);
           const fav = s.isFavorite ? " ★" : "";
           lines.push(`### ${s.title}${fav}`, "");
           lines.push(`\`\`\`${s.language}`);
@@ -176,20 +141,20 @@ export function useSnippetStore() {
   }
 
   return {
-    snippets,
-    categories,
+    snippets: crud.items,
     favorites,
+    allTags,
     selectedSnippet,
     setSelectedSnippet,
     fetchSnippets,
-    fetchCategories,
     createSnippet,
     updateSnippet,
     deleteSnippet,
     toggleFavorite,
-    createCategory,
-    updateCategory,
-    deleteCategory,
     syncSnippetsToVault,
+    filterQuery, setFilterQuery,
+    filterLanguage, setFilterLanguage,
+    filterTag, setFilterTag,
+    filterFavorites, setFilterFavorites,
   };
 }

@@ -1,8 +1,8 @@
 import { createSignal, For, Show, onMount } from "solid-js";
 import { useWebhookStore, type CreateWebhookInput, type Webhook } from "../../../application/stores/webhookStore";
+import { useT } from "../../../i18n/context";
 import { Button } from "../common/Button";
-
-const API_BASE = "http://localhost:47300/api";
+import { API_BASE } from "../../../infrastructure/config";
 
 export function WebhookSettings() {
   const {
@@ -10,6 +10,7 @@ export function WebhookSettings() {
     fetchWebhooks, createWebhook, updateWebhook, deleteWebhook,
     fetchEvents, markEventRead,
   } = useWebhookStore();
+  const { t } = useT();
 
   const [creating, setCreating] = createSignal(false);
   const [name, setName] = createSignal("");
@@ -79,10 +80,10 @@ export function WebhookSettings() {
   return (
     <div style={{ padding: "24px", "max-width": "700px" }}>
       <h3 style={{ margin: "0 0 4px", "font-size": "16px", "font-weight": "600", color: "var(--text-primary)" }}>
-        Webhooks
+        {t("settings.webhooksTitle")}
       </h3>
       <p style={{ margin: "0 0 20px", "font-size": "12px", color: "var(--text-muted)" }}>
-        Recevez des evenements depuis des services externes. Copiez l'URL du webhook et configurez-la dans le service source.
+        {t("settings.webhooksDesc")}
       </p>
 
       {/* List */}
@@ -109,16 +110,16 @@ export function WebhookSettings() {
                 </div>
                 <div style={{ display: "flex", gap: "4px", "flex-shrink": "0" }}>
                   <Button variant="ghost" size="sm" onClick={() => copyUrl(webhook)}>
-                    {copiedId() === webhook.id ? "Copie !" : "Copier URL"}
+                    {copiedId() === webhook.id ? t("settings.copied") : t("settings.copyUrl")}
                   </Button>
                   <Button variant="ghost" size="sm" onClick={() => fetchEvents(webhook.id)}>
-                    Events
+                    {t("settings.events")}
                   </Button>
                   <Button variant="ghost" size="sm" onClick={() => handleToggleEnabled(webhook)}>
-                    {webhook.enabled ? "Desact." : "Activer"}
+                    {webhook.enabled ? t("settings.deactivate") : t("settings.enable")}
                   </Button>
                   <Button variant="ghost" size="sm" onClick={() => deleteWebhook(webhook.id)}>
-                    Suppr.
+                    {t("common.delete")}
                   </Button>
                 </div>
               </div>
@@ -139,7 +140,7 @@ export function WebhookSettings() {
 
         <Show when={webhooks().length === 0}>
           <div style={{ "font-size": "12px", color: "var(--text-muted)", padding: "12px 0" }}>
-            Aucun webhook. Cliquez sur "+ Nouveau webhook" pour commencer.
+            {t("settings.noWebhooks")}
           </div>
         </Show>
       </div>
@@ -147,7 +148,7 @@ export function WebhookSettings() {
       {/* Add button */}
       <Show when={!creating()}>
         <Button variant="secondary" size="sm" onClick={() => setCreating(true)}>
-          + Nouveau webhook
+          {t("settings.newWebhook")}
         </Button>
       </Show>
 
@@ -162,7 +163,7 @@ export function WebhookSettings() {
         }}>
           <div style={{ "margin-bottom": "12px" }}>
             <label style={{ display: "block", "font-size": "12px", "font-weight": "500", color: "var(--text-secondary)", "margin-bottom": "4px" }}>
-              Nom
+              {t("settings.name")}
             </label>
             <input
               type="text"
@@ -174,7 +175,7 @@ export function WebhookSettings() {
           </div>
           <div style={{ "margin-bottom": "12px" }}>
             <label style={{ display: "block", "font-size": "12px", "font-weight": "500", color: "var(--text-secondary)", "margin-bottom": "4px" }}>
-              Source (optionnel)
+              {t("settings.sourceOptional")}
             </label>
             <input
               type="text"
@@ -186,10 +187,10 @@ export function WebhookSettings() {
           </div>
           <div style={{ display: "flex", gap: "8px", "justify-content": "flex-end" }}>
             <Button variant="ghost" size="sm" onClick={resetForm}>
-              Annuler
+              {t("common.cancel")}
             </Button>
             <Button variant="secondary" size="sm" onClick={handleCreate}>
-              Creer
+              {t("common.create")}
             </Button>
           </div>
         </div>
@@ -199,7 +200,7 @@ export function WebhookSettings() {
       <Show when={selectedWebhookId()}>
         <div style={{ "margin-top": "24px" }}>
           <h4 style={{ margin: "0 0 8px", "font-size": "14px", "font-weight": "600", color: "var(--text-primary)" }}>
-            Evenements recus
+            {t("settings.receivedEvents")}
           </h4>
           <div style={{ display: "flex", "flex-direction": "column", gap: "4px" }}>
             <For each={webhookEvents()}>
@@ -222,13 +223,13 @@ export function WebhookSettings() {
                         background: "var(--accent-color)",
                         color: "#fff",
                       }}>
-                        nouveau
+                        {t("settings.newBadge")}
                       </span>
                     </Show>
                     <div style={{ flex: "1" }} />
                     <Show when={!event.readAt}>
                       <Button variant="ghost" size="sm" onClick={() => markEventRead(event.id)}>
-                        Marquer lu
+                        {t("settings.markRead")}
                       </Button>
                     </Show>
                   </div>
@@ -247,7 +248,7 @@ export function WebhookSettings() {
 
             <Show when={webhookEvents().length === 0}>
               <div style={{ "font-size": "12px", color: "var(--text-muted)", padding: "8px 0" }}>
-                Aucun evenement recu.
+                {t("settings.noEvents")}
               </div>
             </Show>
           </div>

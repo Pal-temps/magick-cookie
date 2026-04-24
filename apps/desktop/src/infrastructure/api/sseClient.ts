@@ -1,4 +1,5 @@
 import { api } from "./apiClient";
+import { SSE_BASE } from "../config";
 
 export interface SSEReminderPayload {
   id: string;
@@ -12,7 +13,7 @@ export interface SSEReminderPayload {
   eventStartAt: string;
 }
 
-const SSE_URL = "http://localhost:47300/api/sse";
+const SSE_URL = SSE_BASE;
 
 export function connectSSE(onReminder: (reminder: SSEReminderPayload) => void): () => void {
   let source: EventSource | null = null;

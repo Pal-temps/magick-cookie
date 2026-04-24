@@ -1,9 +1,13 @@
 import { createSignal, Show, For } from "solid-js";
-import { invoke } from "@tauri-apps/api/core";
+import { windowService } from "../../../application/services/windowService";
 import { useAiSessionStore, type ProviderInfo } from "../../../application/stores/aiSessionStore";
 import { useIdeStore, GRID_TEMPLATES } from "../../../application/stores/ideStore";
 import { useSecretsStore } from "../../../application/stores/secretsStore";
+import { useCliTabStore } from "../../../application/stores/cliTabStore";
+import { useT } from "../../../i18n/context";
 import { AiChatContent } from "./AiChatContent";
+import { PastSessionViewer } from "./PastSessionViewer";
+import { Terminal } from "./Terminal";
 import { TokenStatusBar } from "./TokenStatusBar";
 import type { MonacoEditorApi } from "./MonacoEditor";
 
@@ -44,19 +48,62 @@ function GridIcon(props: { id: string }) {
 }
 
 export function AiTerminalTabs(props: AiTerminalTabsProps) {
+  const { t } = useT();
   const ai = useAiSessionStore();
   const ide = useIdeStore();
   const secretsVault = useSecretsStore();
   const [showNewMenu, setShowNewMenu] = createSignal(false);
   const [contextMenu, setContextMenu] = createSignal<{ x: number; y: number; sessionId: string } | null>(null);
-  const [assignMenu, setAssignMenu] = createSignal<{ x: number; y: number; slotIndex: number } | null>(null);
   const [configDialog, setConfigDialog] = createSignal<ConfigDialogState | null>(null);
+  const [pendingAssignSlot, setPendingAssignSlot] = createSignal<number | null>(null);
+
+  // CLI PTY terminals (shared store so sidebar can also create them)
+  const cli = useCliTabStore();
+  const [activeTabId, setActiveTabId] = createSignal<string | null>(null);
+
+  // ─── Unified tab list ───
+
+  type UnifiedTab = { id: string; type: "cli" | "ai"; label: string; badge: string; isActive: boolean; isStreaming: boolean; phase: string };
+
+  const allTabs = (): UnifiedTab[] => {
+    const tabs: UnifiedTab[] = [];
+    // CLI terminals
+    for (const tab of cli.cliTabs()) {
+      tabs.push({ id: tab.id, type: "cli", label: tab.label, badge: tab.mode === "shell" ? "$" : "CC", isActive: false, isStreaming: false, phase: "ready" });
+    }
+    // AI sessions
+    for (const session of ai.sessions().values()) {
+      tabs.push({
+        id: session.id, type: "ai", label: session.label || session.model || session.provider,
+        badge: providerBadge(session.provider), isActive: false,
+        isStreaming: session.isStreaming, phase: session.phase,
+      });
+    }
+    // Mark active
+    const active = activeTabId() ?? ai.activeSessionId();
+    for (const tab of tabs) {
+      tab.isActive = tab.id === active;
+    }
+    return tabs;
+  };
+
+  function switchToTab(id: string) {
+    setActiveTabId(id);
+    // Also sync AI session if it's an AI tab
+    if (ai.sessions().has(id)) {
+      ai.switchSession(id);
+    }
+  }
+
+  function currentTabId(): string | null {
+    return activeTabId() ?? cli.activeCliTabId() ?? ai.activeSessionId() ?? null;
+  }
 
   // ─── Tab context menu ───
 
-  function handleTabContextMenu(e: MouseEvent, sessionId: string) {
+  function handleTabContextMenu(e: MouseEvent, tabId: string) {
     e.preventDefault();
-    setContextMenu({ x: e.clientX, y: e.clientY, sessionId });
+    setContextMenu({ x: e.clientX, y: e.clientY, sessionId: tabId });
     requestAnimationFrame(() => {
       const close = () => { setContextMenu(null); document.removeEventListener("mousedown", close); };
       document.addEventListener("mousedown", close);
@@ -66,54 +113,70 @@ export function AiTerminalTabs(props: AiTerminalTabsProps) {
   async function detachSession(sessionId: string) {
     setContextMenu(null);
     const session = ai.sessions().get(sessionId);
-    const title = session ? (session.model || session.provider) : "Terminal IA";
-    await invoke("open_detached_window", {
+    const title = session ? (session.model || session.provider) : t("ide.newAiTerminal");
+    await windowService.openDetached({
       label: `ai-session-${sessionId.slice(0, 8)}`,
       title: `${title} — Magick Cookie`,
       route: `/detached-session/${sessionId}`,
     });
   }
 
+  function closeTab(tabId: string) {
+    // CLI terminal?
+    const isCliTab = cli.cliTabs().find((t) => t.id === tabId);
+    if (isCliTab) {
+      cli.closeCliTab(tabId);
+    } else {
+      // AI session
+      ai.stopSession(tabId);
+    }
+    // Switch to another tab if closing the active one
+    if (activeTabId() === tabId || cli.activeCliTabId() === tabId) {
+      const remaining = allTabs().filter((t) => t.id !== tabId);
+      setActiveTabId(remaining[0]?.id ?? null);
+    }
+  }
+
   // ─── Provider selection + config ───
 
   async function selectProvider(provider: ProviderInfo) {
     setShowNewMenu(false);
-    // CLI providers start immediately
+    // Claude CLI → launch directly (no config dialog needed)
     if (provider.id === "claude-cli") {
-      launchSession(provider.id, "");
+      try {
+        await launchSession(provider.id, "");
+      } catch (e) {
+        console.error("Failed to start Claude CLI session:", e);
+      }
       return;
     }
-    // Local providers (ollama/lmstudio) — show config but no API key needed
-    // API providers — show full config
     const models = DEFAULT_MODELS[provider.id] ?? ["default"];
     const savedKey = await secretsVault.getAppSecret(`ai_apikey_${provider.id}`) ?? "";
-    const savedUrl = localStorage.getItem(`ide-baseurl-${provider.id}`) ?? ""; // URLs are not secrets
-    setConfigDialog({
-      provider,
-      model: models[0],
-      apiKey: savedKey,
-      baseUrl: savedUrl,
-    });
+    const savedUrl = localStorage.getItem(`ide-baseurl-${provider.id}`) ?? "";
+    setConfigDialog({ provider, model: models[0], apiKey: savedKey, baseUrl: savedUrl });
   }
 
-  async function launchSession(providerId: string, model: string, apiKey?: string, baseUrl?: string) {
+  async function launchSession(providerId: string, model: string, apiKey?: string, baseUrl?: string): Promise<string> {
     const cwd = ide.projectPath() ?? ".";
-    await ai.startSession({
-      provider: providerId,
-      model,
-      cwd,
-      api_key: apiKey || null,
-      base_url: baseUrl || null,
+    const sessionId = await ai.startSession({
+      provider: providerId, model, cwd,
+      api_key: apiKey || null, base_url: baseUrl || null,
     });
+    setActiveTabId(sessionId);
+    return sessionId;
   }
 
-  function confirmConfig() {
+  async function confirmConfig() {
     const cfg = configDialog();
     if (!cfg) return;
-    // Save API key to KDBX vault, base URL to localStorage (not a secret)
     if (cfg.apiKey) secretsVault.setAppSecret(`ai_apikey_${cfg.provider.id}`, cfg.apiKey);
     if (cfg.baseUrl) localStorage.setItem(`ide-baseurl-${cfg.provider.id}`, cfg.baseUrl);
-    launchSession(cfg.provider.id, cfg.model, cfg.apiKey, cfg.baseUrl);
+    const sessionId = await launchSession(cfg.provider.id, cfg.model, cfg.apiKey, cfg.baseUrl);
+    const slot = pendingAssignSlot();
+    if (slot !== null && sessionId) {
+      ide.assignSlot(slot, sessionId);
+      setPendingAssignSlot(null);
+    }
     setConfigDialog(null);
   }
 
@@ -134,20 +197,7 @@ export function AiTerminalTabs(props: AiTerminalTabsProps) {
     });
   }
 
-  // ─── Assign slot menu ───
-
-  function openAssignMenu(e: MouseEvent, slotIndex: number) {
-    e.stopPropagation();
-    setAssignMenu({ x: e.clientX, y: e.clientY, slotIndex });
-    requestAnimationFrame(() => {
-      const close = () => { setAssignMenu(null); document.removeEventListener("mousedown", close); };
-      document.addEventListener("mousedown", close);
-    });
-  }
-
   // ─── Helpers ───
-
-  const sessionList = () => Array.from(ai.sessions().values());
 
   const providerBadge = (provider: string): string => {
     const p = provider.toLowerCase();
@@ -157,11 +207,21 @@ export function AiTerminalTabs(props: AiTerminalTabsProps) {
     return p.slice(0, 2).toUpperCase();
   };
 
-  function slotSessionId(slotIndex: number): string | null {
+  function slotContent(slotIndex: number): { type: "cli"; id: string } | { type: "ai"; id: string } | null {
+    // Check explicit grid slot assignments
     const slots = ide.gridSlots();
     const assigned = slots[slotIndex];
-    if (assigned && ai.sessions().has(assigned)) return assigned;
-    if (slotIndex === 0) return ai.activeSessionId();
+    if (assigned) {
+      if (cli.cliTabs().find((t) => t.id === assigned)) return { type: "cli", id: assigned };
+      if (ai.sessions().has(assigned)) return { type: "ai", id: assigned };
+    }
+    // Slot 0 fallback: show active tab
+    if (slotIndex === 0) {
+      const active = currentTabId();
+      if (!active) return null;
+      if (cli.cliTabs().find((t) => t.id === active)) return { type: "cli", id: active };
+      if (ai.sessions().has(active)) return { type: "ai", id: active };
+    }
     return null;
   }
 
@@ -172,31 +232,31 @@ export function AiTerminalTabs(props: AiTerminalTabsProps) {
       {/* Tab bar */}
       <div class="cc-terminal-tabbar">
         <div class="cc-terminal-tabbar__tabs">
-          <For each={sessionList()}>
-            {(session) => (
-              <button
-                class={`cc-terminal-tab ${ai.activeSessionId() === session.id ? "cc-terminal-tab--active" : ""}`}
-                onClick={() => ai.switchSession(session.id)}
-                onContextMenu={(e) => handleTabContextMenu(e, session.id)}
+          <For each={allTabs()}>
+            {(tab) => (
+              <div
+                class={`cc-terminal-tab ${tab.isActive ? "cc-terminal-tab--active" : ""}`}
+                onClick={() => switchToTab(tab.id)}
+                onContextMenu={(e) => handleTabContextMenu(e, tab.id)}
               >
-                <span class={`cc-status-dot ${session.isStreaming ? "cc-status-dot--active" : session.phase === "ready" ? "cc-status-dot--ready" : ""}`} />
-                <span class="cc-terminal-tab__name">{session.model || session.provider}</span>
-                <span class="cc-terminal-tab__badge">{providerBadge(session.provider)}</span>
+                <span class={`cc-status-dot ${tab.isStreaming ? "cc-status-dot--active" : tab.phase === "ready" ? "cc-status-dot--ready" : ""}`} />
+                <span class="cc-terminal-tab__name">{tab.label}</span>
+                <span class="cc-terminal-tab__badge">{tab.badge}</span>
                 <button
                   class="cc-terminal-tab__close"
-                  onClick={(e) => { e.stopPropagation(); ai.stopSession(session.id); }}
-                  title="Fermer"
+                  onClick={(e) => { e.stopPropagation(); closeTab(tab.id); }}
+                  title={t("common.close")}
                 >&times;</button>
-              </button>
+              </div>
             )}
           </For>
 
           {/* New terminal [+] */}
           <div style={{ position: "relative" }}>
-            <button class="cc-terminal-tab cc-terminal-tab--add" onClick={openNewMenu} title="Nouveau terminal IA">+</button>
+            <button class="cc-terminal-tab cc-terminal-tab--add" onClick={openNewMenu} title={t("ide.newAiTerminal")}>+</button>
             <Show when={showNewMenu()}>
               <div class="cc-new-session-menu" onMouseDown={(e) => e.stopPropagation()}>
-                <div class="cc-new-session-menu__title">Nouveau terminal IA</div>
+                <div class="cc-new-session-menu__title">{t("ide.newAiTerminal")}</div>
                 <For each={ai.providers()}>
                   {(provider) => (
                     <button
@@ -209,7 +269,7 @@ export function AiTerminalTabs(props: AiTerminalTabsProps) {
                         <span class="cc-new-session-menu__badge">tools</span>
                       </Show>
                       <Show when={!provider.available}>
-                        <span class="cc-new-session-menu__badge">indisponible</span>
+                        <span class="cc-new-session-menu__badge">{t("ide.unavailable")}</span>
                       </Show>
                     </button>
                   )}
@@ -240,7 +300,7 @@ export function AiTerminalTabs(props: AiTerminalTabsProps) {
             class={`cc-topbar-btn ${ide.codeDrawerOpen() ? "cc-topbar-btn--active" : ""}`}
             onClick={() => ide.toggleCodeDrawer()}
             title="Code (Ctrl+E)"
-          >Code</button>
+          >{t("ide.code")}</button>
           <button
             class={`cc-topbar-btn ${ide.contextPanelOpen() ? "cc-topbar-btn--active" : ""}`}
             onClick={() => ide.toggleContextPanel()}
@@ -264,41 +324,63 @@ export function AiTerminalTabs(props: AiTerminalTabsProps) {
         }}
       >
         {Array.from({ length: ide.currentGrid().slotCount }, (_, i) => {
-          const sessionId = slotSessionId(i);
+          const content = () => slotContent(i);
           return (
             <div class="cc-terminal-grid__slot" style={{ "grid-area": SLOT_LABELS[i] }}>
-              <Show when={sessionId} fallback={
-                <div class="cc-slot-empty">
-                  <div class="cc-slot-empty__icon">
-                    <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
-                      <rect x="4" y="12" width="24" height="16" rx="3" stroke="currentColor" stroke-width="1.5" />
-                      <path d="M10 12V8C10 5.24 12.24 3 15 3H17C19.76 3 22 5.24 22 8V12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
-                    </svg>
+              {(() => {
+                const c = content();
+                if (c?.type === "cli") {
+                  const tab = cli.cliTabs().find((t) => t.id === c.id);
+                  const autoCmd = tab?.mode === "shell" ? undefined : "claude";
+                  return <Terminal cwd={ide.projectPath() ?? "."} autoCommand={autoCmd} />;
+                }
+                if (c?.type === "ai") {
+                  return <AiChatContent sessionId={c.id} editorApi={props.editorApi} />;
+                }
+                return (
+                  <div class="cc-slot-empty">
+                    <div class="cc-slot-empty__icon">
+                      <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+                        <path d="M8 20l4-4 4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+                        <rect x="4" y="6" width="24" height="20" rx="3" stroke="currentColor" stroke-width="1.5" />
+                      </svg>
+                    </div>
+                    <button class="cc-slot-empty__assign" onClick={async () => {
+                      try {
+                        const sessionId = await launchSession("claude-cli", "");
+                        ide.assignSlot(i, sessionId);
+                      } catch (e) {
+                        console.error("Failed to start Claude CLI:", e);
+                      }
+                    }}>
+                      Claude Code
+                    </button>
+                    <button class="cc-slot-empty__assign cc-slot-empty__assign--secondary" onClick={() => {
+                      const id = cli.launchCliTerminal();
+                      setActiveTabId(id);
+                      ide.assignSlot(i, id);
+                    }}>
+                      Terminal
+                    </button>
                   </div>
-                  <button class="cc-slot-empty__assign" onClick={(e) => openAssignMenu(e, i)}>
-                    Assigner une session
-                  </button>
-                  <span class="cc-slot-empty__hint">Cliquez [+] pour creer un terminal IA</span>
-                  <Show when={ai.providers().length === 0}>
-                    <span class="cc-slot-empty__hint" style={{ color: "var(--accent-primary)" }}>
-                      Aucun provider IA detecte — configurez Claude CLI ou une cle API dans Settings
-                    </span>
-                  </Show>
-                </div>
-              }>
-                <AiChatContent sessionId={sessionId!} editorApi={props.editorApi} />
-              </Show>
+                );
+              })()}
             </div>
           );
         })}
       </div>
+
+      {/* ─── Past Session Viewer (overlay) ─── */}
+      <Show when={ai.loadedPastSession()}>
+        <PastSessionViewer />
+      </Show>
 
       {/* ─── Config Dialog (modal) ─── */}
       <Show when={configDialog()}>
         <div class="cc-config-overlay" onClick={() => setConfigDialog(null)}>
           <div class="cc-config-dialog" onClick={(e) => e.stopPropagation()}>
             <div class="cc-config-dialog__header">
-              <span>Configurer {configDialog()!.provider.name}</span>
+              <span>{t("ide.configure")} {configDialog()!.provider.name}</span>
               <button class="cc-config-dialog__close" onClick={() => setConfigDialog(null)}>
                 <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
                   <path d="M2 2L10 10M10 2L2 10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
@@ -309,7 +391,7 @@ export function AiTerminalTabs(props: AiTerminalTabsProps) {
             <div class="cc-config-dialog__body">
               {/* Model selector */}
               <label class="cc-config-field">
-                <span class="cc-config-field__label">Modele</span>
+                <span class="cc-config-field__label">{t("ide.model")}</span>
                 <select
                   class="cc-config-field__select"
                   value={configDialog()!.model}
@@ -322,7 +404,7 @@ export function AiTerminalTabs(props: AiTerminalTabsProps) {
                 <input
                   class="cc-config-field__input"
                   type="text"
-                  placeholder="ou saisir un modele custom..."
+                  placeholder={t("ide.customModel")}
                   value={configDialog()!.model}
                   onInput={(e) => setConfigDialog((prev) => prev ? { ...prev, model: e.currentTarget.value } : null)}
                 />
@@ -331,7 +413,7 @@ export function AiTerminalTabs(props: AiTerminalTabsProps) {
               {/* API Key (only for cloud providers) */}
               <Show when={needsApiKey()}>
                 <label class="cc-config-field">
-                  <span class="cc-config-field__label">Cle API</span>
+                  <span class="cc-config-field__label">{t("ide.apiKey")}</span>
                   <input
                     class="cc-config-field__input"
                     type="password"
@@ -339,13 +421,13 @@ export function AiTerminalTabs(props: AiTerminalTabsProps) {
                     value={configDialog()!.apiKey}
                     onInput={(e) => setConfigDialog((prev) => prev ? { ...prev, apiKey: e.currentTarget.value } : null)}
                   />
-                  <span class="cc-config-field__hint">Stockee localement dans le navigateur</span>
+                  <span class="cc-config-field__hint">{t("ide.storedLocally")}</span>
                 </label>
               </Show>
 
               {/* Base URL (optional) */}
               <label class="cc-config-field">
-                <span class="cc-config-field__label">URL de base <span style={{ "font-weight": "normal", color: "var(--text-muted)" }}>(optionnel)</span></span>
+                <span class="cc-config-field__label">{t("ide.baseUrl")} <span style={{ "font-weight": "normal", color: "var(--text-muted)" }}>({t("ide.optional")})</span></span>
                 <input
                   class="cc-config-field__input"
                   type="text"
@@ -358,14 +440,14 @@ export function AiTerminalTabs(props: AiTerminalTabsProps) {
 
             <div class="cc-config-dialog__footer">
               <button class="cc-config-dialog__btn cc-config-dialog__btn--cancel" onClick={() => setConfigDialog(null)}>
-                Annuler
+                {t("common.cancel")}
               </button>
               <button
                 class="cc-config-dialog__btn cc-config-dialog__btn--confirm"
                 onClick={confirmConfig}
                 disabled={!!(needsApiKey() && !configDialog()!.apiKey)}
               >
-                Demarrer
+                {t("ide.start")}
               </button>
             </div>
           </div>
@@ -375,34 +457,21 @@ export function AiTerminalTabs(props: AiTerminalTabsProps) {
       {/* ─── Context menus ─── */}
       <Show when={contextMenu()}>
         <div class="ide-context-menu" style={{ left: `${contextMenu()!.x}px`, top: `${contextMenu()!.y}px` }} onMouseDown={(e) => e.stopPropagation()}>
-          <div class="ide-context-item" onClick={() => detachSession(contextMenu()!.sessionId)}>Detacher dans une fenetre</div>
-          <div class="ide-context-sep" />
-          <div class="ide-context-item ide-context-item--danger" onClick={() => { ai.stopSession(contextMenu()!.sessionId); setContextMenu(null); }}>Fermer la session</div>
+          <Show when={ai.sessions().has(contextMenu()!.sessionId)}>
+            <div class="ide-context-item" onClick={() => detachSession(contextMenu()!.sessionId)}>{t("ide.detachWindow")}</div>
+            <div class="ide-context-sep" />
+          </Show>
+          <div class="ide-context-item ide-context-item--danger" onClick={() => { closeTab(contextMenu()!.sessionId); setContextMenu(null); }}>{t("common.close")}</div>
         </div>
       </Show>
 
-      <Show when={assignMenu()}>
-        <div class="ide-context-menu" style={{ left: `${assignMenu()!.x}px`, top: `${assignMenu()!.y}px` }} onMouseDown={(e) => e.stopPropagation()}>
-          <For each={sessionList()}>
-            {(session) => (
-              <div class="ide-context-item" onClick={() => { ide.assignSlot(assignMenu()!.slotIndex, session.id); setAssignMenu(null); }}>
-                {session.model || session.provider}
-                <span style={{ "margin-left": "auto", "font-size": "9px", color: "var(--text-muted)" }}>{providerBadge(session.provider)}</span>
-              </div>
-            )}
-          </For>
-          <Show when={sessionList().length === 0}>
-            <div class="ide-context-item" style={{ color: "var(--text-muted)", cursor: "default" }}>Aucune session active</div>
-          </Show>
-        </div>
-      </Show>
     </div>
   );
 }
 
 // Export for sidebar
 export async function openSystemTerminalWindow(cwd: string) {
-  await invoke("open_detached_window", {
+  await windowService.openDetached({
     label: `terminal-${Date.now()}`,
     title: "Terminal — Magick Cookie",
     route: `/detached-terminal?cwd=${encodeURIComponent(cwd)}`,

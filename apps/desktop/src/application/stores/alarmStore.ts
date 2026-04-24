@@ -1,7 +1,8 @@
 import { createSignal } from "solid-js";
 import { api } from "../../infrastructure/api/apiClient";
-import { playSound } from "../../infrastructure/audio/soundPlayer";
+import { playSound, type SoundName } from "../../infrastructure/audio/soundPlayer";
 import { notify } from "../../infrastructure/tauri/notifications";
+import { createCrudStore } from "./createCrudStore";
 
 export interface Alarm {
   id: string;
@@ -10,6 +11,7 @@ export interface Alarm {
   repeatPattern: "once" | "daily" | "weekdays" | "weekends" | "custom";
   repeatDays: number[] | null; // 0=Sun..6=Sat
   enabled: boolean;
+  alertSound: string | null;
   lastFiredAt: string | null;
   createdAt: string;
   updatedAt: string;
@@ -21,6 +23,7 @@ export interface CreateAlarmInput {
   repeatPattern: "once" | "daily" | "weekdays" | "weekends" | "custom";
   repeatDays?: number[] | null;
   enabled?: boolean;
+  alertSound?: string | null;
 }
 
 export interface UpdateAlarmInput {
@@ -29,9 +32,13 @@ export interface UpdateAlarmInput {
   repeatPattern?: "once" | "daily" | "weekdays" | "weekends" | "custom";
   repeatDays?: number[] | null;
   enabled?: boolean;
+  alertSound?: string | null;
 }
 
-const [alarms, setAlarms] = createSignal<Alarm[]>([]);
+const crud = createCrudStore<Alarm, CreateAlarmInput, UpdateAlarmInput>({
+  endpoint: "/alarms",
+  label: "alarms",
+});
 const [firedToday, setFiredToday] = createSignal<Set<string>>(new Set());
 
 let checkerInterval: ReturnType<typeof setInterval> | null = null;
@@ -65,44 +72,6 @@ function shouldFireOnDay(alarm: Alarm, day: number): boolean {
 }
 
 export function useAlarmStore() {
-  async function fetchAlarms() {
-    try {
-      const data = await api.get<Alarm[]>("/alarms");
-      setAlarms(data);
-    } catch (e) {
-      console.error("Failed to fetch alarms:", e);
-    }
-  }
-
-  async function createAlarm(input: CreateAlarmInput) {
-    try {
-      const alarm = await api.post<Alarm>("/alarms", input);
-      setAlarms((prev) => [...prev, alarm]);
-      return alarm;
-    } catch (e) {
-      console.error("Failed to create alarm:", e);
-    }
-  }
-
-  async function updateAlarm(id: string, input: UpdateAlarmInput) {
-    try {
-      const alarm = await api.put<Alarm>(`/alarms/${id}`, input);
-      setAlarms((prev) => prev.map((a) => (a.id === id ? alarm : a)));
-      return alarm;
-    } catch (e) {
-      console.error("Failed to update alarm:", e);
-    }
-  }
-
-  async function deleteAlarm(id: string) {
-    try {
-      await api.delete(`/alarms/${id}`);
-      setAlarms((prev) => prev.filter((a) => a.id !== id));
-    } catch (e) {
-      console.error("Failed to delete alarm:", e);
-    }
-  }
-
   function startAlarmChecker() {
     stopAlarmChecker();
     storedDate = getTodayDate();
@@ -120,15 +89,15 @@ export function useAlarmStore() {
       const dayOfWeek = new Date().getDay(); // 0=Sun..6=Sat
       const fired = firedToday();
 
-      for (const alarm of alarms()) {
+      for (const alarm of crud.items()) {
         if (!alarm.enabled) continue;
         if (alarm.time !== now) continue;
         if (!shouldFireOnDay(alarm, dayOfWeek)) continue;
         if (fired.has(alarm.id)) continue;
 
         // Fire the alarm
-        playSound("alarm");
-        notify("Alarme \u2014 " + alarm.label, alarm.time, { silent: true });
+        playSound((alarm.alertSound ?? "alarm") as SoundName);
+        notify("Alarme — " + alarm.label, alarm.time, { silent: true });
 
         // Add to firedToday
         setFiredToday((prev) => {
@@ -153,12 +122,12 @@ export function useAlarmStore() {
   }
 
   return {
-    alarms,
+    alarms: crud.items,
     firedToday,
-    fetchAlarms,
-    createAlarm,
-    updateAlarm,
-    deleteAlarm,
+    fetchAlarms: crud.fetchAll,
+    createAlarm: crud.create,
+    updateAlarm: crud.update,
+    deleteAlarm: crud.delete,
     startAlarmChecker,
     stopAlarmChecker,
   };

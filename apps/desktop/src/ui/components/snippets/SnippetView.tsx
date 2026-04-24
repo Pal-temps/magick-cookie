@@ -1,7 +1,11 @@
 import { createSignal, For, Show, createMemo } from "solid-js";
 import { useSnippetStore, type Snippet, type CreateSnippetInput } from "../../../application/stores/snippetStore";
 import { Button } from "../common/Button";
+import { CookieLoader } from "../common/CookieLoader";
 import { MonacoEditor } from "../ide/MonacoEditor";
+import { useT } from "../../../i18n/context";
+import { API_BASE, authHeaders } from "../../../infrastructure/config";
+const BENCHABLE_LANGS = new Set(["javascript", "typescript"]);
 
 const LANGUAGES = [
   "text", "bash", "javascript", "typescript", "python", "sql", "css", "html",
@@ -10,43 +14,93 @@ const LANGUAGES = [
 ];
 
 export function SnippetView() {
+  const { t } = useT();
+  const store = useSnippetStore();
   const {
-    snippets, categories, favorites, selectedSnippet, setSelectedSnippet,
+    snippets, selectedSnippet, setSelectedSnippet,
     createSnippet, updateSnippet, deleteSnippet, toggleFavorite,
-    createCategory, updateCategory: updateCategoryApi, deleteCategory: deleteCategoryApi,
-  } = useSnippetStore();
+  } = store;
 
-  const [filter, setFilter] = createSignal("");
-  const [filterCategory, setFilterCategory] = createSignal<string>("all");
-  const [filterFavorites, setFilterFavorites] = createSignal(false);
+  // Use shared filter signals from the store (controlled by sidebar)
+  const filter = store.filterQuery;
+  const filterLanguage = store.filterLanguage;
+  const filterTag = store.filterTag;
+  const filterFavorites = store.filterFavorites;
   const [showForm, setShowForm] = createSignal(false);
   const [editingId, setEditingId] = createSignal<string | null>(null);
-  const [showCategorySettings, setShowCategorySettings] = createSignal(false);
   const [copyFeedback, setCopyFeedback] = createSignal(false);
 
   // Form fields
   const [formTitle, setFormTitle] = createSignal("");
   const [formContent, setFormContent] = createSignal("");
   const [formLanguage, setFormLanguage] = createSignal("text");
-  const [formCategory, setFormCategory] = createSignal("none");
   const [formFavorite, setFormFavorite] = createSignal(false);
+  const [formTagsInput, setFormTagsInput] = createSignal("");
 
-  // Category management
-  const [editingCategory, setEditingCategory] = createSignal<string | null>(null);
-  const [newCategoryValue, setNewCategoryValue] = createSignal("");
-  const [newCategoryLabel, setNewCategoryLabel] = createSignal("");
+  // ─── Inline benchmark ───
+  const [benchRunning, setBenchRunning] = createSignal(false);
+  const [benchResult, setBenchResult] = createSignal<string | null>(null);
+  const [benchError, setBenchError] = createSignal<string | null>(null);
+
+  async function runSnippetBench(snippet: Snippet) {
+    setBenchRunning(true);
+    setBenchResult(null);
+    setBenchError(null);
+    try {
+      const res = await fetch(`${API_BASE}/bench/run/function`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...authHeaders() },
+        body: JSON.stringify({ code: snippet.content, name: snippet.title, iterations: 1000, warmup: 100, timeoutMs: 10000 }),
+      });
+      const reader = res.body!.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const parts = buffer.split("\n\n");
+        buffer = parts.pop() ?? "";
+        for (const part of parts) {
+          let event = "message", data = "";
+          for (const line of part.split("\n")) {
+            if (line.startsWith("event: ")) event = line.slice(7);
+            else if (line.startsWith("data: ")) data = line.slice(6);
+          }
+          if (event === "result" && data) {
+            const r = JSON.parse(data);
+            const t = r.timing;
+            setBenchResult(
+              `${t.opsPerSec.toLocaleString()} ops/s  |  avg: ${t.avg.toFixed(3)}ms  |  p50: ${t.p50.toFixed(3)}ms  |  p95: ${t.p95.toFixed(3)}ms  |  p99: ${t.p99.toFixed(3)}ms  |  min: ${t.min.toFixed(3)}ms  |  max: ${t.max.toFixed(3)}ms`
+            );
+          } else if (event === "error" && data) {
+            setBenchError(data);
+          }
+        }
+      }
+    } catch (e) {
+      setBenchError(String(e));
+    } finally {
+      setBenchRunning(false);
+    }
+  }
 
   const filtered = createMemo(() => {
     let list = snippets();
     if (filterFavorites()) list = list.filter((s) => s.isFavorite);
-    if (filterCategory() !== "all") list = list.filter((s) => s.category === filterCategory());
+    if (filterLanguage() !== "all") list = list.filter((s) => s.language === filterLanguage());
+    if (filterTag() !== "all") list = list.filter((s) => s.tags.includes(filterTag()));
     const q = filter().toLowerCase();
-    if (q) list = list.filter((s) => s.title.toLowerCase().includes(q) || s.content.toLowerCase().includes(q) || s.language.toLowerCase().includes(q));
+    if (q) list = list.filter((s) => s.title.toLowerCase().includes(q) || s.content.toLowerCase().includes(q) || s.language.toLowerCase().includes(q) || s.tags.some((tag) => tag.toLowerCase().includes(q)));
     return list;
   });
 
+  function parseTags(raw: string): string[] {
+    return raw.split(",").map((t) => t.trim().toLowerCase()).filter(Boolean);
+  }
+
   function resetForm() {
-    setFormTitle(""); setFormContent(""); setFormLanguage("text"); setFormCategory("none"); setFormFavorite(false);
+    setFormTitle(""); setFormContent(""); setFormLanguage("text"); setFormFavorite(false); setFormTagsInput("");
     setShowForm(false); setEditingId(null);
   }
 
@@ -59,21 +113,21 @@ export function SnippetView() {
     setFormTitle(s.title);
     setFormContent(s.content);
     setFormLanguage(s.language);
-    setFormCategory(s.category || "none");
     setFormFavorite(s.isFavorite);
+    setFormTagsInput(s.tags.join(", "));
     setEditingId(s.id);
     setShowForm(true);
   }
 
   async function handleSave() {
-    const t = formTitle().trim();
-    const c = formContent();
-    if (!t) return;
+    const title = formTitle().trim();
+    const content = formContent();
+    if (!title) return;
     const input: CreateSnippetInput = {
-      title: t,
-      content: c,
+      title,
+      content,
       language: formLanguage(),
-      category: formCategory(),
+      tags: parseTags(formTagsInput()),
       isFavorite: formFavorite(),
     };
     if (editingId()) {
@@ -101,128 +155,35 @@ export function SnippetView() {
     }
   }
 
-  async function handleAddCategory() {
-    const v = newCategoryValue().trim();
-    const l = newCategoryLabel().trim();
-    if (!v || !l) return;
-    await createCategory({ value: v, label: l });
-    setNewCategoryValue("");
-    setNewCategoryLabel("");
-  }
-
   const inputStyle = {
     width: "100%",
     padding: "6px 10px",
     "border-radius": "var(--radius-sm)",
     border: "1px solid var(--border-color)",
-    background: "var(--bg-primary)",
+    background: "var(--bg-elevated)",
     color: "var(--text-primary)",
     "font-size": "13px",
     outline: "none",
     "box-sizing": "border-box" as const,
+    "color-scheme": "dark",
+  };
+
+  const tagChipStyle = {
+    display: "inline-block",
+    padding: "1px 6px",
+    "font-size": "10px",
+    "border-radius": "var(--radius-sm)",
+    background: "var(--accent-color)",
+    color: "#fff",
+    "font-family": "monospace",
+    cursor: "pointer",
   };
 
   const sel = () => selectedSnippet();
 
   return (
     <div style={{ height: "100%", display: "flex", overflow: "hidden" }}>
-      {/* Left panel — categories */}
-      <div style={{
-        width: "200px",
-        "min-width": "200px",
-        "border-right": "1px solid var(--border-color)",
-        display: "flex",
-        "flex-direction": "column",
-        overflow: "hidden",
-        background: "var(--bg-surface)",
-      }}>
-        <div style={{ padding: "12px", display: "flex", "align-items": "center", "justify-content": "space-between", "border-bottom": "1px solid var(--border-color)" }}>
-          <span style={{ "font-size": "12px", "font-weight": "600", color: "var(--text-primary)", "text-transform": "uppercase" }}>Categories</span>
-          <button
-            onClick={() => setShowCategorySettings(!showCategorySettings())}
-            title="Gerer les categories"
-            style={{
-              padding: "4px 6px", "border-radius": "var(--radius-sm)", "font-size": "14px", cursor: "pointer",
-              border: "1px solid var(--border-color)",
-              background: showCategorySettings() ? "var(--accent-color)" : "var(--bg-surface)",
-              color: showCategorySettings() ? "#fff" : "var(--text-secondary)",
-              "line-height": "1",
-            }}
-          >&#9881;</button>
-        </div>
-
-        <div style={{ flex: "1", "overflow-y": "auto", padding: "8px" }}>
-          {/* "Tous" filter */}
-          <button
-            onClick={() => { setFilterCategory("all"); setFilterFavorites(false); }}
-            style={{
-              display: "block", width: "100%", padding: "6px 10px", "margin-bottom": "2px",
-              "border-radius": "var(--radius-sm)", "font-size": "12px", cursor: "pointer",
-              border: "none", "text-align": "left",
-              background: filterCategory() === "all" && !filterFavorites() ? "var(--accent-color)" : "transparent",
-              color: filterCategory() === "all" && !filterFavorites() ? "#fff" : "var(--text-primary)",
-              "font-weight": filterCategory() === "all" && !filterFavorites() ? "600" : "normal",
-              transition: "background 0.1s",
-            }}
-            onMouseEnter={(e) => { if (filterCategory() !== "all" || filterFavorites()) e.currentTarget.style.background = "var(--bg-elevated)"; }}
-            onMouseLeave={(e) => { if (filterCategory() !== "all" || filterFavorites()) e.currentTarget.style.background = "transparent"; }}
-          >
-            Tous
-            <span style={{ "margin-left": "6px", "font-size": "10px", color: filterCategory() === "all" && !filterFavorites() ? "rgba(255,255,255,0.7)" : "var(--text-muted)" }}>
-              {snippets().length}
-            </span>
-          </button>
-
-          {/* Favorites filter */}
-          <button
-            onClick={() => { setFilterFavorites(true); setFilterCategory("all"); }}
-            style={{
-              display: "block", width: "100%", padding: "6px 10px", "margin-bottom": "2px",
-              "border-radius": "var(--radius-sm)", "font-size": "12px", cursor: "pointer",
-              border: "none", "text-align": "left",
-              background: filterFavorites() ? "var(--accent-color)" : "transparent",
-              color: filterFavorites() ? "#fff" : "var(--text-primary)",
-              "font-weight": filterFavorites() ? "600" : "normal",
-              transition: "background 0.1s",
-            }}
-            onMouseEnter={(e) => { if (!filterFavorites()) e.currentTarget.style.background = "var(--bg-elevated)"; }}
-            onMouseLeave={(e) => { if (!filterFavorites()) e.currentTarget.style.background = "transparent"; }}
-          >
-            &#9733; Favoris
-            <span style={{ "margin-left": "6px", "font-size": "10px", color: filterFavorites() ? "rgba(255,255,255,0.7)" : "var(--text-muted)" }}>
-              {favorites().length}
-            </span>
-          </button>
-
-          <div style={{ height: "1px", background: "var(--border-color)", margin: "6px 0" }} />
-
-          <For each={categories()}>
-            {(cat) => (
-              <button
-                onClick={() => { setFilterCategory(cat.value); setFilterFavorites(false); }}
-                style={{
-                  display: "block", width: "100%", padding: "6px 10px", "margin-bottom": "2px",
-                  "border-radius": "var(--radius-sm)", "font-size": "12px", cursor: "pointer",
-                  border: "none", "text-align": "left",
-                  background: filterCategory() === cat.value && !filterFavorites() ? "var(--accent-color)" : "transparent",
-                  color: filterCategory() === cat.value && !filterFavorites() ? "#fff" : "var(--text-primary)",
-                  "font-weight": filterCategory() === cat.value && !filterFavorites() ? "600" : "normal",
-                  transition: "background 0.1s",
-                }}
-                onMouseEnter={(e) => { if (filterCategory() !== cat.value || filterFavorites()) e.currentTarget.style.background = "var(--bg-elevated)"; }}
-                onMouseLeave={(e) => { if (filterCategory() !== cat.value || filterFavorites()) e.currentTarget.style.background = "transparent"; }}
-              >
-                {cat.label}
-                <span style={{ "margin-left": "6px", "font-size": "10px", color: filterCategory() === cat.value && !filterFavorites() ? "rgba(255,255,255,0.7)" : "var(--text-muted)" }}>
-                  {snippets().filter((s) => s.category === cat.value).length}
-                </span>
-              </button>
-            )}
-          </For>
-        </div>
-      </div>
-
-      {/* Center panel — snippet list */}
+      {/* Snippet list */}
       <div style={{
         flex: "1",
         "min-width": "280px",
@@ -235,12 +196,12 @@ export function SnippetView() {
         <div style={{ padding: "12px", display: "flex", gap: "8px", "align-items": "center", "border-bottom": "1px solid var(--border-color)" }}>
           <input
             type="text"
-            placeholder="Rechercher..."
+            placeholder={t("snippets.searchPlaceholder")}
             value={filter()}
-            onInput={(e) => setFilter(e.currentTarget.value)}
+            onInput={(e) => store.setFilterQuery(e.currentTarget.value)}
             style={{ ...inputStyle, flex: "1" }}
           />
-          <Button variant="primary" size="sm" onClick={startCreate}>+ Nouveau</Button>
+          <Button variant="primary" size="sm" onClick={startCreate}>{t("snippets.newSnippet")}</Button>
         </div>
 
         {/* List */}
@@ -250,7 +211,7 @@ export function SnippetView() {
               <div
                 onClick={() => setSelectedSnippet(snippet)}
                 style={{
-                  padding: "10px 12px",
+                  padding: "5px 10px",
                   "border-bottom": "1px solid var(--border-color)",
                   cursor: "pointer",
                   background: sel()?.id === snippet.id ? "var(--bg-elevated)" : "transparent",
@@ -259,29 +220,30 @@ export function SnippetView() {
                 onMouseEnter={(e) => { if (sel()?.id !== snippet.id) e.currentTarget.style.background = "var(--bg-surface)"; }}
                 onMouseLeave={(e) => { if (sel()?.id !== snippet.id) e.currentTarget.style.background = "transparent"; }}
               >
-                <div style={{ display: "flex", "align-items": "center", gap: "6px", "margin-bottom": "4px" }}>
-                  <span style={{ "font-size": "13px", "font-weight": "500", color: "var(--text-primary)", flex: "1", overflow: "hidden", "text-overflow": "ellipsis", "white-space": "nowrap" }}>
+                <div style={{ display: "flex", "align-items": "center", gap: "4px" }}>
+                  <span style={{ "font-size": "12px", "font-weight": "500", color: "var(--text-primary)", flex: "1", overflow: "hidden", "text-overflow": "ellipsis", "white-space": "nowrap" }}>
                     {snippet.title}
                   </span>
-                  <Show when={snippet.isFavorite}>
-                    <span style={{ "font-size": "12px", color: "var(--accent-secondary)" }}>&#9733;</span>
-                  </Show>
-                </div>
-                <div style={{ display: "flex", gap: "6px", "align-items": "center" }}>
+                  <For each={snippet.tags}>
+                    {(tag) => (
+                      <span
+                        style={tagChipStyle}
+                        onClick={(e) => { e.stopPropagation(); store.setFilterTag(tag); store.setFilterFavorites(false); }}
+                        title={`${t("snippets.filterByTag")}: ${tag}`}
+                      >
+                        {tag}
+                      </span>
+                    )}
+                  </For>
                   <span style={{
-                    padding: "1px 6px", "font-size": "10px", "border-radius": "var(--radius-sm)",
-                    background: "var(--bg-elevated)", color: "var(--text-secondary)",
-                    "font-family": "monospace",
+                    padding: "1px 5px", "font-size": "9px", "border-radius": "var(--radius-sm)",
+                    background: "var(--bg-elevated)", color: "var(--text-muted)",
+                    "font-family": "monospace", "flex-shrink": "0",
                   }}>
                     {snippet.language}
                   </span>
-                  <Show when={snippet.category && snippet.category !== "none"}>
-                    <span style={{
-                      padding: "1px 6px", "font-size": "10px", "border-radius": "var(--radius-sm)",
-                      background: "var(--accent-color)", color: "#fff", opacity: "0.8",
-                    }}>
-                      {categories().find((c) => c.value === snippet.category)?.label ?? snippet.category}
-                    </span>
+                  <Show when={snippet.isFavorite}>
+                    <span style={{ "font-size": "11px", color: "var(--accent-secondary)", "flex-shrink": "0" }}>&#9733;</span>
                   </Show>
                 </div>
               </div>
@@ -290,160 +252,101 @@ export function SnippetView() {
 
           <Show when={filtered().length === 0 && snippets().length > 0}>
             <div style={{ "font-size": "12px", color: "var(--text-muted)", padding: "20px", "text-align": "center" }}>
-              Aucun snippet ne correspond au filtre.
+              {t("snippets.noMatch")}
             </div>
           </Show>
 
           <Show when={snippets().length === 0}>
             <div style={{ "font-size": "13px", color: "var(--text-muted)", padding: "40px 20px", "text-align": "center" }}>
-              Aucun snippet. Cliquez sur "+ Nouveau" pour commencer.
+              {t("snippets.empty")}
             </div>
           </Show>
         </div>
       </div>
 
-      {/* Right panel — detail / form / category settings */}
+      {/* Right panel — detail / form */}
       <div style={{ flex: "1.2", display: "flex", "flex-direction": "column", overflow: "hidden" }}>
-        {/* Category settings overlay */}
-        <Show when={showCategorySettings()}>
-          <div style={{
-            padding: "16px",
-            "border-bottom": "1px solid var(--border-color)",
-            background: "var(--bg-elevated)",
-            "overflow-y": "auto",
-            "max-height": "50%",
-          }}>
-            <h3 style={{ margin: "0 0 12px", "font-size": "14px", "font-weight": "600", color: "var(--text-primary)" }}>Gestion des categories</h3>
-            <div style={{ display: "flex", "flex-direction": "column", gap: "6px", "margin-bottom": "12px" }}>
-              <For each={categories()}>
-                {(c) => (
-                  <div style={{ display: "flex", "align-items": "center", gap: "8px" }}>
-                    <span style={{ "font-size": "12px", color: "var(--text-muted)", "min-width": "100px" }}>{c.value}</span>
-                    <Show when={editingCategory() === c.id} fallback={
-                      <span
-                        style={{ flex: "1", "font-size": "13px", color: "var(--text-primary)", cursor: "pointer", padding: "4px 8px", "border-radius": "var(--radius-sm)" }}
-                        onDblClick={() => setEditingCategory(c.id)}
-                        title="Double-cliquer pour modifier"
-                      >{c.label}</span>
-                    }>
-                      <input
-                        type="text"
-                        value={c.label}
-                        style={{ ...inputStyle, flex: "1" }}
-                        onKeyDown={async (e) => {
-                          if (e.key === "Enter") {
-                            await updateCategoryApi(c.id, { label: e.currentTarget.value.trim() });
-                            setEditingCategory(null);
-                          } else if (e.key === "Escape") {
-                            setEditingCategory(null);
-                          }
-                        }}
-                        onBlur={async (e) => {
-                          const newLabel = e.currentTarget.value.trim();
-                          if (newLabel && newLabel !== c.label) {
-                            await updateCategoryApi(c.id, { label: newLabel });
-                          }
-                          setEditingCategory(null);
-                        }}
-                        ref={(el) => setTimeout(() => el.focus(), 0)}
-                      />
-                    </Show>
-                    <button
-                      onClick={() => deleteCategoryApi(c.id)}
-                      title="Supprimer cette categorie"
-                      style={{
-                        background: "none", border: "none", cursor: "pointer", "font-size": "14px",
-                        color: "var(--text-muted)", padding: "2px 4px", "border-radius": "var(--radius-sm)",
-                        transition: "color 0.15s",
-                      }}
-                      onMouseEnter={(e) => e.currentTarget.style.color = "var(--danger-color, #e74c3c)"}
-                      onMouseLeave={(e) => e.currentTarget.style.color = "var(--text-muted)"}
-                    >&#10005;</button>
-                  </div>
-                )}
-              </For>
-            </div>
-            <div style={{ display: "flex", gap: "8px", "align-items": "flex-end", "border-top": "1px solid var(--border-color)", "padding-top": "12px" }}>
-              <div style={{ flex: "1" }}>
-                <label style={{ display: "block", "font-size": "11px", color: "var(--text-muted)", "margin-bottom": "2px" }}>Valeur</label>
-                <input type="text" placeholder="shell" value={newCategoryValue()} onInput={(e) => setNewCategoryValue(e.currentTarget.value)} style={inputStyle} />
-              </div>
-              <div style={{ flex: "1" }}>
-                <label style={{ display: "block", "font-size": "11px", color: "var(--text-muted)", "margin-bottom": "2px" }}>Label</label>
-                <input type="text" placeholder="Shell / CLI" value={newCategoryLabel()} onInput={(e) => setNewCategoryLabel(e.currentTarget.value)} style={inputStyle} />
-              </div>
-              <Button variant="primary" size="sm" onClick={handleAddCategory}>Ajouter</Button>
-            </div>
-          </div>
-        </Show>
-
         {/* Create/Edit form */}
         <Show when={showForm()}>
-          <div style={{
-            padding: "16px",
-            "border-bottom": "1px solid var(--accent-color)",
-            background: "var(--bg-elevated)",
-            "overflow-y": "auto",
-            flex: "1",
-          }}>
-            <h3 style={{ margin: "0 0 12px", "font-size": "14px", "font-weight": "600", color: "var(--text-primary)" }}>
-              {editingId() ? "Modifier le snippet" : "Nouveau snippet"}
-            </h3>
-            <div style={{ "margin-bottom": "10px" }}>
-              <label style={{ display: "block", "font-size": "12px", "font-weight": "500", color: "var(--text-secondary)", "margin-bottom": "4px" }}>Titre</label>
-              <input type="text" value={formTitle()} onInput={(e) => setFormTitle(e.currentTarget.value)} placeholder="Mon snippet..." style={inputStyle} />
+          <div style={{ flex: "1", display: "flex", "flex-direction": "column", overflow: "hidden" }}>
+            {/* Form header */}
+            <div style={{
+              padding: "12px 16px",
+              "border-bottom": "1px solid var(--border-color)",
+              display: "flex",
+              "align-items": "center",
+              "justify-content": "space-between",
+              "flex-shrink": "0",
+              background: "var(--bg-surface)",
+            }}>
+              <span style={{ "font-size": "14px", "font-weight": "600", color: "var(--text-primary)" }}>
+                {editingId() ? t("snippets.editSnippet") : t("snippets.newSnippet")}
+              </span>
+              <div style={{ display: "flex", gap: "6px" }}>
+                <Button variant="ghost" size="sm" onClick={resetForm}>{t("common.cancel")}</Button>
+                <Button variant="primary" size="sm" onClick={handleSave}>{editingId() ? t("common.save") : t("common.create")}</Button>
+              </div>
             </div>
-            <div style={{ display: "flex", gap: "10px", "margin-bottom": "10px" }}>
-              <div style={{ flex: "1" }}>
-                <label style={{ display: "block", "font-size": "12px", "font-weight": "500", color: "var(--text-secondary)", "margin-bottom": "4px" }}>Langage</label>
+
+            {/* Form fields */}
+            <div style={{ padding: "12px 16px", display: "flex", "flex-direction": "column", gap: "10px", "flex-shrink": "0", "border-bottom": "1px solid var(--border-color)" }}>
+              {/* Title */}
+              <input
+                type="text"
+                value={formTitle()}
+                onInput={(e) => setFormTitle(e.currentTarget.value)}
+                placeholder={t("snippets.mySnippet")}
+                style={{ ...inputStyle, "font-size": "14px", "font-weight": "500", padding: "8px 12px" }}
+              />
+              {/* Language + Favorite — row */}
+              <div style={{ display: "flex", gap: "8px", "align-items": "center", "flex-wrap": "wrap" }}>
                 <select
                   value={formLanguage()}
                   onChange={(e) => setFormLanguage(e.currentTarget.value)}
-                  style={{ ...inputStyle, cursor: "pointer", height: "32px" }}
+                  style={{ ...inputStyle, cursor: "pointer", height: "30px", "font-size": "11px", width: "auto", flex: "1", "min-width": "120px" }}
                 >
                   <For each={LANGUAGES}>
                     {(lang) => <option value={lang}>{lang}</option>}
                   </For>
                 </select>
+                <label style={{ display: "flex", "align-items": "center", gap: "4px", "font-size": "11px", color: "var(--text-muted)", cursor: "pointer", "flex-shrink": "0" }}>
+                  <input type="checkbox" checked={formFavorite()} onChange={(e) => setFormFavorite(e.currentTarget.checked)} style={{ cursor: "pointer" }} />
+                  {t("snippets.favorite")}
+                </label>
               </div>
-              <div style={{ flex: "1" }}>
-                <label style={{ display: "block", "font-size": "12px", "font-weight": "500", color: "var(--text-secondary)", "margin-bottom": "4px" }}>Categorie</label>
-                <select
-                  value={formCategory()}
-                  onChange={(e) => setFormCategory(e.currentTarget.value)}
-                  style={{ ...inputStyle, cursor: "pointer", height: "32px" }}
-                >
-                  <option value="none">Aucune</option>
-                  <For each={categories()}>
-                    {(c) => <option value={c.value}>{c.label}</option>}
-                  </For>
-                </select>
-              </div>
+              {/* Tags */}
+              <input
+                type="text"
+                value={formTagsInput()}
+                onInput={(e) => setFormTagsInput(e.currentTarget.value)}
+                placeholder={t("snippets.tagsPlaceholder")}
+                style={{ ...inputStyle, "font-size": "11px" }}
+              />
             </div>
-            <div style={{ "margin-bottom": "10px" }}>
-              <label style={{ display: "block", "font-size": "12px", "font-weight": "500", color: "var(--text-secondary)", "margin-bottom": "4px" }}>Contenu</label>
+
+            {/* Monaco editor — takes all remaining space */}
+            <div style={{ flex: "1", overflow: "hidden", "min-height": "0" }}>
               <MonacoEditor
                 value={formContent()}
                 language={formLanguage()}
                 onChange={(val) => setFormContent(val)}
-                style={{ height: "200px", border: "1px solid var(--border-color)", "border-radius": "var(--radius-sm)" }}
+                style={{ height: "100%" }}
               />
             </div>
-            <div style={{ display: "flex", "align-items": "center", "justify-content": "space-between" }}>
-              <label style={{ display: "flex", "align-items": "center", gap: "6px", "font-size": "12px", color: "var(--text-secondary)", cursor: "pointer" }}>
-                <input
-                  type="checkbox"
-                  checked={formFavorite()}
-                  onChange={(e) => setFormFavorite(e.currentTarget.checked)}
-                  style={{ cursor: "pointer" }}
-                />
-                Favori
-              </label>
-              <div style={{ display: "flex", gap: "8px" }}>
-                <Button variant="ghost" size="sm" onClick={resetForm}>Annuler</Button>
-                <Button variant="primary" size="sm" onClick={handleSave}>{editingId() ? "Enregistrer" : "Creer"}</Button>
+
+            {/* Run hint for JS/TS */}
+            <Show when={BENCHABLE_LANGS.has(formLanguage())}>
+              <div style={{
+                padding: "6px 16px",
+                "border-top": "1px solid var(--border-color)",
+                "font-size": "10px",
+                color: "var(--text-muted)",
+                "flex-shrink": "0",
+                background: "var(--bg-surface)",
+              }}>
+                Apres sauvegarde, utilisez le bouton <strong style={{ color: "#00b894" }}>Run</strong> pour benchmarker ce snippet.
               </div>
-            </div>
+            </Show>
           </div>
         </Show>
 
@@ -459,7 +362,7 @@ export function SnippetView() {
                     <span style={{ "margin-left": "8px", "font-size": "14px", color: "var(--accent-secondary)" }}>&#9733;</span>
                   </Show>
                 </h2>
-                <div style={{ display: "flex", gap: "8px", "align-items": "center", "flex-wrap": "wrap" }}>
+                <div style={{ display: "flex", gap: "6px", "align-items": "center", "flex-wrap": "wrap" }}>
                   <span style={{
                     padding: "2px 8px", "font-size": "11px", "border-radius": "var(--radius-sm)",
                     background: "var(--bg-elevated)", color: "var(--text-secondary)",
@@ -467,23 +370,37 @@ export function SnippetView() {
                   }}>
                     {sel()!.language}
                   </span>
-                  <Show when={sel()!.category && sel()!.category !== "none"}>
-                    <span style={{
-                      padding: "2px 8px", "font-size": "11px", "border-radius": "var(--radius-sm)",
-                      background: "var(--accent-color)", color: "#fff", opacity: "0.8",
-                    }}>
-                      {categories().find((c) => c.value === sel()!.category)?.label ?? sel()!.category}
-                    </span>
-                  </Show>
+                  <For each={sel()!.tags}>
+                    {(tag) => (
+                      <span style={tagChipStyle}>{tag}</span>
+                    )}
+                  </For>
                   <span style={{ "font-size": "11px", color: "var(--text-muted)" }}>
                     {new Date(sel()!.updatedAt).toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}
                   </span>
                 </div>
               </div>
               <div style={{ display: "flex", gap: "6px", "margin-left": "12px", "flex-shrink": "0" }}>
+                <Show when={BENCHABLE_LANGS.has(sel()!.language)}>
+                  <button
+                    onClick={() => runSnippetBench(sel()!)}
+                    disabled={benchRunning()}
+                    title="Benchmark ce snippet"
+                    style={{
+                      padding: "6px 12px", "border-radius": "var(--radius-sm)", "font-size": "12px", cursor: "pointer",
+                      border: "1px solid var(--border-color)",
+                      background: benchRunning() ? "var(--bg-elevated)" : "#00b894",
+                      color: benchRunning() ? "var(--text-muted)" : "#fff",
+                      transition: "all 0.15s",
+                      "min-width": "60px",
+                    }}
+                  >
+                    {benchRunning() ? "..." : "\u25B6 Run"}
+                  </button>
+                </Show>
                 <button
                   onClick={() => handleCopy(sel()!.content)}
-                  title="Copier le contenu"
+                  title={t("snippets.copyContent")}
                   style={{
                     padding: "6px 12px", "border-radius": "var(--radius-sm)", "font-size": "12px", cursor: "pointer",
                     border: "1px solid var(--border-color)",
@@ -493,11 +410,11 @@ export function SnippetView() {
                     "min-width": "80px",
                   }}
                 >
-                  {copyFeedback() ? "Copie !" : "Copier"}
+                  {copyFeedback() ? t("snippets.copied") : t("common.copy")}
                 </button>
                 <button
                   onClick={() => toggleFavorite(sel()!.id)}
-                  title={sel()!.isFavorite ? "Retirer des favoris" : "Ajouter aux favoris"}
+                  title={sel()!.isFavorite ? t("snippets.removeFavorite") : t("snippets.addFavorite")}
                   style={{
                     background: "none", border: "1px solid var(--border-color)", cursor: "pointer",
                     "font-size": "16px", padding: "4px 8px", "border-radius": "var(--radius-sm)",
@@ -509,7 +426,7 @@ export function SnippetView() {
                 </button>
                 <button
                   onClick={() => startEdit(sel()!)}
-                  title="Modifier"
+                  title={t("common.edit")}
                   style={{
                     background: "none", border: "1px solid var(--border-color)", cursor: "pointer",
                     "font-size": "14px", padding: "4px 8px", "border-radius": "var(--radius-sm)",
@@ -522,7 +439,7 @@ export function SnippetView() {
                 </button>
                 <button
                   onClick={() => handleDelete(sel()!.id)}
-                  title="Supprimer"
+                  title={t("common.delete")}
                   style={{
                     background: "none", border: "1px solid var(--border-color)", cursor: "pointer",
                     "font-size": "14px", padding: "4px 8px", "border-radius": "var(--radius-sm)",
@@ -549,6 +466,26 @@ export function SnippetView() {
                 readOnly={true}
               />
             </div>
+
+            {/* Bench result inline */}
+            <Show when={benchRunning()}>
+              <div style={{ "margin-top": "12px", display: "flex", "align-items": "center", gap: "8px", padding: "10px 14px", background: "var(--bg-elevated)", "border-radius": "var(--radius-md)", border: "1px solid var(--border-color)" }}>
+                <CookieLoader size={18} />
+                <span style={{ "font-size": "12px", color: "var(--text-muted)" }}>Benchmark en cours...</span>
+              </div>
+            </Show>
+            <Show when={benchResult()}>
+              <div style={{ "margin-top": "12px", padding: "10px 14px", background: "color-mix(in srgb, #00b894 8%, transparent)", "border-radius": "var(--radius-md)", border: "1px solid color-mix(in srgb, #00b894 30%, transparent)" }}>
+                <div style={{ "font-size": "10px", "font-weight": "600", color: "#00b894", "text-transform": "uppercase", "letter-spacing": "0.5px", "margin-bottom": "4px" }}>Resultat</div>
+                <code style={{ "font-size": "12px", color: "var(--text-primary)", "font-family": "'JetBrains Mono', monospace", "word-break": "break-all" }}>{benchResult()}</code>
+              </div>
+            </Show>
+            <Show when={benchError()}>
+              <div style={{ "margin-top": "12px", padding: "10px 14px", background: "color-mix(in srgb, #d63031 8%, transparent)", "border-radius": "var(--radius-md)", border: "1px solid color-mix(in srgb, #d63031 30%, transparent)" }}>
+                <div style={{ "font-size": "10px", "font-weight": "600", color: "#d63031", "text-transform": "uppercase", "letter-spacing": "0.5px", "margin-bottom": "4px" }}>Erreur</div>
+                <code style={{ "font-size": "12px", color: "#d63031", "font-family": "'JetBrains Mono', monospace" }}>{benchError()}</code>
+              </div>
+            </Show>
           </div>
         </Show>
 
@@ -557,7 +494,7 @@ export function SnippetView() {
           <div style={{ flex: "1", display: "flex", "align-items": "center", "justify-content": "center" }}>
             <div style={{ "text-align": "center", color: "var(--text-muted)" }}>
               <div style={{ "font-size": "32px", "margin-bottom": "8px", opacity: "0.4" }}>&#128203;</div>
-              <p style={{ "font-size": "13px", margin: "0" }}>Selectionnez un snippet ou creez-en un nouveau.</p>
+              <p style={{ "font-size": "13px", margin: "0" }}>{t("snippets.selectOrCreate")}</p>
             </div>
           </div>
         </Show>

@@ -1,5 +1,6 @@
 import { createSignal } from "solid-js";
 import { api } from "../../infrastructure/api/apiClient";
+import { createCrudStore } from "./createCrudStore";
 
 export interface CalDavAccount {
   id: string;
@@ -30,7 +31,10 @@ export interface UpdateCalDavAccountInput {
   syncEnabled?: boolean;
 }
 
-const [accounts, setAccounts] = createSignal<CalDavAccount[]>([]);
+const crud = createCrudStore<CalDavAccount, CreateCalDavAccountInput, UpdateCalDavAccountInput>({
+  endpoint: "/caldav-accounts",
+  label: "caldav-accounts",
+});
 const [isLoading, setIsLoading] = createSignal(false);
 const [isSyncing, setIsSyncing] = createSignal(false);
 
@@ -38,56 +42,16 @@ export function useCalDavStore() {
   async function fetchAccounts() {
     setIsLoading(true);
     try {
-      const data = await api.get<CalDavAccount[]>("/caldav-accounts");
-      setAccounts(data);
-    } catch (err) {
-      console.error("Failed to fetch CalDAV accounts:", err);
+      await crud.fetchAll();
     } finally {
       setIsLoading(false);
-    }
-  }
-
-  async function createAccount(input: CreateCalDavAccountInput) {
-    try {
-      const data = await api.post<CalDavAccount>("/caldav-accounts", input);
-      if (data) {
-        setAccounts((prev) => [...prev, data]);
-      }
-      return data;
-    } catch (err) {
-      console.error("[caldav] Failed to create account:", err);
-      throw err;
-    }
-  }
-
-  async function updateAccount(id: string, input: UpdateCalDavAccountInput) {
-    try {
-      const data = await api.put<CalDavAccount>(`/caldav-accounts/${id}`, input);
-      if (data) {
-        setAccounts((prev) => prev.map((a) => (a.id === id ? data : a)));
-      }
-      return data;
-    } catch (err) {
-      console.error("[caldav] Failed to update account:", err);
-      throw err;
-    }
-  }
-
-  async function deleteAccount(id: string) {
-    // Optimistic update
-    setAccounts((prev) => prev.filter((a) => a.id !== id));
-    try {
-      await api.delete(`/caldav-accounts/${id}`);
-    } catch (err) {
-      console.error("[caldav] Failed to delete account:", err);
     }
   }
 
   async function syncAccount(id: string) {
     setIsSyncing(true);
     try {
-      const data = await api.post<{ imported: number; updated: number }>(`/caldav-accounts/${id}/sync`, {});
-      return data;
+      return await api.post<{ imported: number; updated: number }>(`/caldav-accounts/${id}/sync`, {});
     } finally {
       setIsSyncing(false);
     }
@@ -99,13 +63,13 @@ export function useCalDavStore() {
   }
 
   return {
-    accounts,
+    accounts: crud.items,
     isLoading,
     isSyncing,
     fetchAccounts,
-    createAccount,
-    updateAccount,
-    deleteAccount,
+    createAccount: crud.create,
+    updateAccount: crud.update,
+    deleteAccount: crud.delete,
     syncAccount,
     testConnection,
   };
