@@ -1,6 +1,7 @@
 import { createSignal, createEffect, onMount, onCleanup, For, Show } from "solid-js";
 import { useRssStore } from "../../../application/stores/rssStore";
 import { useT } from "../../../i18n/context";
+import { formatDate as formatIntlDate } from "../../../i18n/format";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { Button } from "../common/Button";
 import { AiButton } from "../common/AiButton";
@@ -40,8 +41,7 @@ export function RssView() {
 
   function formatDate(dateStr: string | null): string {
     if (!dateStr) return "";
-    const d = new Date(dateStr);
-    return d.toLocaleDateString(locale() === "fr" ? "fr-FR" : "en-US", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+    return formatIntlDate(new Date(dateStr), locale(), { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
   }
 
   function feedLabel(feedId: string): string {

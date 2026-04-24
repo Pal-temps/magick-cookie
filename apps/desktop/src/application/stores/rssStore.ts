@@ -56,6 +56,9 @@ const [digest, setDigest] = createSignal<RssDigest | null>(null);
 const [digestLoading, setDigestLoading] = createSignal(false);
 const [digestSavedToNotes, setDigestSavedToNotes] = createSignal(false);
 
+// Monotonic token for fetchArticles — drops stale responses when filter changes mid-flight.
+let fetchArticlesToken = 0;
+
 export function useRssStore() {
   async function fetchFeeds() {
     try {
@@ -67,6 +70,7 @@ export function useRssStore() {
   }
 
   async function fetchArticles(options?: FetchArticlesOptions) {
+    const token = ++fetchArticlesToken;
     try {
       setIsLoading(true);
       const params = new URLSearchParams();
@@ -77,11 +81,12 @@ export function useRssStore() {
       params.set("offset", String(options?.offset ?? 0));
       const qs = params.toString();
       const data = await api.get<RssArticle[]>(`/rss-articles?${qs}`);
+      if (token !== fetchArticlesToken) return;
       setArticles(data);
     } catch (e) {
       console.error("Failed to fetch RSS articles:", e);
     } finally {
-      setIsLoading(false);
+      if (token === fetchArticlesToken) setIsLoading(false);
     }
   }
 

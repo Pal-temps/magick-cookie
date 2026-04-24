@@ -21,6 +21,9 @@ const [configuredConnectors, setConfiguredConnectors] = createSignal<Set<string>
 /** Track which fetch mode was last used so loadMore appends to the right endpoint */
 let lastFetchMode: "all" | "unscheduled" = "all";
 
+// Monotonic token — drops stale responses when sourceFilter changes mid-flight.
+let fetchTasksToken = 0;
+
 export interface ConnectorConfigSummary {
   type: string;
   enabled: boolean;
@@ -29,6 +32,7 @@ export interface ConnectorConfigSummary {
 export function useTaskStore() {
   async function fetchTasks() {
     lastFetchMode = "all";
+    const token = ++fetchTasksToken;
     const src = sourceFilter();
     const params = new URLSearchParams();
     if (src !== "all") params.set("source", src);
@@ -37,6 +41,7 @@ export function useTaskStore() {
     const qs = params.toString();
 
     const raw = await api.getRaw<PaginatedResponse<Task>>(`/tasks?${qs}`);
+    if (token !== fetchTasksToken) return;
     // Backward compatibility: if API returns old format without total
     const data = raw?.data ?? (raw as unknown as Task[]);
     const total = raw?.total ?? (Array.isArray(raw) ? (raw as unknown as Task[]).length : 0);
@@ -48,6 +53,7 @@ export function useTaskStore() {
 
   async function fetchUnscheduledTasks() {
     lastFetchMode = "unscheduled";
+    const token = ++fetchTasksToken;
     const src = sourceFilter();
     const params = new URLSearchParams();
     if (src !== "all") params.set("source", src);
@@ -58,6 +64,7 @@ export function useTaskStore() {
     const qs = params.toString();
 
     const raw = await api.getRaw<PaginatedResponse<Task>>(`${endpoint}?${qs}`);
+    if (token !== fetchTasksToken) return;
     const data = raw?.data ?? (raw as unknown as Task[]);
     const total = raw?.total ?? (Array.isArray(raw) ? (raw as unknown as Task[]).length : 0);
 
