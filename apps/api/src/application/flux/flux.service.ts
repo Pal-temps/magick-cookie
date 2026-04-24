@@ -1,17 +1,34 @@
 import type { FluxRepository } from "../../domain/flux/flux.repository";
-import type { FluxItem, FluxStatus, FluxEntityType, SetFluxInput, FluxSuggestion } from "../../domain/flux/flux.entity";
+import type {
+  FluxItem, FluxStatus, FluxEntityType, SetFluxInput, FluxSuggestion,
+  FluxFindOptions, FluxKanbanItem, FluxKanbanColumn, FluxCountsResult,
+} from "../../domain/flux/flux.entity";
 import type { TaskRepository } from "../../domain/task/task.repository";
+import type { EmailRepository } from "../../domain/email/email.repository";
+import type { RssArticleRepository } from "../../domain/rss/rss.repository";
+import type { RssFeedRepository } from "../../domain/rss/rss.repository";
 import type { LlmService } from "../llm/llm.service";
+
+const SUGGEST_MAX_ITEMS = 100;
+const ALL_STATUSES: FluxStatus[] = ["priority", "later", "archived", "dismissed"];
+const ALL_ENTITY_TYPES: FluxEntityType[] = ["task", "email", "rss_article"];
 
 export class FluxService {
   constructor(
     private repo: FluxRepository,
     private taskRepo?: TaskRepository,
     private llmService?: LlmService,
+    private emailRepo?: EmailRepository,
+    private rssArticleRepo?: RssArticleRepository,
+    private rssFeedRepo?: RssFeedRepository,
   ) {}
 
   async getAll(entityType?: FluxEntityType): Promise<FluxItem[]> {
     return this.repo.findAll(entityType);
+  }
+
+  async getAllPaginated(options?: FluxFindOptions): Promise<{ data: FluxItem[]; total: number }> {
+    return this.repo.findAllPaginated(options);
   }
 
   async getByStatus(status: FluxStatus, entityType?: FluxEntityType): Promise<FluxItem[]> {
@@ -38,6 +55,98 @@ export class FluxService {
   async resetAll(): Promise<void> {
     return this.repo.deleteAll();
   }
+
+  // ─── Counts ───
+
+  async getCounts(): Promise<FluxCountsResult> {
+    const raw = await this.repo.countByTypeAndStatus();
+
+    // Initialize all entity types with all statuses at 0
+    const result: FluxCountsResult = {};
+    for (const entityType of ALL_ENTITY_TYPES) {
+      result[entityType] = {};
+      for (const status of ALL_STATUSES) {
+        result[entityType][status] = raw[entityType]?.[status] ?? 0;
+      }
+      // Add undecided count: we don't track undecided in flux_items,
+      // so undecided = total entities - sum of flux items for that type
+      result[entityType]["undecided"] = 0; // Will be populated if entity repos are available
+    }
+
+    // Count undecided items per type (entities with no flux_items row)
+    if (this.taskRepo) {
+      const totalTasks = await this.taskRepo.countAll();
+      const decidedTasks = ALL_STATUSES.reduce((sum, s) => sum + (result["task"][s] ?? 0), 0);
+      result["task"]["undecided"] = Math.max(0, totalTasks - decidedTasks);
+    }
+    // Email/RSS undecided counts are not computed here (would require countAll on their repos).
+    // The decided counts from countByTypeAndStatus are still accurate.
+
+    return result;
+  }
+
+  // ─── Kanban ───
+
+  async getKanban(limit: number = 50): Promise<FluxKanbanColumn[]> {
+    const columns: FluxKanbanColumn[] = [];
+
+    // Fetch decided columns in parallel
+    const [priorityResult, laterResult, archivedResult] = await Promise.all([
+      this.repo.findByStatusPaginated("priority", undefined, limit, 0),
+      this.repo.findByStatusPaginated("later", undefined, limit, 0),
+      this.repo.findByStatusPaginated("archived", undefined, limit, 0),
+    ]);
+
+    // Collect all entity IDs to batch-fetch metadata
+    const allFluxItems = [
+      ...priorityResult.data,
+      ...laterResult.data,
+      ...archivedResult.data,
+    ];
+
+    // Batch-fetch entity metadata
+    const entityMap = await this.batchFetchEntityMetadata(allFluxItems);
+
+    // Build decided columns
+    const decidedColumns: { status: FluxStatus; result: { data: FluxItem[]; total: number } }[] = [
+      { status: "priority", result: priorityResult },
+      { status: "later", result: laterResult },
+      { status: "archived", result: archivedResult },
+    ];
+
+    // Build undecided column
+    const undecidedItems = await this.getUndecidedItems(limit);
+    columns.push({
+      status: "undecided",
+      items: undecidedItems.items,
+      total: undecidedItems.total,
+    });
+
+    for (const col of decidedColumns) {
+      const items: FluxKanbanItem[] = col.result.data.map(fi => {
+        const meta = entityMap.get(`${fi.entityType}:${fi.entityId}`);
+        return {
+          entityType: fi.entityType,
+          entityId: fi.entityId,
+          fluxStatus: fi.fluxStatus,
+          title: meta?.title ?? "(inconnu)",
+          source: meta?.source ?? fi.entityType,
+          preview: meta?.preview ?? null,
+          date: meta?.date ?? fi.decidedAt.toISOString(),
+        };
+      });
+
+      columns.push({
+        status: col.status,
+        items,
+        total: col.result.total,
+      });
+    }
+
+    return columns;
+  }
+
+  // ─── Suggest ───
 
   async suggestFlux(entityType?: FluxEntityType): Promise<FluxSuggestion[]> {
     if (!this.llmService) return [];
@@ -67,8 +176,11 @@ export class FluxService {
 
     if (items.length === 0) return [];
 
+    // Cap to SUGGEST_MAX_ITEMS to avoid oversized LLM prompts
+    const capped = items.slice(0, SUGGEST_MAX_ITEMS);
+
     // Build prompt
-    const itemsJson = items.map((i, idx) => ({
+    const itemsJson = capped.map((i, idx) => ({
       idx,
       type: i.entityType,
       id: i.entityId,
@@ -95,7 +207,7 @@ ${JSON.stringify(itemsJson, null, 2)}`;
       return suggestions
         .filter(s => ["priority", "later", "archived"].includes(s.status))
         .map(s => {
-          const item = items.find(i => i.entityId === s.id);
+          const item = capped.find(i => i.entityId === s.id);
           return {
             entityType: (s.type || item?.entityType || "task") as FluxEntityType,
             entityId: s.id,
@@ -107,6 +219,179 @@ ${JSON.stringify(itemsJson, null, 2)}`;
     } catch {
       return [];
     }
+  }
+
+  // ─── Private helpers ───
+
+  private async batchFetchEntityMetadata(
+    fluxItems: FluxItem[],
+  ): Promise<Map<string, { title: string; source: string; preview: string | null; date: string | null }>> {
+    const map = new Map<string, { title: string; source: string; preview: string | null; date: string | null }>();
+
+    // Group by entity type
+    const taskIds: string[] = [];
+    const emailIds: string[] = [];
+    const articleIds: string[] = [];
+
+    for (const fi of fluxItems) {
+      switch (fi.entityType) {
+        case "task": taskIds.push(fi.entityId); break;
+        case "email": emailIds.push(fi.entityId); break;
+        case "rss_article": articleIds.push(fi.entityId); break;
+      }
+    }
+
+    // Fetch tasks
+    if (taskIds.length > 0 && this.taskRepo) {
+      const tasks = await Promise.all(taskIds.map(id => this.taskRepo!.findById(id)));
+      for (const t of tasks) {
+        if (t) {
+          map.set(`task:${t.id}`, {
+            title: t.title,
+            source: t.source,
+            preview: t.description?.slice(0, 120) ?? null,
+            date: t.createdAt.toISOString(),
+          });
+        }
+      }
+    }
+
+    // Fetch emails
+    if (emailIds.length > 0 && this.emailRepo) {
+      const emails = await Promise.all(emailIds.map(id => this.emailRepo!.findById(id)));
+      for (const e of emails) {
+        if (e) {
+          map.set(`email:${e.id}`, {
+            title: e.subject ?? "(sans sujet)",
+            source: e.fromName ?? e.fromAddress,
+            preview: e.bodyText?.slice(0, 120) ?? null,
+            date: e.sentAt.toISOString(),
+          });
+        }
+      }
+    }
+
+    // Fetch RSS articles
+    if (articleIds.length > 0 && this.rssArticleRepo) {
+      const articles = await Promise.all(articleIds.map(id => this.rssArticleRepo!.findById(id)));
+      // Fetch feed labels for source info
+      let feedLabelMap = new Map<string, string>();
+      if (this.rssFeedRepo) {
+        const feeds = await this.rssFeedRepo.findAll();
+        feedLabelMap = new Map(feeds.map(f => [f.id, f.label]));
+      }
+
+      for (const a of articles) {
+        if (a) {
+          map.set(`rss_article:${a.id}`, {
+            title: a.title ?? "(sans titre)",
+            source: feedLabelMap.get(a.feedId) ?? a.author ?? "RSS",
+            preview: a.description?.slice(0, 120) ?? null,
+            date: a.publishedAt?.toISOString() ?? a.createdAt.toISOString(),
+          });
+        }
+      }
+    }
+
+    return map;
+  }
+
+  private async getUndecidedItems(limit: number): Promise<{ items: FluxKanbanItem[]; total: number }> {
+    // Undecided = entities that do NOT have a flux_items row
+    // Strategy: fetch all tasks (paginated), filter out those with flux decisions
+    const items: FluxKanbanItem[] = [];
+    let total = 0;
+
+    if (this.taskRepo) {
+      const totalTasks = await this.taskRepo.countAll();
+      const decidedTaskIds = new Set<string>();
+      const allFlux = await this.repo.findAll("task");
+      for (const f of allFlux) decidedTaskIds.add(f.entityId);
+
+      const undecidedCount = Math.max(0, totalTasks - decidedTaskIds.size);
+      total += undecidedCount;
+
+      // Fetch tasks and filter out decided ones, up to limit
+      if (undecidedCount > 0 && items.length < limit) {
+        const tasks = await this.taskRepo.findAll({ limit: limit + decidedTaskIds.size });
+        for (const t of tasks) {
+          if (items.length >= limit) break;
+          if (!decidedTaskIds.has(t.id)) {
+            items.push({
+              entityType: "task",
+              entityId: t.id,
+              fluxStatus: "priority", // placeholder, will be ignored since this is undecided
+              title: t.title,
+              source: t.source,
+              preview: t.description?.slice(0, 120) ?? null,
+              date: t.createdAt.toISOString(),
+            });
+          }
+        }
+      }
+    }
+
+    // Add undecided emails
+    if (this.emailRepo && items.length < limit) {
+      const decidedEmailIds = new Set<string>();
+      const allFluxEmails = await this.repo.findAll("email");
+      for (const f of allFluxEmails) decidedEmailIds.add(f.entityId);
+
+      const allEmails = await this.emailRepo.findAll({ limit: limit + decidedEmailIds.size });
+      let undecidedEmailCount = 0;
+      for (const e of allEmails) {
+        if (!decidedEmailIds.has(e.id)) {
+          undecidedEmailCount++;
+          if (items.length < limit) {
+            items.push({
+              entityType: "email",
+              entityId: e.id,
+              fluxStatus: "priority", // placeholder
+              title: e.subject ?? "(sans sujet)",
+              source: e.fromName ?? e.fromAddress,
+              preview: e.bodyText?.slice(0, 120) ?? null,
+              date: e.sentAt.toISOString(),
+            });
+          }
+        }
+      }
+      total += undecidedEmailCount;
+    }
+
+    // Add undecided RSS articles
+    if (this.rssArticleRepo && items.length < limit) {
+      const decidedArticleIds = new Set<string>();
+      const allFluxArticles = await this.repo.findAll("rss_article");
+      for (const f of allFluxArticles) decidedArticleIds.add(f.entityId);
+
+      let feedLabelMap = new Map<string, string>();
+      if (this.rssFeedRepo) {
+        const feeds = await this.rssFeedRepo.findAll();
+        feedLabelMap = new Map(feeds.map(f => [f.id, f.label]));
+      }
+
+      const allArticles = await this.rssArticleRepo.findAll({ limit: limit + decidedArticleIds.size });
+      let undecidedArticleCount = 0;
+      for (const a of allArticles) {
+        if (!decidedArticleIds.has(a.id)) {
+          undecidedArticleCount++;
+          if (items.length < limit) {
+            items.push({
+              entityType: "rss_article",
+              entityId: a.id,
+              fluxStatus: "priority", // placeholder
+              title: a.title ?? "(sans titre)",
+              source: feedLabelMap.get(a.feedId) ?? a.author ?? "RSS",
+              preview: a.description?.slice(0, 120) ?? null,
+              date: a.publishedAt?.toISOString() ?? a.createdAt.toISOString(),
+            });
+          }
+        }
+      }
+      total += undecidedArticleCount;
+    }
+
+    return { items, total };
   }
 
   // ─── Side-effects ───

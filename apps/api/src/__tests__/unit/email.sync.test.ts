@@ -407,7 +407,7 @@ describe("EmailService — syncAccount (syncFlags + reconcileMissing)", () => {
 
       const result = await service.syncAccount("acc-1");
 
-      expect(imapConnector.fetchNewEmails).toHaveBeenCalledWith(account, "secret", "INBOX", 99);
+      expect(imapConnector.fetchNewEmails).toHaveBeenCalledWith(account, "secret", "INBOX", 99, 30);
       expect(imapConnector.listRecentUids).toHaveBeenCalled();
       expect(emailRepo.findFlagsByAccount).toHaveBeenCalled();
       expect(accountRepo.updateLastSyncedAt).toHaveBeenCalled();

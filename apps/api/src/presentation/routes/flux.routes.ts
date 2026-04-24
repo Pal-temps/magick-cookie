@@ -8,24 +8,34 @@ const VALID_TYPES = ["task", "email", "rss_article"];
 export function createFluxRoutes(fluxService: FluxService) {
   const app = new Hono();
 
-  // GET /api/flux?status=priority&type=task
+  // GET /api/flux?type=task&status=priority&limit=50&offset=0
   app.get("/", async (c) => {
     const status = c.req.query("status") as FluxStatus | undefined;
     const entityType = c.req.query("type") as FluxEntityType | undefined;
+    const limit = Math.min(Math.max(1, parseInt(c.req.query("limit") ?? "50", 10) || 50), 200);
+    const offset = Math.max(0, parseInt(c.req.query("offset") ?? "0", 10) || 0);
 
     if (entityType && !VALID_TYPES.includes(entityType)) {
       return c.json({ error: `Invalid type. Valid: ${VALID_TYPES.join(", ")}` }, 400);
     }
-
-    let data;
-    if (status) {
-      if (!VALID_STATUSES.includes(status)) {
-        return c.json({ error: `Invalid status. Valid: ${VALID_STATUSES.join(", ")}` }, 400);
-      }
-      data = await fluxService.getByStatus(status, entityType);
-    } else {
-      data = await fluxService.getAll(entityType);
+    if (status && !VALID_STATUSES.includes(status)) {
+      return c.json({ error: `Invalid status. Valid: ${VALID_STATUSES.join(", ")}` }, 400);
     }
+
+    const result = await fluxService.getAllPaginated({ entityType, status, limit, offset });
+    return c.json({ data: result.data, total: result.total });
+  });
+
+  // GET /api/flux/counts — counts grouped by (entityType, fluxStatus)
+  app.get("/counts", async (c) => {
+    const data = await fluxService.getCounts();
+    return c.json({ data });
+  });
+
+  // GET /api/flux/kanban?limit=50 — 4 columns with paginated items + totals
+  app.get("/kanban", async (c) => {
+    const limit = Math.min(Math.max(1, parseInt(c.req.query("limit") ?? "50", 10) || 50), 200);
+    const data = await fluxService.getKanban(limit);
     return c.json({ data });
   });
 

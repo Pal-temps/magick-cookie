@@ -13,6 +13,7 @@ const VALID_PREFS = {
   env: { customChecks: [] },
   vps: { notificationsEnabled: true },
   sidebar: { sectionOrder: ["favoris"] },
+  rss: { retentionDays: 90 },
 };
 
 describe("user-preferences routes", () => {

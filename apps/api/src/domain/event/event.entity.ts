@@ -4,6 +4,8 @@ export interface CalendarEvent {
   title: string;
   description: string | null;
   location: string | null;
+  latitude: number | null;
+  longitude: number | null;
   startAt: Date;
   endAt: Date;
   isAllDay: boolean;
@@ -18,6 +20,8 @@ export interface CreateEventInput {
   title: string;
   description?: string | null;
   location?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
   startAt: Date;
   endAt: Date;
   isAllDay?: boolean;
@@ -29,6 +33,8 @@ export interface UpdateEventInput {
   title?: string;
   description?: string | null;
   location?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
   startAt?: Date;
   endAt?: Date;
   isAllDay?: boolean;

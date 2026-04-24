@@ -7,6 +7,7 @@ export interface Alarm {
   repeatPattern: RepeatPattern;
   repeatDays: number[] | null;
   enabled: boolean;
+  alertSound: string | null;
   lastFiredAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
@@ -18,6 +19,7 @@ export interface CreateAlarmInput {
   repeatPattern?: RepeatPattern;
   repeatDays?: number[] | null;
   enabled?: boolean;
+  alertSound?: string | null;
 }
 
 export interface UpdateAlarmInput {
@@ -26,4 +28,5 @@ export interface UpdateAlarmInput {
   repeatPattern?: RepeatPattern;
   repeatDays?: number[] | null;
   enabled?: boolean;
+  alertSound?: string | null;
 }

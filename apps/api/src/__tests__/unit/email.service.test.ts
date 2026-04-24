@@ -565,7 +565,7 @@ describe("EmailService", () => {
       const result = await service.syncAccount("acc-1");
 
       expect(result).toEqual({ newEmails: 1 });
-      expect(imapConnector.fetchNewEmails).toHaveBeenCalledWith(account, "secret", "INBOX", 50);
+      expect(imapConnector.fetchNewEmails).toHaveBeenCalledWith(account, "secret", "INBOX", 50, 30);
       expect(emailRepo.bulkCreate).toHaveBeenCalledWith(rawEmails);
       expect(accountRepo.updateLastSyncedAt).toHaveBeenCalledTimes(1);
     });
@@ -597,6 +597,7 @@ describe("EmailService", () => {
         "secret",
         "INBOX",
         undefined,
+        30,
       );
     });
   });

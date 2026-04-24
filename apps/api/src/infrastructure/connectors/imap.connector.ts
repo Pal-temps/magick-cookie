@@ -60,6 +60,7 @@ export class ImapConnector {
     password: string,
     folder: string = "INBOX",
     sinceUid?: number,
+    sinceDays: number = 30,
   ): Promise<CreateEmailInput[]> {
     const client = this.createClient({
       host: account.imapHost,
@@ -87,16 +88,16 @@ export class ImapConnector {
             source: true,
           }, { uid: true });
         } else {
-          // First sync: use SEARCH to limit to recent emails (last 30 days, max 200)
+          // First/full sync: search emails since N days ago
           const since = new Date();
-          since.setDate(since.getDate() - 30);
+          since.setDate(since.getDate() - sinceDays);
           const uids = await client.search({ since }, { uid: true });
           if (!uids || uids.length === 0) {
             lock.release();
             return results;
           }
-          // Take the most recent 200 UIDs
-          const recentUids = uids.slice(-200);
+          // Take the most recent UIDs (capped at 500 for safety)
+          const recentUids = uids.slice(-500);
           const uidRange = recentUids.join(",");
           messages = client.fetch(uidRange, {
             uid: true,

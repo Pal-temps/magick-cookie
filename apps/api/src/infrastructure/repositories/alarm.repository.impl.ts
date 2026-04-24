@@ -29,6 +29,7 @@ export class DrizzleAlarmRepository implements AlarmRepository {
       repeatPattern: input.repeatPattern ?? "once",
       repeatDays: input.repeatDays ? input.repeatDays.join(",") : null,
       enabled: input.enabled ?? true,
+      alertSound: input.alertSound ?? "alarm",
     }).returning();
     return this.toDomain(rows[0]);
   }
@@ -40,6 +41,7 @@ export class DrizzleAlarmRepository implements AlarmRepository {
     if (input.repeatPattern !== undefined) values.repeatPattern = input.repeatPattern;
     if (input.repeatDays !== undefined) values.repeatDays = input.repeatDays ? input.repeatDays.join(",") : null;
     if (input.enabled !== undefined) values.enabled = input.enabled;
+    if (input.alertSound !== undefined) values.alertSound = input.alertSound;
 
     const rows = await this.db.update(alarms).set(values).where(eq(alarms.id, id)).returning();
     return rows[0] ? this.toDomain(rows[0]) : null;
@@ -62,6 +64,7 @@ export class DrizzleAlarmRepository implements AlarmRepository {
       repeatPattern: row.repeatPattern as RepeatPattern,
       repeatDays: row.repeatDays ? row.repeatDays.split(",").map(Number) : null,
       enabled: row.enabled,
+      alertSound: row.alertSound ?? "alarm",
       lastFiredAt: row.lastFiredAt,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,

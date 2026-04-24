@@ -1,8 +1,8 @@
-import { eq, and, gte, lte, sql } from "drizzle-orm";
+import { eq, and, gte, lte, sql, desc } from "drizzle-orm";
 import type { Database } from "../database/client";
 import { fluxItems } from "../database/schema";
 import type { FluxRepository } from "../../domain/flux/flux.repository";
-import type { FluxItem, FluxEntityType, FluxStatus, SetFluxInput } from "../../domain/flux/flux.entity";
+import type { FluxItem, FluxEntityType, FluxStatus, SetFluxInput, FluxFindOptions } from "../../domain/flux/flux.entity";
 
 export class DrizzleFluxRepository implements FluxRepository {
   constructor(private db: Database) {}
@@ -13,6 +13,51 @@ export class DrizzleFluxRepository implements FluxRepository {
       return (await query.where(eq(fluxItems.entityType, entityType)).orderBy(fluxItems.decidedAt)).map(this.toDomain);
     }
     return (await query.orderBy(fluxItems.decidedAt)).map(this.toDomain);
+  }
+
+  async findAllPaginated(options?: FluxFindOptions): Promise<{ data: FluxItem[]; total: number }> {
+    const conditions = [];
+    if (options?.entityType) conditions.push(eq(fluxItems.entityType, options.entityType));
+    if (options?.status) conditions.push(eq(fluxItems.fluxStatus, options.status));
+
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+    const [countResult, rows] = await Promise.all([
+      this.db.select({ count: sql<number>`count(*)` }).from(fluxItems)
+        .where(whereClause),
+      this.db.select().from(fluxItems)
+        .where(whereClause)
+        .orderBy(desc(fluxItems.decidedAt))
+        .limit(options?.limit ?? 50)
+        .offset(options?.offset ?? 0),
+    ]);
+
+    return {
+      data: rows.map(this.toDomain),
+      total: Number(countResult[0]?.count ?? 0),
+    };
+  }
+
+  async findByStatusPaginated(status: FluxStatus, entityType?: FluxEntityType, limit?: number, offset?: number): Promise<{ data: FluxItem[]; total: number }> {
+    const conditions = [eq(fluxItems.fluxStatus, status)];
+    if (entityType) conditions.push(eq(fluxItems.entityType, entityType));
+
+    const whereClause = and(...conditions);
+
+    const [countResult, rows] = await Promise.all([
+      this.db.select({ count: sql<number>`count(*)` }).from(fluxItems)
+        .where(whereClause),
+      this.db.select().from(fluxItems)
+        .where(whereClause)
+        .orderBy(desc(fluxItems.decidedAt))
+        .limit(limit ?? 50)
+        .offset(offset ?? 0),
+    ]);
+
+    return {
+      data: rows.map(this.toDomain),
+      total: Number(countResult[0]?.count ?? 0),
+    };
   }
 
   async findByStatus(status: FluxStatus, entityType?: FluxEntityType): Promise<FluxItem[]> {
@@ -80,6 +125,26 @@ export class DrizzleFluxRepository implements FluxRepository {
     const result: Record<string, number> = {};
     for (const row of rows) {
       result[row.status] = Number(row.count);
+    }
+    return result;
+  }
+
+  async countByTypeAndStatus(): Promise<Record<string, Record<string, number>>> {
+    const rows = await this.db
+      .select({
+        entityType: fluxItems.entityType,
+        fluxStatus: fluxItems.fluxStatus,
+        count: sql<number>`count(*)`,
+      })
+      .from(fluxItems)
+      .groupBy(fluxItems.entityType, fluxItems.fluxStatus);
+
+    const result: Record<string, Record<string, number>> = {};
+    for (const row of rows) {
+      if (!result[row.entityType]) {
+        result[row.entityType] = {};
+      }
+      result[row.entityType][row.fluxStatus] = Number(row.count);
     }
     return result;
   }

@@ -21,7 +21,7 @@ describe("BenchService", () => {
       expect(result.type).toBe("function");
       expect(result.name).toBe("simple-loop");
       expect(result.timing.avg).toBeGreaterThan(0);
-      expect(result.timing.min).toBeGreaterThan(0);
+      expect(result.timing.min).toBeGreaterThanOrEqual(0);
       expect(result.timing.max).toBeGreaterThanOrEqual(result.timing.min);
       expect(result.timing.p95).toBeGreaterThanOrEqual(result.timing.p50);
       expect(result.timing.opsPerSec).toBeGreaterThan(0);

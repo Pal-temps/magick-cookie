@@ -1,4 +1,4 @@
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, sql } from "drizzle-orm";
 import type { Database } from "../database/client";
 import { snippets } from "../database/schema";
 import type { SnippetRepository, SnippetFindAllOptions } from "../../domain/snippet/snippet.repository";
@@ -9,7 +9,7 @@ export class DrizzleSnippetRepository implements SnippetRepository {
 
   async findAll(options?: SnippetFindAllOptions): Promise<Snippet[]> {
     const conditions = [];
-    if (options?.category) conditions.push(eq(snippets.category, options.category));
+    if (options?.tag) conditions.push(sql`${snippets.tags} LIKE ${"%" + JSON.stringify(options.tag).slice(0, -1) + "%"}`);
     if (options?.language) conditions.push(eq(snippets.language, options.language));
 
     let query = this.db
@@ -43,7 +43,7 @@ export class DrizzleSnippetRepository implements SnippetRepository {
       title: input.title,
       content: input.content,
       language: input.language ?? "text",
-      category: input.category ?? "none",
+      tags: JSON.stringify(input.tags ?? []),
       isFavorite: input.isFavorite ?? false,
     }).returning();
     return this.toDomain(rows[0]);
@@ -54,7 +54,7 @@ export class DrizzleSnippetRepository implements SnippetRepository {
     if (input.title !== undefined) values.title = input.title;
     if (input.content !== undefined) values.content = input.content;
     if (input.language !== undefined) values.language = input.language;
-    if (input.category !== undefined) values.category = input.category;
+    if (input.tags !== undefined) values.tags = JSON.stringify(input.tags);
     if (input.isFavorite !== undefined) values.isFavorite = input.isFavorite;
 
     const rows = await this.db.update(snippets).set(values).where(eq(snippets.id, id)).returning();
@@ -72,7 +72,7 @@ export class DrizzleSnippetRepository implements SnippetRepository {
       title: row.title,
       content: row.content,
       language: row.language,
-      category: row.category,
+      tags: JSON.parse(row.tags) as string[],
       isFavorite: row.isFavorite,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,

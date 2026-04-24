@@ -6,6 +6,7 @@ export const createAlarmSchema = z.object({
   repeatPattern: z.enum(["once", "daily", "weekdays", "weekends", "custom"]).optional(),
   repeatDays: z.array(z.number().int().min(0).max(6)).nullable().optional(),
   enabled: z.boolean().optional(),
+  alertSound: z.string().max(50).nullable().optional(),
 });
 
 export const updateAlarmSchema = z.object({
@@ -14,4 +15,5 @@ export const updateAlarmSchema = z.object({
   repeatPattern: z.enum(["once", "daily", "weekdays", "weekends", "custom"]).optional(),
   repeatDays: z.array(z.number().int().min(0).max(6)).nullable().optional(),
   enabled: z.boolean().optional(),
+  alertSound: z.string().max(50).nullable().optional(),
 });

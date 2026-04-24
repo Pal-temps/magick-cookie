@@ -14,6 +14,8 @@ const makeEvent = (overrides: Partial<CalendarEvent> = {}): CalendarEvent => ({
   endAt: new Date("2026-03-15T11:00:00Z"),
   isAllDay: false,
   recurrenceRule: null,
+  latitude: null,
+  longitude: null,
   taskId: null,
   createdAt: new Date("2026-01-01"),
   updatedAt: new Date("2026-01-01"),

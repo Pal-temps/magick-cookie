@@ -8,17 +8,27 @@ import {
   emailQuerySchema,
   sendEmailSchema,
 } from "../validators/email.validator";
+import { scanEmailLight, scanEmail } from "../../application/email/email-scanner";
 
 const EMAIL_CATEGORIES = ["newsletter", "facture", "action_requise", "personnel", "notification", "autre"];
 
 export function createEmailRoutes(emailService: EmailService, llmService?: LlmService) {
   const app = new Hono();
 
-  // GET /api/emails — inbox unifiée
+  // GET /api/emails — inbox unifiée (with light security scan)
   app.get("/", async (c) => {
     const query = emailQuerySchema.parse(c.req.query());
     const data = await emailService.getEmails(query);
-    return c.json({ data });
+    const enriched = data.map((email) => {
+      const scan = scanEmailLight({
+        fromAddress: email.fromAddress,
+        fromName: email.fromName ?? "",
+        subject: email.subject ?? "",
+        attachmentNames: email.attachmentNames ?? [],
+      });
+      return { ...email, security: scan.level !== "safe" ? scan : undefined };
+    });
+    return c.json({ data: enriched });
   });
 
   // GET /api/emails/digest
@@ -78,11 +88,19 @@ export function createEmailRoutes(emailService: EmailService, llmService?: LlmSe
     return c.json({ data: { count } });
   });
 
-  // GET /api/emails/:id
+  // GET /api/emails/:id (with full security scan)
   app.get("/:id", async (c) => {
     const email = await emailService.getEmailById(c.req.param("id"));
     if (!email) return c.json({ error: "Email not found" }, 404);
-    return c.json({ data: email });
+    const security = scanEmail({
+      fromAddress: email.fromAddress,
+      fromName: email.fromName ?? "",
+      subject: email.subject ?? "",
+      attachmentNames: email.attachmentNames ?? [],
+      html: email.bodyHtml ?? null,
+      text: email.bodyText ?? null,
+    });
+    return c.json({ data: { ...email, security } });
   });
 
   // PATCH /api/emails/:id — update flags
@@ -205,9 +223,10 @@ export function createEmailAccountRoutes(emailService: EmailService) {
     return c.json({ data: { ok: true } });
   });
 
-  // POST /api/email-accounts/:id/sync — forcer sync
+  // POST /api/email-accounts/:id/sync — forcer sync (?full=true for full resync)
   app.post("/:id/sync", async (c) => {
-    const result = await emailService.syncAccount(c.req.param("id"));
+    const full = c.req.query("full") === "true";
+    const result = await emailService.syncAccount(c.req.param("id"), full);
     return c.json({ data: result });
   });
 

@@ -3,7 +3,6 @@ export interface Bookmark {
   name: string;
   url: string;
   emoji: string | null;
-  tag: string;
   category: string;
   isFavorite: boolean;
   sortOrder: number;
@@ -15,7 +14,6 @@ export interface CreateBookmarkInput {
   name: string;
   url: string;
   emoji?: string | null;
-  tag?: string;
   category?: string;
   isFavorite?: boolean;
   sortOrder?: number;
@@ -25,7 +23,6 @@ export interface UpdateBookmarkInput {
   name?: string;
   url?: string;
   emoji?: string | null;
-  tag?: string;
   category?: string;
   isFavorite?: boolean;
   sortOrder?: number;

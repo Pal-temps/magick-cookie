@@ -1,14 +1,21 @@
-import { eq, and, isNull, notInArray, sql } from "drizzle-orm";
+import { eq, and, isNull, notInArray, sql, desc, count } from "drizzle-orm";
 import type { Database } from "../database/client";
 import { tasks } from "../database/schema";
 import type { TaskRepository } from "../../domain/task/task.repository";
-import type { Task, TaskSource, CreateTaskInput } from "../../domain/task/task.entity";
+import type { Task, TaskSource, CreateTaskInput, UpdateTaskInput } from "../../domain/task/task.entity";
 
 export class DrizzleTaskRepository implements TaskRepository {
   constructor(private db: Database) {}
 
-  async findAll(): Promise<Task[]> {
-    const rows = await this.db.select().from(tasks).orderBy(tasks.createdAt);
+  async findAll(options?: { source?: string; limit?: number; offset?: number }): Promise<Task[]> {
+    let query = this.db.select().from(tasks).$dynamic();
+    if (options?.source) {
+      query = query.where(eq(tasks.source, options.source));
+    }
+    const rows = await query
+      .orderBy(desc(tasks.createdAt))
+      .limit(options?.limit ?? 50)
+      .offset(options?.offset ?? 0);
     return rows.map(this.toDomain);
   }
 
@@ -30,11 +37,24 @@ export class DrizzleTaskRepository implements TaskRepository {
     return rows.map(this.toDomain);
   }
 
-  async findUnscheduled(): Promise<Task[]> {
+  async findUnscheduled(options?: { limit?: number; offset?: number }): Promise<Task[]> {
     const rows = await this.db.select().from(tasks)
       .where(isNull(tasks.dueDate))
-      .orderBy(tasks.createdAt);
+      .orderBy(desc(tasks.createdAt))
+      .limit(options?.limit ?? 50)
+      .offset(options?.offset ?? 0);
     return rows.map(this.toDomain);
+  }
+
+  async countAll(source?: string): Promise<number> {
+    const condition = source ? eq(tasks.source, source) : undefined;
+    const rows = await this.db.select({ value: count() }).from(tasks).where(condition);
+    return rows[0]?.value ?? 0;
+  }
+
+  async countUnscheduled(): Promise<number> {
+    const rows = await this.db.select({ value: count() }).from(tasks).where(isNull(tasks.dueDate));
+    return rows[0]?.value ?? 0;
   }
 
   async upsertByExternalId(input: CreateTaskInput): Promise<Task> {
@@ -94,6 +114,28 @@ export class DrizzleTaskRepository implements TaskRepository {
       .returning();
 
     return this.toDomain(rows[0]);
+  }
+
+  async update(id: string, input: UpdateTaskInput): Promise<Task | null> {
+    const set: Record<string, unknown> = {};
+    if (input.title !== undefined) set.title = input.title;
+    if (input.description !== undefined) set.description = input.description;
+    if (input.status !== undefined) set.status = input.status;
+    if (input.priority !== undefined) set.priority = input.priority;
+    if (input.startDate !== undefined) set.startDate = input.startDate;
+    if (input.dueDate !== undefined) set.dueDate = input.dueDate;
+
+    if (Object.keys(set).length === 0) {
+      return this.findById(id);
+    }
+
+    const rows = await this.db
+      .update(tasks)
+      .set(set)
+      .where(eq(tasks.id, id))
+      .returning();
+
+    return rows[0] ? this.toDomain(rows[0]) : null;
   }
 
   async deleteBySource(source: TaskSource): Promise<void> {

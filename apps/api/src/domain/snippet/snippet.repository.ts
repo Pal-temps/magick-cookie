@@ -1,7 +1,7 @@
 import type { Snippet, CreateSnippetInput, UpdateSnippetInput } from "./snippet.entity";
 
 export interface SnippetFindAllOptions {
-  category?: string;
+  tag?: string;
   language?: string;
   limit?: number;
   offset?: number;

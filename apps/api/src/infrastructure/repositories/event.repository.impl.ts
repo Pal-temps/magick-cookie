@@ -40,6 +40,8 @@ export class DrizzleEventRepository implements EventRepository {
       title: input.title,
       description: input.description ?? null,
       location: input.location ?? null,
+      latitude: input.latitude ?? null,
+      longitude: input.longitude ?? null,
       startAt: input.startAt,
       endAt: input.endAt,
       isAllDay: input.isAllDay ?? false,
@@ -54,6 +56,8 @@ export class DrizzleEventRepository implements EventRepository {
     if (input.title !== undefined) values.title = input.title;
     if (input.description !== undefined) values.description = input.description;
     if (input.location !== undefined) values.location = input.location;
+    if (input.latitude !== undefined) values.latitude = input.latitude;
+    if (input.longitude !== undefined) values.longitude = input.longitude;
     if (input.startAt !== undefined) values.startAt = input.startAt;
     if (input.endAt !== undefined) values.endAt = input.endAt;
     if (input.isAllDay !== undefined) values.isAllDay = input.isAllDay;
@@ -97,6 +101,8 @@ export class DrizzleEventRepository implements EventRepository {
       title: row.title,
       description: row.description,
       location: row.location,
+      latitude: row.latitude,
+      longitude: row.longitude,
       startAt: row.startAt,
       endAt: row.endAt,
       isAllDay: row.isAllDay,

@@ -1,5 +1,5 @@
 // ---------------------------------------------------------------------------
-// k6 Load / Stress Test for do-it-now API
+// k6 Load / Stress Test for Magick Cookie API
 // ---------------------------------------------------------------------------
 // Usage: k6 run apps/api/tests/load/k6-stress.js
 // With custom URL: k6 run -e API_URL=http://localhost:47300/api apps/api/tests/load/k6-stress.js

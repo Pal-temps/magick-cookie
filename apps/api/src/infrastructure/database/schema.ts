@@ -1,4 +1,4 @@
-import { pgTable, uuid, varchar, text, boolean, timestamp, integer, numeric, pgEnum, index, uniqueIndex } from "drizzle-orm/pg-core";
+import { pgTable, uuid, varchar, text, boolean, timestamp, integer, numeric, doublePrecision, pgEnum, index, uniqueIndex } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 
 export const calendars = pgTable("calendars", {
@@ -29,6 +29,8 @@ export const tasks = pgTable("tasks", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 }, (table) => [
   uniqueIndex("idx_tasks_external_source").on(table.externalId, table.source),
+  index("idx_tasks_source").on(table.source),
+  index("idx_tasks_due_date").on(table.dueDate),
 ]);
 
 export const events = pgTable("events", {
@@ -37,6 +39,8 @@ export const events = pgTable("events", {
   title: varchar("title", { length: 500 }).notNull(),
   description: text("description"),
   location: varchar("location", { length: 500 }),
+  latitude: doublePrecision("latitude"),
+  longitude: doublePrecision("longitude"),
   startAt: timestamp("start_at", { withTimezone: true }).notNull(),
   endAt: timestamp("end_at", { withTimezone: true }).notNull(),
   isAllDay: boolean("is_all_day").notNull().default(false),
@@ -116,6 +120,7 @@ export const fluxItems = pgTable("flux_items", {
   uniqueIndex("idx_flux_entity").on(table.entityType, table.entityId),
   index("idx_flux_status").on(table.fluxStatus),
   index("idx_flux_type_status").on(table.entityType, table.fluxStatus),
+  index("idx_flux_pagination").on(table.entityType, table.fluxStatus, table.decidedAt),
 ]);
 
 export const emailAccounts = pgTable("email_accounts", {
@@ -228,20 +233,11 @@ export const bookmarkCategories = pgTable("bookmark_categories", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
-export const bookmarkTags = pgTable("bookmark_tags", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  value: varchar("value", { length: 30 }).notNull().unique(),
-  label: varchar("label", { length: 100 }).notNull(),
-  sortOrder: integer("sort_order").notNull().default(0),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-});
-
 export const bookmarks = pgTable("bookmarks", {
   id: uuid("id").primaryKey().defaultRandom(),
   name: varchar("name", { length: 255 }).notNull(),
   url: varchar("url", { length: 1000 }).notNull(),
   emoji: varchar("emoji", { length: 10 }),
-  tag: varchar("tag", { length: 30 }).notNull().default("none"),
   category: varchar("category", { length: 30 }).notNull().default("none"),
   isFavorite: boolean("is_favorite").notNull().default(false),
   sortOrder: integer("sort_order").notNull().default(0),
@@ -283,6 +279,7 @@ export const alarms = pgTable("alarms", {
   repeatPattern: varchar("repeat_pattern", { length: 20 }).notNull().default("once"),
   repeatDays: varchar("repeat_days", { length: 20 }),
   enabled: boolean("enabled").notNull().default(true),
+  alertSound: varchar("alert_sound", { length: 50 }).default("alarm"),
   lastFiredAt: timestamp("last_fired_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
@@ -319,20 +316,12 @@ export const rssArticles = pgTable("rss_articles", {
   uniqueIndex("idx_rss_articles_feed_guid").on(table.feedId, table.guid),
 ]);
 
-export const snippetCategories = pgTable("snippet_categories", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  value: varchar("value", { length: 30 }).notNull().unique(),
-  label: varchar("label", { length: 100 }).notNull(),
-  sortOrder: integer("sort_order").notNull().default(0),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-});
-
 export const snippets = pgTable("snippets", {
   id: uuid("id").primaryKey().defaultRandom(),
   title: varchar("title", { length: 255 }).notNull(),
   content: text("content").notNull(),
   language: varchar("language", { length: 50 }).notNull().default("text"),
-  category: varchar("category", { length: 30 }).notNull().default("none"),
+  tags: text("tags").notNull().default("[]"),
   isFavorite: boolean("is_favorite").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),

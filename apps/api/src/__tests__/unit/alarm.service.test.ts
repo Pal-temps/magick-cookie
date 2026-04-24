@@ -10,6 +10,7 @@ const makeAlarm = (overrides: Partial<Alarm> = {}): Alarm => ({
   repeatPattern: "daily",
   repeatDays: null,
   enabled: true,
+  alertSound: null,
   lastFiredAt: null,
   createdAt: new Date("2026-01-01"),
   updatedAt: new Date("2026-01-01"),

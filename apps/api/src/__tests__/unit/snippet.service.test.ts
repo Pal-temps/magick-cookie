@@ -1,34 +1,23 @@
 import { describe, it, expect, beforeEach, mock } from "bun:test";
 import { SnippetService } from "../../application/snippet/snippet.service";
 import type { SnippetRepository } from "../../domain/snippet/snippet.repository";
-import type { SnippetCategoryRepository } from "../../domain/snippet/snippet-category.repository";
-import type { Snippet, SnippetCategory } from "../../domain/snippet/snippet.entity";
+import type { Snippet } from "../../domain/snippet/snippet.entity";
 
 const makeSnippet = (overrides: Partial<Snippet> = {}): Snippet => ({
   id: "s-1",
   title: "Hello World",
   content: "console.log('hello');",
   language: "typescript",
-  category: "utils",
+  tags: ["utils"],
   isFavorite: false,
   createdAt: new Date("2026-01-01"),
   updatedAt: new Date("2026-01-01"),
   ...overrides,
 });
 
-const makeCategory = (overrides: Partial<SnippetCategory> = {}): SnippetCategory => ({
-  id: "sc-1",
-  value: "utils",
-  label: "Utilities",
-  sortOrder: 0,
-  createdAt: new Date("2026-01-01"),
-  ...overrides,
-});
-
 describe("SnippetService", () => {
   let service: SnippetService;
   let mockRepo: Record<keyof SnippetRepository, ReturnType<typeof mock>>;
-  let mockCategoryRepo: Record<keyof SnippetCategoryRepository, ReturnType<typeof mock>>;
 
   beforeEach(() => {
     mockRepo = {
@@ -38,16 +27,8 @@ describe("SnippetService", () => {
       update: mock(() => Promise.resolve(null)),
       delete: mock(() => Promise.resolve(false)),
     };
-    mockCategoryRepo = {
-      findAll: mock(() => Promise.resolve([])),
-      findByValue: mock(() => Promise.resolve(null)),
-      create: mock(() => Promise.resolve(makeCategory())),
-      update: mock(() => Promise.resolve(null)),
-      delete: mock(() => Promise.resolve(false)),
-    };
     service = new SnippetService(
       mockRepo as unknown as SnippetRepository,
-      mockCategoryRepo as unknown as SnippetCategoryRepository,
     );
   });
 
@@ -68,7 +49,7 @@ describe("SnippetService", () => {
   });
 
   it("getAll passes options to repo", async () => {
-    const options = { category: "utils", language: "typescript", limit: 10, offset: 0 };
+    const options = { tag: "utils", language: "typescript", limit: 10, offset: 0 };
     await service.getAll(options);
     expect(mockRepo.findAll).toHaveBeenCalledWith(options);
   });
@@ -91,8 +72,8 @@ describe("SnippetService", () => {
 
   // --- create ---
   it("create delegates to repo and returns snippet", async () => {
-    const input = { title: "Hello World", content: "console.log('hello');" };
-    const created = makeSnippet();
+    const input = { title: "Hello World", content: "console.log('hello');", tags: ["utils", "debug"] };
+    const created = makeSnippet({ tags: ["utils", "debug"] });
     mockRepo.create.mockReturnValue(Promise.resolve(created));
 
     const result = await service.create(input);
@@ -103,13 +84,13 @@ describe("SnippetService", () => {
 
   // --- update ---
   it("update returns updated snippet when found", async () => {
-    const updated = makeSnippet({ title: "Hello World v2" });
+    const updated = makeSnippet({ title: "Hello World v2", tags: ["utils", "refactor"] });
     mockRepo.update.mockReturnValue(Promise.resolve(updated));
 
-    const result = await service.update("s-1", { title: "Hello World v2" });
+    const result = await service.update("s-1", { title: "Hello World v2", tags: ["utils", "refactor"] });
 
     expect(result).toEqual(updated);
-    expect(mockRepo.update).toHaveBeenCalledWith("s-1", { title: "Hello World v2" });
+    expect(mockRepo.update).toHaveBeenCalledWith("s-1", { title: "Hello World v2", tags: ["utils", "refactor"] });
   });
 
   it("update returns null when snippet not found", async () => {
@@ -129,65 +110,6 @@ describe("SnippetService", () => {
 
   it("delete returns false when snippet not found", async () => {
     const result = await service.delete("missing");
-    expect(result).toBe(false);
-  });
-
-  // --- getAllCategories ---
-  it("getAllCategories returns all categories", async () => {
-    const cats = [makeCategory(), makeCategory({ id: "sc-2", value: "hooks", label: "Hooks" })];
-    mockCategoryRepo.findAll.mockReturnValue(Promise.resolve(cats));
-
-    const result = await service.getAllCategories();
-
-    expect(result).toEqual(cats);
-    expect(mockCategoryRepo.findAll).toHaveBeenCalledTimes(1);
-  });
-
-  it("getAllCategories returns empty array when no categories", async () => {
-    const result = await service.getAllCategories();
-    expect(result).toEqual([]);
-  });
-
-  // --- createCategory ---
-  it("createCategory delegates to category repo and returns category", async () => {
-    const input = { value: "utils", label: "Utilities" };
-    const created = makeCategory();
-    mockCategoryRepo.create.mockReturnValue(Promise.resolve(created));
-
-    const result = await service.createCategory(input);
-
-    expect(result).toEqual(created);
-    expect(mockCategoryRepo.create).toHaveBeenCalledWith(input);
-  });
-
-  // --- updateCategory ---
-  it("updateCategory returns updated category when found", async () => {
-    const updated = makeCategory({ label: "Utility Functions" });
-    mockCategoryRepo.update.mockReturnValue(Promise.resolve(updated));
-
-    const result = await service.updateCategory("sc-1", { label: "Utility Functions" });
-
-    expect(result).toEqual(updated);
-    expect(mockCategoryRepo.update).toHaveBeenCalledWith("sc-1", { label: "Utility Functions" });
-  });
-
-  it("updateCategory returns null when category not found", async () => {
-    const result = await service.updateCategory("missing", { label: "Nope" });
-    expect(result).toBeNull();
-  });
-
-  // --- deleteCategory ---
-  it("deleteCategory returns true when category deleted", async () => {
-    mockCategoryRepo.delete.mockReturnValue(Promise.resolve(true));
-
-    const result = await service.deleteCategory("sc-1");
-
-    expect(result).toBe(true);
-    expect(mockCategoryRepo.delete).toHaveBeenCalledWith("sc-1");
-  });
-
-  it("deleteCategory returns false when category not found", async () => {
-    const result = await service.deleteCategory("missing");
     expect(result).toBe(false);
   });
 });

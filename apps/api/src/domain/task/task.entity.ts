@@ -18,6 +18,15 @@ export interface Task {
   updatedAt: Date;
 }
 
+export interface UpdateTaskInput {
+  title?: string;
+  description?: string | null;
+  status?: string;
+  priority?: string | null;
+  startDate?: Date | null;
+  dueDate?: Date | null;
+}
+
 export interface CreateTaskInput {
   externalId?: string | null;
   source: TaskSource;

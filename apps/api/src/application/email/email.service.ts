@@ -146,9 +146,14 @@ export class EmailService {
     const email = await this.emailRepo.findById(id);
     if (!email) return false;
 
-    // Delete from IMAP first (await to ensure it completes before DB delete)
+    // Delete from IMAP first — only delete from DB if IMAP succeeds (or no IMAP uid)
     if (email.imapUid) {
-      await this.syncDeleteToImap(email.accountId, email.imapUid, email.folder);
+      try {
+        await this.syncDeleteToImap(email.accountId, email.imapUid, email.folder);
+      } catch (err) {
+        console.error(`[email-sync] IMAP delete failed for ${id}, keeping in DB:`, err);
+        return false;
+      }
     }
 
     return this.emailRepo.delete(id);
@@ -165,14 +170,22 @@ export class EmailService {
     if (emailsToDelete.length === 0) return 0;
 
     // Group by account+folder for efficient IMAP bulk delete (1 connection per account)
-    const groups = new Map<string, { accountId: string; folder: string; uids: number[] }>();
+    const groups = new Map<string, { accountId: string; folder: string; uids: number[]; emailIds: string[] }>();
+    const noImapEmails: string[] = []; // emails without IMAP UID (manual/local-only)
     for (const email of emailsToDelete) {
-      if (!email.imapUid) continue;
+      if (!email.imapUid) {
+        noImapEmails.push(email.id);
+        continue;
+      }
       const key = `${email.accountId}:${email.folder}`;
-      const group = groups.get(key) || { accountId: email.accountId, folder: email.folder, uids: [] };
+      const group = groups.get(key) || { accountId: email.accountId, folder: email.folder, uids: [], emailIds: [] };
       group.uids.push(email.imapUid);
+      group.emailIds.push(email.id);
       groups.set(key, group);
     }
+
+    // Track which emails were successfully deleted from IMAP
+    const confirmedIds = new Set<string>(noImapEmails);
 
     // Bulk delete from IMAP (1 connection per account/folder)
     for (const group of groups.values()) {
@@ -182,16 +195,23 @@ export class EmailService {
         if (account && password) {
           await this.imapConnector.bulkDeleteMessages(account, password, group.uids, group.folder);
         }
+        // IMAP delete succeeded — mark all emails in this group as confirmed
+        for (const id of group.emailIds) confirmedIds.add(id);
       } catch (err) {
         console.error(`[email-sync] Failed to bulk delete from IMAP (${group.uids.length} msgs):`, err);
+        // Do NOT add to confirmedIds — these emails stay in DB so they don't reappear on next sync
       }
     }
 
-    // Delete from DB
+    // Delete only confirmed emails from DB
     let count = 0;
-    for (const email of emailsToDelete) {
-      const deleted = await this.emailRepo.delete(email.id);
+    for (const id of confirmedIds) {
+      const deleted = await this.emailRepo.delete(id);
       if (deleted) count++;
+    }
+
+    if (confirmedIds.size < emailsToDelete.length) {
+      console.warn(`[email-sync] ${emailsToDelete.length - confirmedIds.size} emails NOT deleted (IMAP delete failed — kept in DB to prevent re-import)`);
     }
 
     return count;
@@ -245,16 +265,17 @@ export class EmailService {
 
   // --- Sync ---
 
-  async syncAccount(accountId: string): Promise<{ newEmails: number }> {
+  async syncAccount(accountId: string, full = false): Promise<{ newEmails: number }> {
     const account = await this.accountRepo.findById(accountId);
     if (!account) throw new Error("Account not found");
 
     const password = await this.accountRepo.getPassword(accountId);
     if (!password) throw new Error("Account password not found");
 
-    // 1. Fetch new emails (incremental by UID)
-    const maxUid = await this.emailRepo.findMaxUid(accountId, "INBOX");
-    const rawEmails = await this.imapConnector.fetchNewEmails(account, password, "INBOX", maxUid ?? undefined);
+    // 1. Fetch emails (incremental by UID, or full resync up to 1 year)
+    const maxUid = full ? undefined : (await this.emailRepo.findMaxUid(accountId, "INBOX")) ?? undefined;
+    const sinceDays = full ? 365 : 30;
+    const rawEmails = await this.imapConnector.fetchNewEmails(account, password, "INBOX", maxUid, sinceDays);
     let newEmails = await this.emailRepo.bulkCreate(rawEmails);
 
     // 2. Reconcile: re-import emails that exist on IMAP but not in DB
