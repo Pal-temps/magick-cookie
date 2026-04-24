@@ -2,6 +2,8 @@ import { createSignal, Show, For, onCleanup } from "solid-js";
 import type { JSX } from "solid-js";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { ThemeSwitcher } from "./ThemeSwitcher";
+import { useT } from "../../../i18n/context";
+import { useSettingsStore } from "../../../application/stores/settingsStore";
 
 // --- Types ---
 
@@ -71,7 +73,7 @@ export function TitleBar(props: TitleBarProps) {
       "-webkit-app-region": "drag",
     }} data-tauri-drag-region>
       {/* Left: menus */}
-      <div style={{ display: "flex", "align-items": "center", height: "100%" }} data-menubar>
+      <div style={{ display: "flex", "align-items": "center", height: "100%", "min-width": "0", "flex-shrink": "1" }} data-menubar>
         {/* App icon */}
         <div style={{
           padding: "0 10px",
@@ -167,21 +169,63 @@ export function TitleBar(props: TitleBarProps) {
 
       {/* Center: clock */}
       <div style={{
-        position: "absolute",
-        left: "50%",
-        transform: "translateX(-50%)",
+        flex: "1",
+        "text-align": "center",
         "font-size": "12px",
         "font-weight": "500",
         color: "var(--text-secondary)",
         "pointer-events": "none",
+        "white-space": "nowrap",
+        overflow: "hidden",
+        "text-overflow": "ellipsis",
+        "min-width": "0",
       }}>
         {time()}
       </div>
 
       {/* Right side: status indicators + window controls */}
-      <div style={{ display: "flex", "align-items": "center", height: "100%", "-webkit-app-region": "no-drag" }}>
+      <div style={{ display: "flex", "align-items": "center", height: "100%", "-webkit-app-region": "no-drag", "flex-shrink": "0" }}>
         {/* Custom right slot (mini indicators) */}
         {props.rightSlot}
+
+        {/* Locale toggle */}
+        {(() => {
+          const i18n = useT();
+          const settings = useSettingsStore();
+          const loc = () => i18n.locale();
+          function toggle() {
+            const next = loc() === "fr" ? "en" as const : "fr" as const;
+            i18n.setLocale(next);
+            settings.setLocale(next);
+          }
+          return (
+            <button
+              onClick={toggle}
+              title={loc() === "fr" ? "Switch to English" : "Passer en français"}
+              style={{
+                display: "inline-flex",
+                "align-items": "center",
+                "justify-content": "center",
+                width: "28px",
+                height: "22px",
+                "margin-right": "2px",
+                "border-radius": "var(--radius-sm)",
+                background: "transparent",
+                border: "1px solid transparent",
+                cursor: "pointer",
+                "font-size": "10px",
+                "font-weight": "700",
+                color: "var(--text-secondary)",
+                "letter-spacing": "0.02em",
+                transition: "var(--transition-fast)",
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.background = "var(--bg-elevated)"}
+              onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
+            >
+              {loc() === "fr" ? "FR" : "EN"}
+            </button>
+          );
+        })()}
 
         {/* Theme switcher */}
         <ThemeSwitcher />

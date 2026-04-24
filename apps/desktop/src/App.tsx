@@ -1,21 +1,22 @@
-import { onMount, onCleanup, createEffect, createSignal, Show } from "solid-js";
+import { onMount, onCleanup, createEffect, createSignal, Show, lazy, Suspense } from "solid-js";
 import { AppLayout } from "./ui/layouts/AppLayout";
 import { DesktopWidgets } from "./ui/layouts/DesktopWidgets";
 import { CalendarGrid } from "./ui/components/calendar/CalendarGrid";
 import { EventForm } from "./ui/components/events/EventForm";
 import { AiEventGenerator } from "./ui/components/calendar/AiEventGenerator";
-import { NotesView } from "./ui/components/notes/NotesView";
-import { IdeView } from "./ui/components/ide/IdeView";
-import { FluxView } from "./ui/components/flux/FluxView";
-import { EmailView } from "./ui/components/email/EmailView";
-import { VpsView } from "./ui/components/vps/VpsView";
-import { LibraryView } from "./ui/components/library/LibraryView";
-import { RssView } from "./ui/components/rss/RssView";
-import { CiCdView } from "./ui/components/github/CiCdView";
-import { SettingsView } from "./ui/components/settings/SettingsView";
-import { ToolsView } from "./ui/components/tools/ToolsView";
-import { BenchView } from "./ui/components/bench/BenchView";
-import { PasswordsView } from "./ui/components/passwords/PasswordsView";
+
+// Lazy-loaded views — only loaded when the user navigates to the tab
+const NotesView = lazy(() => import("./ui/components/notes/NotesView").then(m => ({ default: m.NotesView })));
+const IdeView = lazy(() => import("./ui/components/ide/IdeView").then(m => ({ default: m.IdeView })));
+const FluxView = lazy(() => import("./ui/components/flux/FluxView").then(m => ({ default: m.FluxView })));
+const EmailView = lazy(() => import("./ui/components/email/EmailView").then(m => ({ default: m.EmailView })));
+const VpsView = lazy(() => import("./ui/components/vps/VpsView").then(m => ({ default: m.VpsView })));
+const RssView = lazy(() => import("./ui/components/rss/RssView").then(m => ({ default: m.RssView })));
+const CiCdView = lazy(() => import("./ui/components/github/CiCdView").then(m => ({ default: m.CiCdView })));
+const SettingsView = lazy(() => import("./ui/components/settings/SettingsView").then(m => ({ default: m.SettingsView })));
+const ToolsView = lazy(() => import("./ui/components/tools/ToolsView").then(m => ({ default: m.ToolsView })));
+const PasswordsView = lazy(() => import("./ui/components/passwords/PasswordsView").then(m => ({ default: m.PasswordsView })));
+const BrowserView = lazy(() => import("./ui/components/browser/BrowserView").then(m => ({ default: m.BrowserView })));
 import { useCalendarStore } from "./application/stores/calendarStore";
 import { useViewStore } from "./application/stores/viewStore";
 import { useWellnessStore } from "./application/stores/wellnessStore";
@@ -48,6 +49,7 @@ import { listen } from "@tauri-apps/api/event";
 import { useOfflineQueue } from "./infrastructure/offline/offlineQueue";
 
 export function App() {
+  const [localeChosen, setLocaleChosen] = createSignal(!!localStorage.getItem("magick-cookie-locale"));
   const [vaultReady, setVaultReady] = createSignal(false);
   const [vaultAnimating, setVaultAnimating] = createSignal(false);
 
@@ -62,7 +64,8 @@ export function App() {
 
   const { fetchCalendars, fetchEvents, fetchContacts, openCreateForm, setAlarmGetter } = useCalendarStore();
   const { fetchTasks } = useTaskStore();
-  const { currentDate, viewMode, setViewMode, goToToday } = useViewStore();
+  const viewStore = useViewStore();
+  const { currentDate, viewMode, setViewMode, goToToday } = viewStore;
   const { fetchConfigs, startAll, stopAll, fetchTodayLogs } = useWellnessStore();
   const { fetchTodayStats, timerState, startPomodoro, stop: stopTimer, isFocusMode, toggleFocusMode } = useTimerStore();
   const { fetchActive: fetchActiveWalk } = useDogWalkStore();
@@ -95,8 +98,8 @@ export function App() {
       case "vps":
       case "cicd":
       case "tools":
-      case "library":
       case "rss":
+      case "browser":
       case "settings":
       case "dashboard":
       default: {
@@ -152,9 +155,9 @@ export function App() {
       case "nav-notes": setViewMode("notes"); break;
       case "nav-flux": setViewMode("flux"); break;
       case "nav-email": setViewMode("email"); break;
-      case "nav-library": setViewMode("library"); break;
+      case "nav-library": viewStore.setNotesMainTab("bookmarks"); setViewMode("notes"); break;
       case "nav-vps": setViewMode("vps"); break;
-      case "nav-bench": setViewMode("bench"); break;
+      case "nav-bench": setViewMode("notes"); break; // bench removed — use snippets
       case "command-palette": openCommandPalette(); break;
       case "settings": setViewMode("settings"); break;
       case "start-pomodoro": startPomodoro(); break;
@@ -180,22 +183,19 @@ export function App() {
       // API unreachable — continue anyway, offline mode will handle it
     }
     hideSplash();
-    fetchContacts();
-    fetchTasks();
-    fetchFlux();
+    // Essential data — needed for dashboard, notifications, global shortcuts
     fetchTodayStats();
     fetchActiveWalk();
-    fetchBookmarks();
-    fetchSnippets();
-    fetchRssFeeds();
-    fetchRssUnreadCount();
     setAlarmGetter(alarms);
     fetchAlarms().then(() => startAlarmChecker());
     fetchRoutines().then(() => startRoutineChecker());
-    fetchProjects();
     await initNotifications();
     startSmartReminders();
     autoSetupLlm();
+    fetchProjects(); // needed by dashboard TimerWidget
+    // Deferred: fetchTasks, fetchFlux, fetchBookmarks, fetchSnippets,
+    // fetchRssFeeds, fetchRssUnreadCount, fetchContacts
+    // → loaded by their respective views on first visit
 
     // Vault: scaffold structure + sync configs (non-secret prefs)
     ensureVaultStructure().catch(() => {});
@@ -265,8 +265,43 @@ export function App() {
 
   return (
     <>
+    {/* Language selection — first launch only */}
+    <Show when={!localeChosen()}>
+      <div class="vault-unlock-overlay">
+        <div class="vault-unlock-card">
+          <div class="vault-unlock-icon">
+            <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+              <circle cx="24" cy="24" r="20" stroke="currentColor" stroke-width="2.5" />
+              <text x="24" y="30" text-anchor="middle" fill="currentColor" font-size="18" font-weight="600">A</text>
+            </svg>
+          </div>
+          <h2 class="vault-unlock-title">Choose your language</h2>
+          <p class="vault-unlock-desc">Choisissez votre langue / Choose your language</p>
+          <div style={{ display: "flex", gap: "12px", "justify-content": "center", "margin-top": "16px" }}>
+            {[
+              { locale: "fr" as const, flag: "🇫🇷", label: "Français" },
+              { locale: "en" as const, flag: "🇬🇧", label: "English" },
+            ].map((opt) => (
+              <button
+                class="vault-unlock-btn"
+                style={{ display: "flex", "align-items": "center", gap: "8px", padding: "12px 24px" }}
+                onClick={() => {
+                  localStorage.setItem("magick-cookie-locale", opt.locale);
+                  setLocaleChosen(true);
+                  window.location.reload();
+                }}
+              >
+                <span style={{ "font-size": "24px" }}>{opt.flag}</span>
+                <span>{opt.label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+    </Show>
+
     {/* Vault unlock gate — animates to lock icon when unlocked */}
-    <Show when={!vaultReady()}>
+    <Show when={localeChosen() && !vaultReady()}>
       <VaultUnlock onUnlocked={handleVaultUnlocked} animating={vaultAnimating()} />
     </Show>
 
@@ -278,47 +313,46 @@ export function App() {
     <AiActivityIndicator />
     <Show when={!isDesktopMode()} fallback={<DesktopWidgets />}>
       <AppLayout>
-        <Show when={viewMode() === "notes"}>
-          <NotesView />
-        </Show>
-        <Show when={viewMode() === "ide"}>
-          <IdeView />
-        </Show>
-        <Show when={viewMode() === "flux"}>
-          <FluxView />
-        </Show>
-        <Show when={viewMode() === "email"}>
-          <EmailView />
-        </Show>
-        <Show when={viewMode() === "vps"}>
-          <VpsView />
-        </Show>
-        <Show when={viewMode() === "library"}>
-          <LibraryView />
-        </Show>
-        <Show when={viewMode() === "rss"}>
-          <RssView />
-        </Show>
-        <Show when={viewMode() === "cicd"}>
-          <CiCdView />
-        </Show>
-        <Show when={viewMode() === "settings"}>
-          <SettingsView />
-        </Show>
-        <Show when={viewMode() === "tools"}>
-          <ToolsView />
-        </Show>
-        <Show when={viewMode() === "bench"}>
-          <BenchView />
-        </Show>
-        <Show when={viewMode() === "passwords"}>
-          <PasswordsView />
-        </Show>
-        <Show when={viewMode() !== "notes" && viewMode() !== "ide" && viewMode() !== "flux" && viewMode() !== "email" && viewMode() !== "vps" && viewMode() !== "cicd" && viewMode() !== "library" && viewMode() !== "rss" && viewMode() !== "settings" && viewMode() !== "tools" && viewMode() !== "bench" && viewMode() !== "passwords"}>
-          <CalendarGrid />
-          <EventForm />
-          <AiEventGenerator />
-        </Show>
+        <Suspense fallback={<div class="view-loading" />}>
+          <Show when={viewMode() === "notes"}>
+            <NotesView />
+          </Show>
+          <Show when={viewMode() === "ide"}>
+            <IdeView />
+          </Show>
+          <Show when={viewMode() === "flux"}>
+            <FluxView />
+          </Show>
+          <Show when={viewMode() === "email"}>
+            <EmailView />
+          </Show>
+          <Show when={viewMode() === "vps"}>
+            <VpsView />
+          </Show>
+          <Show when={viewMode() === "rss"}>
+            <RssView />
+          </Show>
+          <Show when={viewMode() === "cicd"}>
+            <CiCdView />
+          </Show>
+          <Show when={viewMode() === "settings"}>
+            <SettingsView />
+          </Show>
+          <Show when={viewMode() === "tools"}>
+            <ToolsView />
+          </Show>
+          <Show when={viewMode() === "passwords"}>
+            <PasswordsView />
+          </Show>
+          <Show when={viewMode() === "browser"}>
+            <BrowserView />
+          </Show>
+          <Show when={viewMode() !== "notes" && viewMode() !== "ide" && viewMode() !== "flux" && viewMode() !== "email" && viewMode() !== "vps" && viewMode() !== "cicd" && viewMode() !== "rss" && viewMode() !== "settings" && viewMode() !== "tools" && viewMode() !== "passwords" && viewMode() !== "browser"}>
+            <CalendarGrid />
+            <EventForm />
+            <AiEventGenerator />
+          </Show>
+        </Suspense>
       </AppLayout>
     </Show>
     </Show>

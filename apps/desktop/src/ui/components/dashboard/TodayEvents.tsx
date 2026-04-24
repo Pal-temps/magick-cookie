@@ -1,8 +1,10 @@
 import { createMemo, For, Show } from "solid-js";
 import { useCalendarStore } from "../../../application/stores/calendarStore";
+import { useT } from "../../../i18n/context";
 
 export function TodayEvents() {
   const { visibleEvents, calendars, openEditForm } = useCalendarStore();
+  const { t, locale } = useT();
 
   const todayEvents = createMemo(() => {
     const now = new Date();
@@ -25,7 +27,7 @@ export function TodayEvents() {
     <div>
       <Show when={todayEvents().length === 0}>
         <div style={{ "font-size": "12px", color: "var(--text-muted)", padding: "8px 0" }}>
-          Aucun evenement aujourd'hui
+          {t("dashboard.noEventsToday")}
         </div>
       </Show>
 
@@ -33,9 +35,10 @@ export function TodayEvents() {
         <For each={todayEvents()}>
           {(event) => {
             const time = () => {
-              if (event.isAllDay) return "Journee";
-              return new Date(event.startAt).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })
-                + " - " + new Date(event.endAt).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+              if (event.isAllDay) return t("dashboard.allDay");
+              const loc = locale() === "fr" ? "fr-FR" : "en-US";
+              return new Date(event.startAt).toLocaleTimeString(loc, { hour: "2-digit", minute: "2-digit" })
+                + " - " + new Date(event.endAt).toLocaleTimeString(loc, { hour: "2-digit", minute: "2-digit" });
             };
 
             return (

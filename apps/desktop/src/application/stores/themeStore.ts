@@ -15,7 +15,7 @@ function getInitialTheme(): Theme {
   const stored = settings.getTheme().theme;
   if (stored === "dark" || stored === "light" || stored === "cookie") return stored;
   if (window.matchMedia("(prefers-color-scheme: light)").matches) return "light";
-  return "dark";
+  return "cookie";
 }
 
 function isInDarkSchedule(schedule: ThemeSchedule): boolean {

@@ -1,8 +1,10 @@
 import { Show } from "solid-js";
 import { useOfflineQueue } from "../../../infrastructure/offline/offlineQueue";
+import { useT } from "../../../i18n/context";
 
 export function OfflineIndicator() {
   const { isOnline, isSyncing, queue } = useOfflineQueue();
+  const { t } = useT();
 
   return (
     <>
@@ -16,9 +18,9 @@ export function OfflineIndicator() {
           "text-align": "center",
           "flex-shrink": "0",
         }}>
-          Mode hors-ligne
+          {t("common.offlineMode")}
           <Show when={queue().length > 0}>
-            {" "}&mdash; {queue().length} action{queue().length > 1 ? "s" : ""} en attente
+            {" "}&mdash; {queue().length} {queue().length > 1 ? t("common.actionsPending") : t("common.actionPending")}
           </Show>
         </div>
       </Show>
@@ -32,7 +34,7 @@ export function OfflineIndicator() {
           "text-align": "center",
           "flex-shrink": "0",
         }}>
-          Synchronisation...
+          {t("common.syncing")}
         </div>
       </Show>
     </>

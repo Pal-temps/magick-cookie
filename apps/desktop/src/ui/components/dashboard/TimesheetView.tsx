@@ -1,5 +1,6 @@
 import { createSignal, createEffect, Show, For, onMount } from "solid-js";
 import { useAnalyticsStore } from "../../../application/stores/analyticsStore";
+import { useT } from "../../../i18n/context";
 import { Button } from "../common/Button";
 import { CookieLoader } from "../common/CookieLoader";
 
@@ -7,7 +8,8 @@ interface TimesheetViewProps {
   onClose: () => void;
 }
 
-const DAY_LABELS = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
+const DAY_LABELS_FR = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
+const DAY_LABELS_EN = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 function formatDuration(seconds: number): string {
   if (seconds === 0) return "-";
@@ -61,6 +63,8 @@ function cellBg(seconds: number, maxSeconds: number): string {
 
 export function TimesheetView(props: TimesheetViewProps) {
   const { timesheet, timesheetLoading, fetchTimesheet } = useAnalyticsStore();
+  const { t, locale } = useT();
+  const dayLabels = () => locale() === "fr" ? DAY_LABELS_FR : DAY_LABELS_EN;
   const [week, setWeek] = createSignal(getCurrentISOWeek());
 
   onMount(() => fetchTimesheet(week()));
@@ -101,31 +105,31 @@ export function TimesheetView(props: TimesheetViewProps) {
       {/* Header */}
       <div style={{ display: "flex", "align-items": "center", "justify-content": "space-between", "margin-bottom": "20px" }}>
         <h2 style={{ margin: "0", "font-size": "20px", "font-weight": "600", color: "var(--text-primary)" }}>
-          Timesheet
+          {t("dashboard.timesheet")}
         </h2>
-        <Button variant="ghost" size="sm" onClick={props.onClose}>Retour</Button>
+        <Button variant="ghost" size="sm" onClick={props.onClose}>{t("common.back")}</Button>
       </div>
 
       {/* Week navigation */}
       <div style={{ display: "flex", "align-items": "center", gap: "12px", "margin-bottom": "16px" }}>
         <Button variant="secondary" size="sm" onClick={() => setWeek(offsetWeek(week(), -1))}>
-          &larr; Sem. prec.
+          &larr; {t("dashboard.prevWeek")}
         </Button>
         <span style={{ "font-size": "14px", "font-weight": "500", color: "var(--text-primary)" }}>
           {week()}
         </span>
         <Button variant="secondary" size="sm" onClick={() => setWeek(offsetWeek(week(), 1))}>
-          Sem. suiv. &rarr;
+          {t("dashboard.nextWeek")} &rarr;
         </Button>
         <Button variant="ghost" size="sm" onClick={() => setWeek(getCurrentISOWeek())}>
-          Aujourd'hui
+          {t("common.today")}
         </Button>
       </div>
 
       {/* Content */}
       <div style={{ flex: "1", "overflow-y": "auto" }}>
         <Show when={timesheetLoading()}>
-          <CookieLoader message="Chargement..." />
+          <CookieLoader message={t("common.loading")} />
         </Show>
 
         <Show when={!timesheetLoading() && timesheet()}>
@@ -143,7 +147,7 @@ export function TimesheetView(props: TimesheetViewProps) {
                   <div style={{ "font-size": "22px", "font-weight": "700", color: "var(--accent-primary)" }}>
                     {formatDuration(data().grandTotal)}
                   </div>
-                  <div style={{ "font-size": "11px", color: "var(--text-muted)", "margin-top": "4px" }}>Total semaine</div>
+                  <div style={{ "font-size": "11px", color: "var(--text-muted)", "margin-top": "4px" }}>{t("dashboard.weekTotal")}</div>
                 </div>
                 <div style={{
                   background: "var(--bg-elevated)",
@@ -155,7 +159,7 @@ export function TimesheetView(props: TimesheetViewProps) {
                   <div style={{ "font-size": "22px", "font-weight": "700", color: "var(--accent-primary)" }}>
                     {data().rows.length}
                   </div>
-                  <div style={{ "font-size": "11px", color: "var(--text-muted)", "margin-top": "4px" }}>Taches</div>
+                  <div style={{ "font-size": "11px", color: "var(--text-muted)", "margin-top": "4px" }}>{t("dashboard.tasks")}</div>
                 </div>
               </div>
 
@@ -164,11 +168,11 @@ export function TimesheetView(props: TimesheetViewProps) {
                 <table style={{ width: "100%", "border-collapse": "collapse", "min-width": "600px" }}>
                   <thead>
                     <tr>
-                      <th style={{ ...headerStyle, "text-align": "left", "min-width": "160px" }}>Tache</th>
+                      <th style={{ ...headerStyle, "text-align": "left", "min-width": "160px" }}>{t("dashboard.task")}</th>
                       <For each={data().dates}>
                         {(date, i) => (
                           <th style={headerStyle}>
-                            <div>{DAY_LABELS[i()]}</div>
+                            <div>{dayLabels()[i()]}</div>
                             <div style={{ "font-size": "10px", "font-weight": "400", color: "var(--text-muted)" }}>
                               {date.slice(5)}
                             </div>
@@ -183,7 +187,7 @@ export function TimesheetView(props: TimesheetViewProps) {
                       {(row) => (
                         <tr>
                           <td style={{ ...cellStyle, "text-align": "left", color: "var(--text-primary)", "font-weight": "500" }}>
-                            {row.taskTitle || "(sans tache)"}
+                            {row.taskTitle || t("dashboard.noTask")}
                           </td>
                           <For each={data().dates}>
                             {(date) => {
@@ -240,7 +244,7 @@ export function TimesheetView(props: TimesheetViewProps) {
 
               <Show when={data().rows.length === 0}>
                 <div style={{ color: "var(--text-muted)", "font-size": "12px", "text-align": "center", padding: "20px" }}>
-                  Aucune session de focus cette semaine
+                  {t("dashboard.noFocusThisWeek")}
                 </div>
               </Show>
             </>
@@ -249,7 +253,7 @@ export function TimesheetView(props: TimesheetViewProps) {
 
         <Show when={!timesheetLoading() && !timesheet()}>
           <div style={{ color: "var(--text-muted)", "font-size": "13px", padding: "20px 0" }}>
-            Impossible de charger le timesheet.
+            {t("dashboard.cannotLoadTimesheet")}
           </div>
         </Show>
       </div>

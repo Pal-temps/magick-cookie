@@ -1,9 +1,12 @@
 import type { JSX } from "solid-js";
 import { Show, For, Switch, Match } from "solid-js";
+import { useT } from "../../i18n/context";
 import { useViewStore } from "../../application/stores/viewStore";
 import { useCalendarStore } from "../../application/stores/calendarStore";
 import { useTaskStore } from "../../application/stores/taskStore";
 import { useDesktopModeStore } from "../../application/stores/desktopModeStore";
+import { useEmailStore } from "../../application/stores/emailStore";
+import { useRssStore } from "../../application/stores/rssStore";
 import { useSpeechStore } from "../../application/stores/speechStore";
 import { useDogWalkStore } from "../../application/stores/dogWalkStore";
 import { TitleBar } from "../components/common/TitleBar";
@@ -12,8 +15,11 @@ import { MiniTimer } from "../components/common/MiniTimer";
 import { MiniDogWalk } from "../components/common/MiniDogWalk";
 import { MiniCalendar } from "../components/sidebar/MiniCalendar";
 import { CalendarSidebarContent } from "../components/sidebar/CalendarSidebarContent";
+import { AccountSidebar } from "../components/email/AccountSidebar";
 import { DashboardSidebarContent } from "../components/sidebar/DashboardSidebarContent";
 import { IdeSidebarContent } from "../components/sidebar/IdeSidebarContent";
+import { NotesSidebarContent } from "../components/sidebar/NotesSidebarContent";
+import { FluxSidebarContent } from "../components/sidebar/FluxSidebarContent";
 import { CollapsibleSection } from "../components/common/CollapsibleSection";
 import { Button } from "../components/common/Button";
 import { TaskDetail } from "../components/tasks/TaskDetail";
@@ -25,8 +31,12 @@ interface AppLayoutProps {
 }
 
 export function AppLayout(props: AppLayoutProps) {
-  const { viewMode, setViewMode, currentDate, navigatePrev, navigateNext, goToToday, sidebarVisible } = useViewStore();
+  const { t } = useT();
+  const viewStore = useViewStore();
+  const { viewMode, setViewMode, currentDate, navigatePrev, navigateNext, goToToday, sidebarVisible } = viewStore;
   const { openCreateForm, setShowAiGenerator } = useCalendarStore();
+  const emailStore = useEmailStore();
+  const rssStore = useRssStore();
   const { syncConnector, isSyncing } = useTaskStore();
   const { enterDesktop } = useDesktopModeStore();
   const { startSpeechRecording } = useSpeechStore();
@@ -35,15 +45,16 @@ export function AppLayout(props: AppLayoutProps) {
 
   const headerTitle = () => {
     const d = currentDate();
-    return d.toLocaleDateString("fr-FR", { month: "long", year: "numeric" });
+    const loc = t("nav.dashboard") ? "fr-FR" : "en-US"; // TODO: use format helper
+    return d.toLocaleDateString(loc, { month: "long", year: "numeric" });
   };
 
   // --- Menu definitions ---
   const menus = () => [
     {
-      label: "Fichier",
+      label: t("menu.file"),
       items: [
-        { label: "Nouvel evenement", shortcut: "Ctrl+N", action: openCreateForm },
+        { label: t("calendar.newEvent"), shortcut: "Ctrl+N", action: openCreateForm },
         { label: "Dicter un evenement", action: () => startSpeechRecording() },
         { separator: true, label: "" },
         { label: "Sync ClickUp", action: () => syncConnector("clickup"), disabled: isSyncing() },
@@ -54,39 +65,39 @@ export function AppLayout(props: AppLayoutProps) {
       ],
     },
     {
-      label: "Affichage",
+      label: t("menu.view"),
       items: [
-        { label: "Accueil", action: () => setViewMode("dashboard"), shortcut: "Ctrl+D" },
+        { label: t("nav.dashboard"), action: () => setViewMode("dashboard"), shortcut: "Ctrl+D" },
         { separator: true, label: "" },
-        { label: "Mois", action: () => setViewMode("month"), shortcut: "Ctrl+1" },
-        { label: "Semaine", action: () => setViewMode("week"), shortcut: "Ctrl+2" },
-        { label: "Jour", action: () => setViewMode("day"), shortcut: "Ctrl+3" },
+        { label: t("menu.month"), action: () => setViewMode("month"), shortcut: "Ctrl+1" },
+        { label: t("menu.week"), action: () => setViewMode("week"), shortcut: "Ctrl+2" },
+        { label: t("menu.day"), action: () => setViewMode("day"), shortcut: "Ctrl+3" },
         { separator: true, label: "" },
-        { label: "Aujourd'hui", action: goToToday, shortcut: "Ctrl+T" },
+        { label: t("menu.today"), action: goToToday, shortcut: "Ctrl+T" },
         { separator: true, label: "" },
-        { label: "IDE", action: () => setViewMode("ide"), shortcut: "Ctrl+4" },
-        { label: "Notes & Schemas", action: () => setViewMode("notes") },
-        { label: "Flux", action: () => setViewMode("flux"), shortcut: "Ctrl+5" },
-        { label: "Email", action: () => setViewMode("email"), shortcut: "Ctrl+6" },
-        { label: "Bibliotheque", action: () => setViewMode("library"), shortcut: "Ctrl+7" },
-        { label: "Flux RSS", action: () => setViewMode("rss") },
-        { label: "CI/CD", action: () => setViewMode("cicd") },
-        { label: "Serveurs", action: () => setViewMode("vps"), shortcut: "Ctrl+9" },
-        { label: "Outils", action: () => setViewMode("tools") },
+        { label: t("nav.cookia"), action: () => setViewMode("ide"), shortcut: "Ctrl+4" },
+        { label: t("menu.notesSchemas"), action: () => setViewMode("notes") },
+        { label: t("nav.tasks"), action: () => setViewMode("flux"), shortcut: "Ctrl+5" },
+        { label: t("nav.email"), action: () => setViewMode("email"), shortcut: "Ctrl+6" },
+        { label: "Crookies", action: () => { viewStore.setNotesMainTab("bookmarks"); setViewMode("notes"); }, shortcut: "Ctrl+7" },
+        { label: t("nav.rss"), action: () => setViewMode("rss") },
+        { label: t("nav.cicd"), action: () => setViewMode("cicd") },
+        { label: t("nav.servers"), action: () => setViewMode("vps"), shortcut: "Ctrl+9" },
+        { label: t("nav.tools"), action: () => setViewMode("tools") },
       ],
     },
     {
-      label: "Outils",
+      label: t("menu.tools"),
       items: [
         {
-          label: activeWalk() ? "Arreter la balade" : "Demarrer une balade",
+          label: activeWalk() ? t("menu.stopWalk") : t("menu.startWalk"),
           action: () => activeWalk() ? stopWalk() : startWalk(),
         },
         { separator: true, label: "" },
-        { label: "Statistiques", action: () => setViewMode("dashboard") },
-        { label: "Env & Changelog", action: () => setViewMode("tools") },
+        { label: t("menu.stats"), action: () => setViewMode("dashboard") },
+        { label: t("menu.envChangelog"), action: () => setViewMode("tools") },
         { separator: true, label: "" },
-        { label: "Parametres", action: () => setViewMode("settings"), shortcut: "Ctrl+," },
+        { label: t("nav.settings"), action: () => setViewMode("settings"), shortcut: "Ctrl+," },
       ],
     },
   ];
@@ -133,6 +144,69 @@ export function AppLayout(props: AppLayoutProps) {
             <Match when={["month", "week", "day"].includes(viewMode())}>
               <CalendarSidebarContent />
             </Match>
+            <Match when={viewMode() === "email"}>
+              <div style={{ flex: "1", overflow: "hidden", display: "flex", "flex-direction": "column", "border-top": "1px solid var(--border-color)" }}>
+                <div class="email-sidebar" style={{ width: "100%", border: "none" }}>
+                  <AccountSidebar
+                    accounts={emailStore.accounts()}
+                    activeAccountId={emailStore.activeAccountId()}
+                    activeFolder={emailStore.activeFolder()}
+                    unreadPerAccount={emailStore.unreadPerAccount()}
+                    totalUnread={emailStore.unreadCount()}
+                    getAccountColor={emailStore.getAccountColor}
+                    onSelectAccount={(id, folder) => {
+                      emailStore.setActiveAccountId(id);
+                      if (folder) emailStore.setActiveFolder(folder);
+                    }}
+                    onSelectFolder={(id, folder) => {
+                      emailStore.setActiveAccountId(id);
+                      emailStore.setActiveFolder(folder);
+                    }}
+                  />
+                </div>
+              </div>
+            </Match>
+            <Match when={viewMode() === "rss"}>
+              <div style={{ flex: "1", overflow: "hidden", display: "flex", "flex-direction": "column", "border-top": "1px solid var(--border-color)" }}>
+                <div class="rss-sidebar" style={{ width: "100%", border: "none" }}>
+                  <div class="rss-sidebar__header">Feeds</div>
+                  <div class="rss-sidebar__tree">
+                    <button
+                      class={`rss-sidebar__all ${rssStore.activeFeedId() === null ? "rss-sidebar__all--active" : ""}`}
+                      onClick={() => { rssStore.setActiveFeedId(null); rssStore.selectArticle(null); }}
+                    >
+                      <span>Tous les articles</span>
+                      <Show when={rssStore.unreadCount() > 0}>
+                        <span class="rss-feed-item__badge rss-feed-item__badge--unread">{rssStore.unreadCount()}</span>
+                      </Show>
+                    </button>
+                    <div class="rss-sidebar__divider" />
+                    <For each={rssStore.feeds()}>
+                      {(feed) => (
+                        <div class={`rss-feed-item ${rssStore.activeFeedId() === feed.id ? "rss-feed-item--active" : ""}`}>
+                          <button
+                            class="rss-feed-item__name"
+                            style={{ background: "none", border: "none", cursor: "pointer", color: "inherit", "font-size": "inherit", "text-align": "left", padding: "0" }}
+                            onClick={() => { rssStore.setActiveFeedId(feed.id); rssStore.selectArticle(null); }}
+                          >
+                            {feed.label}
+                          </button>
+                          <Show when={rssStore.unreadPerFeed()[feed.id]}>
+                            <span class="rss-feed-item__badge rss-feed-item__badge--unread">{rssStore.unreadPerFeed()[feed.id]}</span>
+                          </Show>
+                        </div>
+                      )}
+                    </For>
+                  </div>
+                </div>
+              </div>
+            </Match>
+            <Match when={viewMode() === "flux"}>
+              <FluxSidebarContent />
+            </Match>
+            <Match when={viewMode() === "notes"}>
+              <NotesSidebarContent />
+            </Match>
             <Match when={viewMode() === "ide"}>
               <IdeSidebarContent />
             </Match>
@@ -163,9 +237,9 @@ export function AppLayout(props: AppLayoutProps) {
                         )}
                       </For>
                       <button
-                        onClick={() => setViewMode("library")}
+                        onClick={() => { viewStore.setNotesMainTab("bookmarks"); setViewMode("notes"); }}
                         style={{ display: "flex", "align-items": "center", gap: "6px", padding: "4px 0", "font-size": "11px", color: "var(--text-muted)", cursor: "pointer", background: "none", border: "none", width: "100%", "text-align": "left", "margin-top": "4px" }}
-                      >Gerer les signets...</button>
+                      >Gerer les crookies...</button>
                     </div>
                   </CollapsibleSection>
                 </div>
@@ -187,20 +261,19 @@ export function AppLayout(props: AppLayoutProps) {
             "border-bottom": "1px solid var(--border-color)",
             "flex-shrink": "0",
           }}>
-            <div style={{ display: "flex", "align-items": "center", gap: "4px", "min-width": "0", flex: "1", "overflow-x": "auto", "overflow-y": "hidden", "scrollbar-width": "none" }}>
+            <div class="nav-tabs-scroll">
               <For each={[
-                { id: "dashboard", label: "Accueil", match: (v: string) => v === "dashboard" },
-                { id: "month", label: "Calendrier", match: (v: string) => ["month", "week", "day"].includes(v) },
-                { id: "ide", label: "IDE", match: (v: string) => v === "ide" },
-                { id: "notes", label: "Notes", match: (v: string) => v === "notes" },
-                { id: "flux", label: "Taches", match: (v: string) => v === "flux" },
-                { id: "email", label: "Email", match: (v: string) => v === "email" },
-                { id: "library", label: "Bibliotheque", match: (v: string) => v === "library" },
-                { id: "rss", label: "Flux RSS", match: (v: string) => v === "rss" },
-                { id: "cicd", label: "CI/CD", match: (v: string) => v === "cicd" },
-                { id: "vps", label: "Serveurs", match: (v: string) => v === "vps" },
-                { id: "tools", label: "Outils", match: (v: string) => v === "tools" },
-                { id: "bench", label: "Bench", match: (v: string) => v === "bench" },
+                { id: "dashboard", key: "nav.dashboard", match: (v: string) => v === "dashboard" },
+                { id: "month", key: "nav.calendar", match: (v: string) => ["month", "week", "day"].includes(v) },
+                { id: "ide", key: "nav.cookia", match: (v: string) => v === "ide" },
+                { id: "notes", key: "nav.notes", match: (v: string) => v === "notes" },
+                { id: "flux", key: "nav.tasks", match: (v: string) => v === "flux" },
+                { id: "email", key: "nav.email", match: (v: string) => v === "email" },
+                { id: "rss", key: "nav.rss", match: (v: string) => v === "rss" },
+                { id: "cicd", key: "nav.cicd", match: (v: string) => v === "cicd" },
+                { id: "vps", key: "nav.servers", match: (v: string) => v === "vps" },
+                { id: "tools", key: "nav.tools", match: (v: string) => v === "tools" },
+                { id: "browser", key: "nav.browser", match: (v: string) => v === "browser" },
               ] as const}>
                 {(item) => (
                   <button
@@ -221,7 +294,7 @@ export function AppLayout(props: AppLayoutProps) {
                     onMouseEnter={(e) => { if (!item.match(viewMode())) e.currentTarget.style.background = "var(--bg-elevated)"; }}
                     onMouseLeave={(e) => { if (!item.match(viewMode())) e.currentTarget.style.background = "transparent"; }}
                   >
-                    {item.label}
+                    {t(item.key)}
                   </button>
                 )}
               </For>

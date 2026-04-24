@@ -1,11 +1,13 @@
 import { createSignal, onMount, Show, For } from "solid-js";
 import { useCalDavStore, type CreateCalDavAccountInput } from "../../../application/stores/caldavStore";
 import { useCalendarStore } from "../../../application/stores/calendarStore";
+import { useT } from "../../../i18n/context";
 import { Button } from "../common/Button";
 
 export function CalDavSettings() {
   const { accounts, isSyncing, fetchAccounts, createAccount, updateAccount, deleteAccount, syncAccount, testConnection } = useCalDavStore();
   const calendarStore = useCalendarStore();
+  const { t } = useT();
 
   const [showForm, setShowForm] = createSignal(false);
   const [editingId, setEditingId] = createSignal<string | null>(null);
@@ -92,10 +94,10 @@ export function CalDavSettings() {
     setSyncResult(null);
     try {
       const result = await syncAccount(id);
-      setSyncResult(`${result.imported} importe(s), ${result.updated} mis a jour`);
+      setSyncResult(`${result.imported} ${t("settings.imported")}, ${result.updated} ${t("settings.updated")}`);
       setTimeout(() => setSyncResult(null), 3000);
     } catch (err) {
-      setSyncResult("Erreur de synchronisation");
+      setSyncResult(t("settings.syncError"));
       setTimeout(() => setSyncResult(null), 3000);
     }
   }
@@ -133,7 +135,7 @@ export function CalDavSettings() {
         CalDAV
       </h2>
       <p style={{ margin: "0 0 24px", "font-size": "13px", color: "var(--text-muted)" }}>
-        Importez vos evenements depuis Google Calendar, Outlook ou tout serveur CalDAV.
+        {t("settings.caldavDesc")}
       </p>
 
       {/* Account list */}
@@ -157,8 +159,8 @@ export function CalDavSettings() {
                       {account.url}
                     </div>
                     <div style={{ "font-size": "11px", color: "var(--text-muted)" }}>
-                      Derniere sync : {account.lastSyncedAt ? new Date(account.lastSyncedAt).toLocaleString("fr-FR") : "jamais"}
-                      {" "} | {account.syncEnabled ? "Active" : "Desactive"}
+                      {t("settings.lastSync")} : {account.lastSyncedAt ? new Date(account.lastSyncedAt).toLocaleString("fr-FR") : t("settings.never")}
+                      {" "} | {account.syncEnabled ? t("settings.active") : t("settings.disabled")}
                     </div>
                   </div>
                   <div style={{ display: "flex", gap: "6px" }}>
@@ -166,10 +168,10 @@ export function CalDavSettings() {
                       {isSyncing() ? "..." : "Sync"}
                     </Button>
                     <Button size="sm" variant="secondary" onClick={() => startEdit(account)}>
-                      Modifier
+                      {t("common.edit")}
                     </Button>
                     <Button size="sm" variant="secondary" onClick={() => handleDelete(account.id)}>
-                      Supprimer
+                      {t("common.delete")}
                     </Button>
                   </div>
                 </div>
@@ -188,7 +190,7 @@ export function CalDavSettings() {
       {/* Add/Edit form */}
       <Show when={!showForm()}>
         <Button variant="primary" size="sm" onClick={() => setShowForm(true)}>
-          Ajouter un compte CalDAV
+          {t("settings.addCaldavAccount")}
         </Button>
       </Show>
 
@@ -200,56 +202,56 @@ export function CalDavSettings() {
           border: "1px solid var(--border-color)",
         }}>
           <div style={sectionStyle}>
-            <label style={labelStyle}>Nom</label>
+            <label style={labelStyle}>{t("settings.name")}</label>
             <input type="text" value={label()} onInput={(e) => setLabel(e.target.value)} style={inputStyle} placeholder="Mon calendrier Google" />
           </div>
 
           <div style={sectionStyle}>
-            <label style={labelStyle}>URL CalDAV</label>
+            <label style={labelStyle}>{t("settings.caldavUrl")}</label>
             <input type="text" value={url()} onInput={(e) => setUrl(e.target.value)} style={inputStyle} placeholder="https://calendar.google.com/calendar/dav/..." />
           </div>
 
           <div style={sectionStyle}>
-            <label style={labelStyle}>Nom d'utilisateur</label>
+            <label style={labelStyle}>{t("settings.username")}</label>
             <input type="text" value={username()} onInput={(e) => setUsername(e.target.value)} style={inputStyle} placeholder="email@example.com" />
           </div>
 
           <div style={sectionStyle}>
-            <label style={labelStyle}>Mot de passe</label>
-            <input type="password" value={password()} onInput={(e) => setPassword(e.target.value)} style={inputStyle} placeholder={editingId() ? "Laisser vide pour garder l'actuel" : "Mot de passe ou app password"} />
+            <label style={labelStyle}>{t("settings.password")}</label>
+            <input type="password" value={password()} onInput={(e) => setPassword(e.target.value)} style={inputStyle} placeholder={editingId() ? t("settings.keepCurrentPassword") : t("settings.passwordOrAppPassword")} />
           </div>
 
           <div style={sectionStyle}>
-            <label style={labelStyle}>Calendrier cible</label>
+            <label style={labelStyle}>{t("settings.targetCalendar")}</label>
             <select
               value={calendarId()}
               onChange={(e) => setCalendarId(e.target.value)}
               style={inputStyle}
             >
-              <option value="">-- Selectionner --</option>
+              <option value="">{t("settings.selectPlaceholder")}</option>
               <For each={calendarStore.calendars()}>
                 {(cal) => <option value={cal.id}>{cal.name}</option>}
               </For>
             </select>
             <div style={{ "font-size": "11px", color: "var(--text-muted)", "margin-top": "4px" }}>
-              Les evenements importes seront ajoutes a ce calendrier.
+              {t("settings.importHint")}
             </div>
           </div>
 
           <div style={{ display: "flex", gap: "8px", "align-items": "center" }}>
             <Button variant="primary" size="sm" onClick={handleSave} disabled={saving() || !label() || !url() || !username() || (!password() && !editingId())}>
-              {saving() ? "..." : editingId() ? "Mettre a jour" : "Ajouter"}
+              {saving() ? "..." : editingId() ? t("settings.update") : t("common.add")}
             </Button>
             <Button variant="secondary" size="sm" onClick={handleTest} disabled={!url() || !username() || !password()}>
-              Tester
+              {t("settings.test")}
             </Button>
             <Button variant="secondary" size="sm" onClick={resetForm}>
-              Annuler
+              {t("common.cancel")}
             </Button>
 
             <Show when={testResult() !== null}>
               <span style={{ "font-size": "12px", color: testResult() ? "#00b894" : "#d63031", "margin-left": "8px" }}>
-                {testResult() ? "Connexion OK" : "Echec de connexion"}
+                {testResult() ? t("settings.connectionOk") : t("settings.connectionFailed")}
               </span>
             </Show>
           </div>

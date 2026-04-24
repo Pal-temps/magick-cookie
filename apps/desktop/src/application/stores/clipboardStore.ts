@@ -20,8 +20,12 @@ function addEntry(text: string) {
   });
 }
 
+let clipboardInitialized = false;
+
 export function useClipboardStore() {
   function init() {
+    if (clipboardInitialized) return;
+    clipboardInitialized = true;
     document.addEventListener("copy", () => {
       setTimeout(async () => {
         try {

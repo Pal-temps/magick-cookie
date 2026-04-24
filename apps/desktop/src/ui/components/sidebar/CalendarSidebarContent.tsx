@@ -18,7 +18,8 @@ export function CalendarSidebarContent() {
   const { openCreateForm, contacts } = useCalendarStore();
   const { tasks: unscheduledTasks } = useTaskStore();
   const { favorites } = useBookmarkStore();
-  const { setViewMode } = useViewStore();
+  const viewStoreRef = useViewStore();
+  const { setViewMode } = viewStoreRef;
   const settingsStore = useSettingsStore();
 
   const savedOrder = (() => {
@@ -163,9 +164,9 @@ export function CalendarSidebarContent() {
                           )}
                         </For>
                         <button
-                          onClick={() => setViewMode("library")}
+                          onClick={() => { viewStoreRef.setNotesMainTab("bookmarks"); setViewMode("notes"); }}
                           style={{ display: "flex", "align-items": "center", gap: "6px", padding: "4px 0", "font-size": "11px", color: "var(--text-muted)", cursor: "pointer", background: "none", border: "none", width: "100%", "text-align": "left", "margin-top": "4px" }}
-                        >Gerer les signets...</button>
+                        >Gerer les crookies...</button>
                       </div>
                     </CollapsibleSection>
                   )}

@@ -1,6 +1,7 @@
 import { createSignal, createMemo, Show, For, onMount } from "solid-js";
 import { useStatsStore } from "../../../application/stores/statsStore";
 import { useAnalyticsStore } from "../../../application/stores/analyticsStore";
+import { useT } from "../../../i18n/context";
 import { Button } from "../common/Button";
 import { TaskTimeChart } from "./TaskTimeChart";
 import { CookieLoader } from "../common/CookieLoader";
@@ -43,11 +44,6 @@ function getPresetRange(preset: Preset): { from: Date; to: Date } {
   }
 }
 
-function dayLabel(dateStr: string): string {
-  const d = new Date(dateStr + "T00:00:00");
-  return d.toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
-}
-
 interface StatsViewProps {
   onClose: () => void;
 }
@@ -55,6 +51,12 @@ interface StatsViewProps {
 export function StatsView(props: StatsViewProps) {
   const { timerDailyStats, wellnessRangeLogs, statsLoading, fetchTimerStats, fetchWellnessRange } = useStatsStore();
   const { fetchTimeByTask } = useAnalyticsStore();
+  const { t, locale } = useT();
+
+  function dayLabel(dateStr: string): string {
+    const d = new Date(dateStr + "T00:00:00");
+    return d.toLocaleDateString(locale() === "fr" ? "fr-FR" : "en-US", { day: "numeric", month: "short" });
+  }
 
   const [tab, setTab] = createSignal<Tab>("timer");
   const [preset, setPreset] = createSignal<Preset>("week");
@@ -140,30 +142,30 @@ export function StatsView(props: StatsViewProps) {
       {/* Header */}
       <div style={{ display: "flex", "align-items": "center", "justify-content": "space-between", "margin-bottom": "20px" }}>
         <h2 style={{ margin: "0", "font-size": "20px", "font-weight": "600", color: "var(--text-primary)" }}>
-          Statistiques
+          {t("dashboard.stats")}
         </h2>
-        <Button variant="ghost" size="sm" onClick={props.onClose}>Retour</Button>
+        <Button variant="ghost" size="sm" onClick={props.onClose}>{t("common.back")}</Button>
       </div>
 
       {/* Tabs */}
       <div style={{ display: "flex", gap: "4px", "margin-bottom": "16px" }}>
         <Button variant={tab() === "timer" ? "primary" : "secondary"} size="sm" onClick={() => switchTab("timer")}>
-          Pomodoro / Timer
+          {t("dashboard.pomodoroTimer")}
         </Button>
         <Button variant={tab() === "water" ? "primary" : "secondary"} size="sm" onClick={() => switchTab("water")}>
-          Eau
+          {t("dashboard.water")}
         </Button>
         <Button variant={tab() === "fruits_veggies" ? "primary" : "secondary"} size="sm" onClick={() => switchTab("fruits_veggies")}>
-          Fruits & Legumes
+          {t("dashboard.fruitsVeggies")}
         </Button>
       </div>
 
       {/* Preset selector */}
       <div style={{ display: "flex", gap: "4px", "align-items": "center", "margin-bottom": "16px", "flex-wrap": "wrap" }}>
-        <Button variant={preset() === "week" ? "primary" : "secondary"} size="sm" onClick={() => switchPreset("week")}>7 jours</Button>
-        <Button variant={preset() === "month" ? "primary" : "secondary"} size="sm" onClick={() => switchPreset("month")}>Ce mois</Button>
-        <Button variant={preset() === "year" ? "primary" : "secondary"} size="sm" onClick={() => switchPreset("year")}>Cette annee</Button>
-        <Button variant={preset() === "custom" ? "primary" : "secondary"} size="sm" onClick={() => switchPreset("custom")}>Personnalise</Button>
+        <Button variant={preset() === "week" ? "primary" : "secondary"} size="sm" onClick={() => switchPreset("week")}>{t("dashboard.last7days")}</Button>
+        <Button variant={preset() === "month" ? "primary" : "secondary"} size="sm" onClick={() => switchPreset("month")}>{t("dashboard.thisMonth")}</Button>
+        <Button variant={preset() === "year" ? "primary" : "secondary"} size="sm" onClick={() => switchPreset("year")}>{t("dashboard.thisYear")}</Button>
+        <Button variant={preset() === "custom" ? "primary" : "secondary"} size="sm" onClick={() => switchPreset("custom")}>{t("dashboard.custom")}</Button>
 
         <Show when={preset() === "custom"}>
           <div style={{ display: "flex", gap: "6px", "align-items": "center", "margin-left": "8px" }}>
@@ -176,7 +178,7 @@ export function StatsView(props: StatsViewProps) {
       </div>
 
       <Show when={statsLoading()}>
-        <CookieLoader message="Chargement..." />
+        <CookieLoader message={t("common.loading")} />
       </Show>
 
       {/* Timer stats */}
@@ -186,25 +188,25 @@ export function StatsView(props: StatsViewProps) {
             <div style={{ "font-size": "22px", "font-weight": "700", color: "var(--accent-primary)" }}>
               {formatDuration(timerSummary().focusSeconds)}
             </div>
-            <div style={{ "font-size": "11px", color: "var(--text-muted)", "margin-top": "4px" }}>Focus total</div>
+            <div style={{ "font-size": "11px", color: "var(--text-muted)", "margin-top": "4px" }}>{t("dashboard.focusTotal")}</div>
           </div>
           <div style={cardStyle}>
             <div style={{ "font-size": "22px", "font-weight": "700", color: "var(--accent-primary)" }}>
               {timerSummary().sessions}
             </div>
-            <div style={{ "font-size": "11px", color: "var(--text-muted)", "margin-top": "4px" }}>Sessions</div>
+            <div style={{ "font-size": "11px", color: "var(--text-muted)", "margin-top": "4px" }}>{t("dashboard.sessionsLabel")}</div>
           </div>
           <div style={cardStyle}>
             <div style={{ "font-size": "22px", "font-weight": "700", color: "var(--accent-primary)" }}>
               {timerSummary().daysWorked}
             </div>
-            <div style={{ "font-size": "11px", color: "var(--text-muted)", "margin-top": "4px" }}>Jours actifs</div>
+            <div style={{ "font-size": "11px", color: "var(--text-muted)", "margin-top": "4px" }}>{t("dashboard.activeDays")}</div>
           </div>
           <div style={cardStyle}>
             <div style={{ "font-size": "22px", "font-weight": "700", color: "var(--accent-primary)" }}>
               {formatDuration(timerSummary().avgPerDay)}
             </div>
-            <div style={{ "font-size": "11px", color: "var(--text-muted)", "margin-top": "4px" }}>Moy/jour</div>
+            <div style={{ "font-size": "11px", color: "var(--text-muted)", "margin-top": "4px" }}>{t("dashboard.avgPerDay")}</div>
           </div>
         </div>
 
@@ -212,17 +214,17 @@ export function StatsView(props: StatsViewProps) {
         <div style={{ display: "flex", gap: "12px", "margin-bottom": "24px" }}>
           <div style={{ ...cardStyle, flex: "1", background: "rgba(0, 184, 148, 0.1)" }}>
             <span style={{ "font-size": "16px", "font-weight": "600", color: "#00b894" }}>{timerSummary().completed}</span>
-            <span style={{ "font-size": "11px", color: "var(--text-muted)", "margin-left": "6px" }}>terminees</span>
+            <span style={{ "font-size": "11px", color: "var(--text-muted)", "margin-left": "6px" }}>{t("dashboard.completed")}</span>
           </div>
           <div style={{ ...cardStyle, flex: "1", background: "rgba(214, 48, 49, 0.1)" }}>
             <span style={{ "font-size": "16px", "font-weight": "600", color: "#d63031" }}>{timerSummary().cancelled}</span>
-            <span style={{ "font-size": "11px", color: "var(--text-muted)", "margin-left": "6px" }}>annulees</span>
+            <span style={{ "font-size": "11px", color: "var(--text-muted)", "margin-left": "6px" }}>{t("dashboard.cancelled")}</span>
           </div>
         </div>
 
         {/* Bar chart */}
         <h3 style={{ margin: "0 0 12px", "font-size": "14px", "font-weight": "600", color: "var(--text-primary)" }}>
-          Temps de focus par jour
+          {t("dashboard.focusPerDay")}
         </h3>
         <div style={{ display: "flex", gap: "2px", "align-items": "flex-end", height: "160px", padding: "0 0 24px" }}>
           <For each={timerDailyStats()}>
@@ -252,7 +254,7 @@ export function StatsView(props: StatsViewProps) {
         </div>
         <Show when={timerDailyStats().length === 0}>
           <div style={{ color: "var(--text-muted)", "font-size": "12px", "text-align": "center", padding: "20px" }}>
-            Aucune session sur cette periode
+            {t("dashboard.noSessionPeriod")}
           </div>
         </Show>
 
@@ -271,31 +273,31 @@ export function StatsView(props: StatsViewProps) {
                   <div style={{ "font-size": "22px", "font-weight": "700", color: "var(--accent-primary)" }}>
                     {formatVal(wellnessSummary().total)}
                   </div>
-                  <div style={{ "font-size": "11px", color: "var(--text-muted)", "margin-top": "4px" }}>Total</div>
+                  <div style={{ "font-size": "11px", color: "var(--text-muted)", "margin-top": "4px" }}>{t("dashboard.total")}</div>
                 </div>
                 <div style={cardStyle}>
                   <div style={{ "font-size": "22px", "font-weight": "700", color: "var(--accent-primary)" }}>
                     {formatVal(wellnessSummary().avgPerDay)}
                   </div>
-                  <div style={{ "font-size": "11px", color: "var(--text-muted)", "margin-top": "4px" }}>Moy/jour</div>
+                  <div style={{ "font-size": "11px", color: "var(--text-muted)", "margin-top": "4px" }}>{t("dashboard.avgPerDay")}</div>
                 </div>
                 <div style={cardStyle}>
                   <div style={{ "font-size": "22px", "font-weight": "700", color: "#00b894" }}>
                     {wellnessSummary().daysGoalMet}
                   </div>
-                  <div style={{ "font-size": "11px", color: "var(--text-muted)", "margin-top": "4px" }}>Objectif atteint</div>
+                  <div style={{ "font-size": "11px", color: "var(--text-muted)", "margin-top": "4px" }}>{t("dashboard.goalReached")}</div>
                 </div>
                 <div style={cardStyle}>
                   <div style={{ "font-size": "22px", "font-weight": "700", color: "var(--accent-primary)" }}>
                     {wellnessSummary().daysTracked}
                   </div>
-                  <div style={{ "font-size": "11px", color: "var(--text-muted)", "margin-top": "4px" }}>Jours suivis</div>
+                  <div style={{ "font-size": "11px", color: "var(--text-muted)", "margin-top": "4px" }}>{t("dashboard.daysTracked")}</div>
                 </div>
               </div>
 
               {/* Bar chart */}
               <h3 style={{ margin: "0 0 12px", "font-size": "14px", "font-weight": "600", color: "var(--text-primary)" }}>
-                {tab() === "water" ? "Eau par jour" : "Portions par jour"}
+                {tab() === "water" ? t("dashboard.waterPerDay") : t("dashboard.portionsPerDay")}
               </h3>
               <div style={{ display: "flex", gap: "2px", "align-items": "flex-end", height: "160px", padding: "0 0 24px" }}>
                 <For each={wellnessRangeLogs()}>
@@ -326,12 +328,12 @@ export function StatsView(props: StatsViewProps) {
               </div>
               <Show when={wellnessRangeLogs().length === 0}>
                 <div style={{ color: "var(--text-muted)", "font-size": "12px", "text-align": "center", padding: "20px" }}>
-                  Aucune donnee sur cette periode
+                  {t("dashboard.noDataPeriod")}
                 </div>
               </Show>
 
               <div style={{ "font-size": "11px", color: "var(--text-muted)", "margin-top": "8px" }}>
-                Les barres vertes indiquent les jours ou l'objectif ({tab() === "water" ? `${(wellnessSummary().goal / 1000).toFixed(1)}L` : `${wellnessSummary().goal} portions`}) est atteint
+                {t("dashboard.greenBarsHint").replace("{goal}", tab() === "water" ? `${(wellnessSummary().goal / 1000).toFixed(1)}L` : `${wellnessSummary().goal} ${t("dashboard.portionsLabel")}`)}
               </div>
             </>
           );

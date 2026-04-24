@@ -1,6 +1,7 @@
 import { onMount, onCleanup } from "solid-js";
 import { useCalendarStore } from "../../../application/stores/calendarStore";
 import { useAlarmStore } from "../../../application/stores/alarmStore";
+import { useT } from "../../../i18n/context";
 
 interface CellContextMenuProps {
   x: number;
@@ -13,6 +14,7 @@ interface CellContextMenuProps {
 export function CellContextMenu(props: CellContextMenuProps) {
   const { openCreateFormAtDate } = useCalendarStore();
   const { createAlarm } = useAlarmStore();
+  const { t } = useT();
 
   let menuRef: HTMLDivElement | undefined;
 
@@ -83,7 +85,7 @@ export function CellContextMenu(props: CellContextMenuProps) {
         onMouseEnter={(e) => e.currentTarget.style.background = "var(--bg-elevated)"}
         onMouseLeave={(e) => e.currentTarget.style.background = "none"}
       >
-        Nouvel evenement
+        {t("calendar.newEvent")}
       </button>
       <button
         style={itemStyle}

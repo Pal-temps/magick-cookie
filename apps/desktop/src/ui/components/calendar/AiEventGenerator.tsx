@@ -1,5 +1,6 @@
 import { createSignal, For, Show } from "solid-js";
 import { useCalendarStore } from "../../../application/stores/calendarStore";
+import { useT } from "../../../i18n/context";
 import { Modal } from "../common/Modal";
 import { Button } from "../common/Button";
 import { AiButton } from "../common/AiButton";
@@ -11,6 +12,7 @@ export function AiEventGenerator() {
     generateEvents, createBulkEvents, setGeneratedEvents,
     isGenerating, calendars,
   } = useCalendarStore();
+  const { t, locale } = useT();
 
   const [prompt, setPrompt] = createSignal("");
 
@@ -74,15 +76,15 @@ export function AiEventGenerator() {
     <Modal
       isOpen={showAiGenerator()}
       onClose={() => setShowAiGenerator(false)}
-      title="Generer des evenements avec l'IA"
+      title={t("calendar.generateWithAi")}
     >
       {(() => { if (showAiGenerator()) handleOpen(); return null; })()}
       <div style={{ display: "flex", "flex-direction": "column", gap: "16px" }}>
         <div>
-          <label style={labelStyle}>Prompt</label>
+          <label style={labelStyle}>{t("calendar.prompt")}</label>
           <textarea
             style={{ ...inputStyle, "min-height": "80px", resize: "vertical" }}
-            placeholder="Ex: Planifie ma journee de travail avec 3 reunions et une pause dejeuner..."
+            placeholder={t("calendar.promptPlaceholder")}
             value={prompt()}
             onInput={(e) => setPrompt(e.currentTarget.value)}
           />
@@ -90,7 +92,7 @@ export function AiEventGenerator() {
 
         <div style={{ display: "grid", "grid-template-columns": "1fr 1fr", gap: "12px" }}>
           <div>
-            <label style={labelStyle}>Date de reference</label>
+            <label style={labelStyle}>{t("calendar.referenceDate")}</label>
             <input
               type="date"
               style={inputStyle}
@@ -99,7 +101,7 @@ export function AiEventGenerator() {
             />
           </div>
           <div>
-            <label style={labelStyle}>Calendrier cible</label>
+            <label style={labelStyle}>{t("calendar.targetCalendar")}</label>
             <select
               style={inputStyle}
               value={calendarId()}
@@ -117,20 +119,21 @@ export function AiEventGenerator() {
           onClick={handleGenerate}
           disabled={isGenerating() || !prompt().trim()}
         >
-          {isGenerating() ? "Generation..." : "Generer"}
+          {isGenerating() ? t("calendar.generating") : t("calendar.generate")}
         </AiButton>
 
         <Show when={editableEvents().length > 0}>
           <div>
-            <label style={labelStyle}>Apercu ({editableEvents().length} evenements)</label>
+            <label style={labelStyle}>{t("calendar.preview")} ({editableEvents().length} {t("calendar.eventsCount")})</label>
             <div style={{ display: "flex", "flex-direction": "column", gap: "6px", "max-height": "300px", "overflow-y": "auto" }}>
               <For each={editableEvents()}>
                 {(ev, index) => {
                   const startDate = new Date(ev.startAt);
                   const endDate = new Date(ev.endAt);
+                  const loc = locale() === "fr" ? "fr-FR" : "en-US";
                   const timeLabel = ev.isAllDay
-                    ? "Journee"
-                    : `${startDate.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })} - ${endDate.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}`;
+                    ? t("dashboard.allDayEvent")
+                    : `${startDate.toLocaleTimeString(loc, { hour: "2-digit", minute: "2-digit" })} - ${endDate.toLocaleTimeString(loc, { hour: "2-digit", minute: "2-digit" })}`;
 
                   return (
                     <div style={{
@@ -170,9 +173,9 @@ export function AiEventGenerator() {
           </div>
 
           <div style={{ display: "flex", gap: "8px", "justify-content": "flex-end" }}>
-            <Button variant="ghost" onClick={() => setShowAiGenerator(false)}>Annuler</Button>
+            <Button variant="ghost" onClick={() => setShowAiGenerator(false)}>{t("calendar.cancel")}</Button>
             <Button variant="primary" onClick={handleConfirm}>
-              Ajouter au calendrier ({editableEvents().length})
+              {t("calendar.addToCalendar")} ({editableEvents().length})
             </Button>
           </div>
         </Show>

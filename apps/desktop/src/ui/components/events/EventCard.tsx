@@ -39,8 +39,21 @@ export function EventCard(props: EventCardProps) {
     return SOURCE_BADGE[key];
   });
 
+  const isDraggable = () => !props.event._isBirthday && !props.event._isAlarm;
+
   return (
     <button
+      draggable={isDraggable()}
+      onDragStart={(e) => {
+        if (!isDraggable()) return;
+        e.stopPropagation();
+        e.dataTransfer!.effectAllowed = "move";
+        e.dataTransfer!.setData("application/x-event-id", props.event.id);
+        e.dataTransfer!.setData("application/x-event-start", props.event.startAt);
+        e.dataTransfer!.setData("application/x-event-end", props.event.endAt);
+        (e.currentTarget as HTMLElement).style.opacity = "0.4";
+      }}
+      onDragEnd={(e) => { (e.currentTarget as HTMLElement).style.opacity = "1"; }}
       onClick={(e) => { e.stopPropagation(); openEditForm(props.event); }}
       style={{
         display: "flex",
@@ -55,6 +68,7 @@ export function EventCard(props: EventCardProps) {
         "white-space": "nowrap",
         background: `${calColor()}22`,
         "border-left": `3px solid ${calColor()}`,
+        cursor: isDraggable() ? "grab" : "default",
       }}
     >
       <span

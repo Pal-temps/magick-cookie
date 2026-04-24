@@ -1,5 +1,6 @@
 import { createSignal, onMount, Show, For } from "solid-js";
 import { useAnalyticsStore } from "../../../application/stores/analyticsStore";
+import { useT } from "../../../i18n/context";
 import { Button } from "../common/Button";
 import { CookieLoader } from "../common/CookieLoader";
 
@@ -10,15 +11,16 @@ function formatDuration(seconds: number): string {
   return `${m}min`;
 }
 
-function dayLabel(dateStr: string): string {
-  const d = new Date(dateStr + "T00:00:00");
-  return d.toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
-}
-
 type Period = "7d" | "30d";
 
 export function AnalyticsWidget() {
   const { overview, analyticsLoading, fetchOverview } = useAnalyticsStore();
+  const { t, locale } = useT();
+
+  function dayLabel(dateStr: string): string {
+    const d = new Date(dateStr + "T00:00:00");
+    return d.toLocaleDateString(locale() === "fr" ? "fr-FR" : "en-US", { day: "numeric", month: "short" });
+  }
   const [period, setPeriod] = createSignal<Period>("7d");
 
   function getRange(p: Period) {
@@ -54,16 +56,16 @@ export function AnalyticsWidget() {
       <div style={{ display: "flex", "justify-content": "flex-end", "margin-bottom": "8px" }}>
         <div style={{ display: "flex", gap: "4px" }}>
           <Button size="sm" variant={period() === "7d" ? "primary" : "secondary"} onClick={() => switchPeriod("7d")}>
-            7j
+            {t("dashboard.days7")}
           </Button>
           <Button size="sm" variant={period() === "30d" ? "primary" : "secondary"} onClick={() => switchPeriod("30d")}>
-            30j
+            {t("dashboard.days30")}
           </Button>
         </div>
       </div>
 
       <Show when={analyticsLoading()}>
-        <CookieLoader size={32} message="Chargement..." />
+        <CookieLoader size={32} message={t("common.loading")} />
       </Show>
 
       <Show when={!analyticsLoading() && overview()}>
@@ -74,19 +76,19 @@ export function AnalyticsWidget() {
                 <div style={{ "font-size": "18px", "font-weight": "700", color: "var(--accent-primary)" }}>
                   {formatDuration(data().focus.totalSeconds)}
                 </div>
-                <div style={{ "font-size": "10px", color: "var(--text-muted)", "margin-top": "2px" }}>Focus</div>
+                <div style={{ "font-size": "10px", color: "var(--text-muted)", "margin-top": "2px" }}>{t("dashboard.focusLabel")}</div>
               </div>
               <div style={cardStyle}>
                 <div style={{ "font-size": "18px", "font-weight": "700", color: "var(--accent-primary)" }}>
                   {data().focus.sessionCount}
                 </div>
-                <div style={{ "font-size": "10px", color: "var(--text-muted)", "margin-top": "2px" }}>Sessions</div>
+                <div style={{ "font-size": "10px", color: "var(--text-muted)", "margin-top": "2px" }}>{t("dashboard.sessionsLabel")}</div>
               </div>
               <div style={cardStyle}>
                 <div style={{ "font-size": "18px", "font-weight": "700", color: "var(--accent-primary)" }}>
                   {data().events.total}
                 </div>
-                <div style={{ "font-size": "10px", color: "var(--text-muted)", "margin-top": "2px" }}>Evenements</div>
+                <div style={{ "font-size": "10px", color: "var(--text-muted)", "margin-top": "2px" }}>{t("dashboard.eventsLabel")}</div>
               </div>
             </div>
 
@@ -95,25 +97,25 @@ export function AnalyticsWidget() {
                 <div style={{ "font-size": "18px", "font-weight": "700", color: "var(--accent-primary)" }}>
                   {data().email.received}
                 </div>
-                <div style={{ "font-size": "10px", color: "var(--text-muted)", "margin-top": "2px" }}>Emails</div>
+                <div style={{ "font-size": "10px", color: "var(--text-muted)", "margin-top": "2px" }}>{t("dashboard.emailsLabel")}</div>
               </div>
               <div style={cardStyle}>
                 <div style={{ "font-size": "18px", "font-weight": "700", color: "var(--accent-primary)" }}>
                   {data().flux?.totalFluxed ?? 0}
                 </div>
-                <div style={{ "font-size": "10px", color: "var(--text-muted)", "margin-top": "2px" }}>Flux</div>
+                <div style={{ "font-size": "10px", color: "var(--text-muted)", "margin-top": "2px" }}>{t("dashboard.fluxLabel")}</div>
               </div>
               <div style={cardStyle}>
                 <div style={{ "font-size": "18px", "font-weight": "700", color: "var(--accent-primary)" }}>
                   {data().dogWalk.totalWalks}
                 </div>
-                <div style={{ "font-size": "10px", color: "var(--text-muted)", "margin-top": "2px" }}>Balades</div>
+                <div style={{ "font-size": "10px", color: "var(--text-muted)", "margin-top": "2px" }}>{t("dashboard.walksLabel")}</div>
               </div>
             </div>
 
             {/* Mini bar chart for focus */}
             <Show when={data().focus.dailyStats.length > 0 && data().focus.totalSeconds > 0}>
-              <div style={{ "font-size": "11px", color: "var(--text-muted)", "margin-bottom": "6px" }}>Focus par jour</div>
+              <div style={{ "font-size": "11px", color: "var(--text-muted)", "margin-bottom": "6px" }}>{t("dashboard.focusPerDayChart")}</div>
               <div style={{ display: "flex", gap: "1px", "align-items": "flex-end", height: "60px" }}>
                 <For each={data().focus.dailyStats}>
                   {(day) => {

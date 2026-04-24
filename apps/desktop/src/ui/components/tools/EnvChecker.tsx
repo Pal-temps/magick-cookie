@@ -1,6 +1,7 @@
 import { onMount, createSignal, For, Show } from "solid-js";
 import { useEnvStore } from "../../../application/stores/envStore";
 import { Button } from "../common/Button";
+import { useT } from "../../../i18n/context";
 
 function statusDotColor(status: string): string {
   if (status === "up") return "#00b894";
@@ -8,13 +9,14 @@ function statusDotColor(status: string): string {
   return "#b2bec3"; // checking / gray
 }
 
-function statusLabel(status: string): string {
-  if (status === "up") return "En ligne";
-  if (status === "down") return "Hors ligne";
-  return "Verification...";
+function statusLabel(status: string, t: (key: string) => string): string {
+  if (status === "up") return t("tools.online");
+  if (status === "down") return t("tools.offline");
+  return t("tools.checking");
 }
 
 export function EnvChecker() {
+  const { t } = useT();
   const { checks, runChecks, addCheck, removeCheck } = useEnvStore();
   const [newName, setNewName] = createSignal("");
   const [newUrl, setNewUrl] = createSignal("");
@@ -38,10 +40,10 @@ export function EnvChecker() {
       {/* Header */}
       <div style={{ display: "flex", "align-items": "center", "justify-content": "space-between" }}>
         <span style={{ "font-size": "14px", "font-weight": "600", color: "var(--text-primary)" }}>
-          Environnement
+          {t("tools.environment")}
         </span>
         <Button size="sm" variant="secondary" onClick={runChecks}>
-          Rafraichir
+          {t("tools.refreshBtn")}
         </Button>
       </div>
 
@@ -81,7 +83,7 @@ export function EnvChecker() {
                 "font-weight": "500",
                 "white-space": "nowrap",
               }}>
-                {statusLabel(check.status)}
+                {statusLabel(check.status, t)}
               </span>
               <Show when={index() >= 2}>
                 <button
@@ -95,7 +97,7 @@ export function EnvChecker() {
                     padding: "2px 4px",
                     "line-height": "1",
                   }}
-                  title="Supprimer"
+                  title={t("common.delete")}
                 >
                   x
                 </button>
@@ -116,12 +118,12 @@ export function EnvChecker() {
         border: "1px solid var(--border-color)",
       }}>
         <div style={{ flex: "1", display: "flex", "flex-direction": "column", gap: "4px" }}>
-          <label style={{ "font-size": "11px", color: "var(--text-muted)" }}>Nom</label>
+          <label style={{ "font-size": "11px", color: "var(--text-muted)" }}>{t("tools.nameField")}</label>
           <input
             type="text"
             value={newName()}
             onInput={(e) => setNewName(e.currentTarget.value)}
-            placeholder="Mon service"
+            placeholder={t("tools.myService")}
             style={{
               padding: "5px 8px",
               "font-size": "12px",
@@ -134,7 +136,7 @@ export function EnvChecker() {
           />
         </div>
         <div style={{ flex: "2", display: "flex", "flex-direction": "column", gap: "4px" }}>
-          <label style={{ "font-size": "11px", color: "var(--text-muted)" }}>URL</label>
+          <label style={{ "font-size": "11px", color: "var(--text-muted)" }}>{t("tools.urlField")}</label>
           <input
             type="text"
             value={newUrl()}
@@ -153,7 +155,7 @@ export function EnvChecker() {
           />
         </div>
         <Button size="sm" variant="primary" onClick={handleAdd}>
-          Ajouter
+          {t("common.add")}
         </Button>
       </div>
     </div>

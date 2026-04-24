@@ -1,6 +1,7 @@
 import { createSignal, For, Show, createMemo } from "solid-js";
 import { RSS_CATALOG, type CatalogFeed, type CatalogSource } from "./catalogData";
 import type { RssFeed } from "../../../application/stores/rssStore";
+import { useT } from "../../../i18n/context";
 import { Button } from "../common/Button";
 
 interface RssCatalogProps {
@@ -12,6 +13,7 @@ interface RssCatalogProps {
 const LANG_LABEL: Record<string, string> = { fr: "FR", en: "EN", mixed: "FR/EN" };
 
 export function RssCatalog(props: RssCatalogProps) {
+  const { t } = useT();
   const [adding, setAdding] = createSignal<Set<string>>(new Set());
   const [added, setAdded] = createSignal<Set<string>>(new Set());
   const [filterCategory, setFilterCategory] = createSignal<string | null>(null);
@@ -69,16 +71,16 @@ export function RssCatalog(props: RssCatalogProps) {
       {/* Header */}
       <div style={{ display: "flex", "justify-content": "space-between", "align-items": "center", "margin-bottom": "10px", "flex-shrink": "0" }}>
         <h2 style={{ "font-size": "15px", "font-weight": "600", color: "var(--text-primary)", margin: "0" }}>
-          Catalogue RSS
+          {t("rss.rssCatalog")}
         </h2>
-        <Button size="sm" variant="ghost" onClick={props.onClose}>Fermer</Button>
+        <Button size="sm" variant="ghost" onClick={props.onClose}>{t("rss.close")}</Button>
       </div>
 
       {/* Search + filter */}
       <div style={{ display: "flex", gap: "6px", "margin-bottom": "10px", "flex-shrink": "0" }}>
         <input
           type="text"
-          placeholder="Rechercher..."
+          placeholder={t("common.search") + "..."}
           value={search()}
           onInput={(e) => setSearch(e.currentTarget.value)}
           style={{
@@ -105,7 +107,7 @@ export function RssCatalog(props: RssCatalogProps) {
             cursor: "pointer",
           }}
         >
-          <option value="">Toutes</option>
+          <option value="">{t("rss.allCategories")}</option>
           <For each={allCategories()}>
             {(cat) => <option value={cat}>{cat}</option>}
           </For>
@@ -260,7 +262,7 @@ export function RssCatalog(props: RssCatalogProps) {
 
         <Show when={filteredSources().length === 0}>
           <div style={{ padding: "30px 0", "text-align": "center", color: "var(--text-muted)", "font-size": "13px" }}>
-            Aucun flux ne correspond a votre recherche.
+            {t("rss.noMatchSearch")}
           </div>
         </Show>
       </div>

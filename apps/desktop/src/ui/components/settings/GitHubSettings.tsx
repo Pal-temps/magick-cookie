@@ -1,9 +1,11 @@
 import { createSignal, onMount, Show, For } from "solid-js";
 import { useGitHubStore } from "../../../application/stores/githubStore";
+import { useT } from "../../../i18n/context";
 import { Button } from "../common/Button";
 
 export function GitHubSettings() {
   const { config, isSyncing, fetchConfig, saveConfig, deleteConfig, syncPRs } = useGitHubStore();
+  const { t } = useT();
 
   const [token, setToken] = createSignal("");
   const [username, setUsername] = createSignal("");
@@ -17,7 +19,6 @@ export function GitHubSettings() {
     await fetchConfig();
     const cfg = config();
     if (cfg) {
-      // Token is masked from API, keep empty unless user re-enters
       setToken("");
       setUsername(cfg.username);
       setRepos(cfg.repos);
@@ -27,7 +28,6 @@ export function GitHubSettings() {
   function addRepo() {
     const value = repoInput().trim();
     if (!value) return;
-    // Support comma-separated
     const newRepos = value.split(",").map((r) => r.trim()).filter(Boolean);
     setRepos((prev) => [...prev, ...newRepos.filter((r) => !prev.includes(r))]);
     setRepoInput("");
@@ -49,10 +49,7 @@ export function GitHubSettings() {
     setSaving(true);
     try {
       const tokenValue = token();
-      if (!tokenValue && !config()) {
-        // No token and no existing config
-        return;
-      }
+      if (!tokenValue && !config()) return;
       await saveConfig({
         token: tokenValue || config()?.token || "",
         username: username(),
@@ -117,27 +114,27 @@ export function GitHubSettings() {
         GitHub
       </h2>
       <p style={{ margin: "0 0 24px", "font-size": "13px", color: "var(--text-muted)" }}>
-        Connectez votre compte GitHub pour suivre les Pull Requests ouvertes et les demandes de review.
+        {t("settings.githubDesc")}
       </p>
 
       {/* Token */}
       <div style={sectionStyle}>
-        <label style={labelStyle}>Token d'acces personnel</label>
+        <label style={labelStyle}>{t("settings.personalAccessToken")}</label>
         <input
           type="password"
           value={token()}
           onInput={(e) => setToken(e.target.value)}
           style={inputStyle}
-          placeholder={config() ? "Laisser vide pour garder le token actuel" : "ghp_..."}
+          placeholder={config() ? t("settings.keepCurrentToken") : "ghp_..."}
         />
         <div style={helpStyle}>
-          Creez un token sur github.com/settings/tokens avec les permissions "repo" (read).
+          {t("settings.createTokenHint")}
         </div>
       </div>
 
       {/* Username */}
       <div style={sectionStyle}>
-        <label style={labelStyle}>Nom d'utilisateur GitHub</label>
+        <label style={labelStyle}>{t("settings.githubUsername")}</label>
         <input
           type="text"
           value={username()}
@@ -146,13 +143,13 @@ export function GitHubSettings() {
           placeholder="votre-username"
         />
         <div style={helpStyle}>
-          Utilise pour detecter les demandes de review vous concernant.
+          {t("settings.usernameHint")}
         </div>
       </div>
 
       {/* Repos */}
       <div style={sectionStyle}>
-        <label style={labelStyle}>Repositories a surveiller</label>
+        <label style={labelStyle}>{t("settings.reposToWatch")}</label>
         <div style={{ display: "flex", gap: "6px", "margin-bottom": "8px" }}>
           <input
             type="text"
@@ -160,10 +157,10 @@ export function GitHubSettings() {
             onInput={(e) => setRepoInput(e.target.value)}
             onKeyDown={handleRepoKeyDown}
             style={{ ...inputStyle, flex: "1" }}
-            placeholder="owner/repo (separees par des virgules)"
+            placeholder={t("settings.reposSeparated")}
           />
           <Button size="sm" variant="secondary" onClick={addRepo}>
-            Ajouter
+            {t("common.add")}
           </Button>
         </div>
         <Show when={repos().length > 0}>
@@ -202,7 +199,7 @@ export function GitHubSettings() {
           </div>
         </Show>
         <div style={helpStyle}>
-          Format : owner/repo. Ex: facebook/react, vercel/next.js
+          {t("settings.repoFormatHint")}
         </div>
       </div>
 
@@ -214,7 +211,7 @@ export function GitHubSettings() {
           onClick={handleSave}
           disabled={saving() || (!token() && !config())}
         >
-          {saving() ? "..." : "Sauvegarder"}
+          {saving() ? "..." : t("common.save")}
         </Button>
         <Button
           variant="secondary"
@@ -222,18 +219,18 @@ export function GitHubSettings() {
           onClick={handleTest}
           disabled={isSyncing() || !config()}
         >
-          {isSyncing() ? "..." : "Tester la connexion"}
+          {isSyncing() ? "..." : t("settings.testConnection")}
         </Button>
 
         <Show when={config()}>
           <Button variant="secondary" size="sm" onClick={handleDelete}>
-            Supprimer
+            {t("common.delete")}
           </Button>
         </Show>
 
         <Show when={saved()}>
           <span style={{ "font-size": "12px", color: "#00b894", "margin-left": "8px" }}>
-            Sauvegarde
+            {t("settings.saved")}
           </span>
         </Show>
 
@@ -243,7 +240,7 @@ export function GitHubSettings() {
             color: testResult() ? "#00b894" : "#d63031",
             "margin-left": "8px",
           }}>
-            {testResult() ? "Connexion OK" : "Echec de connexion"}
+            {testResult() ? t("settings.connectionOk") : t("settings.connectionFailed")}
           </span>
         </Show>
       </div>
@@ -260,11 +257,11 @@ export function GitHubSettings() {
             color: "var(--text-muted)",
           }}>
             <div style={{ "font-weight": "500", color: "var(--text-primary)", "margin-bottom": "6px" }}>
-              Configuration active
+              {t("settings.activeConfig")}
             </div>
-            <div>Utilisateur : {cfg().username}</div>
-            <div>Token : {cfg().token}</div>
-            <div>Repos : {cfg().repos.length > 0 ? cfg().repos.join(", ") : "aucun"}</div>
+            <div>{t("settings.user")} : {cfg().username}</div>
+            <div>{t("settings.token")} : {cfg().token}</div>
+            <div>{t("settings.repos")} : {cfg().repos.length > 0 ? cfg().repos.join(", ") : t("settings.noneLabel")}</div>
           </div>
         )}
       </Show>

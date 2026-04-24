@@ -1,6 +1,7 @@
 import { onMount, Show, For } from "solid-js";
 import { useAnalyticsStore } from "../../../application/stores/analyticsStore";
 import { CookieLoader } from "../common/CookieLoader";
+import { useT } from "../../../i18n/context";
 
 function formatDuration(seconds: number): string {
   const h = Math.floor(seconds / 3600);
@@ -18,6 +19,7 @@ function intensityColor(totalSeconds: number): string {
 
 export function StreakWidget() {
   const { streak, fetchStreak } = useAnalyticsStore();
+  const { t } = useT();
 
   onMount(() => {
     fetchStreak();
@@ -26,7 +28,7 @@ export function StreakWidget() {
   return (
     <div>
       <Show when={streak()} fallback={
-        <CookieLoader size={32} message="Chargement..." />
+        <CookieLoader size={32} message={t("common.loading")} />
       }>
         {(data) => (
           <>
@@ -42,17 +44,17 @@ export function StreakWidget() {
                 {data().currentStreak}
               </span>
               <span style={{ "font-size": "14px", color: "var(--text-secondary)", "font-weight": "500" }}>
-                jours
+                {t("dashboard.days")}
               </span>
             </div>
 
             <div style={{ "font-size": "11px", color: "var(--text-muted)", "margin-bottom": "14px" }}>
-              Record : {data().longestStreak} jours
+              {t("dashboard.record")} : {data().longestStreak} {t("dashboard.days")}
             </div>
 
             <div style={{
               display: "grid",
-              "grid-template-columns": "repeat(15, 1fr)",
+              "grid-template-columns": "repeat(auto-fill, minmax(14px, 1fr))",
               gap: "3px",
             }}>
               <For each={data().last30Days}>

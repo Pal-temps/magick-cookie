@@ -1,6 +1,7 @@
 import { createSignal } from "solid-js";
 import { useSettingsStore } from "../../../application/stores/settingsStore";
 import { api } from "../../../infrastructure/api/apiClient";
+import { useT } from "../../../i18n/context";
 import { Button } from "../common/Button";
 import type { UserPreferences } from "../../../domain/models/UserPreferences";
 
@@ -8,6 +9,7 @@ const LAST_SYNC_KEY = "magick-cookie-last-sync";
 
 export function DataSettings() {
   const settings = useSettingsStore();
+  const { t } = useT();
   const [saving, setSaving] = createSignal(false);
   const [restoring, setRestoring] = createSignal(false);
   const [feedback, setFeedback] = createSignal<{ type: "success" | "error"; msg: string } | null>(null);
@@ -25,9 +27,9 @@ export function DataSettings() {
       const now = new Date().toISOString();
       localStorage.setItem(LAST_SYNC_KEY, now);
       setLastSync(now);
-      showFeedback("success", "Preferences sauvegardees sur le serveur.");
+      showFeedback("success", t("settings.prefSaved"));
     } catch (e) {
-      showFeedback("error", "Erreur lors de la sauvegarde.");
+      showFeedback("error", t("settings.prefSaveError"));
     } finally {
       setSaving(false);
     }
@@ -38,23 +40,23 @@ export function DataSettings() {
     try {
       const data = await api.get<UserPreferences | null>("/user-preferences");
       if (!data) {
-        showFeedback("error", "Aucune preference trouvee sur le serveur.");
+        showFeedback("error", t("settings.prefNotFound"));
         return;
       }
       settings.importFromSync(data);
       const now = new Date().toISOString();
       localStorage.setItem(LAST_SYNC_KEY, now);
       setLastSync(now);
-      showFeedback("success", "Preferences restaurees depuis le serveur.");
+      showFeedback("success", t("settings.prefRestored"));
     } catch (e) {
-      showFeedback("error", "Erreur lors de la restauration.");
+      showFeedback("error", t("settings.prefRestoreError"));
     } finally {
       setRestoring(false);
     }
   }
 
   function formatDate(iso: string | null): string {
-    if (!iso) return "Jamais";
+    if (!iso) return t("settings.never");
     try {
       return new Date(iso).toLocaleString("fr-FR");
     } catch {
@@ -65,23 +67,23 @@ export function DataSettings() {
   return (
     <div style={{ padding: "24px 32px", "max-width": "600px" }}>
       <h2 style={{ margin: "0 0 4px", "font-size": "20px", "font-weight": "600", color: "var(--text-primary)" }}>
-        Synchronisation des preferences
+        {t("settings.prefSync")}
       </h2>
       <p style={{ margin: "0 0 24px", "font-size": "13px", color: "var(--text-muted)" }}>
-        Seules les preferences d'interface sont synchronisees. Les cles API, mots de passe et tokens ne sont jamais inclus.
+        {t("settings.prefSyncDesc")}
       </p>
 
       <div style={{ display: "flex", gap: "8px", "margin-bottom": "16px" }}>
         <Button variant="primary" size="sm" onClick={handleSave} disabled={saving()}>
-          {saving() ? "..." : "Sauvegarder sur le serveur"}
+          {saving() ? "..." : t("settings.saveToServer")}
         </Button>
         <Button variant="secondary" size="sm" onClick={handleRestore} disabled={restoring()}>
-          {restoring() ? "..." : "Restaurer depuis le serveur"}
+          {restoring() ? "..." : t("settings.restoreFromServer")}
         </Button>
       </div>
 
       <div style={{ "font-size": "12px", color: "var(--text-muted)", "margin-bottom": "12px" }}>
-        Derniere synchronisation : {formatDate(lastSync())}
+        {t("settings.lastSyncDate")} : {formatDate(lastSync())}
       </div>
 
       {feedback() && (

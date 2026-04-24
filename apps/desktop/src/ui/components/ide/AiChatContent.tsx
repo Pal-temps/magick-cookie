@@ -1,11 +1,16 @@
-import { Show, createSignal, Switch, Match, onMount, onCleanup } from "solid-js";
+import { Show, For, createSignal, Switch, Match, onMount, onCleanup } from "solid-js";
+import { invoke } from "@tauri-apps/api/core";
 import { useAiSessionStore, type AiSession } from "../../../application/stores/aiSessionStore";
 import { useIdeStore } from "../../../application/stores/ideStore";
+import { useSnippetStore } from "../../../application/stores/snippetStore";
+import { useWorkflowStore } from "../../../application/stores/workflowStore";
+import { useHookStore } from "../../../application/stores/hookStore";
+import { useT } from "../../../i18n/context";
 import { AiMessageFeed } from "./AiMessageFeed";
 import { AiComposer } from "./AiComposer";
 import type { MonacoEditorApi } from "./MonacoEditor";
 
-type AiTab = "session" | "diffs" | "processes" | "files";
+type AiTab = "session" | "diffs" | "processes" | "files" | "validation";
 
 interface AiChatContentProps {
   sessionId: string;
@@ -13,8 +18,12 @@ interface AiChatContentProps {
 }
 
 export function AiChatContent(props: AiChatContentProps) {
+  const { t } = useT();
   const ide = useIdeStore();
   const ai = useAiSessionStore();
+  const wf = useWorkflowStore();
+  const snippetStore = useSnippetStore();
+  const hooks = useHookStore();
   const [activeTab, setActiveTab] = createSignal<AiTab>("session");
 
   const session = (): AiSession | undefined => {
@@ -28,6 +37,39 @@ export function AiChatContent(props: AiChatContentProps) {
   onMount(() => document.addEventListener("ide-escape", handleEscape));
   onCleanup(() => document.removeEventListener("ide-escape", handleEscape));
 
+  // Auto-validation: watch for turn completion and run hooks
+  let lastMsgCount = 0;
+  const checkAutoValidation = () => {
+    const s = session();
+    if (!s || s.messages.length <= lastMsgCount) return;
+    const newMsgs = s.messages.slice(lastMsgCount);
+    lastMsgCount = s.messages.length;
+
+    // Check if a system message indicates turn complete (streaming just stopped)
+    const wasTurnComplete = !s.isStreaming && newMsgs.some((m) =>
+      m.type === "assistant" || (m.type === "system" && m.content.includes("terminee"))
+    );
+    if (!wasTurnComplete) return;
+
+    const workflow = wf.getWorkflowForSession(props.sessionId);
+    if (!workflow || workflow.preCommit.length === 0) return;
+
+    const cwd = ide.projectPath();
+    if (!cwd) return;
+
+    hooks.onTurnComplete(props.sessionId, cwd, workflow.preCommit).then((failureMsg) => {
+      if (failureMsg) {
+        // Auto-inject failure into AI for self-fix
+        ai.switchSession(props.sessionId);
+        ai.sendMessage(failureMsg);
+      }
+    });
+  };
+
+  // Use a simple interval to poll for changes (reactive would be cleaner but this is simpler)
+  const validationInterval = setInterval(checkAutoValidation, 1000);
+  onCleanup(() => clearInterval(validationInterval));
+
   // Track whether project context has been injected for this session
   const [contextInjected, setContextInjected] = createSignal(false);
 
@@ -37,15 +79,81 @@ export function AiChatContent(props: AiChatContentProps) {
       ai.switchSession(props.sessionId);
     }
 
-    // Inject CLAUDE.md context on first message of the session
+    // Inject context on first message of the session
     if (!contextInjected()) {
       setContextInjected(true);
+      const contextParts: string[] = [];
+
+      // Project CLAUDE.md
       try {
         const context = await ide.readProjectContext();
-        if (context) {
-          content = `[Contexte projet — CLAUDE.md]\n${context}\n---\n\n${content}`;
-        }
+        if (context) contextParts.push(`[Contexte projet — CLAUDE.md]\n${context}`);
       } catch { /* no context */ }
+
+      // Active workflow instructions + resolve file references
+      const workflow = wf.getWorkflowForSession(props.sessionId);
+      if (workflow) {
+        const resolvedParts: string[] = [];
+
+        // Resolve file references in preCommit/postCommit/instructions
+        async function resolveRef(ref: string): Promise<string> {
+          try {
+            if (ref.startsWith("file:")) {
+              const path = ref.slice(5);
+              if (path.startsWith("snippet::")) {
+                const sid = path.slice(9);
+                await snippetStore.fetchSnippets();
+                const s = snippetStore.snippets().find((sn) => sn.id === sid);
+                return s ? `[Snippet: ${s.title}]\n\`\`\`${s.language}\n${s.content}\n\`\`\`` : `[Snippet introuvable: ${sid}]`;
+              }
+              if (path.startsWith("bookmark::")) {
+                const url = path.slice(10);
+                return `[Signet: ${url}]\nURL a consulter/scanner: ${url}`;
+              }
+              if (path.startsWith("rss::")) {
+                const url = path.slice(5);
+                return `[Article RSS favori]\nURL a lire/analyser: ${url}`;
+              }
+              if (path.startsWith("notes::")) {
+                const content = await invoke<string>("notes_read", { path: path.slice(7) });
+                return `[Note: ${path.split("/").pop()}]\n${content}`;
+              }
+              // Vault file
+              const content = await invoke<string>("vault_read_json", { relPath: path });
+              return `[${path.split("/").pop()}]\n${content}`;
+            }
+            return `Commande: \`${ref}\``;
+          } catch {
+            return `[Fichier introuvable: ${ref}]`;
+          }
+        }
+
+        if (workflow.instructions) {
+          resolvedParts.push(`[Workflow: ${workflow.name}]\n${workflow.instructions}`);
+        }
+        if (workflow.preCommit.length > 0) {
+          const items: string[] = [];
+          for (const cmd of workflow.preCommit) {
+            items.push(await resolveRef(cmd));
+          }
+          resolvedParts.push(`## Pre-commit\n${items.join("\n\n")}`);
+        }
+        if (workflow.postCommit.length > 0) {
+          const items: string[] = [];
+          for (const cmd of workflow.postCommit) {
+            items.push(await resolveRef(cmd));
+          }
+          resolvedParts.push(`## Post-commit\n${items.join("\n\n")}`);
+        }
+
+        if (resolvedParts.length > 0) {
+          contextParts.push(resolvedParts.join("\n\n"));
+        }
+      }
+
+      if (contextParts.length > 0) {
+        content = contextParts.join("\n\n---\n\n") + "\n\n---\n\n" + content;
+      }
     }
 
     await ai.sendMessage(content, images);
@@ -59,11 +167,12 @@ export function AiChatContent(props: AiChatContentProps) {
     return props.editorApi?.getSelection() || null;
   }
 
-  const tabs: { id: AiTab; label: string }[] = [
-    { id: "session", label: "Session" },
+  const tabs = (): { id: AiTab; label: string }[] => [
+    { id: "session", label: t("ide.session") },
     { id: "diffs", label: "Diffs" },
     { id: "processes", label: "Processes" },
-    { id: "files", label: "Files" },
+    { id: "files", label: t("ide.files") },
+    { id: "validation", label: t("ide.validation") },
   ];
 
   const isStreaming = () => session()?.isStreaming ?? false;
@@ -88,7 +197,7 @@ export function AiChatContent(props: AiChatContentProps) {
     <div class="cc-ai-root">
       {/* Sub-tabs */}
       <div class="cc-subtabs">
-        {tabs.map((tab) => (
+        {tabs().map((tab) => (
           <button
             class={`cc-subtab ${activeTab() === tab.id ? "cc-subtab--active" : ""}`}
             onClick={() => setActiveTab(tab.id)}
@@ -135,7 +244,7 @@ export function AiChatContent(props: AiChatContentProps) {
             {/* Diffs tab */}
             <Match when={activeTab() === "diffs"}>
               <div class="cc-tab-placeholder">
-                <span>Les diffs apparaitront ici quand l'agent modifie des fichiers</span>
+                <span>{t("ide.diffsPlaceholder")}</span>
               </div>
             </Match>
 
@@ -144,7 +253,7 @@ export function AiChatContent(props: AiChatContentProps) {
               <div class="cc-processes-tab">
                 <Show when={toolCount() > 0} fallback={
                   <div class="cc-tab-placeholder">
-                    <span>Les operations apparaitront ici quand l'agent travaille</span>
+                    <span>{t("ide.processesPlaceholder")}</span>
                   </div>
                 }>
                   <div class="cc-processes-list">
@@ -162,11 +271,75 @@ export function AiChatContent(props: AiChatContentProps) {
                           </span>
                           <span class="cc-process-item__name">{msg.toolName}</span>
                           <span class="cc-process-item__status">
-                            {result ? (result.toolIsError ? "erreur" : "ok") : "..."}
+                            {result ? (result.toolIsError ? t("ide.error") : t("ide.ok")) : "..."}
                           </span>
                         </div>
                       );
                     })}
+                  </div>
+                </Show>
+              </div>
+            </Match>
+
+            {/* Validation tab */}
+            <Match when={activeTab() === "validation"}>
+              <div class="cc-processes-tab" style={{ padding: "12px" }}>
+                <div style={{ display: "flex", "align-items": "center", gap: "8px", "margin-bottom": "12px" }}>
+                  <label style={{ display: "flex", "align-items": "center", gap: "6px", "font-size": "12px", color: "var(--text-primary)", cursor: "pointer" }}>
+                    <input
+                      type="checkbox"
+                      checked={hooks.autoValidationEnabled()}
+                      onChange={(e) => hooks.setAutoValidationEnabled(e.currentTarget.checked)}
+                    />
+                    {t("ide.autoValidation")}
+                  </label>
+                  <Show when={hooks.isRunningHooks()}>
+                    <span style={{ "font-size": "11px", color: "var(--accent-primary)" }}>
+                      {t("ide.runningHooks")}
+                    </span>
+                  </Show>
+                </div>
+
+                <Show when={hooks.getResultsForSession(props.sessionId).length > 0} fallback={
+                  <div class="cc-tab-placeholder">
+                    <span>{t("ide.noHooks")}</span>
+                  </div>
+                }>
+                  <div class="cc-processes-list">
+                    <For each={hooks.getResultsForSession(props.sessionId)}>
+                      {(turn) => (
+                        <div style={{ "margin-bottom": "10px" }}>
+                          <div style={{ "font-size": "11px", color: "var(--text-muted)", "margin-bottom": "4px" }}>
+                            Turn {turn.turnSeq} — {turn.allPassed ? t("ide.hookPassed") : t("ide.hookFailed")}
+                          </div>
+                          <For each={turn.results}>
+                            {(r) => (
+                              <details class={`cc-process-item ${r.success ? "" : "cc-process-item--error"}`}
+                                style={{ cursor: "pointer", "margin-bottom": "2px" }}>
+                                <summary style={{ display: "flex", "align-items": "center", gap: "6px", "font-size": "12px" }}>
+                                  <span style={{ color: r.success ? "var(--accent-primary)" : "var(--color-danger)" }}>
+                                    {r.success ? "OK" : "FAIL"}
+                                  </span>
+                                  <code style={{ flex: "1", overflow: "hidden", "text-overflow": "ellipsis", "white-space": "nowrap" }}>
+                                    {r.command}
+                                  </code>
+                                  <span style={{ "font-size": "10px", color: "var(--text-muted)" }}>
+                                    {r.duration_ms}ms
+                                  </span>
+                                </summary>
+                                <pre style={{
+                                  "font-size": "11px", padding: "6px", margin: "4px 0 0",
+                                  background: "var(--bg-base)", "border-radius": "var(--radius-sm)",
+                                  "max-height": "150px", overflow: "auto", "white-space": "pre-wrap",
+                                }}>
+                                  {[r.stdout, r.stderr].filter(Boolean).join("\n") || "(no output)"}
+                                </pre>
+                              </details>
+                            )}
+                          </For>
+                        </div>
+                      )}
+                    </For>
                   </div>
                 </Show>
               </div>
@@ -177,7 +350,7 @@ export function AiChatContent(props: AiChatContentProps) {
               <div class="cc-files-tab">
                 <Show when={fileCount() > 0} fallback={
                   <div class="cc-tab-placeholder">
-                    <span>Les fichiers touches apparaitront ici</span>
+                    <span>{t("ide.filesPlaceholder")}</span>
                   </div>
                 }>
                   <div class="cc-files-list">

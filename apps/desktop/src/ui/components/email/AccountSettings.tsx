@@ -1,6 +1,7 @@
 import { createSignal, For, Show } from "solid-js";
 import type { EmailAccount, CreateEmailAccountDTO } from "../../../domain/models/Email";
 import { api } from "../../../infrastructure/api/apiClient";
+import { useT } from "../../../i18n/context";
 import { Button } from "../common/Button";
 
 interface AccountSettingsProps {
@@ -38,6 +39,7 @@ const EMAIL_DOMAIN_PRESET: Record<string, string> = {
 };
 
 export function AccountSettings(props: AccountSettingsProps) {
+  const { t } = useT();
   const [showForm, setShowForm] = createSignal(false);
   const [label, setLabel] = createSignal("");
   const [email, setEmail] = createSignal("");
@@ -142,9 +144,9 @@ export function AccountSettings(props: AccountSettingsProps) {
     <div style={{ padding: "20px", height: "100%", "overflow-y": "auto" }}>
       <div style={{ display: "flex", "justify-content": "space-between", "align-items": "center", "margin-bottom": "16px" }}>
         <h2 style={{ "font-size": "16px", "font-weight": "600", color: "var(--text-primary)", margin: "0" }}>
-          Comptes email
+          {t("email.accountsTitle")}
         </h2>
-        <Button size="sm" variant="ghost" onClick={props.onClose}>Fermer</Button>
+        <Button size="sm" variant="ghost" onClick={props.onClose}>{t("email.closeBtn")}</Button>
       </div>
 
       {/* Existing accounts */}
@@ -164,7 +166,7 @@ export function AccountSettings(props: AccountSettingsProps) {
               <div style={{ "font-size": "13px", "font-weight": "500", color: "var(--text-primary)" }}>{acc.label}</div>
               <div style={{ "font-size": "11px", color: "var(--text-muted)" }}>{acc.email}</div>
             </div>
-            <Button size="sm" variant="secondary" onClick={() => props.onRemove(acc.id)}>Supprimer</Button>
+            <Button size="sm" variant="secondary" onClick={() => props.onRemove(acc.id)}>{t("email.removeAccount")}</Button>
           </div>
         )}
       </For>
@@ -172,7 +174,7 @@ export function AccountSettings(props: AccountSettingsProps) {
       {/* Add button / form */}
       <Show when={!showForm()}>
         <Button size="sm" variant="primary" onClick={() => setShowForm(true)} style={{ "margin-top": "8px" }}>
-          + Ajouter un compte
+          {t("email.addAccount")}
         </Button>
       </Show>
 
@@ -185,12 +187,12 @@ export function AccountSettings(props: AccountSettingsProps) {
           border: "1px solid var(--border-color)",
         }}>
           <h3 style={{ "font-size": "13px", "font-weight": "600", color: "var(--text-primary)", margin: "0 0 12px 0" }}>
-            Nouveau compte
+            {t("email.newAccount")}
           </h3>
 
           {/* Presets */}
           <div style={{ "margin-bottom": "12px" }}>
-            <span style={labelStyle}>Presets</span>
+            <span style={labelStyle}>{t("email.presets")}</span>
             <div style={{ display: "flex", gap: "6px", "flex-wrap": "wrap" }}>
               {Object.keys(PRESETS).map((name) => (
                 <Button size="sm" variant="secondary" onClick={() => applyPreset(name)}>{name}</Button>
@@ -200,19 +202,19 @@ export function AccountSettings(props: AccountSettingsProps) {
 
           <div style={{ display: "grid", "grid-template-columns": "1fr 1fr", gap: "10px" }}>
             <div>
-              <span style={labelStyle}>Label</span>
+              <span style={labelStyle}>{t("email.labelField")}</span>
               <input style={inputStyle} value={label()} onInput={(e) => setLabel(e.target.value)} placeholder="Perso" />
             </div>
             <div>
-              <span style={labelStyle}>Email</span>
+              <span style={labelStyle}>{t("email.emailField")}</span>
               <input style={inputStyle} value={email()} onInput={(e) => handleEmailInput(e.target.value)} placeholder="john@gmail.com" />
             </div>
             <div>
-              <span style={labelStyle}>Nom d'utilisateur</span>
+              <span style={labelStyle}>{t("email.username")}</span>
               <input style={inputStyle} value={username()} onInput={(e) => setUsername(e.target.value)} placeholder="john@gmail.com" />
             </div>
             <div>
-              <span style={labelStyle}>Mot de passe</span>
+              <span style={labelStyle}>{t("email.password")}</span>
               <input style={inputStyle} type="password" value={password()} onInput={(e) => setPassword(e.target.value)} placeholder="App password" />
             </div>
             <div>
@@ -243,7 +245,7 @@ export function AccountSettings(props: AccountSettingsProps) {
               style={{ width: "14px", height: "14px" }}
             />
             <label for="selfSigned" style={{ "font-size": "12px", color: "var(--text-secondary)", cursor: "pointer" }}>
-              Certificat auto-signe (self-hosted / dev local)
+              {t("email.selfSignedCert")}
             </label>
           </div>
 
@@ -264,12 +266,12 @@ export function AccountSettings(props: AccountSettingsProps) {
           </Show>
 
           <div style={{ display: "flex", gap: "8px", "margin-top": "14px", "justify-content": "flex-end" }}>
-            <Button size="sm" variant="ghost" onClick={resetForm}>Annuler</Button>
+            <Button size="sm" variant="ghost" onClick={resetForm}>{t("common.cancel")}</Button>
             <Button size="sm" variant="secondary" onClick={handleTest} disabled={isTesting()}>
-              {isTesting() ? "Test..." : "Tester"}
+              {isTesting() ? t("email.testing") : t("email.testBtn")}
             </Button>
             <Button size="sm" variant="primary" onClick={handleSave} disabled={isSaving() || !label() || !email() || !password()}>
-              {isSaving() ? "..." : "Ajouter"}
+              {isSaving() ? "..." : t("email.addBtn")}
             </Button>
           </div>
         </div>

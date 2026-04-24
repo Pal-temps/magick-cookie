@@ -36,6 +36,15 @@ export interface Email {
   folder: string;
   sentAt: string;
   createdAt: string;
+  security?: EmailSecurity;
+}
+
+export type SecurityLevel = "safe" | "low" | "medium" | "high" | "critical";
+
+export interface EmailSecurity {
+  score: number;
+  level: SecurityLevel;
+  warnings?: string[];
 }
 
 export interface EmailAddress {

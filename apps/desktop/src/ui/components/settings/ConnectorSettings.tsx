@@ -1,5 +1,6 @@
 import { createSignal, onMount, Show, For } from "solid-js";
 import { api } from "../../../infrastructure/api/apiClient";
+import { useT } from "../../../i18n/context";
 import { Button } from "../common/Button";
 
 interface ConnectorConfigResponse {
@@ -46,13 +47,15 @@ const cardStyle = {
 };
 
 export function ConnectorSettings() {
+  const { t } = useT();
+
   return (
     <div style={{ padding: "24px 32px", "max-width": "700px" }}>
       <h2 style={{ margin: "0 0 4px", "font-size": "20px", "font-weight": "600", color: "var(--text-primary)" }}>
-        Connecteurs
+        {t("settings.connectorsTitle")}
       </h2>
       <p style={{ margin: "0 0 24px", "font-size": "13px", color: "var(--text-muted)" }}>
-        Configurez vos connecteurs pour synchroniser les taches depuis des services externes.
+        {t("settings.connectorsDesc")}
       </p>
 
       <ClickUpConnector />
@@ -65,6 +68,7 @@ export function ConnectorSettings() {
 // --- ClickUp ---
 
 function ClickUpConnector() {
+  const { t } = useT();
   const [token, setToken] = createSignal("");
   const [existing, setExisting] = createSignal<ConnectorConfigResponse | null>(null);
   const [saved, setSaved] = createSignal(false);
@@ -114,22 +118,22 @@ function ClickUpConnector() {
         ClickUp
       </h3>
       <div style={sectionStyle}>
-        <label style={labelStyle}>Token API</label>
+        <label style={labelStyle}>{t("settings.apiToken")}</label>
         <input type="password" value={token()} onInput={(e) => setToken(e.target.value)} style={inputStyle}
-          placeholder={existing() ? "Laisser vide pour garder le token actuel" : "pk_..."} />
+          placeholder={existing() ? t("settings.keepCurrentToken") : "pk_..."} />
       </div>
       <div style={{ display: "flex", gap: "8px", "align-items": "center", "flex-wrap": "wrap" }}>
-        <Button variant="primary" size="sm" onClick={handleSave} disabled={!token() && !existing()}>Sauvegarder</Button>
+        <Button variant="primary" size="sm" onClick={handleSave} disabled={!token() && !existing()}>{t("common.save")}</Button>
         <Button variant="secondary" size="sm" onClick={handleTest} disabled={testing() || !existing()}>
-          {testing() ? "..." : "Tester"}
+          {testing() ? "..." : t("settings.test")}
         </Button>
         <Show when={existing()}>
-          <Button variant="secondary" size="sm" onClick={handleDelete}>Supprimer</Button>
+          <Button variant="secondary" size="sm" onClick={handleDelete}>{t("common.delete")}</Button>
         </Show>
-        <Show when={saved()}><span style={{ "font-size": "12px", color: "#00b894" }}>Sauvegarde</span></Show>
+        <Show when={saved()}><span style={{ "font-size": "12px", color: "#00b894" }}>{t("settings.saved")}</span></Show>
         <Show when={testOk() !== null}>
           <span style={{ "font-size": "12px", color: testOk() ? "#00b894" : "#d63031" }}>
-            {testOk() ? "OK" : "Echec"}
+            {testOk() ? "OK" : t("settings.failed")}
           </span>
         </Show>
       </div>
@@ -140,6 +144,7 @@ function ClickUpConnector() {
 // --- GitHub ---
 
 function GitHubConnector() {
+  const { t } = useT();
   const [token, setToken] = createSignal("");
   const [username, setUsername] = createSignal("");
   const [repoInput, setRepoInput] = createSignal("");
@@ -214,22 +219,22 @@ function GitHubConnector() {
         GitHub
       </h3>
       <div style={sectionStyle}>
-        <label style={labelStyle}>Token d'acces personnel</label>
+        <label style={labelStyle}>{t("settings.personalAccessToken")}</label>
         <input type="password" value={token()} onInput={(e) => setToken(e.target.value)} style={inputStyle}
-          placeholder={existing() ? "Laisser vide pour garder le token actuel" : "ghp_..."} />
-        <div style={helpStyle}>Permissions necessaires : repo (read)</div>
+          placeholder={existing() ? t("settings.keepCurrentToken") : "ghp_..."} />
+        <div style={helpStyle}>{t("settings.permissionsRequired")}</div>
       </div>
       <div style={sectionStyle}>
-        <label style={labelStyle}>Nom d'utilisateur</label>
+        <label style={labelStyle}>{t("settings.username")}</label>
         <input type="text" value={username()} onInput={(e) => setUsername(e.target.value)} style={inputStyle} placeholder="votre-username" />
       </div>
       <div style={sectionStyle}>
-        <label style={labelStyle}>Repositories</label>
+        <label style={labelStyle}>{t("settings.repositories")}</label>
         <div style={{ display: "flex", gap: "6px", "margin-bottom": "8px" }}>
           <input type="text" value={repoInput()} onInput={(e) => setRepoInput(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addRepo(); }}}
             style={{ ...inputStyle, flex: "1" }} placeholder="owner/repo" />
-          <Button size="sm" variant="secondary" onClick={addRepo}>Ajouter</Button>
+          <Button size="sm" variant="secondary" onClick={addRepo}>{t("common.add")}</Button>
         </div>
         <Show when={repos().length > 0}>
           <div style={{ display: "flex", gap: "6px", "flex-wrap": "wrap" }}>
@@ -259,17 +264,17 @@ function GitHubConnector() {
         </label>
       </div>
       <div style={{ display: "flex", gap: "8px", "align-items": "center", "flex-wrap": "wrap" }}>
-        <Button variant="primary" size="sm" onClick={handleSave} disabled={!token() && !existing()}>Sauvegarder</Button>
+        <Button variant="primary" size="sm" onClick={handleSave} disabled={!token() && !existing()}>{t("common.save")}</Button>
         <Button variant="secondary" size="sm" onClick={handleTest} disabled={testing() || !existing()}>
-          {testing() ? "..." : "Tester"}
+          {testing() ? "..." : t("settings.test")}
         </Button>
         <Show when={existing()}>
-          <Button variant="secondary" size="sm" onClick={handleDelete}>Supprimer</Button>
+          <Button variant="secondary" size="sm" onClick={handleDelete}>{t("common.delete")}</Button>
         </Show>
-        <Show when={saved()}><span style={{ "font-size": "12px", color: "#00b894" }}>Sauvegarde</span></Show>
+        <Show when={saved()}><span style={{ "font-size": "12px", color: "#00b894" }}>{t("settings.saved")}</span></Show>
         <Show when={testOk() !== null}>
           <span style={{ "font-size": "12px", color: testOk() ? "#00b894" : "#d63031" }}>
-            {testOk() ? "OK" : "Echec"}
+            {testOk() ? "OK" : t("settings.failed")}
           </span>
         </Show>
       </div>
@@ -280,6 +285,7 @@ function GitHubConnector() {
 // --- GitLab ---
 
 function GitLabConnector() {
+  const { t } = useT();
   const [token, setToken] = createSignal("");
   const [baseUrl, setBaseUrl] = createSignal("https://gitlab.com");
   const [projectIdsInput, setProjectIdsInput] = createSignal("");
@@ -342,34 +348,34 @@ function GitLabConnector() {
         GitLab
       </h3>
       <div style={sectionStyle}>
-        <label style={labelStyle}>Token d'acces personnel</label>
+        <label style={labelStyle}>{t("settings.personalAccessToken")}</label>
         <input type="password" value={token()} onInput={(e) => setToken(e.target.value)} style={inputStyle}
-          placeholder={existing() ? "Laisser vide pour garder le token actuel" : "glpat-..."} />
+          placeholder={existing() ? t("settings.keepCurrentToken") : "glpat-..."} />
       </div>
       <div style={sectionStyle}>
-        <label style={labelStyle}>URL de base</label>
+        <label style={labelStyle}>{t("settings.baseUrlLabel")}</label>
         <input type="text" value={baseUrl()} onInput={(e) => setBaseUrl(e.target.value)} style={inputStyle}
           placeholder="https://gitlab.com" />
-        <div style={helpStyle}>Pour GitLab self-hosted, changez l'URL.</div>
+        <div style={helpStyle}>{t("settings.selfHostedHint")}</div>
       </div>
       <div style={sectionStyle}>
-        <label style={labelStyle}>IDs des projets</label>
+        <label style={labelStyle}>{t("settings.projectIds")}</label>
         <input type="text" value={projectIdsInput()} onInput={(e) => setProjectIdsInput(e.target.value)} style={inputStyle}
           placeholder="12345, 67890" />
-        <div style={helpStyle}>Separes par des virgules. Trouvez l'ID dans Settings &gt; General.</div>
+        <div style={helpStyle}>{t("settings.projectIdsHint")}</div>
       </div>
       <div style={{ display: "flex", gap: "8px", "align-items": "center", "flex-wrap": "wrap" }}>
-        <Button variant="primary" size="sm" onClick={handleSave} disabled={!token() && !existing()}>Sauvegarder</Button>
+        <Button variant="primary" size="sm" onClick={handleSave} disabled={!token() && !existing()}>{t("common.save")}</Button>
         <Button variant="secondary" size="sm" onClick={handleTest} disabled={testing() || !existing()}>
-          {testing() ? "..." : "Tester"}
+          {testing() ? "..." : t("settings.test")}
         </Button>
         <Show when={existing()}>
-          <Button variant="secondary" size="sm" onClick={handleDelete}>Supprimer</Button>
+          <Button variant="secondary" size="sm" onClick={handleDelete}>{t("common.delete")}</Button>
         </Show>
-        <Show when={saved()}><span style={{ "font-size": "12px", color: "#00b894" }}>Sauvegarde</span></Show>
+        <Show when={saved()}><span style={{ "font-size": "12px", color: "#00b894" }}>{t("settings.saved")}</span></Show>
         <Show when={testOk() !== null}>
           <span style={{ "font-size": "12px", color: testOk() ? "#00b894" : "#d63031" }}>
-            {testOk() ? "OK" : "Echec"}
+            {testOk() ? "OK" : t("settings.failed")}
           </span>
         </Show>
       </div>

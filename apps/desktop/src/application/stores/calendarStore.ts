@@ -24,7 +24,7 @@ const [contacts, setContacts] = createSignal<Contact[]>([]);
 const [showBirthdays, setShowBirthdays] = createSignal(true);
 const [showConnectorEvents, setShowConnectorEvents] = createSignal(true);
 const [showPersonal, setShowPersonal] = createSignal(true);
-const [showAlarms, setShowAlarms] = createSignal(true);
+const [showAlarms, setShowAlarms] = createSignal(false);
 
 // --- Speech prefill ---
 const [prefillData, setPrefillData] = createSignal<ParsedEventData | null>(null);
@@ -40,7 +40,15 @@ let alarmGetter: (() => Alarm[]) | null = null;
 export function useCalendarStore() {
   // Calendar CRUD
   async function fetchCalendars() {
-    const data = await api.get<Calendar[]>("/calendars");
+    let data = await api.get<Calendar[]>("/calendars");
+    if (data.length === 0) {
+      const defaultCal = await api.post<Calendar>("/calendars", {
+        name: "Personnel",
+        color: "#6c5ce7",
+        isDefault: true,
+      });
+      if (defaultCal) data = [defaultCal];
+    }
     setCalendars(data);
     setActiveCalendarIds(new Set(data.map((c) => c.id)));
   }
@@ -272,6 +280,8 @@ export function useCalendarStore() {
             title: `Alarme: ${alarm.label}`,
             description: null,
             location: null,
+            latitude: null,
+            longitude: null,
             startAt: startAt.toISOString(),
             endAt: endAt.toISOString(),
             isAllDay: false,
@@ -369,6 +379,8 @@ export function useCalendarStore() {
           title: `Anniversaire de ${c.name}${ageLabel}`,
           description: c.notes,
           location: null,
+          latitude: null,
+          longitude: null,
           startAt: startAt.toISOString(),
           endAt: endAt.toISOString(),
           isAllDay: true,

@@ -1,11 +1,13 @@
 import { createSignal, onMount, For, Show } from "solid-js";
 import { useWellnessStore } from "../../../application/stores/wellnessStore";
+import { useT } from "../../../i18n/context";
 import { Button } from "../common/Button";
 
 const DEFAULT_TYPES = ["water", "break", "stretch", "breathe"];
 
 export function HabitSettings() {
   const { configs, fetchConfigs, createConfig, updateConfig, deleteConfig } = useWellnessStore();
+  const { t } = useT();
   const [editing, setEditing] = createSignal<string | null>(null);
   const [creating, setCreating] = createSignal(false);
 
@@ -107,14 +109,14 @@ export function HabitSettings() {
       <div style={{ display: "flex", "justify-content": "space-between", "align-items": "center", "margin-bottom": "20px" }}>
         <div>
           <h3 style={{ margin: "0 0 4px", "font-size": "16px", "font-weight": "600", color: "var(--text-primary)" }}>
-            Habitudes
+            {t("settings.habitsTitle")}
           </h3>
           <p style={{ margin: "0", "font-size": "12px", color: "var(--text-muted)" }}>
-            Configurez vos rappels de bien-etre et habitudes personnalisees.
+            {t("settings.habitsDesc")}
           </p>
         </div>
         <Button variant="primary" size="sm" onClick={startCreate}>
-          Ajouter
+          {t("common.add")}
         </Button>
       </div>
 
@@ -153,18 +155,18 @@ export function HabitSettings() {
                   {config.label}
                 </div>
                 <div style={{ "font-size": "11px", color: "var(--text-muted)" }}>
-                  {config.type} — toutes les {config.intervalMinutes} min
+                  {config.type} — {t("settings.every")} {config.intervalMinutes} min
                 </div>
               </div>
 
               {/* Actions */}
               <div style={{ display: "flex", gap: "4px", "flex-shrink": "0" }}>
                 <Button variant="ghost" size="sm" onClick={() => startEdit(config)}>
-                  Modifier
+                  {t("common.edit")}
                 </Button>
                 <Show when={!isDefault(config.type)}>
                   <Button variant="danger" size="sm" onClick={() => handleDelete(config.id)}>
-                    Supprimer
+                    {t("common.delete")}
                   </Button>
                 </Show>
               </div>
@@ -173,7 +175,7 @@ export function HabitSettings() {
         </For>
         <Show when={configs().length === 0}>
           <p style={{ "font-size": "13px", color: "var(--text-muted)", "text-align": "center", padding: "20px 0" }}>
-            Aucune habitude configuree.
+            {t("settings.noHabits")}
           </p>
         </Show>
       </div>
@@ -187,7 +189,7 @@ export function HabitSettings() {
           border: "1px solid var(--border-color)",
         }}>
           <h4 style={{ margin: "0 0 12px", "font-size": "14px", "font-weight": "600", color: "var(--text-primary)" }}>
-            {creating() ? "Nouvelle habitude" : "Modifier l'habitude"}
+            {creating() ? t("settings.newHabit") : t("settings.editHabit")}
           </h4>
 
           <div style={{ display: "flex", "flex-direction": "column", gap: "10px" }}>
@@ -195,7 +197,7 @@ export function HabitSettings() {
             <Show when={creating()}>
               <div>
                 <label style={{ display: "block", "font-size": "12px", color: "var(--text-muted)", "margin-bottom": "4px" }}>
-                  Identifiant (slug)
+                  {t("settings.slugId")}
                 </label>
                 <input
                   type="text"
@@ -210,7 +212,7 @@ export function HabitSettings() {
             {/* Label */}
             <div>
               <label style={{ display: "block", "font-size": "12px", color: "var(--text-muted)", "margin-bottom": "4px" }}>
-                Libelle
+                {t("settings.label")}
               </label>
               <input
                 type="text"
@@ -224,7 +226,7 @@ export function HabitSettings() {
             {/* Interval */}
             <div>
               <label style={{ display: "block", "font-size": "12px", color: "var(--text-muted)", "margin-bottom": "4px" }}>
-                Intervalle (minutes)
+                {t("settings.intervalMinutes")}
               </label>
               <input
                 type="number"
@@ -242,23 +244,23 @@ export function HabitSettings() {
                 checked={formEnabled()}
                 onChange={(e) => setFormEnabled(e.currentTarget.checked)}
               />
-              Active
+              {t("settings.active")}
             </label>
 
             {/* Buttons */}
             <div style={{ display: "flex", gap: "8px", "margin-top": "4px" }}>
               <Show when={creating()}>
                 <Button variant="primary" size="sm" onClick={handleCreate}>
-                  Creer
+                  {t("common.create")}
                 </Button>
               </Show>
               <Show when={editing()}>
                 <Button variant="primary" size="sm" onClick={handleUpdate}>
-                  Enregistrer
+                  {t("common.save")}
                 </Button>
               </Show>
               <Button variant="secondary" size="sm" onClick={resetForm}>
-                Annuler
+                {t("common.cancel")}
               </Button>
             </div>
           </div>

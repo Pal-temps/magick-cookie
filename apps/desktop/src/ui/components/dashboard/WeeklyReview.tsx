@@ -2,6 +2,7 @@ import { createSignal, onMount, Show } from "solid-js";
 import { useAnalyticsStore } from "../../../application/stores/analyticsStore";
 import { Button } from "../common/Button";
 import { CookieLoader } from "../common/CookieLoader";
+import { useT } from "../../../i18n/context";
 
 function formatDuration(seconds: number): string {
   const h = Math.floor(seconds / 3600);
@@ -48,6 +49,7 @@ interface WeeklyReviewProps {
 
 export function WeeklyReview(props: WeeklyReviewProps) {
   const { weeklyReview, weeklyLoading, fetchWeeklyReview } = useAnalyticsStore();
+  const { t } = useT();
   const [week, setWeek] = createSignal(getCurrentWeek());
 
   onMount(() => fetchWeeklyReview(week()));
@@ -79,9 +81,9 @@ export function WeeklyReview(props: WeeklyReviewProps) {
     <div style={{ padding: "24px", height: "100%", "overflow-y": "auto" }}>
       <div style={{ display: "flex", "align-items": "center", "justify-content": "space-between", "margin-bottom": "20px" }}>
         <h2 style={{ margin: "0", "font-size": "20px", "font-weight": "600", color: "var(--text-primary)" }}>
-          Bilan hebdomadaire
+          {t("dashboard.weeklyReview")}
         </h2>
-        <Button variant="ghost" size="sm" onClick={props.onClose}>Retour</Button>
+        <Button variant="ghost" size="sm" onClick={props.onClose}>{t("common.back")}</Button>
       </div>
 
       <div style={{ display: "flex", "align-items": "center", gap: "8px", "margin-bottom": "20px" }}>
@@ -93,7 +95,7 @@ export function WeeklyReview(props: WeeklyReviewProps) {
       </div>
 
       <Show when={weeklyLoading()}>
-        <CookieLoader message="Chargement..." />
+        <CookieLoader message={t("common.loading")} />
       </Show>
 
       <Show when={!weeklyLoading() && weeklyReview()}>
@@ -105,55 +107,55 @@ export function WeeklyReview(props: WeeklyReviewProps) {
                 <div style={{ "font-size": "24px", "font-weight": "700", color: "var(--accent-primary)" }}>
                   {formatDuration(review().current.focus.totalSeconds)}
                 </div>
-                <div style={{ "font-size": "11px", color: "var(--text-muted)", "margin-top": "4px" }}>Focus total</div>
+                <div style={{ "font-size": "11px", color: "var(--text-muted)", "margin-top": "4px" }}>{t("dashboard.focusTotal")}</div>
               </div>
               <div style={{ background: "var(--bg-elevated)", "border-radius": "var(--radius-md)", padding: "14px", "text-align": "center" }}>
                 <div style={{ "font-size": "24px", "font-weight": "700", color: "var(--accent-primary)" }}>
                   {review().current.focus.sessionCount}
                 </div>
-                <div style={{ "font-size": "11px", color: "var(--text-muted)", "margin-top": "4px" }}>Sessions</div>
+                <div style={{ "font-size": "11px", color: "var(--text-muted)", "margin-top": "4px" }}>{t("dashboard.sessions")}</div>
               </div>
               <div style={{ background: "var(--bg-elevated)", "border-radius": "var(--radius-md)", padding: "14px", "text-align": "center" }}>
                 <div style={{ "font-size": "24px", "font-weight": "700", color: "var(--accent-primary)" }}>
                   {review().current.email.received}
                 </div>
-                <div style={{ "font-size": "11px", color: "var(--text-muted)", "margin-top": "4px" }}>Emails recus</div>
+                <div style={{ "font-size": "11px", color: "var(--text-muted)", "margin-top": "4px" }}>{t("dashboard.emailsReceived")}</div>
               </div>
             </div>
 
             {/* Deltas */}
             <h3 style={{ "font-size": "14px", "font-weight": "600", color: "var(--text-primary)", margin: "0 0 12px" }}>
-              Evolution vs semaine precedente
+              {t("dashboard.vsPreviousWeek")}
             </h3>
-            <DeltaBadge value={review().deltas.focusSeconds} label="Temps de focus" />
-            <DeltaBadge value={review().deltas.sessionCount} label="Sessions" />
-            <DeltaBadge value={review().deltas.emailReceived} label="Emails recus" />
-            <DeltaBadge value={review().deltas.eventsTotal} label="Evenements" />
-            <DeltaBadge value={review().deltas.totalFluxed} label="Items flux" />
-            <DeltaBadge value={review().deltas.dogWalks} label="Balades" />
+            <DeltaBadge value={review().deltas.focusSeconds} label={t("dashboard.focusTime")} />
+            <DeltaBadge value={review().deltas.sessionCount} label={t("dashboard.sessions")} />
+            <DeltaBadge value={review().deltas.emailReceived} label={t("dashboard.emailsReceived")} />
+            <DeltaBadge value={review().deltas.eventsTotal} label={t("dashboard.events")} />
+            <DeltaBadge value={review().deltas.totalFluxed} label={t("dashboard.fluxItems")} />
+            <DeltaBadge value={review().deltas.dogWalks} label={t("dashboard.walks")} />
 
             {/* Wellness */}
             <h3 style={{ "font-size": "14px", "font-weight": "600", color: "var(--text-primary)", margin: "20px 0 12px" }}>
-              Bien-etre
+              {t("dashboard.wellness")}
             </h3>
             <div style={{ display: "grid", "grid-template-columns": "repeat(3, 1fr)", gap: "10px" }}>
               <div style={{ background: "var(--bg-elevated)", "border-radius": "var(--radius-md)", padding: "12px", "text-align": "center" }}>
                 <div style={{ "font-size": "18px", "font-weight": "700", color: "var(--accent-primary)" }}>
                   {review().current.wellness.waterAvg}ml
                 </div>
-                <div style={{ "font-size": "10px", color: "var(--text-muted)", "margin-top": "2px" }}>Eau moy/j</div>
+                <div style={{ "font-size": "10px", color: "var(--text-muted)", "margin-top": "2px" }}>{t("dashboard.waterAvgDay")}</div>
               </div>
               <div style={{ background: "var(--bg-elevated)", "border-radius": "var(--radius-md)", padding: "12px", "text-align": "center" }}>
                 <div style={{ "font-size": "18px", "font-weight": "700", color: "var(--accent-primary)" }}>
                   {review().current.wellness.fruitAvg}
                 </div>
-                <div style={{ "font-size": "10px", color: "var(--text-muted)", "margin-top": "2px" }}>Fruits moy/j</div>
+                <div style={{ "font-size": "10px", color: "var(--text-muted)", "margin-top": "2px" }}>{t("dashboard.fruitsAvgDay")}</div>
               </div>
               <div style={{ background: "var(--bg-elevated)", "border-radius": "var(--radius-md)", padding: "12px", "text-align": "center" }}>
                 <div style={{ "font-size": "18px", "font-weight": "700", color: "var(--accent-primary)" }}>
                   {review().current.wellness.daysTracked}
                 </div>
-                <div style={{ "font-size": "10px", color: "var(--text-muted)", "margin-top": "2px" }}>Jours suivis</div>
+                <div style={{ "font-size": "10px", color: "var(--text-muted)", "margin-top": "2px" }}>{t("dashboard.daysTracked")}</div>
               </div>
             </div>
           </>

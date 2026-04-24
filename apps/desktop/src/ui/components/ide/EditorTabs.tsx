@@ -1,5 +1,6 @@
 import { For, Show, createSignal } from "solid-js";
 import type { EditorTab } from "../../../application/stores/ideStore";
+import { useT } from "../../../i18n/context";
 
 interface EditorTabsProps {
   tabs: EditorTab[];
@@ -13,6 +14,7 @@ interface EditorTabsProps {
 }
 
 export function EditorTabs(props: EditorTabsProps) {
+  const { t } = useT();
   const [contextMenu, setContextMenu] = createSignal<{ x: number; y: number; tabId: string; path: string } | null>(null);
 
   function handleContextMenu(e: MouseEvent, tab: EditorTab) {
@@ -44,7 +46,7 @@ export function EditorTabs(props: EditorTabsProps) {
             </Show>
             <span class="ide-tab__name">{props.displayNames?.get(tab.id) ?? tab.name}</span>
             <Show when={tab.isDirty}>
-              <span class="ide-tab__dirty" title="Non sauvegarde" />
+              <span class="ide-tab__dirty" title={t("ide.unsaved")} />
             </Show>
             <button
               class="ide-tab__close"
@@ -52,7 +54,7 @@ export function EditorTabs(props: EditorTabsProps) {
                 e.stopPropagation();
                 props.onClose(tab.id);
               }}
-              title="Fermer"
+              title={t("ide.closeTab")}
             >
               &times;
             </button>
@@ -62,11 +64,11 @@ export function EditorTabs(props: EditorTabsProps) {
 
       <Show when={contextMenu()}>
         <div class="ide-context-menu" style={{ top: `${contextMenu()!.y}px`, left: `${contextMenu()!.x}px` }}>
-          <div class="ide-context-item" onClick={() => { props.onClose(contextMenu()!.tabId); setContextMenu(null); }}>Fermer</div>
-          <div class="ide-context-item" onClick={() => { props.onCloseOthers(contextMenu()!.tabId); setContextMenu(null); }}>Fermer les autres</div>
-          <div class="ide-context-item" onClick={() => { props.onCloseAll(); setContextMenu(null); }}>Tout fermer</div>
+          <div class="ide-context-item" onClick={() => { props.onClose(contextMenu()!.tabId); setContextMenu(null); }}>{t("ide.closeTab")}</div>
+          <div class="ide-context-item" onClick={() => { props.onCloseOthers(contextMenu()!.tabId); setContextMenu(null); }}>{t("ide.closeOthers")}</div>
+          <div class="ide-context-item" onClick={() => { props.onCloseAll(); setContextMenu(null); }}>{t("ide.closeAll")}</div>
           <div class="ide-context-sep" />
-          <div class="ide-context-item" onClick={() => { props.onCopyPath(contextMenu()!.path); setContextMenu(null); }}>Copier le chemin</div>
+          <div class="ide-context-item" onClick={() => { props.onCopyPath(contextMenu()!.path); setContextMenu(null); }}>{t("ide.copyPath")}</div>
         </div>
       </Show>
     </div>

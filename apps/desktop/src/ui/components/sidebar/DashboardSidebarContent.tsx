@@ -1,5 +1,6 @@
 import { Show, For, type Component } from "solid-js";
 import { useDashboardStore, type WidgetId } from "../../../application/stores/dashboardStore";
+import { useT } from "../../../i18n/context";
 import { TimerWidget } from "../dashboard/TimerWidget";
 import { WellnessStatus } from "../dashboard/WellnessStatus";
 import { DailyStats } from "../dashboard/DailyStats";
@@ -16,29 +17,30 @@ import { CollapsibleSection } from "../common/CollapsibleSection";
 
 interface WidgetDef {
   id: WidgetId;
-  label: string;
+  labelKey: string;
   component: Component;
 }
 
 const ALL_WIDGETS: WidgetDef[] = [
-  { id: "timer", label: "Timer", component: TimerWidget },
-  { id: "daily-stats", label: "Stats du jour", component: DailyStats },
-  { id: "water", label: "Eau", component: WaterTracker },
-  { id: "fruits", label: "Fruits & Legumes", component: FruitVegTracker },
-  { id: "dog-walk", label: "Balade", component: DogWalkWidget },
-  { id: "today-events", label: "Evenements", component: TodayEvents },
-  { id: "wellness", label: "Bien-etre", component: WellnessStatus },
-  { id: "alarms", label: "Alarmes", component: AlarmWidget },
-  { id: "streak", label: "Streak", component: StreakWidget },
-  { id: "github-prs", label: "GitHub PRs", component: GitHubWidget },
-  { id: "vps", label: "VPS", component: VpsWidget },
-  { id: "analytics", label: "Vue d'ensemble", component: AnalyticsWidget },
+  { id: "timer", labelKey: "dashboard.timer", component: TimerWidget },
+  { id: "daily-stats", labelKey: "dashboard.dailyStats", component: DailyStats },
+  { id: "water", labelKey: "dashboard.water", component: WaterTracker },
+  { id: "fruits", labelKey: "dashboard.fruitsVeg", component: FruitVegTracker },
+  { id: "dog-walk", labelKey: "dashboard.walk", component: DogWalkWidget },
+  { id: "today-events", labelKey: "dashboard.events", component: TodayEvents },
+  { id: "wellness", labelKey: "dashboard.wellness", component: WellnessStatus },
+  { id: "alarms", labelKey: "dashboard.alarm", component: AlarmWidget },
+  { id: "streak", labelKey: "dashboard.streak", component: StreakWidget },
+  { id: "github-prs", labelKey: "dashboard.githubPrs", component: GitHubWidget },
+  { id: "vps", labelKey: "dashboard.vps", component: VpsWidget },
+  { id: "analytics", labelKey: "dashboard.overview", component: AnalyticsWidget },
 ];
 
 const WIDGET_MAP = new Map<WidgetId, WidgetDef>(ALL_WIDGETS.map((w) => [w.id, w]));
 
 export function DashboardSidebarContent() {
   const { pinnedWidgets, unpinWidget } = useDashboardStore();
+  const { t } = useT();
 
   return (
     <div style={{ display: "flex", "flex-direction": "column", flex: "1", overflow: "hidden" }}>
@@ -52,7 +54,7 @@ export function DashboardSidebarContent() {
         "letter-spacing": "0.5px",
         "border-bottom": "1px solid var(--border-color)",
       }}>
-        Widgets epingles
+        {t("dashboard.pinnedWidgets")}
       </div>
 
       <div style={{ flex: "1", "overflow-y": "auto" }}>
@@ -65,9 +67,9 @@ export function DashboardSidebarContent() {
             "line-height": "1.5",
           }}>
             <div style={{ "font-size": "24px", "margin-bottom": "8px", opacity: "0.5" }}>&#128204;</div>
-            <p>Aucun widget epingle</p>
+            <p>{t("dashboard.noPinnedWidget")}</p>
             <p style={{ "margin-top": "4px", "font-size": "11px" }}>
-              Cliquez sur l'icone epingle d'un widget dans le dashboard pour l'afficher ici.
+              {t("dashboard.pinHint")}
             </p>
           </div>
         }>
@@ -78,12 +80,12 @@ export function DashboardSidebarContent() {
               const Comp = def.component;
               return (
                 <CollapsibleSection
-                  title={def.label}
+                  title={t(def.labelKey)}
                   defaultOpen={true}
                   badge={
                     <button
                       onClick={(e) => { e.stopPropagation(); unpinWidget(widgetId); }}
-                      title="Retirer de la sidebar"
+                      title={t("dashboard.removeFromSidebar")}
                       style={{
                         background: "none", border: "none", cursor: "pointer",
                         color: "var(--text-muted)", "font-size": "11px", padding: "0 2px",

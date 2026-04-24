@@ -1,28 +1,30 @@
 import { createSignal, onMount, Show, For } from "solid-js";
 import { useEmailRuleStore, type CreateEmailRuleInput, type EmailRule } from "../../../application/stores/emailRuleStore";
+import { useT } from "../../../i18n/context";
 import { Button } from "../common/Button";
-
-const CONDITION_FIELDS = [
-  { value: "from", label: "Expediteur" },
-  { value: "subject", label: "Sujet" },
-  { value: "domain", label: "Domaine" },
-] as const;
-
-const CONDITION_OPERATORS = [
-  { value: "contains", label: "contient" },
-  { value: "equals", label: "est egal a" },
-  { value: "startsWith", label: "commence par" },
-  { value: "endsWith", label: "se termine par" },
-] as const;
-
-const ACTION_TYPES = [
-  { value: "classify", label: "Classer comme" },
-  { value: "star", label: "Marquer favoris" },
-  { value: "archive", label: "Archiver" },
-] as const;
 
 export function EmailRuleSettings() {
   const { rules, isLoading, fetchRules, createRule, updateRule, deleteRule, toggleRule } = useEmailRuleStore();
+  const { t } = useT();
+
+  const CONDITION_FIELDS = [
+    { value: "from", label: t("settings.sender") },
+    { value: "subject", label: t("settings.subject") },
+    { value: "domain", label: t("settings.domain") },
+  ] as const;
+
+  const CONDITION_OPERATORS = [
+    { value: "contains", label: t("settings.contains") },
+    { value: "equals", label: t("settings.equals") },
+    { value: "startsWith", label: t("settings.startsWith") },
+    { value: "endsWith", label: t("settings.endsWith") },
+  ] as const;
+
+  const ACTION_TYPES = [
+    { value: "classify", label: t("settings.classifyAs") },
+    { value: "star", label: t("settings.markFavorite") },
+    { value: "archive", label: t("settings.archiveAction") },
+  ] as const;
 
   const [showForm, setShowForm] = createSignal(false);
   const [editingId, setEditingId] = createSignal<string | null>(null);
@@ -117,9 +119,9 @@ export function EmailRuleSettings() {
 
   function actionLabel(type: string, value: string): string {
     switch (type) {
-      case "classify": return `Classer : ${value}`;
-      case "star": return "Marquer favoris";
-      case "archive": return "Archiver";
+      case "classify": return `${t("settings.classify")} : ${value}`;
+      case "star": return t("settings.markFavorite");
+      case "archive": return t("settings.archiveAction");
       default: return type;
     }
   }
@@ -133,10 +135,10 @@ export function EmailRuleSettings() {
   return (
     <div style={{ padding: "24px 32px", "max-width": "600px" }}>
       <h2 style={{ margin: "0 0 4px", "font-size": "20px", "font-weight": "600", color: "var(--text-primary)" }}>
-        Regles email
+        {t("settings.emailRules")}
       </h2>
       <p style={{ margin: "0 0 24px", "font-size": "13px", color: "var(--text-muted)" }}>
-        Classez automatiquement vos emails avec des regles basees sur l'expediteur, le sujet ou le domaine.
+        {t("settings.emailRulesDesc")}
       </p>
 
       {/* Rule list */}
@@ -158,21 +160,21 @@ export function EmailRuleSettings() {
                       {rule.name}
                     </div>
                     <div style={{ "font-size": "11px", color: "var(--text-muted)", "margin-top": "2px" }}>
-                      Si {conditionLabel(rule.conditionField, rule.conditionOperator, rule.conditionValue)}
+                      {t("settings.ifLabel")} {conditionLabel(rule.conditionField, rule.conditionOperator, rule.conditionValue)}
                     </div>
                     <div style={{ "font-size": "11px", color: "var(--text-muted)" }}>
-                      Alors {actionLabel(rule.actionType, rule.actionValue)}
+                      {t("settings.thenLabel")} {actionLabel(rule.actionType, rule.actionValue)}
                     </div>
                   </div>
                   <div style={{ display: "flex", gap: "6px" }}>
                     <Button size="sm" variant="secondary" onClick={() => handleToggle(rule)}>
-                      {rule.enabled ? "Desactiver" : "Activer"}
+                      {rule.enabled ? t("settings.disable") : t("settings.enable")}
                     </Button>
                     <Button size="sm" variant="secondary" onClick={() => startEdit(rule)}>
-                      Modifier
+                      {t("common.edit")}
                     </Button>
                     <Button size="sm" variant="secondary" onClick={() => handleDelete(rule.id)}>
-                      Supprimer
+                      {t("common.delete")}
                     </Button>
                   </div>
                 </div>
@@ -184,14 +186,14 @@ export function EmailRuleSettings() {
 
       <Show when={rules().length === 0 && !isLoading()}>
         <div style={{ "font-size": "13px", color: "var(--text-muted)", "margin-bottom": "16px" }}>
-          Aucune regle configuree.
+          {t("settings.noRules")}
         </div>
       </Show>
 
       {/* Add/Edit form */}
       <Show when={!showForm()}>
         <Button variant="primary" size="sm" onClick={() => setShowForm(true)}>
-          Ajouter une regle
+          {t("settings.addRule")}
         </Button>
       </Show>
 
@@ -203,19 +205,19 @@ export function EmailRuleSettings() {
           border: "1px solid var(--border-color)",
         }}>
           <div style={sectionStyle}>
-            <label style={labelStyle}>Nom de la regle</label>
+            <label style={labelStyle}>{t("settings.ruleName")}</label>
             <input type="text" value={name()} onInput={(e) => setName(e.target.value)} style={inputStyle} placeholder="Ex: Newsletters" />
           </div>
 
           <div style={{ display: "flex", gap: "8px", ...sectionStyle }}>
             <div style={{ flex: "1" }}>
-              <label style={labelStyle}>Champ</label>
+              <label style={labelStyle}>{t("settings.conditionField")}</label>
               <select value={conditionField()} onChange={(e) => setConditionField(e.target.value as EmailRule["conditionField"])} style={inputStyle}>
                 <For each={CONDITION_FIELDS}>{(f) => <option value={f.value}>{f.label}</option>}</For>
               </select>
             </div>
             <div style={{ flex: "1" }}>
-              <label style={labelStyle}>Operateur</label>
+              <label style={labelStyle}>{t("settings.operator")}</label>
               <select value={conditionOperator()} onChange={(e) => setConditionOperator(e.target.value as EmailRule["conditionOperator"])} style={inputStyle}>
                 <For each={CONDITION_OPERATORS}>{(o) => <option value={o.value}>{o.label}</option>}</For>
               </select>
@@ -223,20 +225,20 @@ export function EmailRuleSettings() {
           </div>
 
           <div style={sectionStyle}>
-            <label style={labelStyle}>Valeur</label>
+            <label style={labelStyle}>{t("settings.value")}</label>
             <input type="text" value={conditionValue()} onInput={(e) => setConditionValue(e.target.value)} style={inputStyle} placeholder="Ex: newsletter@, noreply" />
           </div>
 
           <div style={{ display: "flex", gap: "8px", ...sectionStyle }}>
             <div style={{ flex: "1" }}>
-              <label style={labelStyle}>Action</label>
+              <label style={labelStyle}>{t("settings.action")}</label>
               <select value={actionType()} onChange={(e) => setActionType(e.target.value as EmailRule["actionType"])} style={inputStyle}>
                 <For each={ACTION_TYPES}>{(a) => <option value={a.value}>{a.label}</option>}</For>
               </select>
             </div>
             <Show when={actionType() === "classify"}>
               <div style={{ flex: "1" }}>
-                <label style={labelStyle}>Classification</label>
+                <label style={labelStyle}>{t("settings.classification")}</label>
                 <input type="text" value={actionValue()} onInput={(e) => setActionValue(e.target.value)} style={inputStyle} placeholder="Ex: newsletter, facture" />
               </div>
             </Show>
@@ -244,10 +246,10 @@ export function EmailRuleSettings() {
 
           <div style={{ display: "flex", gap: "8px" }}>
             <Button variant="primary" size="sm" onClick={handleSave} disabled={saving() || !name() || !conditionValue() || (actionType() === "classify" && !actionValue())}>
-              {saving() ? "..." : editingId() ? "Mettre a jour" : "Ajouter"}
+              {saving() ? "..." : editingId() ? t("settings.update") : t("common.add")}
             </Button>
             <Button variant="secondary" size="sm" onClick={resetForm}>
-              Annuler
+              {t("common.cancel")}
             </Button>
           </div>
         </div>

@@ -6,42 +6,27 @@ import { MonacoEditor } from "../ide/MonacoEditor";
 import { Button } from "../common/Button";
 import { CookieLoader } from "../common/CookieLoader";
 import { requestConfirm } from "../common/ConfirmDialog";
+import { useT } from "../../../i18n/context";
+import { useViewStore } from "../../../application/stores/viewStore";
+import { BookmarkView } from "../bookmarks/BookmarkView";
+import { SnippetView } from "../snippets/SnippetView";
 import "../../styles/notes.css";
-
-interface ContextMenuState {
-  x: number;
-  y: number;
-  folder: string;
-  item?: { type: "file" | "folder"; path: string; name: string };
-}
 
 export function NotesView() {
   const store = useNotesStore();
   const { theme } = useThemeStore();
+  const { t } = useT();
+  const viewStore = useViewStore();
+
+  const { notesMainTab } = viewStore;
+
   const [showSettings, setShowSettings] = createSignal(false);
   const [settingsPath, setSettingsPath] = createSignal("");
   const [settingsRemote, setSettingsRemote] = createSignal("");
-  // SSH management removed — keys are in KDBX vault, managed via Coffre > Cles SSH
   const [isLoadingExcalidraw, setIsLoadingExcalidraw] = createSignal(false);
-  const [sidebarOpen, setSidebarOpen] = createSignal(false);
-
-  // ─── Wiki-link autocomplete state ───
 
   // ─── Backlinks state ───
   const [backlinks, setBacklinks] = createSignal<NoteEntry[]>([]);
-
-  const [ctxMenu, setCtxMenu] = createSignal<ContextMenuState | null>(null);
-
-  const [inlineAction, setInlineAction] = createSignal<{
-    mode: "create-note" | "create-schema" | "create-folder" | "rename";
-    folder: string;
-    oldPath?: string;
-    oldName?: string;
-    itemType?: "file" | "folder";
-  } | null>(null);
-  const [inlineName, setInlineName] = createSignal("");
-
-  const tree = createMemo((): TreeNode => store.buildTree());
 
   const [editorContainer, setEditorContainer] = createSignal<HTMLDivElement | null>(null);
   let excalidrawHandle: ExcalidrawHandle | null = null;
@@ -63,10 +48,6 @@ export function NotesView() {
       excalidrawHandle = null;
     }
   });
-
-  function handleGlobalClick() {
-    setCtxMenu(null);
-  }
 
   createEffect(() => {
     const file = store.activeFile();
@@ -123,7 +104,7 @@ export function NotesView() {
     const target = allMd.find((f) => noteNameFromPath(f.path).toLowerCase() === name.toLowerCase());
     if (target) {
       store.openFile(target.path);
-      setSidebarOpen(false);
+      // sidebar managed by AppLayout
     }
   }
 
@@ -152,71 +133,7 @@ export function NotesView() {
     setShowSettings(true);
   }
 
-  // ─── Context menu ───
-  function showContextMenu(e: MouseEvent, data: Omit<ContextMenuState, "x" | "y">) {
-    e.preventDefault();
-    e.stopPropagation();
-    setCtxMenu({ x: e.clientX, y: e.clientY, ...data });
-  }
-
-  function startCreate(mode: "create-note" | "create-schema" | "create-folder", folder: string) {
-    setCtxMenu(null);
-    store.expandFolder(folder);
-    setInlineAction({ mode, folder });
-    setInlineName("");
-  }
-
-  function startRename(path: string, name: string, folder: string, itemType: "file" | "folder") {
-    setCtxMenu(null);
-    setInlineAction({ mode: "rename", folder, oldPath: path, oldName: name, itemType });
-    setInlineName(name);
-  }
-
-  async function confirmInline() {
-    const action = inlineAction();
-    const name = inlineName().trim();
-    if (!action || !name) return;
-
-    if (action.mode === "create-folder") {
-      await store.createFolder(name, action.folder);
-    } else if (action.mode === "create-schema") {
-      await store.createDrawing(name, action.folder);
-    } else if (action.mode === "create-note") {
-      await store.createNote(name, action.folder);
-    } else if (action.mode === "rename" && action.oldPath) {
-      const dir = action.oldPath.includes("/") ? action.oldPath.slice(0, action.oldPath.lastIndexOf("/") + 1) : "";
-      let newName = name;
-      if (action.itemType === "file") {
-        // Preserve file extension if not provided
-        const dotIdx = action.oldPath.lastIndexOf(".");
-        if (dotIdx > action.oldPath.lastIndexOf("/") && !name.includes(".")) {
-          newName = name + action.oldPath.slice(dotIdx);
-        }
-      }
-      const newPath = dir + newName;
-      if (newPath !== action.oldPath) await store.renameFile(action.oldPath, newPath);
-    }
-
-    setInlineAction(null);
-    setInlineName("");
-  }
-
-  function cancelInline() {
-    setInlineAction(null);
-    setInlineName("");
-  }
-
-  async function handleDeleteFromMenu(path: string) {
-    setCtxMenu(null);
-    if (await requestConfirm(`Supprimer "${path}" ?`)) await store.deleteFile(path);
-  }
-
-  async function handleDeleteFolderFromMenu(path: string) {
-    setCtxMenu(null);
-    if (await requestConfirm(`Supprimer le dossier "${path}" et tout son contenu ?`)) await store.deleteFolder(path);
-  }
-
-  // ─── Editor ───
+  // ─── Editor (sidebar moved to NotesSidebarContent) ───
   function handleKeyDown(e: KeyboardEvent) {
     if (e.ctrlKey && e.key === "s") {
       e.preventDefault();
@@ -230,58 +147,42 @@ export function NotesView() {
     await store.saveCurrentFile();
   }
 
-  function formatSize(bytes: number): string {
-    if (bytes < 1024) return `${bytes} o`;
-    return `${(bytes / 1024).toFixed(1)} Ko`;
-  }
-
-  function fileIcon(type: "md" | "excalidraw"): string {
-    return type === "excalidraw" ? "\u270F" : "\u2630";
-  }
-
-
-  // Close sidebar when selecting a file in compact mode
-  function handleFileSelect(path: string) {
-    store.openFile(path);
-    setSidebarOpen(false);
-  }
-
   // ─── Settings Panel ───
   function SettingsPanel() {
     return (
       <div style={{ display: "flex", "align-items": "center", "justify-content": "center", height: "100%", padding: "40px", "overflow-y": "auto" }}>
         <div style={{ "max-width": "560px", width: "100%", display: "flex", "flex-direction": "column", gap: "20px" }}>
-          <h2 style={{ "font-size": "20px", "font-weight": "600", color: "var(--text-primary)" }}>Configuration des notes</h2>
+          <h2 style={{ "font-size": "20px", "font-weight": "600", color: "var(--text-primary)" }}>{t("notes.config")}</h2>
           <div style={{ display: "flex", "flex-direction": "column", gap: "4px" }}>
-            <label style={{ "font-size": "12px", color: "var(--text-secondary)", "font-weight": "500" }}>Chemin du dossier</label>
+            <label style={{ "font-size": "12px", color: "var(--text-secondary)", "font-weight": "500" }}>{t("notes.folderPath")}</label>
             <input type="text" value={settingsPath()} onInput={(e) => setSettingsPath(e.currentTarget.value)} placeholder="C:\Users\...\Notes" style={inputStyle()} />
-            <span style={{ "font-size": "11px", color: "var(--text-muted)" }}>Dossier partage pour les notes (.md) et les schemas (.excalidraw). Compatible Obsidian.</span>
+            <span style={{ "font-size": "11px", color: "var(--text-muted)" }}>{t("notes.folderHint")}</span>
           </div>
           <div style={{ display: "flex", "flex-direction": "column", gap: "4px" }}>
-            <label style={{ "font-size": "12px", color: "var(--text-secondary)", "font-weight": "500" }}>Remote Git (optionnel)</label>
+            <label style={{ "font-size": "12px", color: "var(--text-secondary)", "font-weight": "500" }}>{t("notes.gitRemote")}</label>
             <input type="text" value={settingsRemote()} onInput={(e) => setSettingsRemote(e.currentTarget.value)} placeholder="git@gitlab.com:user/notes.git" style={inputStyle()} />
           </div>
           {/* SSH Key selection (from KDBX vault) */}
           <div style={{ display: "flex", "flex-direction": "column", gap: "10px", padding: "14px", background: "var(--bg-elevated)", "border-radius": "var(--radius-md)", border: "1px solid var(--border-color)" }}>
             <div>
-              <div style={{ "font-size": "13px", "font-weight": "600", color: "var(--text-primary)" }}>Cle SSH pour le sync</div>
-              <div style={{ "font-size": "11px", color: "var(--text-muted)", "margin-top": "2px" }}>Selectionnez une cle SSH du coffre-fort pour les operations Git.</div>
+              <div style={{ "font-size": "13px", "font-weight": "600", color: "var(--text-primary)" }}>{t("notes.sshKey")}</div>
+              <div style={{ "font-size": "11px", color: "var(--text-muted)", "margin-top": "2px" }}>{t("notes.sshKeyHint")}</div>
             </div>
             <select
               style={{ padding: "7px 10px", "font-size": "13px", background: "var(--bg-base)", border: "1px solid var(--border-color)", "border-radius": "var(--radius-sm)", color: "var(--text-primary)", outline: "none" }}
               value={store.sshKeyName() ?? ""}
               onChange={(e) => store.selectSshKey(e.currentTarget.value || null)}
             >
-              <option value="">Aucune (pas de SSH)</option>
+              <option value="">{t("notes.noSsh")}</option>
               {/* The keys will be populated by the caller after loading from secrets_list_ssh_keys */}
             </select>
             <div style={{ "font-size": "11px", color: "var(--text-muted)" }}>
-              Generez et gerez vos cles SSH dans Coffre &gt; Cles SSH.
+              {t("notes.sshKeyManage")}
             </div>
           </div>
           <div style={{ display: "flex", gap: "8px", "align-items": "center" }}>
-            <Button variant="primary" onClick={handleSaveSettings}>Enregistrer</Button>
-            <Show when={store.config()}><Button variant="ghost" onClick={() => setShowSettings(false)}>Annuler</Button></Show>
+            <Button variant="primary" onClick={handleSaveSettings}>{t("passwords.save")}</Button>
+            <Show when={store.config()}><Button variant="ghost" onClick={() => setShowSettings(false)}>{t("common.cancel")}</Button></Show>
             <Show when={import.meta.env.DEV}>
               <Button variant="ghost" size="sm" onClick={async () => {
                 const tmpPath = `${await import("@tauri-apps/api/path").then((m) => m.tempDir())}magick-cookie-dev-notes`;
@@ -294,8 +195,10 @@ export function NotesView() {
     );
   }
 
-  // ─── Context Menu ───
-  function ContextMenu() {
+  // ContextMenu, FolderNode, FileNode, etc. → moved to NotesSidebarContent
+
+  /* eslint-disable @typescript-eslint/no-unused-vars */
+  function _DEAD_ContextMenu() {
     const itemStyle = { display: "block", width: "100%", padding: "6px 14px", "text-align": "left" as const, "font-size": "12px", cursor: "pointer", color: "var(--text-primary)", "white-space": "nowrap" as const };
     const dangerStyle = { ...itemStyle, color: "var(--cal-red)" };
 
@@ -306,18 +209,18 @@ export function NotesView() {
             style={{ position: "fixed", left: `${menu().x}px`, top: `${menu().y}px`, background: "var(--bg-surface)", border: "1px solid var(--border-color)", "border-radius": "var(--radius-md)", "box-shadow": "0 4px 16px rgba(0,0,0,0.3)", "z-index": "1000", padding: "4px 0", "min-width": "170px" }}
             onClick={(e) => e.stopPropagation()}
           >
-            <button style={itemStyle} onMouseEnter={hoverIn} onMouseLeave={hoverOut} onClick={() => startCreate("create-note", menu().folder)}>Nouvelle note</button>
-            <button style={itemStyle} onMouseEnter={hoverIn} onMouseLeave={hoverOut} onClick={() => startCreate("create-schema", menu().folder)}>Nouveau schema</button>
-            <button style={itemStyle} onMouseEnter={hoverIn} onMouseLeave={hoverOut} onClick={() => startCreate("create-folder", menu().folder)}>Nouveau dossier</button>
+            <button style={itemStyle} onMouseEnter={hoverIn} onMouseLeave={hoverOut} onClick={() => startCreate("create-note", menu().folder)}>{t("notes.newNote")}</button>
+            <button style={itemStyle} onMouseEnter={hoverIn} onMouseLeave={hoverOut} onClick={() => startCreate("create-schema", menu().folder)}>{t("notes.newSchema")}</button>
+            <button style={itemStyle} onMouseEnter={hoverIn} onMouseLeave={hoverOut} onClick={() => startCreate("create-folder", menu().folder)}>{t("notes.newFolder")}</button>
             <Show when={menu().item}>
               {(item) => (<>
                 <div style={{ height: "1px", background: "var(--border-color)", margin: "4px 0" }} />
-                <button style={itemStyle} onMouseEnter={hoverIn} onMouseLeave={hoverOut} onClick={() => startRename(item().path, item().name, menu().folder, item().type)}>Renommer</button>
+                <button style={itemStyle} onMouseEnter={hoverIn} onMouseLeave={hoverOut} onClick={() => startRename(item().path, item().name, menu().folder, item().type)}>{t("common.rename")}</button>
                 <Show when={item().type === "file"}>
-                  <button style={dangerStyle} onMouseEnter={hoverInDanger} onMouseLeave={hoverOut} onClick={() => handleDeleteFromMenu(item().path)}>Supprimer</button>
+                  <button style={dangerStyle} onMouseEnter={hoverInDanger} onMouseLeave={hoverOut} onClick={() => handleDeleteFromMenu(item().path)}>{t("common.delete")}</button>
                 </Show>
                 <Show when={item().type === "folder"}>
-                  <button style={dangerStyle} onMouseEnter={hoverInDanger} onMouseLeave={hoverOut} onClick={() => handleDeleteFolderFromMenu(item().path)}>Supprimer le dossier</button>
+                  <button style={dangerStyle} onMouseEnter={hoverInDanger} onMouseLeave={hoverOut} onClick={() => handleDeleteFolderFromMenu(item().path)}>{t("notes.deleteFolder")}</button>
                 </Show>
               </>)}
             </Show>
@@ -332,7 +235,7 @@ export function NotesView() {
     const action = inlineAction();
     if (!action || action.folder !== props.folder) return null;
     const isRename = action.mode === "rename";
-    const label = action.mode === "create-folder" ? "Dossier" : action.mode === "create-schema" ? "Schema" : action.mode === "create-note" ? "Note" : "";
+    const label = action.mode === "create-folder" ? t("notes.folder") : action.mode === "create-schema" ? t("notes.schema") : action.mode === "create-note" ? t("notes.note") : "";
     return (
       <div
         style={{ padding: "3px 0 3px 4px", display: "flex", "align-items": "center", gap: "4px", overflow: "hidden", "min-width": "0" }}
@@ -346,7 +249,7 @@ export function NotesView() {
           value={inlineName()}
           onInput={(e) => setInlineName(e.currentTarget.value)}
           onKeyDown={(e) => { if (e.key === "Enter") confirmInline(); if (e.key === "Escape") cancelInline(); }}
-          placeholder={isRename ? "Nouveau nom" : ""}
+          placeholder={isRename ? t("notes.newName") : ""}
           style={{ ...inputStyle(), flex: "1", "font-size": "11px", padding: "3px 6px", "min-width": "0" }}
           ref={(el) => setTimeout(() => el.focus(), 0)}
         />
@@ -409,33 +312,19 @@ export function NotesView() {
       <div>
         <div
           data-ctx-item
+          class="notes-folder-row"
           onClick={() => { if (!renaming()) store.toggleFolder(props.node.path); }}
           onContextMenu={(e) => showContextMenu(e, { folder: props.node.path, item: { type: "folder", path: props.node.path, name: props.node.name } })}
-          style={{
-            display: "flex", "align-items": "center", gap: "4px", width: "100%",
-            padding: `4px 6px 4px ${6 + indent()}px`, "text-align": "left", cursor: "pointer",
-            color: "var(--text-primary)", transition: "background 0.1s", overflow: "hidden",
-          }}
-          onMouseEnter={(e) => (e.currentTarget as HTMLElement).style.background = "var(--bg-elevated)"}
-          onMouseLeave={(e) => (e.currentTarget as HTMLElement).style.background = "transparent"}
+          style={{ "padding-left": `${6 + indent()}px` }}
         >
-          <span style={{
-            "font-size": "11px", color: "var(--text-secondary)", width: "14px", "text-align": "center", "flex-shrink": "0",
-            display: "inline-flex", "align-items": "center", "justify-content": "center",
-            transform: expanded() ? "rotate(90deg)" : "rotate(0deg)",
-            transition: "transform 0.15s ease",
-          }}>
-            {"\u25B6"}
-          </span>
-          <span style={{ "font-size": "12px", "flex-shrink": "0" }}>{"\uD83D\uDCC1"}</span>
+          <svg class={`notes-folder-chevron ${expanded() ? "notes-folder-chevron--open" : ""}`} width="8" height="8" viewBox="0 0 8 8" fill="none">
+            <path d="M2.5 1.5L5.5 4L2.5 6.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+          <span class="notes-folder-icon">{"\uD83D\uDCC1"}</span>
           <Show when={renaming()} fallback={
             <>
-              <span style={{ "font-size": "12px", "font-weight": "500", overflow: "hidden", "text-overflow": "ellipsis", "white-space": "nowrap" }}>
-                {props.node.name}
-              </span>
-              <span style={{ "font-size": "10px", color: "var(--text-muted)", "margin-left": "auto", "flex-shrink": "0" }}>
-                {props.node.files.length + props.node.folders.length}
-              </span>
+              <span class="notes-folder-name">{props.node.name}</span>
+              <span class="notes-folder-count">{props.node.files.length + props.node.folders.length}</span>
             </>
           }>
             <InlineRenameInput />
@@ -474,28 +363,18 @@ export function NotesView() {
     return (
       <div
         data-ctx-item
+        class={`notes-file-row ${isActive() && !renaming() ? "notes-file-row--active" : ""}`}
         onClick={() => { if (!renaming()) handleFileSelect(props.file.path); }}
         onContextMenu={(e) => showContextMenu(e, { folder: parentFolder(), item: { type: "file", path: props.file.path, name: props.file.name } })}
-        style={{
-          display: "flex", "align-items": "center", gap: "4px", width: "100%",
-          padding: `4px 6px 4px ${6 + indent() + 16}px`, "text-align": "left", cursor: "pointer",
-          background: isActive() && !renaming() ? "var(--accent-primary)" : "transparent",
-          color: "var(--text-primary)", transition: "background 0.1s", overflow: "hidden",
-        }}
-        onMouseEnter={(e) => { if (!isActive() || renaming()) (e.currentTarget as HTMLElement).style.background = "var(--bg-elevated)"; }}
-        onMouseLeave={(e) => { if (!isActive() || renaming()) (e.currentTarget as HTMLElement).style.background = "transparent"; }}
+        style={{ "padding-left": `${6 + indent() + 16}px` }}
       >
-        <span style={{ "font-size": "11px", color: props.file.type === "excalidraw" ? "var(--cal-purple)" : "var(--text-muted)", "flex-shrink": "0" }}>
+        <span class={`notes-file-icon ${props.file.type === "excalidraw" ? "notes-file-icon--drawing" : ""}`}>
           {fileIcon(props.file.type)}
         </span>
         <Show when={renaming()} fallback={
           <>
-            <span style={{ "font-size": "12px", overflow: "hidden", "text-overflow": "ellipsis", "white-space": "nowrap", flex: "1" }}>
-              {props.file.name}
-            </span>
-            <span style={{ "font-size": "10px", color: "var(--text-muted)", "flex-shrink": "0" }}>
-              {props.showPath ? props.file.path : formatSize(props.file.size)}
-            </span>
+            <span class="notes-file-name">{props.file.name}</span>
+            <span class="notes-file-meta">{props.showPath ? props.file.path : formatSize(props.file.size)}</span>
           </>
         }>
           <InlineRenameInput />
@@ -545,71 +424,14 @@ export function NotesView() {
   // ─── Main View ───
   return (
     <Show when={!showSettings()} fallback={<SettingsPanel />}>
-    <div class="notes-container" onKeyDown={handleKeyDown} onClick={handleGlobalClick}>
-      {/* Sidebar */}
-      <div class={`notes-sidebar ${sidebarOpen() ? "notes-sidebar--open" : ""}`}>
-        <div class="notes-sidebar-search">
-          <input
-            type="text" placeholder="Rechercher..."
-            value={store.searchQuery()} onInput={(e) => store.setSearchQuery(e.currentTarget.value)}
-            style={{ ...inputStyle(), flex: "1", "min-width": "0" }}
-          />
-          <Button size="sm" variant="ghost" onClick={openSettings} style={{ "font-size": "16px", padding: "4px 6px", "flex-shrink": "0" }}>&#9881;</Button>
-        </div>
+    <div style={{ height: "100%", display: "flex", "flex-direction": "column", overflow: "hidden" }}>
 
-        <div
-          class="notes-sidebar-tree"
-          onContextMenu={(e) => {
-            if (!(e.target as HTMLElement).closest("[data-ctx-item]")) {
-              showContextMenu(e, { folder: "" });
-            }
-          }}
-        >
-          <Show when={store.searchQuery()}>
-            <For each={store.filteredFiles()}>
-              {(file) => <FileNode file={file} depth={0} showPath />}
-            </For>
-            <Show when={store.filteredFiles().length === 0}>
-              <div style={{ padding: "20px", "text-align": "center", "font-size": "12px", color: "var(--text-muted)" }}>Aucun resultat</div>
-            </Show>
-          </Show>
-
-          <Show when={!store.searchQuery()}>
-            <Show when={inlineAction()?.folder === ""}>
-              <div style={{ "padding-left": "6px" }}>
-                <InlineInputRow folder="" />
-              </div>
-            </Show>
-
-            <For each={tree().folders}>
-              {(folder) => <FolderNode node={folder} depth={0} />}
-            </For>
-
-            <For each={tree().files}>
-              {(file) => <FileNode file={file} depth={0} />}
-            </For>
-
-            <Show when={tree().folders.length === 0 && tree().files.length === 0 && !inlineAction()}>
-              <div style={{ padding: "20px", "text-align": "center", "font-size": "12px", color: "var(--text-muted)" }}>
-                Clic droit pour creer
-              </div>
-            </Show>
-          </Show>
-        </div>
-      </div>
-
-      {/* Editor */}
-      <div class="notes-editor">
+      <div style={{ flex: "1", overflow: "hidden" }}>
+      <Show when={notesMainTab() === "notes"}>
+      <div class="notes-editor" onKeyDown={handleKeyDown}>
         {/* Toolbar */}
         <div class="notes-toolbar">
           <div class="notes-toolbar-left">
-            <button
-              class="notes-toggle-sidebar"
-              onClick={() => setSidebarOpen(!sidebarOpen())}
-              title="Fichiers"
-            >
-              {sidebarOpen() ? "\u2715" : "\u2630"}
-            </button>
             <Show when={store.activeFile()}>
               <span class="notes-toolbar-filename" style={{ "font-size": "13px", "font-weight": "500", color: "var(--text-primary)" }}>{store.activeFile()}</span>
               <Show when={store.isDirty()}><span style={{ "font-size": "11px", color: "var(--cal-orange)", "font-weight": "600" }}>*</span></Show>
@@ -623,15 +445,15 @@ export function NotesView() {
             </Show>
             <Show when={store.activeFile() && store.activeFileType() === "md"}>
               <Button size="sm" variant={store.isPreview() ? "primary" : "secondary"} onClick={() => store.setIsPreview(!store.isPreview())}>
-                {store.isPreview() ? "Editer" : "Apercu"}
+                {store.isPreview() ? t("notes.edit") : t("notes.preview")}
               </Button>
             </Show>
             <Show when={store.activeFile()}>
-              <Button size="sm" variant="secondary" onClick={handleSaveFile} disabled={!store.isDirty()}>Sauver</Button>
+              <Button size="sm" variant="secondary" onClick={handleSaveFile} disabled={!store.isDirty()}>{t("notes.save")}</Button>
             </Show>
             <Button size="sm" variant="primary" onClick={() => store.gitSync()} disabled={store.isSyncing()}>{store.isSyncing() ? "Sync..." : "Sync"}</Button>
             <Show when={store.activeFile()}>
-              <Button size="sm" variant="danger" onClick={async () => { if (await requestConfirm(`Supprimer "${store.activeFile()}" ?`)) store.deleteFile(store.activeFile()!); }}>Suppr.</Button>
+              <Button size="sm" variant="danger" onClick={async () => { if (await requestConfirm(`${t("common.delete")} "${store.activeFile()}" ?`)) store.deleteFile(store.activeFile()!); }}>{t("notes.delete")}</Button>
             </Show>
           </div>
         </div>
@@ -639,7 +461,7 @@ export function NotesView() {
         {/* Editor area */}
         <div class="notes-editor-content">
           <Show when={store.activeFile()} fallback={
-            <div style={{ flex: "1", display: "flex", "align-items": "center", "justify-content": "center", color: "var(--text-muted)", "font-size": "14px" }}>Selectionnez ou creez un fichier</div>
+            <div style={{ flex: "1", display: "flex", "align-items": "center", "justify-content": "center", color: "var(--text-muted)", "font-size": "14px" }}>{t("notes.selectOrCreate")}</div>
           }>
             <Show when={store.activeFileType() === "md"}>
               <Show when={store.isPreview()} fallback={
@@ -670,7 +492,7 @@ export function NotesView() {
               <div style={{ flex: "1", position: "relative", overflow: "hidden" }}>
                 <Show when={isLoadingExcalidraw()}>
                   <div style={{ position: "absolute", inset: "0", display: "flex", "align-items": "center", "justify-content": "center", background: "var(--bg-base)", "z-index": "10" }}>
-                    <CookieLoader message="Chargement d'Excalidraw..." />
+                    <CookieLoader message={t("notes.loadingExcalidraw")} />
                   </div>
                 </Show>
                 <div ref={setEditorContainer} style={{ width: "100%", height: "100%" }} />
@@ -680,7 +502,14 @@ export function NotesView() {
         </div>
       </div>
 
-      <ContextMenu />
+    </Show>
+    <Show when={notesMainTab() === "bookmarks"}>
+      <BookmarkView />
+    </Show>
+    <Show when={notesMainTab() === "snippets"}>
+      <SnippetView />
+    </Show>
+    </div>
     </div>
     </Show>
   );

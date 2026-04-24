@@ -7,6 +7,14 @@ const [currentDate, setCurrentDate] = createSignal(new Date());
 const [selectedDate, setSelectedDate] = createSignal<Date | null>(null);
 const [settingsTab, setSettingsTab] = createSignal<string | null>(null);
 const [sidebarVisible, setSidebarVisible] = createSignal(true);
+export type NotesMainTab = "notes" | "bookmarks" | "snippets";
+const [notesMainTab, setNotesMainTabRaw] = createSignal<NotesMainTab>(
+  (localStorage.getItem("notes-main-tab") as NotesMainTab) || "notes"
+);
+function setNotesMainTab(tab: NotesMainTab) {
+  setNotesMainTabRaw(tab);
+  localStorage.setItem("notes-main-tab", tab);
+}
 
 function setViewMode(mode: ViewMode) {
   setViewModeRaw(mode);
@@ -30,6 +38,7 @@ export function useViewStore() {
       case "settings":
       case "tools":
       case "bench":
+      case "browser":
       case "dashboard": return;
       case "month": d.setMonth(d.getMonth() - 1); break;
       case "week": d.setDate(d.getDate() - 7); break;
@@ -48,6 +57,7 @@ export function useViewStore() {
       case "settings":
       case "tools":
       case "bench":
+      case "browser":
       case "dashboard": return;
       case "month": d.setMonth(d.getMonth() + 1); break;
       case "week": d.setDate(d.getDate() + 7); break;
@@ -68,5 +78,6 @@ export function useViewStore() {
     selectedDate, setSelectedDate,
     navigatePrev, navigateNext, goToToday,
     sidebarVisible, toggleSidebar,
+    notesMainTab, setNotesMainTab,
   };
 }

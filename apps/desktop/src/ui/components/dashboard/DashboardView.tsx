@@ -18,29 +18,31 @@ import { PatternsView } from "./PatternsView";
 import { TimesheetView } from "./TimesheetView";
 import { Button } from "../common/Button";
 import { JournalButton } from "./JournalButton";
+import { SetupChecklist } from "./SetupChecklist";
 import { useDashboardStore, type WidgetId } from "../../../application/stores/dashboardStore";
 import { useViewStore } from "../../../application/stores/viewStore";
+import { useT } from "../../../i18n/context";
 import "../../styles/dashboard.css";
 
 interface WidgetDef {
   id: WidgetId;
-  label: string;
+  labelKey: string;
   component: Component;
 }
 
 const ALL_WIDGETS: WidgetDef[] = [
-  { id: "timer", label: "Timer", component: TimerWidget },
-  { id: "daily-stats", label: "Stats du jour", component: DailyStats },
-  { id: "water", label: "Eau", component: WaterTracker },
-  { id: "fruits", label: "Fruits & Legumes", component: FruitVegTracker },
-  { id: "dog-walk", label: "Balade", component: DogWalkWidget },
-  { id: "today-events", label: "Evenements", component: TodayEvents },
-  { id: "wellness", label: "Bien-etre", component: WellnessStatus },
-  { id: "alarms", label: "Alarmes", component: AlarmWidget },
-  { id: "streak", label: "Streak", component: StreakWidget },
-  { id: "github-prs", label: "GitHub PRs", component: GitHubWidget },
-  { id: "vps", label: "VPS", component: VpsWidget },
-  { id: "analytics", label: "Vue d'ensemble", component: AnalyticsWidget },
+  { id: "timer", labelKey: "dashboard.timer", component: TimerWidget },
+  { id: "daily-stats", labelKey: "dashboard.dailyStats", component: DailyStats },
+  { id: "water", labelKey: "dashboard.water", component: WaterTracker },
+  { id: "fruits", labelKey: "dashboard.fruitsVeg", component: FruitVegTracker },
+  { id: "dog-walk", labelKey: "dashboard.walk", component: DogWalkWidget },
+  { id: "today-events", labelKey: "dashboard.events", component: TodayEvents },
+  { id: "wellness", labelKey: "dashboard.wellness", component: WellnessStatus },
+  { id: "alarms", labelKey: "dashboard.alarm", component: AlarmWidget },
+  { id: "streak", labelKey: "dashboard.streak", component: StreakWidget },
+  { id: "github-prs", labelKey: "dashboard.githubPrs", component: GitHubWidget },
+  { id: "vps", labelKey: "dashboard.vps", component: VpsWidget },
+  { id: "analytics", labelKey: "dashboard.overview", component: AnalyticsWidget },
 ];
 
 const WIDGET_MAP = new Map<WidgetId, WidgetDef>(ALL_WIDGETS.map((w) => [w.id, w]));
@@ -48,6 +50,7 @@ const WIDGET_MAP = new Map<WidgetId, WidgetDef>(ALL_WIDGETS.map((w) => [w.id, w]
 export function DashboardView() {
   const { widgetOrder, hiddenWidgets, reorderWidget, toggleWidget, resetLayout, pinWidget, unpinWidget, isPinned } = useDashboardStore();
   const { viewMode, navTick } = useViewStore();
+  const { t, locale } = useT();
 
   const [showStats, setShowStats] = createSignal(false);
   const [showWeeklyReview, setShowWeeklyReview] = createSignal(false);
@@ -78,7 +81,7 @@ export function DashboardView() {
     const hidden = hiddenWidgets();
     return widgetOrder()
       .map((id) => WIDGET_MAP.get(id))
-      .filter((w): w is WidgetDef => !!w && !hidden.has(w.id));
+      .filter((w): w is WidgetDef => !!w && !hidden.has(w.id) && !isPinned(w.id));
   };
 
   const allOrderedWidgets = () => {
@@ -89,7 +92,7 @@ export function DashboardView() {
 
   const today = () => {
     const d = new Date();
-    return d.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+    return d.toLocaleDateString(locale() === "fr" ? "fr-FR" : "en-US", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
   };
 
   // ─── Pointer-based drag for grid widgets ───
@@ -183,38 +186,40 @@ export function DashboardView() {
               "font-weight": "600",
               color: "var(--text-primary)",
               "text-transform": "capitalize",
+              "white-space": "nowrap",
+              "flex-shrink": "0",
             }}>
               {today()}
             </h2>
-            <div style={{ display: "flex", gap: "6px", "align-items": "center" }}>
+            <div class="dashboard-header-actions">
               <JournalButton />
               <Button variant="secondary" size="sm" onClick={() => setShowBrief(true)}>
-                Brief
+                {t("dashboard.brief")}
               </Button>
               <Button variant="secondary" size="sm" onClick={() => setShowWeeklyReview(true)}>
-                Bilan hebdo
+                {t("dashboard.weeklyReview")}
               </Button>
               <Button variant="secondary" size="sm" onClick={() => setShowStats(true)}>
-                Statistiques
+                {t("dashboard.stats")}
               </Button>
               <Button variant="secondary" size="sm" onClick={() => setShowPatterns(true)}>
-                Patterns
+                {t("dashboard.patterns")}
               </Button>
               <Button variant="secondary" size="sm" onClick={() => setShowTimesheet(true)}>
-                Timesheet
+                {t("dashboard.timesheet")}
               </Button>
-              <button
-                class="dashboard-config-btn"
-                onClick={() => setShowConfig(!showConfig())}
-                title="Configurer le dashboard"
-                classList={{ "dashboard-config-btn--active": showConfig() }}
-              >
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                  <path d="M8 4.754a3.246 3.246 0 1 0 0 6.492 3.246 3.246 0 0 0 0-6.492zM5.754 8a2.246 2.246 0 1 1 4.492 0 2.246 2.246 0 0 1-4.492 0z"/>
-                  <path d="M9.796 1.343c-.527-1.79-3.065-1.79-3.592 0l-.094.319a.873.873 0 0 1-1.255.52l-.292-.16c-1.64-.892-3.433.902-2.54 2.541l.159.292a.873.873 0 0 1-.52 1.255l-.319.094c-1.79.527-1.79 3.065 0 3.592l.319.094a.873.873 0 0 1 .52 1.255l-.16.292c-.892 1.64.901 3.434 2.541 2.54l.292-.159a.873.873 0 0 1 1.255.52l.094.319c.527 1.79 3.065 1.79 3.592 0l.094-.319a.873.873 0 0 1 1.255-.52l.292.16c1.64.893 3.434-.902 2.54-2.541l-.159-.292a.873.873 0 0 1 .52-1.255l.319-.094c1.79-.527 1.79-3.065 0-3.592l-.319-.094a.873.873 0 0 1-.52-1.255l.16-.292c.893-1.64-.902-3.433-2.541-2.54l-.292.159a.873.873 0 0 1-1.255-.52l-.094-.319zm-2.633.283c.246-.835 1.428-.835 1.674 0l.094.319a1.873 1.873 0 0 0 2.693 1.115l.291-.16c.764-.415 1.6.42 1.184 1.185l-.159.292a1.873 1.873 0 0 0 1.116 2.692l.318.094c.835.246.835 1.428 0 1.674l-.319.094a1.873 1.873 0 0 0-1.115 2.693l.16.291c.415.764-.421 1.6-1.185 1.184l-.291-.159a1.873 1.873 0 0 0-2.693 1.116l-.094.318c-.246.835-1.428.835-1.674 0l-.094-.319a1.873 1.873 0 0 0-2.692-1.115l-.292.16c-.764.415-1.6-.421-1.184-1.185l.159-.291A1.873 1.873 0 0 0 1.945 8.93l-.319-.094c-.835-.246-.835-1.428 0-1.674l.319-.094A1.873 1.873 0 0 0 3.06 4.377l-.16-.292c-.415-.764.42-1.6 1.185-1.184l.292.159a1.873 1.873 0 0 0 2.692-1.116l.094-.318z"/>
-                </svg>
-              </button>
             </div>
+            <button
+              class="dashboard-config-btn"
+              onClick={() => setShowConfig(!showConfig())}
+              title={t("dashboard.configDashboard")}
+              classList={{ "dashboard-config-btn--active": showConfig() }}
+            >
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                <path d="M8 4.754a3.246 3.246 0 1 0 0 6.492 3.246 3.246 0 0 0 0-6.492zM5.754 8a2.246 2.246 0 1 1 4.492 0 2.246 2.246 0 0 1-4.492 0z"/>
+                <path d="M9.796 1.343c-.527-1.79-3.065-1.79-3.592 0l-.094.319a.873.873 0 0 1-1.255.52l-.292-.16c-1.64-.892-3.433.902-2.54 2.541l.159.292a.873.873 0 0 1-.52 1.255l-.319.094c-1.79.527-1.79 3.065 0 3.592l.319.094a.873.873 0 0 1 .52 1.255l-.16.292c-.892 1.64.901 3.434 2.541 2.54l.292-.159a.873.873 0 0 1 1.255.52l.094.319c.527 1.79 3.065 1.79 3.592 0l.094-.319a.873.873 0 0 1 1.255-.52l.292.16c1.64.893 3.434-.902 2.54-2.541l-.159-.292a.873.873 0 0 1 .52-1.255l.319-.094c1.79-.527 1.79-3.065 0-3.592l-.319-.094a.873.873 0 0 1-.52-1.255l.16-.292c.893-1.64-.902-3.433-2.541-2.54l-.292.159a.873.873 0 0 1-1.255-.52l-.094-.319zm-2.633.283c.246-.835 1.428-.835 1.674 0l.094.319a1.873 1.873 0 0 0 2.693 1.115l.291-.16c.764-.415 1.6.42 1.184 1.185l-.159.292a1.873 1.873 0 0 0 1.116 2.692l.318.094c.835.246.835 1.428 0 1.674l-.319.094a1.873 1.873 0 0 0-1.115 2.693l.16.291c.415.764-.421 1.6-1.185 1.184l-.291-.159a1.873 1.873 0 0 0-2.693 1.116l-.094.318c-.246.835-1.428.835-1.674 0l-.094-.319a1.873 1.873 0 0 0-2.692-1.115l-.292.16c-.764.415-1.6-.421-1.184-1.185l.159-.291A1.873 1.873 0 0 0 1.945 8.93l-.319-.094c-.835-.246-.835-1.428 0-1.674l.319-.094A1.873 1.873 0 0 0 3.06 4.377l-.16-.292c-.415-.764.42-1.6 1.185-1.184l.292.159a1.873 1.873 0 0 0 2.692-1.116l.094-.318z"/>
+              </svg>
+            </button>
           </div>
 
           {/* ─── Config Panel ─── */}
@@ -222,10 +227,10 @@ export function DashboardView() {
             <div class="dashboard-config-panel">
               <div class="dashboard-config-panel-header">
                 <span style={{ "font-weight": "600", "font-size": "13px", color: "var(--text-primary)" }}>
-                  Widgets
+                  {t("dashboard.widgets")}
                 </span>
                 <button class="dashboard-config-reset" onClick={() => resetLayout()}>
-                  Reset layout
+                  {t("dashboard.resetLayout")}
                 </button>
               </div>
               <div class="dashboard-config-list">
@@ -258,7 +263,7 @@ export function DashboardView() {
                           checked={!hiddenWidgets().has(widget.id)}
                           onChange={() => toggleWidget(widget.id)}
                         />
-                        {widget.label}
+                        {t(widget.labelKey)}
                       </label>
                     </div>
                   )}
@@ -266,6 +271,9 @@ export function DashboardView() {
               </div>
             </div>
           </Show>
+
+          {/* ─── Setup Checklist ─── */}
+          <SetupChecklist />
 
           {/* ─── Widget Grid ─── */}
           <div class="dashboard-grid">
@@ -293,12 +301,12 @@ export function DashboardView() {
                         <circle cx="11" cy="13" r="1.5" />
                       </svg>
                     </div>
-                    <span class="dashboard-card-title">{widget.label}</span>
+                    <span class="dashboard-card-title">{t(widget.labelKey)}</span>
                     <button
                       class="dashboard-card-pin"
                       classList={{ "dashboard-card-pin--active": isPinned(widget.id) }}
                       onClick={() => isPinned(widget.id) ? unpinWidget(widget.id) : pinWidget(widget.id)}
-                      title={isPinned(widget.id) ? "Retirer de la sidebar" : "Epingler dans la sidebar"}
+                      title={isPinned(widget.id) ? t("dashboard.unpinFromSidebar") : t("dashboard.pinToSidebar")}
                     >
                       <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
                         <path d="M4.146.146A.5.5 0 0 1 4.5 0h7a.5.5 0 0 1 .5.5c0 .68-.342 1.174-.646 1.479-.126.125-.25.224-.354.298v4.431l.078.048c.203.127.476.314.751.555C12.36 7.775 13 8.527 13 9.5a.5.5 0 0 1-.5.5h-4v4.5c0 .276-.224 1.5-.5 1.5s-.5-1.224-.5-1.5V10h-4a.5.5 0 0 1-.5-.5c0-.973.64-1.725 1.17-2.189A5.921 5.921 0 0 1 5 6.708V2.277a2.77 2.77 0 0 1-.354-.298C4.342 1.674 4 1.179 4 .5a.5.5 0 0 1 .146-.354z"/>

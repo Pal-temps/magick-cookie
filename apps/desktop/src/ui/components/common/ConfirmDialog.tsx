@@ -1,6 +1,7 @@
 import { Show } from "solid-js";
 import { createSignal } from "solid-js";
 import { Button } from "./Button";
+import { useT } from "../../../i18n/context";
 
 interface ConfirmState {
   message: string;
@@ -35,6 +36,8 @@ function dismiss() {
 }
 
 export function ConfirmDialog() {
+  const { t } = useT();
+
   return (
     <Show when={confirmState()}>
       {(state) => (
@@ -77,10 +80,10 @@ export function ConfirmDialog() {
             </div>
             <div style={{ display: "flex", gap: "8px", "justify-content": "flex-end" }}>
               <Button variant="secondary" size="sm" onClick={dismiss}>
-                Annuler
+                {t("common.cancel")}
               </Button>
               <Button variant="danger" size="sm" onClick={state().onConfirm}>
-                Supprimer
+                {t("common.delete")}
               </Button>
             </div>
           </div>

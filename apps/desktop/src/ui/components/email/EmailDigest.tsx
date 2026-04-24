@@ -2,6 +2,7 @@ import { onMount, Show, For, createSignal } from "solid-js";
 import { CookieLoader } from "../common/CookieLoader";
 import { useEmailStore } from "../../../application/stores/emailStore";
 import { useNotesStore } from "../../../application/stores/notesStore";
+import { useT } from "../../../i18n/context";
 import { Button } from "../common/Button";
 import { AiButton } from "../common/AiButton";
 import { requestConfirm } from "../common/ConfirmDialog";
@@ -40,9 +41,11 @@ function renderMarkdown(text: string) {
 export function EmailDigest(props: EmailDigestProps) {
   const store = useEmailStore();
   const notes = useNotesStore();
+  const { t } = useT();
 
   const [deletingGroups, setDeletingGroups] = createSignal<Set<string>>(new Set());
   const [generatingReport, setGeneratingReport] = createSignal(false);
+  const [senderOpen, setSenderOpen] = createSignal(true);
 
   onMount(() => store.fetchDigest());
 
@@ -66,7 +69,6 @@ export function EmailDigest(props: EmailDigestProps) {
     setGeneratingReport(true);
     try {
       const { markdown } = await store.generateReport(7);
-      // Create a note with the report
       const date = new Date().toISOString().slice(0, 10);
       const noteName = `rapport-emails-${date}`;
       await notes.createNote(noteName, "");
@@ -92,19 +94,19 @@ export function EmailDigest(props: EmailDigestProps) {
   }
 
   return (
-    <div style={{ padding: "24px", height: "100%", display: "flex", "flex-direction": "column" }}>
+    <div style={{ padding: "24px 24px 0", height: "100%", display: "flex", "flex-direction": "column" }}>
       {/* Header */}
       <div style={{ display: "flex", "align-items": "center", "justify-content": "space-between", "margin-bottom": "20px" }}>
         <h2 style={{ margin: "0", "font-size": "20px", "font-weight": "600", color: "var(--text-primary)" }}>
-          Digest emails
+          {t("email.digestTitle")}
         </h2>
-        <Button variant="ghost" size="sm" onClick={props.onClose}>Retour</Button>
+        <Button variant="ghost" size="sm" onClick={props.onClose}>{t("email.back")}</Button>
       </div>
 
       {/* Content */}
-      <div style={{ flex: "1", "overflow-y": "auto", "margin-bottom": "16px" }}>
+      <div style={{ flex: "1", "overflow-y": "auto", "padding-bottom": "32px" }}>
         <Show when={store.digestLoading()}>
-          <CookieLoader message="Resume des emails..." />
+          <CookieLoader message={t("email.summaryLoading")} />
         </Show>
 
         <Show when={!store.digestLoading() && store.digest()}>
@@ -121,15 +123,15 @@ export function EmailDigest(props: EmailDigestProps) {
                   {data().totalUnread}
                 </div>
                 <div style={{ "font-size": "11px", color: "var(--text-muted)", "margin-top": "4px" }}>
-                  emails non lus sur les 7 derniers jours
+                  {t("email.unreadLast7days")}
                 </div>
               </div>
 
-              {/* LLM summary if available */}
+              {/* LLM summary */}
               <Show when={data().summary}>
                 <div style={{ "margin-bottom": "16px" }}>
                   <h3 style={{ margin: "0 0 8px", "font-size": "14px", "font-weight": "600", color: "var(--text-primary)" }}>
-                    Resume
+                    {t("email.summary")}
                   </h3>
                   <div style={{ display: "flex", "flex-direction": "column", gap: "4px" }}>
                     <For each={renderMarkdown(data().summary)}>
@@ -173,64 +175,75 @@ export function EmailDigest(props: EmailDigestProps) {
                 </div>
               </Show>
 
-              {/* Structured data: by sender */}
-              <h3 style={{ margin: "0 0 8px", "font-size": "14px", "font-weight": "600", color: "var(--text-primary)" }}>
-                Par expediteur
-              </h3>
-              <div style={{ display: "flex", "flex-direction": "column", gap: "8px" }}>
-                <For each={data().bySender}>
-                  {(entry) => (
-                    <div style={{
-                      background: "var(--bg-elevated)",
-                      "border-radius": "var(--radius-md)",
-                      padding: "10px 12px",
-                    }}>
-                      <div style={{ display: "flex", "justify-content": "space-between", "align-items": "center", "margin-bottom": "4px" }}>
-                        <span style={{ "font-size": "13px", "font-weight": "500", color: "var(--text-primary)", flex: "1", "min-width": "0", overflow: "hidden", "text-overflow": "ellipsis", "white-space": "nowrap" }}>
-                          {entry.sender}
-                        </span>
-                        <div style={{ display: "flex", "align-items": "center", gap: "6px", "flex-shrink": "0" }}>
-                          <span style={{
-                            "font-size": "11px",
-                            background: "#3b82f6",
-                            color: "white",
-                            padding: "1px 6px",
-                            "border-radius": "8px",
-                          }}>
-                            {entry.count}
+              {/* By sender — collapsible */}
+              <button
+                onClick={() => setSenderOpen(!senderOpen())}
+                style={{
+                  display: "flex", "align-items": "center", gap: "8px",
+                  margin: "0 0 8px", padding: "0", background: "none", border: "none",
+                  cursor: "pointer", color: "var(--text-primary)", width: "100%", "text-align": "left",
+                }}
+              >
+                <span style={{ "font-size": "14px", width: "16px", "flex-shrink": "0" }}>{senderOpen() ? "▾" : "▸"}</span>
+                <span style={{ "font-size": "14px", "font-weight": "600" }}>{t("email.bySender")}</span>
+                <span style={{ "font-size": "11px", color: "var(--text-muted)" }}>({data().bySender.length})</span>
+              </button>
+              <Show when={senderOpen()}>
+                <div style={{ display: "flex", "flex-direction": "column", gap: "8px" }}>
+                  <For each={data().bySender}>
+                    {(entry) => (
+                      <div style={{
+                        background: "var(--bg-elevated)",
+                        "border-radius": "var(--radius-md)",
+                        padding: "10px 12px",
+                      }}>
+                        <div style={{ display: "flex", "justify-content": "space-between", "align-items": "center", "margin-bottom": "4px" }}>
+                          <span style={{ "font-size": "13px", "font-weight": "500", color: "var(--text-primary)", flex: "1", "min-width": "0", overflow: "hidden", "text-overflow": "ellipsis", "white-space": "nowrap" }}>
+                            {entry.sender}
                           </span>
-                          <Show when={deletingGroups().has(entry.sender)} fallback={
-                            <Button
-                              variant="danger"
-                              size="sm"
-                              onClick={() => handleDeleteGroup(entry.sender, entry.emailIds, entry.count)}
-                              disabled={deletingGroups().has(entry.sender)}
-                            >
-                              Supprimer
-                            </Button>
-                          }>
-                            <CookieLoader size={22} />
-                          </Show>
-                        </div>
-                      </div>
-                      <For each={entry.subjects}>
-                        {(subject) => (
-                          <div style={{ "font-size": "12px", color: "var(--text-muted)", "padding-left": "8px" }}>
-                            - {subject}
+                          <div style={{ display: "flex", "align-items": "center", gap: "6px", "flex-shrink": "0" }}>
+                            <span style={{
+                              "font-size": "11px",
+                              background: "#3b82f6",
+                              color: "white",
+                              padding: "1px 6px",
+                              "border-radius": "8px",
+                            }}>
+                              {entry.count}
+                            </span>
+                            <Show when={deletingGroups().has(entry.sender)} fallback={
+                              <Button
+                                variant="danger"
+                                size="sm"
+                                onClick={() => handleDeleteGroup(entry.sender, entry.emailIds, entry.count)}
+                                disabled={deletingGroups().has(entry.sender)}
+                              >
+                                {t("common.delete")}
+                              </Button>
+                            }>
+                              <CookieLoader size={22} />
+                            </Show>
                           </div>
-                        )}
-                      </For>
-                    </div>
-                  )}
-                </For>
-              </div>
+                        </div>
+                        <For each={entry.subjects}>
+                          {(subject) => (
+                            <div style={{ "font-size": "12px", color: "var(--text-muted)", "padding-left": "8px" }}>
+                              - {subject}
+                            </div>
+                          )}
+                        </For>
+                      </div>
+                    )}
+                  </For>
+                </div>
+              </Show>
             </>
           )}
         </Show>
 
         <Show when={!store.digestLoading() && !store.digest()}>
           <div style={{ color: "var(--text-muted)", "font-size": "13px", padding: "20px 0" }}>
-            Impossible de charger le digest.
+            {t("email.cannotLoadDigest")}
           </div>
         </Show>
       </div>
@@ -238,16 +251,16 @@ export function EmailDigest(props: EmailDigestProps) {
       {/* Footer buttons */}
       <div style={{ display: "flex", gap: "8px", "justify-content": "flex-end", "padding-top": "12px", "border-top": "1px solid var(--border-color)" }}>
         <AiButton variant="primary" size="sm" onClick={handleGenerateReport} disabled={generatingReport()}>
-          {generatingReport() ? "Generation..." : "Rapport dans Notes"}
+          {generatingReport() ? t("email.generating") : t("email.reportToNotes")}
         </AiButton>
         <AiButton variant="secondary" size="sm" onClick={() => store.fetchDigest()}>
-          Regenerer
+          {t("email.regenerate")}
         </AiButton>
         <Button variant="secondary" size="sm" onClick={handleCopy}>
-          Copier
+          {t("common.copy")}
         </Button>
         <Button variant="ghost" size="sm" onClick={props.onClose}>
-          Retour
+          {t("email.back")}
         </Button>
       </div>
     </div>

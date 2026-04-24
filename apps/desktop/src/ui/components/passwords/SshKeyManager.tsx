@@ -1,5 +1,6 @@
 import { createSignal, Show, For, onMount } from "solid-js";
 import { invoke } from "@tauri-apps/api/core";
+import { useT } from "../../../i18n/context";
 
 interface SshKeyResult {
   name: string;
@@ -8,6 +9,7 @@ interface SshKeyResult {
 }
 
 export function SshKeyManager() {
+  const { t } = useT();
   const [keys, setKeys] = createSignal<SshKeyResult[]>([]);
   const [showGenerate, setShowGenerate] = createSignal(false);
   const [newKeyName, setNewKeyName] = createSignal("");
@@ -58,18 +60,18 @@ export function SshKeyManager() {
       // Use the standard SSH directory via Tauri fs
       const outputPath = `~/.ssh/${slug}`;
       await invoke<string>("secrets_export_ssh_key", { name, outputPath });
-      alert(`Cle exportee vers ${outputPath}\nCle publique: ${outputPath}.pub`);
+      alert(`${t("passwords.exportedTo")} ${outputPath}\n${t("passwords.publicKey")}: ${outputPath}.pub`);
     } catch (e: any) {
-      alert(`Erreur: ${e}`);
+      alert(`${t("common.error")}: ${e}`);
     }
   }
 
   return (
     <div class="pwd-ssh-manager">
       <div class="pwd-ssh-manager__header">
-        <span>Cles SSH</span>
+        <span>{t("passwords.sshKeysTitle")}</span>
         <button class="pwd-btn pwd-btn--sm pwd-btn--primary" onClick={() => setShowGenerate(true)}>
-          + Generer
+          {t("passwords.generateSsh")}
         </button>
       </div>
 
@@ -77,7 +79,7 @@ export function SshKeyManager() {
       <Show when={showGenerate()}>
         <div class="pwd-ssh-generate">
           <label class="pwd-field">
-            <span>Nom de la cle</span>
+            <span>{t("passwords.keyName")}</span>
             <input
               autofocus
               value={newKeyName()}
@@ -87,7 +89,7 @@ export function SshKeyManager() {
             />
           </label>
           <label class="pwd-field">
-            <span>Commentaire (optionnel)</span>
+            <span>{t("passwords.commentOptional")}</span>
             <input
               value={newKeyComment()}
               onInput={(e) => setNewKeyComment(e.currentTarget.value)}
@@ -99,12 +101,12 @@ export function SshKeyManager() {
           </Show>
           <div style={{ display: "flex", gap: "6px" }}>
             <button class="pwd-btn pwd-btn--primary" onClick={generateKey} disabled={generating() || !newKeyName().trim()}>
-              {generating() ? "Generation..." : "Generer ED25519"}
+              {generating() ? t("passwords.generating") : t("passwords.generateEd25519")}
             </button>
-            <button class="pwd-btn" onClick={() => setShowGenerate(false)}>Annuler</button>
+            <button class="pwd-btn" onClick={() => setShowGenerate(false)}>{t("common.cancel")}</button>
           </div>
           <p style={{ "font-size": "11px", color: "var(--text-muted)", margin: "4px 0 0" }}>
-            La cle privee sera stockee dans le coffre-fort chiffre. Seule la cle publique est visible.
+            {t("passwords.privateKeyHint")}
           </p>
         </div>
       </Show>
@@ -113,7 +115,7 @@ export function SshKeyManager() {
       <div class="pwd-ssh-list">
         <For each={keys()} fallback={
           <div style={{ padding: "16px", "text-align": "center", color: "var(--text-muted)", "font-size": "12px" }}>
-            Aucune cle SSH. Cliquez sur "+ Generer" pour en creer une.
+            {t("passwords.noSshKeys")}
           </div>
         }>
           {(key) => (
@@ -130,10 +132,10 @@ export function SshKeyManager() {
                   class={`pwd-btn pwd-btn--sm ${copiedKey() === key.name ? "pwd-btn--success" : ""}`}
                   onClick={() => copyPublicKey(key.public_key, key.name)}
                 >
-                  {copiedKey() === key.name ? "Copiee!" : "Copier pub"}
+                  {copiedKey() === key.name ? t("passwords.copiedPub") : t("passwords.copyPub")}
                 </button>
                 <button class="pwd-btn pwd-btn--sm" onClick={() => exportKey(key.name)}>
-                  Exporter ~/.ssh/
+                  {t("passwords.exportSsh")}
                 </button>
               </div>
             </div>

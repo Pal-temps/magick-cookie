@@ -1,107 +1,74 @@
-import { onMount, onCleanup, Show, For, createMemo, createSignal } from "solid-js";
+import { onMount, onCleanup, Show, For, createSignal } from "solid-js";
 import {
   useFluxStore,
-  taskToFluxable, emailToFluxable, articleToFluxable,
   type FluxStatus, type FluxEntityType, type FluxableItem, type FluxSuggestion,
+  type FluxKanbanItem,
 } from "../../../application/stores/fluxStore";
 import { useTaskStore } from "../../../application/stores/taskStore";
 import { useEmailStore } from "../../../application/stores/emailStore";
 import { useRssStore } from "../../../application/stores/rssStore";
+import { useViewStore } from "../../../application/stores/viewStore";
 import { FluxSwipeCard } from "./FluxSwipeCard";
+import { VirtualKanbanColumn } from "./VirtualKanbanColumn";
+import { TimelineView } from "./timeline/TimelineView";
 import { Button } from "../common/Button";
-import { AiButton } from "../common/AiButton";
+import "../../styles/taskjar.css";
 
-// ─── Module-level drag state ───
+// ─── Module-level state ───
 const [activeDrag, setActiveDrag] = createSignal<{ id: string; type: FluxEntityType; name: string } | null>(null);
 const [ghostPos, setGhostPos] = createSignal({ x: 0, y: 0 });
 const [dropTarget, setDropTarget] = createSignal<FluxStatus | "undecided" | null>(null);
 
-const [viewType, setViewType] = createSignal<"swipe" | "kanban">("kanban");
-
-// ─── Entity type tabs ───
-const ENTITY_TABS: { key: FluxEntityType | "all"; label: string }[] = [
-  { key: "all", label: "Tout" },
-  { key: "task", label: "Taches" },
-  { key: "email", label: "Emails" },
-  { key: "rss_article", label: "Articles" },
-];
+const [viewType, setViewType] = createSignal<"swipe" | "kanban" | "timeline">("kanban");
+export const [emailAccountFilter, setEmailAccountFilter] = createSignal<string | "all">("all");
 
 // ─── Kanban columns ───
 const COLUMNS: { title: string; status: FluxStatus | "undecided"; color: string }[] = [
   { title: "Non trie", status: "undecided", color: "#6b7280" },
-  { title: "Prioritaire", status: "priority", color: "#ef4444" },
-  { title: "Plus tard", status: "later", color: "#3b82f6" },
-  { title: "Archive", status: "archived", color: "#8b5cf6" },
+  { title: "Prioritaire", status: "priority", color: "#f87171" },
+  { title: "Plus tard", status: "later", color: "#60a5fa" },
+  { title: "Archive", status: "archived", color: "#a78bfa" },
 ];
+
+function suggestionClass(status: string): string {
+  if (status === "priority") return "taskjar-suggestion-pill taskjar-suggestion-pill--priority";
+  if (status === "later") return "taskjar-suggestion-pill taskjar-suggestion-pill--later";
+  return "taskjar-suggestion-pill taskjar-suggestion-pill--archived";
+}
 
 export function FluxView() {
   const flux = useFluxStore();
   const taskStore = useTaskStore();
   const emailStore = useEmailStore();
   const rssStore = useRssStore();
+  const { setViewMode } = useViewStore();
 
   onMount(async () => {
-    await flux.fetchFlux();
-    // Load data from all sources
-    if (taskStore.tasks().length === 0) await taskStore.fetchUnscheduledTasks();
-    if (emailStore.emails().length === 0) await emailStore.fetchEmails();
-    if (rssStore.articles().length === 0) await rssStore.fetchArticles();
+    await flux.fetchKanban(50);
+    taskStore.fetchConnectorConfigs();
   });
 
-  // ─── All items merged ───
-  const allItems = createMemo((): FluxableItem[] => {
-    const items: FluxableItem[] = [];
-
-    // Tasks
-    for (const t of taskStore.tasks()) {
-      items.push(taskToFluxable(t));
-    }
-
-    // Emails — only unread + not archived from INBOX
-    for (const e of emailStore.emails()) {
-      if (!e.isArchived && !e.isRead) {
-        items.push(emailToFluxable(e));
-      }
-    }
-
-    // RSS articles — only unread
-    const feeds = rssStore.feeds();
-    for (const a of rssStore.articles()) {
-      if (!a.isRead) {
-        const feed = feeds.find((f) => f.id === a.feedId);
-        items.push(articleToFluxable(a, feed?.label));
-      }
-    }
-
-    return items;
-  });
-
-  // ─── Filtered by active entity type ───
-  const filteredItems = createMemo(() => {
-    const type = flux.activeEntityType();
-    if (type === "all") return allItems();
-    return allItems().filter((i) => i.entityType === type);
-  });
-
-  // ─── Kanban columns ───
-  const undecidedItems = createMemo(() => flux.getUndecidedItems(filteredItems()));
-  const priorityItems = createMemo(() => flux.getItemsByStatus("priority", filteredItems()));
-  const laterItems = createMemo(() => flux.getItemsByStatus("later", filteredItems()));
-  const archivedItems = createMemo(() => flux.getItemsByStatus("archived", filteredItems()));
-
-  function getColumnItems(status: FluxStatus | "undecided"): FluxableItem[] {
-    switch (status) {
-      case "undecided": return undecidedItems();
-      case "priority": return priorityItems();
-      case "later": return laterItems();
-      case "archived": return archivedItems();
-      default: return [];
-    }
+  // ─── Kanban columns — read from server-side data ───
+  function getKanbanColumn(status: FluxStatus | "undecided") {
+    return flux.kanbanColumns()[status] ?? { items: [], total: 0 };
   }
 
   // ─── Swipe mode ───
+  function kanbanItemToFluxable(item: FluxKanbanItem): FluxableItem {
+    return {
+      entityType: item.entityType,
+      entityId: item.entityId,
+      title: item.title,
+      preview: item.preview ?? "",
+      source: item.source,
+      timestamp: item.date ?? new Date().toISOString(),
+    };
+  }
+
   function handleStartSwipe() {
-    flux.startFlux(filteredItems());
+    const undecidedColumn = getKanbanColumn("undecided");
+    const fluxableItems = undecidedColumn.items.map(kanbanItemToFluxable);
+    flux.startFlux(fluxableItems);
   }
 
   function handleKeyboard(e: KeyboardEvent) {
@@ -120,34 +87,69 @@ export function FluxView() {
   onMount(() => document.addEventListener("keydown", handleKeyboard));
   onCleanup(() => document.removeEventListener("keydown", handleKeyboard));
 
+  // ─── Item open: navigate to the right page ───
+  // .find() is fine here — arrays are paginated (50 items max per column, not 100K)
+  function handleItemOpen(item: { entityType: FluxEntityType; entityId: string }) {
+    if (item.entityType === "task") {
+      const task = taskStore.tasks().find((t) => t.id === item.entityId);
+      if (task) taskStore.openTaskDetail(task);
+    } else if (item.entityType === "email") {
+      const email = emailStore.emails().find((e) => e.id === item.entityId);
+      if (email) { emailStore.selectEmail(email); setViewMode("email"); }
+    } else if (item.entityType === "rss_article") {
+      const article = rssStore.articles().find((a) => a.id === item.entityId);
+      if (article) { rssStore.selectArticle(article); setViewMode("rss"); }
+    }
+  }
+
   // ─── Kanban drag & drop ───
-  function handleDragStart(item: FluxableItem, e: PointerEvent) {
-    const target = e.currentTarget as HTMLElement;
-    target.setPointerCapture(e.pointerId);
-    setActiveDrag({ id: item.entityId, type: item.entityType, name: item.title });
-    setGhostPos({ x: e.clientX, y: e.clientY });
-  }
+  function handleCardPointerDown(item: { entityType: FluxEntityType; entityId: string; title: string }, e: PointerEvent) {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    const el = e.currentTarget as HTMLElement;
+    const pointerId = e.pointerId;
+    const startX = e.clientX;
+    const startY = e.clientY;
+    let dragging = false;
 
-  function handleDragMove(e: PointerEvent) {
-    if (!activeDrag()) return;
-    setGhostPos({ x: e.clientX, y: e.clientY });
-    const el = document.elementFromPoint(e.clientX, e.clientY);
-    const col = el?.closest("[data-flux-status]") as HTMLElement | null;
-    setDropTarget(col ? (col.dataset.fluxStatus as FluxStatus | "undecided") : null);
-  }
+    function onMove(ev: PointerEvent) {
+      const dx = ev.clientX - startX;
+      const dy = ev.clientY - startY;
+      if (!dragging) {
+        if (Math.abs(dx) + Math.abs(dy) < 5) return;
+        dragging = true;
+        el.setPointerCapture(pointerId);
+        setActiveDrag({ id: item.entityId, type: item.entityType, name: item.title });
+      }
+      setGhostPos({ x: ev.clientX, y: ev.clientY });
+      const target = document.elementFromPoint(ev.clientX, ev.clientY);
+      const col = target?.closest("[data-flux-status]") as HTMLElement | null;
+      setDropTarget(col ? (col.dataset.fluxStatus as FluxStatus | "undecided") : null);
+    }
 
-  function handleDragEnd() {
-    const drag = activeDrag();
-    const target = dropTarget();
-    if (drag && target) {
-      if (target === "undecided") {
-        flux.undecideItem(drag.type, drag.id);
-      } else {
-        flux.moveItem(drag.type, drag.id, target);
+    function onUp() {
+      el.removeEventListener("pointermove", onMove);
+      el.removeEventListener("pointerup", onUp);
+      el.removeEventListener("pointercancel", onUp);
+      if (dragging) {
+        try { el.releasePointerCapture(pointerId); } catch {}
+        const drag = activeDrag();
+        const target = dropTarget();
+        if (drag && target) {
+          if (target === "undecided") {
+            flux.undecideItem(drag.type, drag.id);
+          } else {
+            flux.moveItem(drag.type, drag.id, target);
+          }
+        }
+        setActiveDrag(null);
+        setDropTarget(null);
       }
     }
-    setActiveDrag(null);
-    setDropTarget(null);
+
+    el.addEventListener("pointermove", onMove);
+    el.addEventListener("pointerup", onUp);
+    el.addEventListener("pointercancel", onUp);
   }
 
   // ─── Suggestions ───
@@ -163,98 +165,42 @@ export function FluxView() {
   }
 
   return (
-    <div
-      style={{ height: "100%", display: "flex", "flex-direction": "column", overflow: "hidden" }}
-      onPointerMove={handleDragMove}
-      onPointerUp={handleDragEnd}
-    >
-      {/* Header */}
-      <div style={{
-        display: "flex", "align-items": "center", gap: "8px",
-        padding: "12px 16px", "border-bottom": "1px solid var(--border-color)",
-        "flex-shrink": "0",
-      }}>
-        <h2 style={{ "font-size": "16px", "font-weight": "600", color: "var(--text-primary)", margin: "0" }}>
-          Flux
+    <div class="taskjar">
+      {/* Header — minimal */}
+      <div class="taskjar-header">
+        <h2 class="taskjar-title">
+          <span class="taskjar-title-icon">&#127850;</span> Task'Jar
         </h2>
-
-        {/* Entity type tabs */}
-        <div style={{ display: "flex", gap: "2px", "margin-left": "16px" }}>
-          <For each={ENTITY_TABS}>
-            {(tab) => (
-              <button
-                onClick={() => flux.setActiveEntityType(tab.key)}
-                style={{
-                  padding: "4px 10px", "font-size": "11px",
-                  background: flux.activeEntityType() === tab.key ? "var(--accent-primary)" : "var(--bg-elevated)",
-                  color: flux.activeEntityType() === tab.key ? "#fff" : "var(--text-secondary)",
-                  border: "none", "border-radius": "var(--radius-sm)", cursor: "pointer",
-                }}
-              >{tab.label}</button>
-            )}
-          </For>
-        </div>
-
-        <div style={{ "margin-left": "auto", display: "flex", gap: "6px", "align-items": "center" }}>
-          {/* View toggle */}
-          <button
-            onClick={() => setViewType((v) => v === "kanban" ? "swipe" : "kanban")}
-            style={{
-              padding: "4px 10px", "font-size": "11px",
-              background: "var(--bg-elevated)", border: "1px solid var(--border-color)",
-              "border-radius": "var(--radius-sm)", color: "var(--text-secondary)", cursor: "pointer",
-            }}
-          >{viewType() === "kanban" ? "Mode Swipe" : "Mode Kanban"}</button>
-
-          {/* AI suggest */}
-          <AiButton
-            onClick={() => flux.fetchSuggestions(flux.activeEntityType() === "all" ? undefined : flux.activeEntityType() as FluxEntityType)}
-            disabled={flux.suggestLoading()}
-            size="sm"
-          >{flux.suggestLoading() ? "..." : "IA Tri"}</AiButton>
+        <div class="taskjar-actions">
+          <div class="taskjar-view-modes">
+            <button class={`taskjar-tab ${viewType() === "kanban" ? "taskjar-tab--active" : ""}`} onClick={() => setViewType("kanban")}>Kanban</button>
+            <button class={`taskjar-tab ${viewType() === "swipe" ? "taskjar-tab--active" : ""}`} onClick={() => setViewType("swipe")}>Swipe</button>
+            <button class={`taskjar-tab ${viewType() === "timeline" ? "taskjar-tab--active" : ""}`} onClick={() => setViewType("timeline")}>Timeline</button>
+          </div>
         </div>
       </div>
 
       {/* AI Suggestions bar */}
       <Show when={flux.suggestions().length > 0}>
-        <div style={{
-          padding: "8px 16px", background: "var(--bg-elevated)",
-          "border-bottom": "1px solid var(--border-color)", "flex-shrink": "0",
-          display: "flex", "align-items": "center", gap: "8px", "flex-wrap": "wrap",
-        }}>
-          <span style={{ "font-size": "12px", "font-weight": "600", color: "var(--text-primary)" }}>
+        <div class="taskjar-suggestions">
+          <span class="taskjar-suggestions-label">
             Suggestions IA ({flux.suggestions().length})
           </span>
           <For each={flux.suggestions()}>
             {(s) => (
               <button
+                class={suggestionClass(s.suggestedStatus)}
                 onClick={() => handleApplySuggestion(s)}
-                style={{
-                  padding: "3px 8px", "font-size": "10px", "border-radius": "var(--radius-sm)",
-                  background: s.suggestedStatus === "priority" ? "#ef444420" : s.suggestedStatus === "later" ? "#3b82f620" : "#8b5cf620",
-                  color: s.suggestedStatus === "priority" ? "#ef4444" : s.suggestedStatus === "later" ? "#3b82f6" : "#8b5cf6",
-                  border: "none", cursor: "pointer",
-                }}
                 title={s.reason}
               >{s.entityTitle.slice(0, 25)}{s.entityTitle.length > 25 ? "..." : ""} → {s.suggestedStatus}</button>
             )}
           </For>
-          <button
-            onClick={handleApplyAll}
-            style={{
-              padding: "3px 8px", "font-size": "10px", background: "var(--accent-primary)",
-              color: "#fff", border: "none", "border-radius": "var(--radius-sm)", cursor: "pointer",
-              "margin-left": "auto",
-            }}
-          >Appliquer tout</button>
-          <button
-            onClick={() => flux.clearSuggestions()}
-            style={{
-              padding: "3px 8px", "font-size": "10px", background: "var(--bg-surface)",
-              color: "var(--text-muted)", border: "1px solid var(--border-color)",
-              "border-radius": "var(--radius-sm)", cursor: "pointer",
-            }}
-          >Fermer</button>
+          <Button size="sm" variant="primary" onClick={handleApplyAll} style={{ "margin-left": "auto" }}>
+            Appliquer tout
+          </Button>
+          <Button size="sm" variant="ghost" onClick={() => flux.clearSuggestions()}>
+            Fermer
+          </Button>
         </div>
       </Show>
 
@@ -263,22 +209,20 @@ export function FluxView() {
         {/* ─── Swipe Mode ─── */}
         <Show when={viewType() === "swipe"}>
           <Show when={flux.isFluxing()} fallback={
-            <div style={{ height: "100%", display: "flex", "align-items": "center", "justify-content": "center", "flex-direction": "column", gap: "16px" }}>
-              <p style={{ "font-size": "14px", color: "var(--text-secondary)" }}>
-                {undecidedItems().length} elements a trier
+            <div class="taskjar-swipe-center">
+              <p class="taskjar-swipe-start-text">
+                {getKanbanColumn("undecided").total} elements a trier
               </p>
-              <Button onClick={handleStartSwipe} disabled={undecidedItems().length === 0}>
+              <Button onClick={handleStartSwipe} disabled={getKanbanColumn("undecided").items.length === 0}>
                 Commencer le tri
               </Button>
             </div>
           }>
-            <div style={{ height: "100%", display: "flex", "align-items": "center", "justify-content": "center", position: "relative" }}>
+            <div class="taskjar-swipe-area">
               <Show when={flux.currentItem()} fallback={
                 <div style={{ "text-align": "center" }}>
-                  <p style={{ "font-size": "16px", "font-weight": "600", color: "var(--text-primary)", "margin-bottom": "12px" }}>
-                    Tri termine !
-                  </p>
-                  <p style={{ "font-size": "13px", color: "var(--text-secondary)", "margin-bottom": "16px" }}>
+                  <p class="taskjar-swipe-done-title">Tri termine !</p>
+                  <p class="taskjar-swipe-done-count">
                     {flux.pendingDecisions().length} decisions en attente
                   </p>
                   <div style={{ display: "flex", gap: "8px", "justify-content": "center" }}>
@@ -293,23 +237,14 @@ export function FluxView() {
                 />
               </Show>
 
-              {/* Counter + undo */}
-              <div style={{
-                position: "absolute", bottom: "20px", left: "0", right: "0",
-                display: "flex", "justify-content": "center", gap: "12px", "align-items": "center",
-              }}>
-                <span style={{ "font-size": "12px", color: "var(--text-muted)" }}>
+              <div class="taskjar-swipe-footer">
+                <span class="taskjar-swipe-remaining">
                   {flux.remainingCount()} restant(s)
                 </span>
                 <Show when={flux.pendingDecisions().length > 0}>
-                  <button
-                    onClick={() => flux.undoLast()}
-                    style={{
-                      padding: "4px 10px", "font-size": "11px", background: "var(--bg-elevated)",
-                      border: "1px solid var(--border-color)", "border-radius": "var(--radius-sm)",
-                      color: "var(--text-secondary)", cursor: "pointer",
-                    }}
-                  >Annuler (Ctrl+Z)</button>
+                  <button class="taskjar-swipe-undo" onClick={() => flux.undoLast()}>
+                    Annuler (Ctrl+Z)
+                  </button>
                 </Show>
               </div>
             </div>
@@ -318,97 +253,40 @@ export function FluxView() {
 
         {/* ─── Kanban Mode ─── */}
         <Show when={viewType() === "kanban"}>
-          <div style={{
-            display: "grid", "grid-template-columns": "repeat(4, 1fr)", gap: "12px",
-            padding: "12px 16px", height: "100%", overflow: "hidden",
-          }}>
+          <div class="taskjar-kanban">
             <For each={COLUMNS}>
               {(col) => {
-                const items = () => getColumnItems(col.status);
+                const column = () => getKanbanColumn(col.status);
                 return (
-                  <div
-                    data-flux-status={col.status}
-                    style={{
-                      display: "flex", "flex-direction": "column", "border-radius": "8px",
-                      background: dropTarget() === col.status ? `${col.color}10` : "transparent",
-                      border: dropTarget() === col.status ? `2px dashed ${col.color}` : "2px solid transparent",
-                      transition: "background 0.15s, border 0.15s",
-                      overflow: "hidden",
-                    }}
-                  >
-                    {/* Column header */}
-                    <div style={{
-                      padding: "8px 10px", display: "flex", "align-items": "center", gap: "6px",
-                      "border-bottom": `2px solid ${col.color}`, "flex-shrink": "0",
-                    }}>
-                      <span style={{ "font-size": "12px", "font-weight": "600", color: col.color }}>
-                        {col.title}
-                      </span>
-                      <span style={{
-                        "font-size": "10px", "font-weight": "600", padding: "1px 6px",
-                        "border-radius": "8px", background: `${col.color}20`, color: col.color,
-                        "margin-left": "auto",
-                      }}>
-                        {items().length}
-                      </span>
-                    </div>
-
-                    {/* Column items */}
-                    <div style={{ flex: "1", "overflow-y": "auto", padding: "6px" }}>
-                      <For each={items()}>
-                        {(item) => (
-                          <div
-                            onPointerDown={(e) => handleDragStart(item, e)}
-                            style={{
-                              padding: "8px 10px", "margin-bottom": "6px",
-                              background: "var(--bg-surface)", border: "1px solid var(--border-color)",
-                              "border-radius": "6px", cursor: "grab", "user-select": "none",
-                              "touch-action": "none",
-                            }}
-                          >
-                            <div style={{ display: "flex", "align-items": "center", gap: "4px", "margin-bottom": "4px" }}>
-                              <span style={{
-                                "font-size": "8px", "font-weight": "700", padding: "1px 4px",
-                                "border-radius": "2px",
-                                background: item.entityType === "task" ? "var(--accent-primary)" : item.entityType === "email" ? "#0984e3" : "#00b894",
-                                color: "#fff",
-                              }}>
-                                {item.entityType === "task" ? "T" : item.entityType === "email" ? "@" : "R"}
-                              </span>
-                              <span style={{ "font-size": "10px", color: "var(--text-muted)", overflow: "hidden", "text-overflow": "ellipsis", "white-space": "nowrap" }}>
-                                {item.source}
-                              </span>
-                            </div>
-                            <div style={{ "font-size": "12px", "font-weight": "500", color: "var(--text-primary)", "line-height": "1.3" }}>
-                              {item.title.length > 60 ? item.title.slice(0, 60) + "..." : item.title}
-                            </div>
-                          </div>
-                        )}
-                      </For>
-                      <Show when={items().length === 0}>
-                        <div style={{ padding: "20px 8px", "text-align": "center", "font-size": "11px", color: "var(--text-muted)" }}>
-                          Vide
-                        </div>
-                      </Show>
-                    </div>
-                  </div>
+                  <VirtualKanbanColumn
+                    items={column().items}
+                    total={column().total}
+                    status={col.status}
+                    color={col.color}
+                    title={col.title}
+                    isDropTarget={dropTarget() === col.status}
+                    onItemOpen={handleItemOpen}
+                    onItemPointerDown={handleCardPointerDown}
+                    onLoadMore={() => flux.loadMoreColumn(col.status, column().items.length)}
+                  />
                 );
               }}
             </For>
           </div>
         </Show>
+
+        {/* ─── Timeline Mode ─── */}
+        <Show when={viewType() === "timeline"}>
+          <TimelineView />
+        </Show>
       </div>
 
       {/* Drag ghost */}
       <Show when={activeDrag()}>
-        <div style={{
-          position: "fixed", left: `${ghostPos().x - 80}px`, top: `${ghostPos().y - 16}px`,
-          "z-index": "1000", padding: "6px 12px", background: "var(--bg-surface)",
-          border: "1px solid var(--accent-primary)", "border-radius": "6px",
-          "font-size": "12px", color: "var(--text-primary)", "pointer-events": "none",
-          "box-shadow": "0 4px 16px rgba(0,0,0,0.2)", "max-width": "200px",
-          overflow: "hidden", "text-overflow": "ellipsis", "white-space": "nowrap",
-        }}>
+        <div
+          class="taskjar-ghost"
+          style={{ left: `${ghostPos().x - 80}px`, top: `${ghostPos().y - 16}px` }}
+        >
           {activeDrag()!.name}
         </div>
       </Show>

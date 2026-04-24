@@ -1,5 +1,6 @@
 import { Show, For, createMemo } from "solid-js";
 import { useAnalyticsStore } from "../../../application/stores/analyticsStore";
+import { useT } from "../../../i18n/context";
 
 function formatSeconds(seconds: number): string {
   const h = Math.floor(seconds / 3600);
@@ -10,6 +11,7 @@ function formatSeconds(seconds: number): string {
 
 export function TaskTimeChart() {
   const { timeByTask } = useAnalyticsStore();
+  const { t } = useT();
 
   const maxSeconds = createMemo(() => {
     const entries = timeByTask();
@@ -23,12 +25,12 @@ export function TaskTimeChart() {
   return (
     <div style={{ "margin-top": "24px" }}>
       <h3 style={{ margin: "0 0 16px", "font-size": "14px", "font-weight": "600", color: "var(--text-primary)" }}>
-        Temps par tache
+        {t("dashboard.timeByTask")}
       </h3>
 
       <Show when={timeByTask().length === 0}>
         <div style={{ color: "var(--text-muted)", "font-size": "12px", "text-align": "center", padding: "20px" }}>
-          Aucune donnee sur cette periode
+          {t("dashboard.noDataPeriod")}
         </div>
       </Show>
 
@@ -38,7 +40,7 @@ export function TaskTimeChart() {
             {(entry, index) => {
               const barWidth = () => Math.max(4, (entry.totalSeconds / maxSeconds()) * 100);
               const opacity = () => Math.max(0.3, 1 - index() * 0.07);
-              const label = () => entry.taskTitle || (entry.taskId ? `Tache ${entry.taskId.slice(0, 8)}` : "Sans tache");
+              const label = () => entry.taskTitle || (entry.taskId ? `${t("dashboard.taskLabelId")} ${entry.taskId.slice(0, 8)}` : t("dashboard.noTaskLabel"));
 
               return (
                 <div style={{ display: "flex", "align-items": "center", gap: "8px" }}>
@@ -91,7 +93,7 @@ export function TaskTimeChart() {
 
         <Show when={hiddenCount() > 0}>
           <div style={{ "margin-top": "8px", "font-size": "11px", color: "var(--text-muted)", "text-align": "center" }}>
-            et {hiddenCount()} autre{hiddenCount() > 1 ? "s" : ""}
+            {t("dashboard.and")} {hiddenCount()} {hiddenCount() > 1 ? t("dashboard.others") : t("dashboard.other")}
           </div>
         </Show>
       </Show>

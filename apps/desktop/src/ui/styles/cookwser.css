@@ -1,0 +1,165 @@
+/* ═══════════════════════════════════════════
+   Cookwser — Built-in browser
+   ═══════════════════════════════════════════ */
+
+.cookwser {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--bg-base);
+}
+
+/* ─── Toolbar ─── */
+.cookwser-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border-color);
+  flex-shrink: 0;
+}
+
+.cookwser-nav-buttons {
+  display: flex;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.cookwser-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: none;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 150ms ease;
+}
+
+.cookwser-btn:hover {
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+}
+
+.cookwser-btn:active {
+  background: var(--bg-overlay);
+}
+
+.cookwser-btn:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.cookwser-btn:disabled:hover {
+  background: transparent;
+  color: var(--text-secondary);
+}
+
+/* ─── URL bar ─── */
+.cookwser-url-bar {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg-base);
+  border: 1px solid var(--border-color);
+  border-radius: 20px;
+  padding: 0 14px;
+  height: 32px;
+  transition: border-color 180ms ease, box-shadow 180ms ease;
+}
+
+.cookwser-url-bar:focus-within {
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent-primary) 20%, transparent);
+}
+
+.cookwser-url-input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 13px;
+  outline: none;
+  font-family: inherit;
+  min-width: 0;
+}
+
+.cookwser-url-input::placeholder {
+  color: var(--text-muted);
+}
+
+.cookwser-loading-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent-primary);
+  flex-shrink: 0;
+  animation: cookwser-pulse 0.8s ease infinite alternate;
+}
+
+@keyframes cookwser-pulse {
+  from { opacity: 0.4; transform: scale(0.8); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+/* ─── Bookmarks bar ─── */
+.cookwser-bookmarks {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px 12px;
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border-color);
+  flex-shrink: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.cookwser-bookmarks::-webkit-scrollbar {
+  display: none;
+}
+
+.cookwser-bookmark {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 150ms ease;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.cookwser-bookmark:hover {
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+}
+
+.cookwser-bookmark-emoji {
+  font-size: 12px;
+}
+
+.cookwser-bookmark-name {
+  max-width: 100px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ─── Content (native webview overlays this area) ─── */
+.cookwser-content {
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+  background: var(--bg-base);
+}

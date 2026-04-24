@@ -25,14 +25,14 @@ function persist(prefs: UserPreferences) {
   scheduleSyncToVault(prefs);
 }
 
-function patch<K extends keyof Omit<UserPreferences, "version">>(
+function patch<K extends keyof Omit<UserPreferences, "version" | "locale">>(
   section: K,
   update: Partial<UserPreferences[K]>,
 ) {
   const current = preferences();
   const patched: UserPreferences = {
     ...current,
-    [section]: { ...current[section], ...update },
+    [section]: { ...(current[section] as any), ...(update as any) },
   };
   persist(patched);
 }
@@ -76,6 +76,13 @@ export function useSettingsStore() {
   function getRss() { return preferences().rss ?? { retentionDays: 90 }; }
   function patchRss(update: Partial<UserPreferences["rss"]>) { patch("rss", update); }
 
+  // Locale
+  function getLocale(): "fr" | "en" { return preferences().locale ?? "fr"; }
+  function setLocale(locale: "fr" | "en") {
+    const current = preferences();
+    persist({ ...current, locale });
+  }
+
   // Workspace
   function getWorkspace() { return preferences().workspace ?? { rootDirs: [], manualProjects: [], favorites: [], activeProjectPath: null }; }
   function patchWorkspace(update: Partial<UserPreferences["workspace"]>) { patch("workspace", update); }
@@ -94,6 +101,7 @@ export function useSettingsStore() {
 
   return {
     preferences,
+    getLocale, setLocale,
     getTheme, patchTheme,
     getFocus, patchFocus,
     getDashboard, patchDashboard,

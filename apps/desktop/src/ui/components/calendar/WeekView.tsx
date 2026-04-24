@@ -10,9 +10,29 @@ function toLocalDateStr(d: Date): string {
 
 export function WeekView() {
   const { currentDate } = useViewStore();
-  const { visibleEvents, openCreateFormAtDate } = useCalendarStore();
+  const { visibleEvents, openCreateFormAtDate, updateEvent } = useCalendarStore();
 
   const [contextMenu, setContextMenu] = createSignal<{ x: number; y: number; date: Date; hour: number } | null>(null);
+  const [dropTarget, setDropTarget] = createSignal<string | null>(null);
+
+  function handleDrop(e: DragEvent, dateStr: string, hour: number) {
+    e.preventDefault();
+    setDropTarget(null);
+    const eventId = e.dataTransfer?.getData("application/x-event-id");
+    const oldStart = e.dataTransfer?.getData("application/x-event-start");
+    const oldEnd = e.dataTransfer?.getData("application/x-event-end");
+    if (!eventId || !oldStart || !oldEnd) return;
+
+    const [y, m, d] = dateStr.split("-").map(Number);
+    const origStart = new Date(oldStart);
+    const origEnd = new Date(oldEnd);
+    const diff = origEnd.getTime() - origStart.getTime();
+
+    const newStart = new Date(y, m - 1, d, hour, origStart.getMinutes());
+    const newEnd = new Date(newStart.getTime() + diff);
+
+    updateEvent(eventId, { startAt: newStart.toISOString(), endAt: newEnd.toISOString() });
+  }
 
   // Track container width for compact mode
   let containerRef: HTMLDivElement | undefined;
@@ -114,6 +134,7 @@ export function WeekView() {
                 {(day) => {
                   const hourEvents = () => (eventsByDate().get(day.dateStr) ?? [])
                     .filter((ev) => new Date(ev.startAt).getHours() === hour);
+                  const cellKey = () => `${day.dateStr}-${hour}`;
                   return (
                     <div class="week-day-cell"
                       onClick={() => openCreateFormAtDate(day.date, hour)}
@@ -121,7 +142,15 @@ export function WeekView() {
                         e.preventDefault();
                         setContextMenu({ x: e.clientX, y: e.clientY, date: day.date, hour });
                       }}
-                      style={{ cursor: "pointer" }}
+                      onDragOver={(e) => { e.preventDefault(); e.dataTransfer!.dropEffect = "move"; setDropTarget(cellKey()); }}
+                      onDragLeave={() => setDropTarget(null)}
+                      onDrop={(e) => handleDrop(e, day.dateStr, hour)}
+                      style={{
+                        cursor: "pointer",
+                        outline: dropTarget() === cellKey() ? "2px solid var(--accent-primary)" : "none",
+                        "outline-offset": "-2px",
+                        transition: "outline 0.1s",
+                      }}
                     >
                       <For each={hourEvents()}>
                         {(ev) => <EventCard event={ev} />}

@@ -321,5 +321,11 @@ export function useRssStore() {
     generateDigest,
     saveDigestToNotes,
     digestSavedToNotes,
+    /** Free heavy data from memory (call when leaving RSS tab) */
+    clearBulkData() {
+      setArticles([]);
+      setSelectedArticle(null);
+      setDigest(null);
+    },
   };
 }

@@ -1,38 +1,41 @@
 import { createSignal, For, Show } from "solid-js";
 import { useRoutineStore, type CreateRoutineInput, type RoutineStep, type Routine } from "../../../application/stores/routineStore";
+import { useT } from "../../../i18n/context";
 import { Button } from "../common/Button";
 
 const DAY_LABELS = ["Dim", "Lun", "Mar", "Mer", "Jeu", "Ven", "Sam"];
 
-const STEP_ACTIONS = [
-  { value: "navigate", label: "Naviguer vers" },
-  { value: "sync", label: "Synchroniser" },
-  { value: "generate", label: "Generer" },
-  { value: "notify", label: "Notifier" },
-] as const;
-
-const NAVIGATE_VIEWS = [
-  { value: "dashboard", label: "Tableau de bord" },
-  { value: "flux", label: "Flux" },
-  { value: "email", label: "Email" },
-  { value: "rss", label: "RSS" },
-  { value: "library", label: "Bibliotheque" },
-];
-
-const SYNC_TARGETS = [
-  { value: "email", label: "Email" },
-  { value: "rss", label: "RSS" },
-  { value: "github", label: "GitHub" },
-];
-
-const GENERATE_TARGETS = [
-  { value: "brief", label: "Brief" },
-  { value: "changelog", label: "Changelog" },
-  { value: "rss-digest", label: "Digest RSS (IA)" },
-];
-
 export function RoutineSettings() {
   const { routines, createRoutine, updateRoutine, deleteRoutine, runRoutineNow } = useRoutineStore();
+  const { t } = useT();
+
+  const STEP_ACTIONS = [
+    { value: "navigate", label: t("settings.navigateTo") },
+    { value: "sync", label: t("settings.synchronize") },
+    { value: "generate", label: t("settings.generate") },
+    { value: "notify", label: t("settings.notify") },
+  ] as const;
+
+  const NAVIGATE_VIEWS = [
+    { value: "dashboard", label: t("settings.dashboard") },
+    { value: "flux", label: t("settings.flux") },
+    { value: "email", label: "Email" },
+    { value: "rss", label: "RSS" },
+    { value: "notes", label: "Choc'Notes" },
+  ];
+
+  const SYNC_TARGETS = [
+    { value: "email", label: "Email" },
+    { value: "rss", label: "RSS" },
+    { value: "github", label: "GitHub" },
+  ];
+
+  const GENERATE_TARGETS = [
+    { value: "brief", label: "Brief" },
+    { value: "changelog", label: t("settings.changelog") },
+    { value: "rss-digest", label: t("settings.rssDigest") },
+  ];
+
   const [editing, setEditing] = createSignal<string | null>(null);
   const [creating, setCreating] = createSignal(false);
   const [name, setName] = createSignal("");
@@ -41,7 +44,6 @@ export function RoutineSettings() {
   const [steps, setSteps] = createSignal<RoutineStep[]>([]);
   const [enabled, setEnabled] = createSignal(true);
 
-  // New step form
   const [newStepAction, setNewStepAction] = createSignal<string>("navigate");
   const [newStepParam1, setNewStepParam1] = createSignal("dashboard");
   const [newStepParam2, setNewStepParam2] = createSignal("");
@@ -129,13 +131,13 @@ export function RoutineSettings() {
   function getStepLabel(step: RoutineStep): string {
     switch (step.action) {
       case "navigate":
-        return `Naviguer vers: ${step.view}`;
+        return `${t("settings.navigateTo")}: ${step.view}`;
       case "sync":
-        return `Synchroniser: ${step.target}`;
+        return `${t("settings.synchronize")}: ${step.target}`;
       case "generate":
-        return `Generer: ${step.target}`;
+        return `${t("settings.generate")}: ${step.target}`;
       case "notify":
-        return `Notifier: ${step.title}`;
+        return `${t("settings.notify")}: ${step.title}`;
     }
   }
 
@@ -171,10 +173,10 @@ export function RoutineSettings() {
   return (
     <div style={{ padding: "24px", "max-width": "700px" }}>
       <h3 style={{ margin: "0 0 4px", "font-size": "16px", "font-weight": "600", color: "var(--text-primary)" }}>
-        Routines
+        {t("settings.routinesTitle")}
       </h3>
       <p style={{ margin: "0 0 20px", "font-size": "12px", color: "var(--text-muted)" }}>
-        Sequences d'actions programmables declenchees automatiquement a une heure et des jours precis.
+        {t("settings.routinesDesc")}
       </p>
 
       {/* List */}
@@ -196,21 +198,21 @@ export function RoutineSettings() {
                   {routine.name}
                 </div>
                 <div style={{ "font-size": "11px", color: "var(--text-muted)", "margin-top": "2px" }}>
-                  {routine.triggerTime} - {routine.triggerDays.map((d) => DAY_LABELS[d]).join(", ")} - {routine.steps.length} etape(s)
+                  {routine.triggerTime} - {routine.triggerDays.map((d) => DAY_LABELS[d]).join(", ")} - {routine.steps.length} {t("settings.steps").toLowerCase()}
                 </div>
               </div>
               <div style={{ display: "flex", gap: "4px", "flex-shrink": "0" }}>
                 <Button variant="ghost" size="sm" onClick={() => runRoutineNow(routine.id)}>
-                  Lancer
+                  {t("settings.run")}
                 </Button>
                 <Button variant="ghost" size="sm" onClick={() => handleToggleEnabled(routine)}>
-                  {routine.enabled ? "Desact." : "Activer"}
+                  {routine.enabled ? t("settings.deactivate") : t("settings.enable")}
                 </Button>
                 <Button variant="ghost" size="sm" onClick={() => startEdit(routine)}>
-                  Editer
+                  {t("common.edit")}
                 </Button>
                 <Button variant="ghost" size="sm" onClick={() => handleDelete(routine.id)}>
-                  Suppr.
+                  {t("common.delete")}
                 </Button>
               </div>
             </div>
@@ -219,7 +221,7 @@ export function RoutineSettings() {
 
         <Show when={routines().length === 0}>
           <div style={{ "font-size": "12px", color: "var(--text-muted)", padding: "12px 0" }}>
-            Aucune routine. Cliquez sur "+ Nouvelle routine" pour commencer.
+            {t("settings.noRoutines")}
           </div>
         </Show>
       </div>
@@ -227,7 +229,7 @@ export function RoutineSettings() {
       {/* Add button */}
       <Show when={!creating() && !editing()}>
         <Button variant="secondary" size="sm" onClick={startCreate}>
-          + Nouvelle routine
+          {t("settings.newRoutine")}
         </Button>
       </Show>
 
@@ -243,7 +245,7 @@ export function RoutineSettings() {
           {/* Name */}
           <div style={{ "margin-bottom": "12px" }}>
             <label style={{ display: "block", "font-size": "12px", "font-weight": "500", color: "var(--text-secondary)", "margin-bottom": "4px" }}>
-              Nom
+              {t("settings.name")}
             </label>
             <input
               type="text"
@@ -257,7 +259,7 @@ export function RoutineSettings() {
           {/* Time */}
           <div style={{ "margin-bottom": "12px" }}>
             <label style={{ display: "block", "font-size": "12px", "font-weight": "500", color: "var(--text-secondary)", "margin-bottom": "4px" }}>
-              Heure de declenchement
+              {t("settings.triggerTime")}
             </label>
             <input
               type="time"
@@ -270,7 +272,7 @@ export function RoutineSettings() {
           {/* Days */}
           <div style={{ "margin-bottom": "12px" }}>
             <label style={{ display: "block", "font-size": "12px", "font-weight": "500", color: "var(--text-secondary)", "margin-bottom": "6px" }}>
-              Jours
+              {t("settings.days")}
             </label>
             <div style={{ display: "flex", gap: "4px" }}>
               {DAY_LABELS.map((label, idx) => (
@@ -295,7 +297,7 @@ export function RoutineSettings() {
           {/* Enabled */}
           <div style={{ "margin-bottom": "12px", display: "flex", "align-items": "center", gap: "8px" }}>
             <label style={{ "font-size": "12px", "font-weight": "500", color: "var(--text-secondary)" }}>
-              Active
+              {t("settings.active")}
             </label>
             <input
               type="checkbox"
@@ -307,7 +309,7 @@ export function RoutineSettings() {
           {/* Steps */}
           <div style={{ "margin-bottom": "12px" }}>
             <label style={{ display: "block", "font-size": "12px", "font-weight": "500", color: "var(--text-secondary)", "margin-bottom": "6px" }}>
-              Etapes ({steps().length})
+              {t("settings.steps")} ({steps().length})
             </label>
 
             <For each={steps()}>
@@ -357,7 +359,6 @@ export function RoutineSettings() {
                 value={newStepAction()}
                 onChange={(e) => {
                   setNewStepAction(e.currentTarget.value);
-                  // Reset params based on action
                   switch (e.currentTarget.value) {
                     case "navigate": setNewStepParam1("dashboard"); break;
                     case "sync": setNewStepParam1("email"); break;
@@ -391,8 +392,8 @@ export function RoutineSettings() {
                   onChange={(e) => setNewStepParam1(e.currentTarget.value)}
                   style={{ ...inputStyle, width: "140px" }}
                 >
-                  {SYNC_TARGETS.map((t) => (
-                    <option value={t.value}>{t.label}</option>
+                  {SYNC_TARGETS.map((tgt) => (
+                    <option value={tgt.value}>{tgt.label}</option>
                   ))}
                 </select>
               </Show>
@@ -403,8 +404,8 @@ export function RoutineSettings() {
                   onChange={(e) => setNewStepParam1(e.currentTarget.value)}
                   style={{ ...inputStyle, width: "140px" }}
                 >
-                  {GENERATE_TARGETS.map((t) => (
-                    <option value={t.value}>{t.label}</option>
+                  {GENERATE_TARGETS.map((tgt) => (
+                    <option value={tgt.value}>{tgt.label}</option>
                   ))}
                 </select>
               </Show>
@@ -414,30 +415,30 @@ export function RoutineSettings() {
                   type="text"
                   value={newStepParam1()}
                   onInput={(e) => setNewStepParam1(e.currentTarget.value)}
-                  placeholder="Titre"
+                  placeholder={t("settings.titleField")}
                   style={{ ...inputStyle, width: "120px" }}
                 />
                 <input
                   type="text"
                   value={newStepParam2()}
                   onInput={(e) => setNewStepParam2(e.currentTarget.value)}
-                  placeholder="Message"
+                  placeholder={t("settings.message")}
                   style={{ ...inputStyle, width: "160px" }}
                 />
               </Show>
 
               <Button variant="ghost" size="sm" onClick={addStep}>
-                + Ajouter
+                {t("settings.addStep")}
               </Button>
             </div>
           </div>
 
           <div style={{ display: "flex", gap: "8px", "justify-content": "flex-end" }}>
             <Button variant="ghost" size="sm" onClick={resetForm}>
-              Annuler
+              {t("common.cancel")}
             </Button>
             <Button variant="secondary" size="sm" onClick={handleSave}>
-              {creating() ? "Creer" : "Enregistrer"}
+              {creating() ? t("common.create") : t("common.save")}
             </Button>
           </div>
         </div>

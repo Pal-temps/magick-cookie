@@ -12,7 +12,28 @@ const DAY_NAMES_FULL = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Same
 
 export function MonthView() {
   const { currentDate } = useViewStore();
-  const { visibleEvents, openCreateFormAtDate } = useCalendarStore();
+  const { visibleEvents, openCreateFormAtDate, updateEvent } = useCalendarStore();
+
+  const [dropTarget, setDropTarget] = createSignal<string | null>(null);
+
+  function handleDrop(e: DragEvent, dateStr: string) {
+    e.preventDefault();
+    setDropTarget(null);
+    const eventId = e.dataTransfer?.getData("application/x-event-id");
+    const oldStart = e.dataTransfer?.getData("application/x-event-start");
+    const oldEnd = e.dataTransfer?.getData("application/x-event-end");
+    if (!eventId || !oldStart || !oldEnd) return;
+
+    const [y, m, d] = dateStr.split("-").map(Number);
+    const origStart = new Date(oldStart);
+    const origEnd = new Date(oldEnd);
+    const diff = origEnd.getTime() - origStart.getTime();
+
+    const newStart = new Date(y, m - 1, d, origStart.getHours(), origStart.getMinutes());
+    const newEnd = new Date(newStart.getTime() + diff);
+
+    updateEvent(eventId, { startAt: newStart.toISOString(), endAt: newEnd.toISOString() });
+  }
 
   const [contextMenu, setContextMenu] = createSignal<{ x: number; y: number; date: Date } | null>(null);
 
@@ -92,7 +113,15 @@ export function MonthView() {
                         const [y, m, d] = cell.dateStr.split("-").map(Number);
                         setContextMenu({ x: e.clientX, y: e.clientY, date: new Date(y, m - 1, d) });
                       }}
-                      style={{ cursor: "pointer" }}
+                      onDragOver={(e) => { e.preventDefault(); e.dataTransfer!.dropEffect = "move"; setDropTarget(cell.dateStr); }}
+                      onDragLeave={() => setDropTarget(null)}
+                      onDrop={(e) => handleDrop(e, cell.dateStr)}
+                      style={{
+                        cursor: "pointer",
+                        outline: dropTarget() === cell.dateStr ? "2px solid var(--accent-primary)" : "none",
+                        "outline-offset": "-2px",
+                        transition: "outline 0.1s",
+                      }}
                     >
                       <div style={{
                         padding: "4px 6px",

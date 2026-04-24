@@ -9,6 +9,7 @@ import { api } from "../../../infrastructure/api/apiClient";
 import { Modal } from "../common/Modal";
 import { Button } from "../common/Button";
 import { AiButton } from "../common/AiButton";
+import "../../styles/taskjar.css";
 
 function priorityLabel(priority: string | null): { text: string; color: string } | null {
   switch (priority) {
@@ -52,101 +53,49 @@ export function TaskDetail() {
   return (
     <Modal isOpen={!!selectedTask()} onClose={closeTaskDetail} title={modalTitle()}>
       <Show when={selectedTask()}>
-        <div style={{ display: "flex", "flex-direction": "column", gap: "16px" }}>
+        <div class="taskjar-detail">
           {/* Header: priority + status */}
-          <div style={{ display: "flex", "align-items": "center", gap: "8px", "flex-wrap": "wrap" }}>
+          <div class="taskjar-detail-header">
             <Show when={priorityLabel(task().priority)}>
               {(p) => (
-                <span style={{
-                  "font-size": "11px",
-                  "font-weight": "600",
-                  padding: "2px 8px",
-                  "border-radius": "var(--radius-sm)",
-                  background: p().color,
-                  color: "#fff",
-                }}>
+                <span class="taskjar-detail-badge" style={{ background: p().color }}>
                   {p().text}
                 </span>
               )}
             </Show>
-            <span style={{
-              "font-size": "11px",
-              padding: "2px 8px",
-              "border-radius": "var(--radius-sm)",
-              background: "var(--bg-elevated)",
-              color: "var(--text-secondary)",
-            }}>
-              {task().status}
-            </span>
-            <span style={{ "font-size": "11px", color: "var(--text-muted)" }}>
-              {task().labels[0] ?? ""}
-            </span>
+            <span class="taskjar-detail-status">{task().status}</span>
+            <span class="taskjar-detail-label">{task().labels[0] ?? ""}</span>
           </div>
 
           {/* Title */}
-          <h3 style={{ "font-size": "20px", "font-weight": "600", "line-height": "1.3" }}>
-            {task().title}
-          </h3>
+          <h3 class="taskjar-detail-title">{task().title}</h3>
 
-          {/* Description — loaded from API */}
+          {/* Description */}
           <Show when={isLoadingTaskDetail()}>
             <CookieLoader size={32} message="Chargement..." />
           </Show>
           <Show when={!isLoadingTaskDetail() && taskDetail()?.description}>
             <div>
-              <div style={{ "font-size": "11px", color: "var(--text-muted)", "margin-bottom": "6px" }}>Description</div>
-              <div style={{
-                "font-size": "13px",
-                color: "var(--text-secondary)",
-                "white-space": "pre-wrap",
-                "line-height": "1.5",
-                "max-height": "200px",
-                "overflow-y": "auto",
-                padding: "12px",
-                background: "var(--bg-elevated)",
-                "border-radius": "var(--radius-md)",
-              }}>
-                {taskDetail()!.description}
-              </div>
+              <div class="taskjar-detail-section-label">Description</div>
+              <div class="taskjar-detail-desc">{taskDetail()!.description}</div>
             </div>
           </Show>
 
           {/* Comments */}
           <Show when={!isLoadingTaskDetail() && taskDetail()?.comments && taskDetail()!.comments.length > 0}>
             <div>
-              <div style={{ "font-size": "11px", color: "var(--text-muted)", "margin-bottom": "6px" }}>
+              <div class="taskjar-detail-section-label">
                 Commentaires ({taskDetail()!.comments.length})
               </div>
-              <div style={{
-                display: "flex",
-                "flex-direction": "column",
-                gap: "8px",
-                "max-height": "250px",
-                "overflow-y": "auto",
-              }}>
+              <div class="taskjar-detail-comments">
                 <For each={taskDetail()!.comments}>
                   {(comment) => (
-                    <div style={{
-                      padding: "10px 12px",
-                      background: "var(--bg-elevated)",
-                      "border-radius": "var(--radius-md)",
-                    }}>
-                      <div style={{ display: "flex", "justify-content": "space-between", "margin-bottom": "4px" }}>
-                        <span style={{ "font-size": "12px", "font-weight": "600", color: "var(--text-primary)" }}>
-                          {comment.user.username}
-                        </span>
-                        <span style={{ "font-size": "10px", color: "var(--text-muted)" }}>
-                          {formatCommentDate(comment.date)}
-                        </span>
+                    <div class="taskjar-detail-comment">
+                      <div class="taskjar-detail-comment-header">
+                        <span class="taskjar-detail-comment-user">{comment.user.username}</span>
+                        <span class="taskjar-detail-comment-date">{formatCommentDate(comment.date)}</span>
                       </div>
-                      <div style={{
-                        "font-size": "12px",
-                        color: "var(--text-secondary)",
-                        "white-space": "pre-wrap",
-                        "line-height": "1.4",
-                      }}>
-                        {comment.commentText}
-                      </div>
+                      <div class="taskjar-detail-comment-text">{comment.commentText}</div>
                     </div>
                   )}
                 </For>
@@ -157,27 +106,17 @@ export function TaskDetail() {
           {/* Assignees */}
           <Show when={task().assignees.length > 0}>
             <div>
-              <div style={{ "font-size": "11px", color: "var(--text-muted)", "margin-bottom": "4px" }}>Assignees</div>
-              <div style={{ display: "flex", gap: "6px", "flex-wrap": "wrap" }}>
+              <div class="taskjar-detail-section-label">Assignees</div>
+              <div class="taskjar-detail-assignees">
                 <For each={task().assignees}>
-                  {(name) => (
-                    <span style={{
-                      "font-size": "12px",
-                      padding: "2px 8px",
-                      "border-radius": "var(--radius-sm)",
-                      background: "var(--bg-elevated)",
-                      color: "var(--text-primary)",
-                    }}>
-                      {name}
-                    </span>
-                  )}
+                  {(name) => <span class="taskjar-detail-assignee">{name}</span>}
                 </For>
               </div>
             </div>
           </Show>
 
           {/* Actions */}
-          <div style={{ display: "flex", gap: "8px", "margin-top": "4px", "flex-wrap": "wrap" }}>
+          <div class="taskjar-detail-actions">
             <Show when={task().url && task().source !== "manual"}>
               <Button variant="secondary" onClick={() => { if (task().url) openUrl(task().url!); }}>
                 Ouvrir dans {sourceLabels[task().source] || "navigateur"}
@@ -203,10 +142,12 @@ export function TaskDetail() {
                       title: result.title,
                       content: result.code,
                       language: result.language,
-                      category: "generated",
+                      tags: ["generated"],
                     });
                     closeTaskDetail();
-                    setViewMode("library");
+                    const { useViewStore: getViewStore } = await import("../../../application/stores/viewStore");
+                    getViewStore().setNotesMainTab("snippets");
+                    setViewMode("notes");
                   }
                 } catch (e) {
                   console.error("Failed to generate code:", e);

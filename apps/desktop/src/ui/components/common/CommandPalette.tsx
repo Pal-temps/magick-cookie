@@ -1,9 +1,11 @@
 import { Show, For, createEffect } from "solid-js";
 import { useCommandStore } from "../../../application/stores/commandStore";
+import { useT } from "../../../i18n/context";
 import type { CommandResult } from "../../../application/stores/commandStore";
 
 export function CommandPalette() {
   const { isOpen, query, selectedIndex, results, close, executeSelected, moveUp, moveDown, updateQuery } = useCommandStore();
+  const { t } = useT();
   let inputRef: HTMLInputElement | undefined;
   let listRef: HTMLDivElement | undefined;
 
@@ -120,7 +122,7 @@ export function CommandPalette() {
               type="text"
               value={query()}
               onInput={(e) => updateQuery(e.currentTarget.value)}
-              placeholder="Rechercher une action, une tâche, un email..."
+              placeholder={t("dashboard.searchPlaceholder")}
               style={{
                 flex: "1",
                 background: "transparent",
@@ -156,7 +158,7 @@ export function CommandPalette() {
           >
             <Show when={results().length > 0} fallback={
               <div style={{ padding: "24px 16px", "text-align": "center", color: "var(--text-muted)", "font-size": "14px" }}>
-                Aucun résultat
+                {t("common.noResults")}
               </div>
             }>
               {(() => {

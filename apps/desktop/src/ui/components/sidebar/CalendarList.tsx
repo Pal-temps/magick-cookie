@@ -2,9 +2,9 @@ import { For } from "solid-js";
 import { useCalendarStore } from "../../../application/stores/calendarStore";
 
 const SOURCE_FILTERS = [
-  { key: "personal" as const, label: "Personnel", color: "#00b894", shape: "round" },
-  { key: "connector" as const, label: "Taches", color: "#7B68EE", shape: "round" },
+  { key: "connector" as const, label: "Tâches", color: "#7B68EE", shape: "round" },
   { key: "birthdays" as const, label: "Anniversaires", color: "#fd79a8", shape: "round" },
+  { key: "alarms" as const, label: "Alarmes", color: "#e17055", shape: "round" },
 ] as const;
 
 function FilterRow(props: { label: string; color: string; active: boolean; shape?: string; onClick: () => void }) {
@@ -45,13 +45,13 @@ function FilterRow(props: { label: string; color: string; active: boolean; shape
 export function CalendarList() {
   const {
     calendars, activeCalendarIds, toggleCalendarVisibility,
-    showBirthdays, showConnectorEvents, showPersonal, toggleSourceFilter,
+    showBirthdays, showConnectorEvents, showAlarms, toggleSourceFilter,
   } = useCalendarStore();
 
-  const isSourceActive = (key: "birthdays" | "connector" | "personal") => {
+  const isSourceActive = (key: "birthdays" | "connector" | "alarms") => {
     if (key === "birthdays") return showBirthdays();
     if (key === "connector") return showConnectorEvents();
-    return showPersonal();
+    return showAlarms();
   };
 
   return (

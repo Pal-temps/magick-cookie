@@ -1,7 +1,16 @@
-import { Show } from "solid-js";
-import type { Email } from "../../../domain/models/Email";
+import { Show, createSignal } from "solid-js";
+import type { Email, SecurityLevel } from "../../../domain/models/Email";
+import { useT } from "../../../i18n/context";
 import { Button } from "../common/Button";
 import { AiButton } from "../common/AiButton";
+import "../../styles/email.css";
+
+const SEC_ICONS: Record<SecurityLevel, string> = {
+  safe: "", low: "🔵", medium: "🟡", high: "🟠", critical: "🔴",
+};
+const SEC_LABELS: Record<SecurityLevel, string> = {
+  safe: "Sur", low: "Risque faible", medium: "Risque moyen", high: "Risque eleve", critical: "Danger",
+};
 
 interface EmailDetailProps {
   email: Email | null;
@@ -16,6 +25,8 @@ interface EmailDetailProps {
 }
 
 export function EmailDetail(props: EmailDetailProps) {
+  const { t } = useT();
+
   function formatDate(iso: string): string {
     return new Date(iso).toLocaleDateString("fr-FR", {
       weekday: "long",
@@ -32,18 +43,7 @@ export function EmailDetail(props: EmailDetailProps) {
   }
 
   return (
-    <Show when={props.email} fallback={
-      <div style={{
-        height: "100%",
-        display: "flex",
-        "align-items": "center",
-        "justify-content": "center",
-        color: "var(--text-muted)",
-        "font-size": "14px",
-      }}>
-        Selectionnez un email
-      </div>
-    }>
+    <Show when={props.email}>
       {(email) => (
         <div style={{ height: "100%", display: "flex", "flex-direction": "column", overflow: "hidden" }}>
           {/* Header */}
@@ -54,7 +54,7 @@ export function EmailDetail(props: EmailDetailProps) {
           }}>
             <div style={{ display: "flex", "justify-content": "space-between", "align-items": "flex-start" }}>
               <h2 style={{ "font-size": "16px", "font-weight": "600", color: "var(--text-primary)", margin: "0" }}>
-                {email().subject || "(sans objet)"}
+                {email().subject || t("email.noSubject")}
               </h2>
               <div style={{ display: "flex", gap: "6px", "flex-shrink": "0", "margin-left": "12px" }}>
                 <Button size="sm" variant="ghost" onClick={() => props.onToggleStar(email().id)}>
@@ -67,24 +67,24 @@ export function EmailDetail(props: EmailDetailProps) {
                     onClick={() => props.onSummarize?.(email().id)}
                     disabled={props.summaryLoading}
                   >
-                    {props.summaryLoading ? "..." : "Resumer"}
+                    {props.summaryLoading ? "..." : t("email.summarize")}
                   </AiButton>
                 </Show>
                 <Show when={props.onReply}>
                   <Button size="sm" variant="secondary" onClick={() => props.onReply?.()}>
-                    Repondre
+                    {t("email.reply")}
                   </Button>
                 </Show>
                 <Show when={props.onForward}>
                   <Button size="sm" variant="secondary" onClick={() => props.onForward?.()}>
-                    Transferer
+                    {t("email.forward")}
                   </Button>
                 </Show>
                 <Button size="sm" variant="secondary" onClick={() => props.onArchive(email().id)}>
-                  Archiver
+                  {t("email.archiveBtn")}
                 </Button>
                 <Button size="sm" variant="secondary" onClick={() => props.onDelete(email().id)}>
-                  Supprimer
+                  {t("email.deleteBtn")}
                 </Button>
               </div>
             </div>
@@ -98,9 +98,9 @@ export function EmailDetail(props: EmailDetailProps) {
                   <span> &lt;{email().fromAddress}&gt;</span>
                 )}
               </div>
-              <div>A: {formatAddresses(email().toAddresses)}</div>
+              <div>{t("email.to")}: {formatAddresses(email().toAddresses)}</div>
               <Show when={email().ccAddresses.length > 0}>
-                <div>Cc: {formatAddresses(email().ccAddresses)}</div>
+                <div>{t("email.cc")}: {formatAddresses(email().ccAddresses)}</div>
               </Show>
               <div style={{ "margin-top": "4px" }}>{formatDate(email().sentAt)}</div>
             </div>
@@ -120,6 +120,35 @@ export function EmailDetail(props: EmailDetailProps) {
             </Show>
           </div>
 
+          {/* Security banner */}
+          <Show when={email().security && email().security!.level !== "safe"}>
+            {(() => {
+              const sec = () => email().security!;
+              const [showWarnings, setShowWarnings] = createSignal(false);
+              return (
+                <div class={`email-security-banner email-security-banner--${sec().level}`}>
+                  <div class="email-security-header">
+                    <span class="email-security-label">
+                      {SEC_ICONS[sec().level]} {SEC_LABELS[sec().level]} (score: {sec().score}/10)
+                    </span>
+                    <Show when={sec().warnings && sec().warnings!.length > 0}>
+                      <button class="email-security-toggle" onClick={() => setShowWarnings((v) => !v)}>
+                        {showWarnings() ? "Masquer" : "Details"}
+                      </button>
+                    </Show>
+                  </div>
+                  <Show when={showWarnings() && sec().warnings}>
+                    <div class="email-security-warnings">
+                      {sec().warnings!.map((w) => (
+                        <div class="email-security-warning">⚠ {w}</div>
+                      ))}
+                    </div>
+                  </Show>
+                </div>
+              );
+            })()}
+          </Show>
+
           {/* AI Summary */}
           <Show when={props.summary}>
             <div style={{
@@ -134,15 +163,41 @@ export function EmailDetail(props: EmailDetailProps) {
               "margin-top": "12px",
             }}>
               <div style={{ "font-size": "11px", "font-weight": "600", color: "#6366f1", "margin-bottom": "4px" }}>
-                Resume IA
+                {t("email.aiSummary")}
               </div>
               {props.summary}
             </div>
           </Show>
 
           {/* Body */}
+          {(() => {
+            const [forceHtml, setForceHtml] = createSignal(false);
+            const isBlocked = () => {
+              const level = email().security?.level;
+              return (level === "high" || level === "critical") && !forceHtml();
+            };
+            return (
           <div style={{ flex: "1", overflow: "auto", padding: "16px 20px" }}>
-            <Show when={email().bodyHtml} fallback={
+            <Show when={isBlocked()}>
+              <div style={{
+                padding: "16px", "text-align": "center", background: "rgba(239,68,68,0.08)",
+                "border-radius": "var(--radius-md)", "margin-bottom": "12px",
+              }}>
+                <div style={{ "font-size": "13px", "font-weight": "600", color: "#ef4444", "margin-bottom": "8px" }}>
+                  Contenu HTML bloque (email a risque)
+                </div>
+                <button
+                  onClick={() => setForceHtml(true)}
+                  style={{
+                    padding: "4px 12px", "font-size": "11px",
+                    background: "rgba(239,68,68,0.15)", color: "#ef4444",
+                    border: "1px solid rgba(239,68,68,0.3)", "border-radius": "var(--radius-sm)",
+                    cursor: "pointer",
+                  }}
+                >Afficher quand meme (dangereux)</button>
+              </div>
+            </Show>
+            <Show when={!isBlocked() && email().bodyHtml} fallback={
               <pre style={{
                 "font-family": "inherit",
                 "font-size": "13px",
@@ -185,6 +240,8 @@ export function EmailDetail(props: EmailDetailProps) {
               />
             </Show>
           </div>
+            );
+          })()}
         </div>
       )}
     </Show>

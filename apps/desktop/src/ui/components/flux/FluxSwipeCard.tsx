@@ -1,5 +1,6 @@
 import { createSignal, Show } from "solid-js";
 import type { FluxableItem, FluxStatus } from "../../../application/stores/fluxStore";
+import "../../styles/taskjar.css";
 
 interface FluxSwipeCardProps {
   item: FluxableItem;
@@ -8,11 +9,11 @@ interface FluxSwipeCardProps {
 
 const THRESHOLD = 80;
 
-const DIRECTION_CONFIG: Record<string, { status: FluxStatus; label: string; color: string; icon: string }> = {
-  right: { status: "priority", label: "Prioritaire", color: "#ef4444", icon: "!!!" },
-  left: { status: "later", label: "Plus tard", color: "#3b82f6", icon: "..." },
-  up: { status: "archived", label: "Archiver", color: "#8b5cf6", icon: "v" },
-  down: { status: "dismissed", label: "Masquer", color: "#6b7280", icon: "x" },
+const DIRECTION_CONFIG: Record<string, { status: FluxStatus; label: string; color: string }> = {
+  right: { status: "priority", label: "Prioritaire", color: "#f87171" },
+  left: { status: "later", label: "Plus tard", color: "#60a5fa" },
+  up: { status: "archived", label: "Archiver", color: "#a78bfa" },
+  down: { status: "dismissed", label: "Masquer", color: "#6b7280" },
 };
 
 function priorityColor(priority: string | null | undefined): string {
@@ -25,22 +26,16 @@ function priorityColor(priority: string | null | undefined): string {
   }
 }
 
-function entityTypeIcon(type: string): string {
-  switch (type) {
-    case "task": return "T";
-    case "email": return "@";
-    case "rss_article": return "R";
-    default: return "?";
-  }
+function entityTypeClass(type: string): string {
+  if (type === "task") return "taskjar-card-type taskjar-card-type--task";
+  if (type === "email") return "taskjar-card-type taskjar-card-type--email";
+  return "taskjar-card-type taskjar-card-type--rss";
 }
 
-function entityTypeColor(type: string): string {
-  switch (type) {
-    case "task": return "var(--accent-primary)";
-    case "email": return "#0984e3";
-    case "rss_article": return "#00b894";
-    default: return "var(--text-muted)";
-  }
+function entityTypeLabel(type: string): string {
+  if (type === "task") return "T";
+  if (type === "email") return "@";
+  return "R";
 }
 
 export function FluxSwipeCard(props: FluxSwipeCardProps) {
@@ -119,110 +114,69 @@ export function FluxSwipeCard(props: FluxSwipeCardProps) {
 
   return (
     <div
+      class={`taskjar-scard ${isDragging() ? "taskjar-scard--dragging" : ""}`}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={() => cleanupDrag()}
       onPointerCancel={() => cleanupDrag()}
       style={{
-        position: "absolute",
-        width: "380px",
-        "min-height": "280px",
-        background: "var(--bg-surface)",
-        "border-radius": "16px",
-        border: `2px solid ${config() ? config()!.color : "var(--border-color)"}`,
-        "box-shadow": "0 8px 32px rgba(0,0,0,0.2)",
-        cursor: isDragging() ? "grabbing" : "grab",
-        "user-select": "none",
-        "touch-action": "none",
         transform: `translate(${dragX()}px, ${dragY()}px) rotate(${dragX() * 0.05}deg)`,
-        transition: isDragging() ? "none" : "transform 0.25s ease, border-color 0.15s, opacity 0.25s",
+        "border-color": config() ? config()!.color : undefined,
         opacity: isExiting() ? "0" : "1",
-        padding: "24px",
-        display: "flex",
-        "flex-direction": "column",
-        gap: "16px",
+        cursor: isDragging() ? "grabbing" : "grab",
       }}
     >
-      {/* Direction indicator overlay */}
+      {/* Direction indicator */}
       <Show when={config()}>
-        <div style={{
-          position: "absolute", top: "16px", left: "0", right: "0",
-          "text-align": "center", "font-size": "16px", "font-weight": "700",
-          color: config()!.color, opacity: String(getOpacity()),
-          "pointer-events": "none", "text-transform": "uppercase", "letter-spacing": "2px",
-        }}>
-          {config()!.icon} {config()!.label}
+        <div
+          class="taskjar-scard-indicator"
+          style={{ color: config()!.color, opacity: String(getOpacity()) }}
+        >
+          {config()!.label}
         </div>
       </Show>
 
-      {/* Content — adapts by entity type */}
-      <div style={{ "margin-top": "16px" }}>
-        {/* Entity type badge + priority/source */}
-        <div style={{ display: "flex", "align-items": "center", gap: "8px", "margin-bottom": "12px" }}>
-          <span style={{
-            "font-size": "10px", "font-weight": "700", padding: "2px 6px",
-            "border-radius": "var(--radius-sm)", background: entityTypeColor(props.item.entityType),
-            color: "#fff",
-          }}>
-            {entityTypeIcon(props.item.entityType)}
+      {/* Content */}
+      <div class="taskjar-scard-body">
+        <div class="taskjar-scard-meta">
+          <span class={entityTypeClass(props.item.entityType)}>
+            {entityTypeLabel(props.item.entityType)}
           </span>
           <Show when={props.item.priority}>
-            <span style={{
-              "font-size": "11px", padding: "2px 8px", "border-radius": "var(--radius-sm)",
-              background: priorityColor(props.item.priority), color: "#fff", "font-weight": "600",
-              "text-transform": "capitalize",
-            }}>
+            <span
+              class="taskjar-scard-priority"
+              style={{ background: priorityColor(props.item.priority) }}
+            >
               {props.item.priority}
             </span>
           </Show>
-          <span style={{ "font-size": "11px", color: "var(--text-secondary)", "margin-left": "auto" }}>
-            {props.item.source}
-          </span>
+          <span class="taskjar-scard-source">{props.item.source}</span>
         </div>
 
-        {/* Title */}
-        <h3 style={{
-          "font-size": "18px", "font-weight": "600", color: "var(--text-primary)",
-          "line-height": "1.3", "margin-bottom": "12px",
-        }}>
-          {props.item.title}
-        </h3>
+        <h3 class="taskjar-scard-title">{props.item.title}</h3>
 
-        {/* Preview text */}
         <Show when={props.item.preview}>
-          <p style={{ "font-size": "13px", color: "var(--text-secondary)", "line-height": "1.5", "margin-bottom": "8px" }}>
-            {props.item.preview}
-          </p>
+          <p class="taskjar-scard-preview">{props.item.preview}</p>
         </Show>
 
-        {/* Labels (tasks) */}
         <Show when={props.item.labels && props.item.labels.length > 0}>
-          <div style={{ display: "flex", gap: "6px", "flex-wrap": "wrap" }}>
+          <div class="taskjar-scard-labels">
             {props.item.labels!.slice(0, 3).map((l) => (
-              <span style={{
-                "font-size": "10px", padding: "2px 6px", "border-radius": "var(--radius-sm)",
-                background: "var(--bg-elevated)", color: "var(--text-secondary)",
-              }}>{l}</span>
+              <span class="taskjar-scard-label">{l}</span>
             ))}
           </div>
         </Show>
 
-        {/* Timestamp */}
-        <div style={{ "font-size": "10px", color: "var(--text-muted)", "margin-top": "8px" }}>
+        <div class="taskjar-scard-date">
           {new Date(props.item.timestamp).toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" })}
         </div>
       </div>
 
-      {/* Bottom hint */}
-      <div style={{
-        "margin-top": "auto", "padding-top": "12px",
-        "border-top": "1px solid var(--border-color)",
-        display: "grid", "grid-template-columns": "1fr 1fr", gap: "4px",
-        "font-size": "10px", color: "var(--text-muted)",
-      }}>
-        <span style={{ color: "#8b5cf6" }}>&#8593; Archiver</span>
-        <span style={{ "text-align": "right", color: "#ef4444" }}>Prioritaire &#8594;</span>
-        <span style={{ color: "#3b82f6" }}>&#8592; Plus tard</span>
+      {/* Bottom hints */}
+      <div class="taskjar-scard-hints">
+        <span style={{ color: "#a78bfa" }}>&#8593; Archiver</span>
+        <span style={{ "text-align": "right", color: "#f87171" }}>Prioritaire &#8594;</span>
+        <span style={{ color: "#60a5fa" }}>&#8592; Plus tard</span>
         <span style={{ "text-align": "right", color: "#6b7280" }}>Masquer &#8595;</span>
       </div>
     </div>

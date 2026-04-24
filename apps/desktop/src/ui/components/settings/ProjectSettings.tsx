@@ -1,5 +1,6 @@
 import { createSignal, For, Show } from "solid-js";
 import { useProjectStore, type CreateProjectInput } from "../../../application/stores/projectStore";
+import { useT } from "../../../i18n/context";
 import { Button } from "../common/Button";
 
 const PRESET_COLORS = [
@@ -9,6 +10,7 @@ const PRESET_COLORS = [
 
 export function ProjectSettings() {
   const { projects, createProject, updateProject, deleteProject } = useProjectStore();
+  const { t } = useT();
   const [editing, setEditing] = createSignal<string | null>(null);
   const [creating, setCreating] = createSignal(false);
   const [name, setName] = createSignal("");
@@ -57,10 +59,10 @@ export function ProjectSettings() {
   return (
     <div style={{ padding: "24px", "max-width": "700px" }}>
       <h3 style={{ margin: "0 0 4px", "font-size": "16px", "font-weight": "600", color: "var(--text-primary)" }}>
-        Projets
+        {t("settings.projectsTitle")}
       </h3>
       <p style={{ margin: "0 0 20px", "font-size": "12px", color: "var(--text-muted)" }}>
-        Organisez votre temps par projet. Selectionnez un projet dans le timer pour suivre le temps passe.
+        {t("settings.projectsDesc")}
       </p>
 
       {/* List */}
@@ -88,10 +90,10 @@ export function ProjectSettings() {
               </div>
               <div style={{ display: "flex", gap: "4px", "flex-shrink": "0" }}>
                 <Button variant="ghost" size="sm" onClick={() => startEdit(project.id)}>
-                  Editer
+                  {t("common.edit")}
                 </Button>
                 <Button variant="ghost" size="sm" onClick={() => handleDelete(project.id)}>
-                  Suppr.
+                  {t("common.delete")}
                 </Button>
               </div>
             </div>
@@ -100,7 +102,7 @@ export function ProjectSettings() {
 
         <Show when={projects().length === 0}>
           <div style={{ "font-size": "12px", color: "var(--text-muted)", padding: "12px 0" }}>
-            Aucun projet. Cliquez sur "+ Nouveau projet" pour commencer.
+            {t("settings.noProjects")}
           </div>
         </Show>
       </div>
@@ -108,7 +110,7 @@ export function ProjectSettings() {
       {/* Add button */}
       <Show when={!creating() && !editing()}>
         <Button variant="secondary" size="sm" onClick={startCreate}>
-          + Nouveau projet
+          {t("settings.newProject")}
         </Button>
       </Show>
 
@@ -123,7 +125,7 @@ export function ProjectSettings() {
         }}>
           <div style={{ "margin-bottom": "12px" }}>
             <label style={{ display: "block", "font-size": "12px", "font-weight": "500", color: "var(--text-secondary)", "margin-bottom": "4px" }}>
-              Nom du projet
+              {t("settings.projectName")}
             </label>
             <input
               type="text"
@@ -145,7 +147,7 @@ export function ProjectSettings() {
           </div>
           <div style={{ "margin-bottom": "12px" }}>
             <label style={{ display: "block", "font-size": "12px", "font-weight": "500", color: "var(--text-secondary)", "margin-bottom": "6px" }}>
-              Couleur
+              {t("settings.color")}
             </label>
             <div style={{ display: "flex", gap: "6px", "flex-wrap": "wrap" }}>
               {PRESET_COLORS.map((c) => (
@@ -177,16 +179,16 @@ export function ProjectSettings() {
                   padding: "0",
                   background: "none",
                 }}
-                title="Couleur personnalisee"
+                title={t("settings.customColor")}
               />
             </div>
           </div>
           <div style={{ display: "flex", gap: "8px", "justify-content": "flex-end" }}>
             <Button variant="ghost" size="sm" onClick={resetForm}>
-              Annuler
+              {t("common.cancel")}
             </Button>
             <Button variant="secondary" size="sm" onClick={handleSave}>
-              {creating() ? "Creer" : "Enregistrer"}
+              {creating() ? t("common.create") : t("common.save")}
             </Button>
           </div>
         </div>

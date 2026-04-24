@@ -4,6 +4,8 @@ export interface CalendarEvent {
   title: string;
   description: string | null;
   location: string | null;
+  latitude: number | null;
+  longitude: number | null;
   startAt: string;
   endAt: string;
   isAllDay: boolean;
@@ -19,6 +21,8 @@ export interface CreateEventDTO {
   title: string;
   description?: string | null;
   location?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
   startAt: string;
   endAt: string;
   isAllDay?: boolean;
@@ -30,6 +34,8 @@ export interface UpdateEventDTO {
   title?: string;
   description?: string | null;
   location?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
   startAt?: string;
   endAt?: string;
   isAllDay?: boolean;

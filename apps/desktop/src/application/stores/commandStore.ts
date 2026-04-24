@@ -62,7 +62,7 @@ export function useCommandStore() {
     { id: "nav-month", label: "Calendrier (Mois)", sublabel: "Vue mois", category: "Navigation", icon: "📍", shortcut: "Alt+2", action: () => setViewMode("month") },
     { id: "nav-week", label: "Calendrier (Semaine)", sublabel: "Vue semaine", category: "Navigation", icon: "📍", action: () => setViewMode("week") },
     { id: "nav-day", label: "Calendrier (Jour)", sublabel: "Vue jour", category: "Navigation", icon: "📍", action: () => setViewMode("day") },
-    { id: "nav-notes", label: "Notes", sublabel: "Vue notes", category: "Navigation", icon: "📝", shortcut: "Alt+3", action: () => setViewMode("notes") },
+    { id: "nav-notes", label: "Choc'Notes", sublabel: "Vue notes", category: "Navigation", icon: "📝", shortcut: "Alt+3", action: () => setViewMode("notes") },
     { id: "nav-flux", label: "Flux", sublabel: "Vue flux", category: "Navigation", icon: "📍", shortcut: "Alt+4", action: () => setViewMode("flux") },
     { id: "nav-email", label: "Email", sublabel: "Vue email", category: "Navigation", icon: "📧", shortcut: "Alt+5", action: () => setViewMode("email") },
     { id: "nav-settings", label: "Paramètres", sublabel: "Ouvrir settings", category: "Navigation", icon: "📍", shortcut: "Alt+6", action: () => setViewMode("settings") },

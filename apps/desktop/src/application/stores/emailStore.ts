@@ -52,6 +52,9 @@ const [focusedIndex, setFocusedIndex] = createSignal(-1);
 const [emailSummary, setEmailSummary] = createSignal<string | null>(null);
 const [summaryLoading, setSummaryLoading] = createSignal(false);
 const [isStale, setIsStale] = createSignal(false);
+const [hasMore, setHasMore] = createSignal(true);
+const [isLoadingMore, setIsLoadingMore] = createSignal(false);
+const PAGE_SIZE = 200;
 
 export interface EmailDigestBySender {
   sender: string;
@@ -66,6 +69,19 @@ export interface EmailDigest {
   period: { from: string; to: string };
   bySender: EmailDigestBySender[];
   summary: string;
+}
+
+const [unreadPerAccount, setUnreadPerAccount] = createSignal<Record<string, number>>({});
+
+const ACCOUNT_COLORS = [
+  "var(--cal-blue)", "var(--cal-green)", "var(--cal-orange)",
+  "var(--cal-pink)", "var(--cal-red)", "var(--cal-purple)",
+  "#00cec9", "#e17055", "#a29bfe", "#ffeaa7",
+];
+
+function getAccountColor(accountId: string): string {
+  const idx = accounts().findIndex((a) => a.id === accountId);
+  return ACCOUNT_COLORS[(idx >= 0 ? idx : 0) % ACCOUNT_COLORS.length];
 }
 
 const [digest, setDigest] = createSignal<EmailDigest | null>(null);
@@ -91,17 +107,20 @@ export function useEmailStore() {
       setIsStale(true);
     }
 
-    // 2. Fetch fresh data from API
-    setIsLoading(!cache); // only show loading spinner if no cache
+    // 2. Fetch fresh data from API (reset to first page)
+    setIsLoading(!cache);
+    setHasMore(true);
     try {
       const params = new URLSearchParams();
       if (accountId) params.set("accountId", accountId);
       params.set("folder", folder);
-      params.set("limit", "50");
+      params.set("limit", String(PAGE_SIZE));
+      params.set("offset", "0");
 
       const qs = params.toString();
       const data = await api.get<Email[]>(`/emails?${qs}`);
       setEmails(data);
+      setHasMore(data.length >= PAGE_SIZE);
       setIsStale(false);
 
       // Update cache with fresh data
@@ -118,9 +137,49 @@ export function useEmailStore() {
     }
   }
 
+  async function loadMoreEmails() {
+    if (isLoadingMore() || !hasMore()) return;
+    setIsLoadingMore(true);
+    try {
+      const accountId = activeAccountId();
+      const folder = activeFolder();
+      const offset = emails().length;
+
+      const params = new URLSearchParams();
+      if (accountId) params.set("accountId", accountId);
+      params.set("folder", folder);
+      params.set("limit", String(PAGE_SIZE));
+      params.set("offset", String(offset));
+
+      const data = await api.get<Email[]>(`/emails?${params}`);
+      if (data.length > 0) {
+        setEmails((prev) => [...prev, ...data]);
+        persistCache();
+      }
+      setHasMore(data.length >= PAGE_SIZE);
+    } catch (err) {
+      console.error("[email] Failed to load more emails:", err);
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }
+
   async function fetchUnreadCount() {
     const data = await api.get<{ count: number }>("/emails/unread-count");
     setUnreadCount(data.count);
+  }
+
+  async function fetchUnreadPerAccount() {
+    const counts: Record<string, number> = {};
+    for (const acc of accounts()) {
+      try {
+        const data = await api.get<{ count: number }>(`/emails/unread-count?accountId=${acc.id}`);
+        counts[acc.id] = data.count;
+      } catch {
+        counts[acc.id] = 0;
+      }
+    }
+    setUnreadPerAccount(counts);
   }
 
   function persistCache() {
@@ -128,11 +187,12 @@ export function useEmailStore() {
   }
 
   async function selectEmail(email: Email) {
+    // Show immediately with light scan data
     setSelectedEmail(email);
     setEmailSummary(null);
+
     // Mark as read if unread
     if (!email.isRead) {
-      // Optimistic update — keep even if offline (action is queued)
       setEmails((prev) => prev.map((e) => (e.id === email.id ? { ...e, isRead: true } : e)));
       setSelectedEmail({ ...email, isRead: true });
       setUnreadCount((c) => Math.max(0, c - 1));
@@ -142,6 +202,16 @@ export function useEmailStore() {
       } catch (err) {
         console.error("[email] Failed to mark as read:", err);
       }
+    }
+
+    // Fetch full detail (body + full security scan with warnings)
+    try {
+      const full = await api.get<Email>(`/emails/${email.id}`);
+      if (selectedEmail()?.id === email.id) {
+        setSelectedEmail({ ...full, isRead: true });
+      }
+    } catch {
+      // Offline — keep the list version
     }
   }
 
@@ -166,6 +236,11 @@ export function useEmailStore() {
     }
   }
 
+  async function refreshCounts() {
+    fetchUnreadCount().catch(() => {});
+    fetchUnreadPerAccount().catch(() => {});
+  }
+
   async function archiveEmail(emailId: string) {
     setIsDeleting(true);
     try {
@@ -173,6 +248,7 @@ export function useEmailStore() {
       setEmails((prev) => prev.filter((e) => e.id !== emailId));
       if (selectedEmail()?.id === emailId) setSelectedEmail(null);
       persistCache();
+      refreshCounts();
     } finally {
       setIsDeleting(false);
     }
@@ -185,24 +261,24 @@ export function useEmailStore() {
       setEmails((prev) => prev.filter((e) => e.id !== emailId));
       if (selectedEmail()?.id === emailId) setSelectedEmail(null);
       persistCache();
+      refreshCounts();
     } finally {
       setIsDeleting(false);
     }
   }
 
-  async function syncEmails() {
+  async function syncEmails(full = false) {
     setIsSyncing(true);
     try {
-      // Sync all accounts
       for (const acc of accounts()) {
         try {
-          await api.post(`/email-accounts/${acc.id}/sync`, {});
+          await api.post(`/email-accounts/${acc.id}/sync${full ? "?full=true" : ""}`, {});
         } catch (err) {
           console.error(`Failed to sync ${acc.label}:`, err);
         }
       }
       await fetchEmails();
-      await fetchUnreadCount();
+      await refreshCounts();
     } finally {
       setIsSyncing(false);
     }
@@ -261,6 +337,7 @@ export function useEmailStore() {
     persistCache();
     try {
       await api.patch<Email>(`/emails/${id}`, { isRead: newIsRead });
+      refreshCounts();
     } catch (err) {
       console.error("[email] Failed to toggle read status:", err);
     }
@@ -320,6 +397,7 @@ export function useEmailStore() {
     persistCache();
     try {
       const data = await api.post<{ deleted: number }>("/emails/bulk-delete", { ids });
+      refreshCounts();
       return data?.deleted ?? ids.length;
     } catch (err) {
       console.error("[email] Failed to bulk delete:", err);
@@ -378,15 +456,22 @@ export function useEmailStore() {
 
   return {
     emails, accounts, selectedEmail, activeAccountId, activeFolder,
-    isLoading, isSyncing, isDeleting, unreadCount, isStale,
+    isLoading, isSyncing, isDeleting, unreadCount, unreadPerAccount, isStale, hasMore, isLoadingMore,
     focusedIndex, emailSummary, summaryLoading,
     digest, digestLoading, digestSummary, digestSummaryLoading,
     setActiveAccountId, setActiveFolder, setSelectedEmail, setFocusedIndex, setEmailSummary,
-    fetchAccounts, fetchEmails, fetchUnreadCount, fetchDigest, fetchInlineDigest,
+    fetchAccounts, fetchEmails, fetchUnreadCount, fetchUnreadPerAccount, loadMoreEmails, fetchDigest, fetchInlineDigest,
+    getAccountColor,
     selectEmail, toggleStar, archiveEmail, deleteEmail,
     syncEmails, addAccount, removeAccount, testConnection,
     moveFocus, selectFocused, toggleReadStatus, summarizeEmail,
     bulkDeleteEmails, deleteSenderFromDigest, generateReport, sendEmail,
     setupReconnectionListener,
+    /** Free heavy data from memory (call when leaving email tab) */
+    clearBulkData() {
+      setEmails([]);
+      setSelectedEmail(null);
+      setEmailSummary(null);
+    },
   };
 }

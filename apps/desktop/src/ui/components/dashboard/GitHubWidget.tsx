@@ -1,5 +1,6 @@
 import { createSignal, onMount, Show, For } from "solid-js";
 import { useGitHubStore } from "../../../application/stores/githubStore";
+import { useT } from "../../../i18n/context";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { Button } from "../common/Button";
 import { CookieLoader } from "../common/CookieLoader";
@@ -8,6 +9,7 @@ const MAX_VISIBLE = 5;
 
 export function GitHubWidget() {
   const { prs, config, isLoading, isSyncing, fetchPRs, fetchConfig, syncPRs } = useGitHubStore();
+  const { t } = useT();
   const [expanded, setExpanded] = createSignal(false);
 
   onMount(() => {
@@ -98,20 +100,20 @@ export function GitHubWidget() {
           color: "var(--text-muted)",
           padding: "12px 0",
         }}>
-          GitHub non configure.{" "}
+          {t("dashboard.githubNotConfigured")}{" "}
           <span style={{
             color: "var(--accent-primary)",
             cursor: "pointer",
             "text-decoration": "underline",
           }}>
-            Configurer dans les parametres
+            {t("dashboard.configureInSettings")}
           </span>
         </div>
       </Show>
 
       {/* Loading */}
       <Show when={isLoading()}>
-        <CookieLoader size={32} message="Chargement..." />
+        <CookieLoader size={32} message={t("common.loading")} />
       </Show>
 
       {/* Empty state */}
@@ -121,7 +123,7 @@ export function GitHubWidget() {
           color: "var(--text-muted)",
           padding: "12px 0",
         }}>
-          Aucune PR ouverte
+          {t("dashboard.noPrOpen")}
         </div>
       </Show>
 
@@ -204,7 +206,7 @@ export function GitHubWidget() {
               "text-align": "left",
             }}
           >
-            {expanded() ? "Voir moins" : `+ ${hiddenCount()} autre${hiddenCount() > 1 ? "s" : ""}`}
+            {expanded() ? t("dashboard.showLess") : `+ ${hiddenCount()} ${hiddenCount() > 1 ? t("dashboard.others") : t("dashboard.other")}`}
           </button>
         </Show>
       </Show>

@@ -2,10 +2,12 @@ import { onMount, Show } from "solid-js";
 import { useVpsStore } from "../../../application/stores/vpsStore";
 import { useViewStore } from "../../../application/stores/viewStore";
 import { Button } from "../common/Button";
+import { useT } from "../../../i18n/context";
 
 export function VpsWidget() {
   const { health, alertCount, isConnected, fetchHealth, clearAlertCount } = useVpsStore();
   const { setViewMode } = useViewStore();
+  const { t } = useT();
 
   onMount(() => { fetchHealth(); });
 
@@ -46,12 +48,12 @@ export function VpsWidget() {
             </span>
           </Show>
         </div>
-        <Button size="sm" variant="secondary" onClick={openVps}>Ouvrir</Button>
+        <Button size="sm" variant="secondary" onClick={openVps}>{t("common.open")}</Button>
       </div>
 
       <Show when={!health()}>
         <div style={{ "font-size": "12px", color: "var(--text-muted)", padding: "12px 0" }}>
-          {isConnected() ? "Chargement..." : "VPS non connecte"}
+          {isConnected() ? t("common.loading") : t("dashboard.vpsNotConnected")}
         </div>
       </Show>
 

@@ -1,10 +1,11 @@
 import { createSignal } from "solid-js";
 import { invoke } from "@tauri-apps/api/core";
-import { listen } from "@tauri-apps/api/event";
+import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 
 const [isDesktopMode, setIsDesktopMode] = createSignal(false);
 
 let initialized = false;
+const unlisteners: UnlistenFn[] = [];
 
 export function useDesktopModeStore() {
   if (!initialized) {
@@ -13,12 +14,12 @@ export function useDesktopModeStore() {
     // Listen for tray menu toggle
     listen("toggle-desktop-mode", () => {
       toggle();
-    });
+    }).then((fn) => unlisteners.push(fn));
 
     // Listen for Rust-side state changes (source of truth)
     listen<boolean>("desktop-mode-changed", (event) => {
       setIsDesktopMode(event.payload);
-    });
+    }).then((fn) => unlisteners.push(fn));
   }
 
   async function enterDesktop() {

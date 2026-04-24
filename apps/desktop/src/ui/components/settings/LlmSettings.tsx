@@ -1,5 +1,6 @@
 import { createSignal, onMount, Show, For } from "solid-js";
 import { useLlmStore } from "../../../application/stores/llmStore";
+import { useT } from "../../../i18n/context";
 import { Button } from "../common/Button";
 
 type LlmMode = "local" | "api";
@@ -25,6 +26,7 @@ const PRESETS: ProviderPreset[] = [
 
 export function LlmSettings() {
   const { llmConfig, llmLoading, llmTestResult, fetchConfig, updateConfig, testConnection } = useLlmStore();
+  const { t } = useT();
 
   const [mode, setMode] = createSignal<LlmMode>("local");
   const [provider, setProvider] = createSignal("ollama");
@@ -45,7 +47,6 @@ export function LlmSettings() {
       setApiKey(cfg.apiKey || "");
       setMaxTokens(cfg.maxTokens);
       setTemperature(cfg.temperature);
-      // Determine mode from provider
       const preset = PRESETS.find((p) => p.id === cfg.provider);
       setMode(preset?.mode ?? (cfg.apiKey ? "api" : "local"));
     }
@@ -116,15 +117,15 @@ export function LlmSettings() {
   return (
     <div style={{ padding: "24px 32px", "max-width": "600px" }}>
       <h2 style={{ margin: "0 0 4px", "font-size": "20px", "font-weight": "600", color: "var(--text-primary)" }}>
-        Intelligence artificielle
+        {t("settings.llmTitle")}
       </h2>
       <p style={{ margin: "0 0 24px", "font-size": "13px", color: "var(--text-muted)" }}>
-        Configurez un modele de langage pour les fonctionnalites IA (resume d'emails, etc.)
+        {t("settings.llmDesc")}
       </p>
 
       {/* Mode selector */}
       <div style={sectionStyle}>
-        <label style={labelStyle}>Type de connexion</label>
+        <label style={labelStyle}>{t("settings.connectionType")}</label>
         <div style={{ display: "flex", gap: "0", "border-radius": "var(--radius-md)", overflow: "hidden", border: "1px solid var(--border-color)", width: "fit-content" }}>
           <button
             onClick={() => switchMode("local")}
@@ -138,7 +139,7 @@ export function LlmSettings() {
               "font-weight": mode() === "local" ? "600" : "400",
             }}
           >
-            LLM Local
+            {t("settings.llmLocal")}
           </button>
           <button
             onClick={() => switchMode("api")}
@@ -153,20 +154,20 @@ export function LlmSettings() {
               "font-weight": mode() === "api" ? "600" : "400",
             }}
           >
-            API Cloud
+            {t("settings.apiCloud")}
           </button>
         </div>
         <div style={helpStyle}>
           {mode() === "local"
-            ? "Connectez un LLM tournant sur votre machine (aucune donnee envoyee a l'exterieur)"
-            : "Utilisez une API cloud avec une cle API (les donnees sont envoyees au fournisseur)"
+            ? t("settings.localHint")
+            : t("settings.cloudHint")
           }
         </div>
       </div>
 
       {/* Provider selector */}
       <div style={sectionStyle}>
-        <label style={labelStyle}>Fournisseur</label>
+        <label style={labelStyle}>{t("settings.provider")}</label>
         <div style={{ display: "flex", gap: "6px", "flex-wrap": "wrap" }}>
           <For each={presetsForMode()}>
             {(preset) => (
@@ -182,30 +183,30 @@ export function LlmSettings() {
         </div>
       </div>
 
-      {/* API Key — only for cloud providers */}
+      {/* API Key */}
       <Show when={needsApiKey()}>
         <div style={sectionStyle}>
-          <label style={labelStyle}>Cle API</label>
+          <label style={labelStyle}>{t("settings.apiKey")}</label>
           <input
             type="password"
             value={apiKey()}
             onInput={(e) => setApiKey(e.target.value)}
             style={inputStyle}
-            placeholder={provider() === "openai" ? "sk-..." : provider() === "anthropic" ? "sk-ant-..." : "Votre cle API"}
+            placeholder={provider() === "openai" ? "sk-..." : provider() === "anthropic" ? "sk-ant-..." : t("settings.enterProviderKey")}
           />
           <div style={helpStyle}>
-            {provider() === "openai" && "Obtenez votre cle sur platform.openai.com"}
-            {provider() === "anthropic" && "Obtenez votre cle sur console.anthropic.com"}
-            {provider() === "mistral" && "Obtenez votre cle sur console.mistral.ai"}
-            {provider() === "groq" && "Obtenez votre cle sur console.groq.com"}
-            {provider() === "openai-compatible" && "Entrez la cle API de votre fournisseur"}
+            {provider() === "openai" && `${t("settings.getKeyOn")} platform.openai.com`}
+            {provider() === "anthropic" && `${t("settings.getKeyOn")} console.anthropic.com`}
+            {provider() === "mistral" && `${t("settings.getKeyOn")} console.mistral.ai`}
+            {provider() === "groq" && `${t("settings.getKeyOn")} console.groq.com`}
+            {provider() === "openai-compatible" && t("settings.enterProviderKey")}
           </div>
         </div>
       </Show>
 
       {/* URL */}
       <div style={sectionStyle}>
-        <label style={labelStyle}>URL de base</label>
+        <label style={labelStyle}>{t("settings.baseUrl")}</label>
         <input
           type="text"
           value={baseUrl()}
@@ -215,14 +216,14 @@ export function LlmSettings() {
         />
         <Show when={mode() === "local"}>
           <div style={helpStyle}>
-            Assurez-vous que {provider() === "ollama" ? "Ollama" : "LM Studio"} est lance sur cette adresse
+            {t("settings.ensureRunning").replace("{provider}", provider() === "ollama" ? "Ollama" : "LM Studio")}
           </div>
         </Show>
       </div>
 
       {/* Model */}
       <div style={sectionStyle}>
-        <label style={labelStyle}>Modele</label>
+        <label style={labelStyle}>{t("settings.model")}</label>
         <input
           type="text"
           value={model()}
@@ -233,19 +234,19 @@ export function LlmSettings() {
         <Show when={mode() === "local"}>
           <div style={helpStyle}>
             {provider() === "ollama"
-              ? "Listez vos modeles avec : ollama list"
-              : "Nom du modele charge dans LM Studio"
+              ? t("settings.listModels")
+              : t("settings.loadedModel")
             }
           </div>
         </Show>
       </div>
 
-      {/* Advanced: max tokens + temperature */}
+      {/* Advanced */}
       <div style={sectionStyle}>
-        <label style={{ ...labelStyle, "margin-bottom": "8px" }}>Parametres avances</label>
+        <label style={{ ...labelStyle, "margin-bottom": "8px" }}>{t("settings.advancedSettings")}</label>
         <div style={{ display: "flex", gap: "12px" }}>
           <div style={{ flex: "1" }}>
-            <label style={{ ...labelStyle, "font-size": "11px" }}>Max tokens</label>
+            <label style={{ ...labelStyle, "font-size": "11px" }}>{t("settings.maxTokens")}</label>
             <input
               type="number"
               value={maxTokens()}
@@ -256,7 +257,7 @@ export function LlmSettings() {
             />
           </div>
           <div style={{ flex: "1" }}>
-            <label style={{ ...labelStyle, "font-size": "11px" }}>Temperature</label>
+            <label style={{ ...labelStyle, "font-size": "11px" }}>{t("settings.temperature")}</label>
             <input
               type="number"
               value={temperature()}
@@ -273,15 +274,15 @@ export function LlmSettings() {
       {/* Actions */}
       <div style={{ display: "flex", gap: "8px", "align-items": "center" }}>
         <Button variant="primary" size="sm" onClick={handleSave} disabled={llmLoading()}>
-          {llmLoading() ? "..." : "Sauvegarder"}
+          {llmLoading() ? "..." : t("common.save")}
         </Button>
         <Button variant="secondary" size="sm" onClick={testConnection}>
-          Tester la connexion
+          {t("settings.testConnection")}
         </Button>
 
         <Show when={saved()}>
           <span style={{ "font-size": "12px", color: "#00b894", "margin-left": "8px" }}>
-            Sauvegarde
+            {t("settings.saved")}
           </span>
         </Show>
 
@@ -291,7 +292,7 @@ export function LlmSettings() {
             color: llmTestResult() ? "#00b894" : "#d63031",
             "margin-left": "8px",
           }}>
-            {llmTestResult() ? "Connexion OK" : "Echec de connexion"}
+            {llmTestResult() ? t("settings.connectionOk") : t("settings.connectionFailed")}
           </span>
         </Show>
       </div>
@@ -308,12 +309,12 @@ export function LlmSettings() {
             color: "var(--text-muted)",
           }}>
             <div style={{ "font-weight": "500", color: "var(--text-primary)", "margin-bottom": "6px" }}>
-              Configuration active
+              {t("settings.activeConfig")}
             </div>
-            <div>Fournisseur : {PRESETS.find((p) => p.id === cfg().provider)?.label ?? cfg().provider}</div>
-            <div>Modele : {cfg().model}</div>
-            <div>URL : {cfg().baseUrl}</div>
-            <div>Cle API : {cfg().apiKey ? "configuree" : "aucune"}</div>
+            <div>{t("settings.providerLabel")} : {PRESETS.find((p) => p.id === cfg().provider)?.label ?? cfg().provider}</div>
+            <div>{t("settings.modelLabel")} : {cfg().model}</div>
+            <div>{t("settings.urlLabel")} : {cfg().baseUrl}</div>
+            <div>{t("settings.apiKeyLabel")} : {cfg().apiKey ? t("settings.configured") : t("settings.noneLabel")}</div>
           </div>
         )}
       </Show>

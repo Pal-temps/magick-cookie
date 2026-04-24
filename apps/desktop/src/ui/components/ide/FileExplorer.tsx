@@ -1,6 +1,7 @@
 import { For, Show, createSignal } from "solid-js";
 import type { TreeNode, FsEntry } from "../../../application/stores/ideStore";
 import type { Snippet } from "../../../application/stores/snippetStore";
+import { useT } from "../../../i18n/context";
 
 interface FileExplorerProps {
   tree: TreeNode;
@@ -63,6 +64,7 @@ function FolderNode(props: {
   onCopyPath: (path: string) => void;
   activeFilePath: string | null;
 }) {
+  const { t } = useT();
   const isExpanded = () => props.node.path === "" || props.expanded.has(props.node.path);
   const folderCtx = useContextMenu();
   const [fileCtx, setFileCtx] = createSignal<{ x: number; y: number; file: FsEntry } | null>(null);
@@ -95,12 +97,12 @@ function FolderNode(props: {
       {/* Folder context menu */}
       <Show when={folderCtx.pos()}>
         <div class="ide-context-menu" style={{ top: `${folderCtx.pos()!.y}px`, left: `${folderCtx.pos()!.x}px` }}>
-          <div class="ide-context-item" onClick={() => { props.onCreateFile(props.node.path); folderCtx.close(); }}>Nouveau fichier</div>
-          <div class="ide-context-item" onClick={() => { props.onCreateFolder(props.node.path); folderCtx.close(); }}>Nouveau dossier</div>
+          <div class="ide-context-item" onClick={() => { props.onCreateFile(props.node.path); folderCtx.close(); }}>{t("ide.newFile")}</div>
+          <div class="ide-context-item" onClick={() => { props.onCreateFolder(props.node.path); folderCtx.close(); }}>{t("ide.newFolder")}</div>
           <Show when={props.node.path !== ""}>
             <div class="ide-context-sep" />
-            <div class="ide-context-item" onClick={() => { props.onCopyPath(props.node.path); folderCtx.close(); }}>Copier le chemin</div>
-            <div class="ide-context-item ide-context-item--danger" onClick={() => { props.onDeleteFolder(props.node.path); folderCtx.close(); }}>Supprimer le dossier</div>
+            <div class="ide-context-item" onClick={() => { props.onCopyPath(props.node.path); folderCtx.close(); }}>{t("ide.copyPath")}</div>
+            <div class="ide-context-item ide-context-item--danger" onClick={() => { props.onDeleteFolder(props.node.path); folderCtx.close(); }}>{t("ide.deleteFolder")}</div>
           </Show>
         </div>
       </Show>
@@ -143,12 +145,12 @@ function FolderNode(props: {
       {/* File context menu */}
       <Show when={fileCtx()}>
         <div class="ide-context-menu" style={{ top: `${fileCtx()!.y}px`, left: `${fileCtx()!.x}px` }}>
-          <div class="ide-context-item" onClick={() => { props.onOpenFile(fileCtx()!.file); setFileCtx(null); }}>Ouvrir</div>
+          <div class="ide-context-item" onClick={() => { props.onOpenFile(fileCtx()!.file); setFileCtx(null); }}>{t("common.open")}</div>
           <div class="ide-context-sep" />
-          <div class="ide-context-item" onClick={() => { props.onCopyPath(fileCtx()!.file.path); setFileCtx(null); }}>Copier le chemin</div>
-          <div class="ide-context-item" onClick={() => { props.onRenameFile(fileCtx()!.file.path, fileCtx()!.file.name); setFileCtx(null); }}>Renommer</div>
+          <div class="ide-context-item" onClick={() => { props.onCopyPath(fileCtx()!.file.path); setFileCtx(null); }}>{t("ide.copyPath")}</div>
+          <div class="ide-context-item" onClick={() => { props.onRenameFile(fileCtx()!.file.path, fileCtx()!.file.name); setFileCtx(null); }}>{t("common.rename")}</div>
           <div class="ide-context-sep" />
-          <div class="ide-context-item ide-context-item--danger" onClick={() => { props.onDeleteFile(fileCtx()!.file.path); setFileCtx(null); }}>Supprimer</div>
+          <div class="ide-context-item ide-context-item--danger" onClick={() => { props.onDeleteFile(fileCtx()!.file.path); setFileCtx(null); }}>{t("common.delete")}</div>
         </div>
       </Show>
     </div>
@@ -158,6 +160,7 @@ function FolderNode(props: {
 // ─── Main FileExplorer ───
 
 export function FileExplorer(props: FileExplorerProps) {
+  const { t } = useT();
   const [snippetsExpanded, setSnippetsExpanded] = createSignal(false);
   const rootCtx = useContextMenu();
 
@@ -168,7 +171,7 @@ export function FileExplorer(props: FileExplorerProps) {
         rootCtx.open(e);
       }
     }}>
-      <div class="ide-explorer__header">EXPLORATEUR</div>
+      <div class="ide-explorer__header">{t("ide.explorer")}</div>
 
       {/* Project tree */}
       <div class="ide-explorer__section" style={{ flex: "1", "min-height": "0" }}>
@@ -191,8 +194,8 @@ export function FileExplorer(props: FileExplorerProps) {
       {/* Root context menu (empty area) */}
       <Show when={rootCtx.pos()}>
         <div class="ide-context-menu" style={{ top: `${rootCtx.pos()!.y}px`, left: `${rootCtx.pos()!.x}px` }}>
-          <div class="ide-context-item" onClick={() => { props.onCreateFile(""); rootCtx.close(); }}>Nouveau fichier</div>
-          <div class="ide-context-item" onClick={() => { props.onCreateFolder(""); rootCtx.close(); }}>Nouveau dossier</div>
+          <div class="ide-context-item" onClick={() => { props.onCreateFile(""); rootCtx.close(); }}>{t("ide.newFile")}</div>
+          <div class="ide-context-item" onClick={() => { props.onCreateFolder(""); rootCtx.close(); }}>{t("ide.newFolder")}</div>
         </div>
       </Show>
 

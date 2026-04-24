@@ -1,6 +1,8 @@
 import { createSignal, Show, For, onMount } from "solid-js";
 import { invoke } from "@tauri-apps/api/core";
 import { useAiSessionStore } from "../../../application/stores/aiSessionStore";
+import { useIdeStore } from "../../../application/stores/ideStore";
+import { useT } from "../../../i18n/context";
 
 interface ContextPanelProps {
   projectPath: string | null;
@@ -45,6 +47,7 @@ interface GitInfo {
 }
 
 function GitBranchSection(props: { projectPath: string }) {
+  const { t } = useT();
   const [gitInfo, setGitInfo] = createSignal<GitInfo | null>(null);
 
   onMount(async () => {
@@ -77,7 +80,7 @@ function GitBranchSection(props: { projectPath: string }) {
         </div>
         <Show when={gitInfo()!.status.length > 0}>
           <div class="cc-ctx-git__changes">
-            {gitInfo()!.status.length} fichier{gitInfo()!.status.length > 1 ? "s" : ""} modifie{gitInfo()!.status.length > 1 ? "s" : ""}
+            {gitInfo()!.status.length} {t("ide.filesModified")}
           </div>
         </Show>
       </div>
@@ -88,6 +91,7 @@ function GitBranchSection(props: { projectPath: string }) {
 // ─── Tasks Section ───
 
 function TasksSection() {
+  const { t } = useT();
   const ai = useAiSessionStore();
 
   const toolMessages = () => {
@@ -105,10 +109,10 @@ function TasksSection() {
   return (
     <div class="cc-ctx-tasks">
       <Show when={toolMessages().length > 0} fallback={
-        <div class="cc-ctx-muted">Les taches apparaitront ici quand l'agent travaille</div>
+        <div class="cc-ctx-muted">{t("ide.tasksPlaceholder")}</div>
       }>
         <div class="cc-ctx-tasks__summary">
-          {completedTools()}/{toolMessages().length} operations terminees
+          {completedTools()}/{toolMessages().length} {t("ide.operationsCompleted")}
         </div>
         <div class="cc-ctx-tasks__list">
           <For each={toolMessages().slice(-8)}>
@@ -145,6 +149,7 @@ function ProjectSection(props: { projectPath: string }) {
 // ─── Session Info Section ───
 
 function SessionSection() {
+  const { t } = useT();
   const ai = useAiSessionStore();
 
   const msgCount = () => ai.activeSession()?.messages.length ?? 0;
@@ -154,17 +159,101 @@ function SessionSection() {
   return (
     <div class="cc-ctx-session">
       <div class="cc-ctx-row">
-        <span class="cc-ctx-label">Modele</span>
+        <span class="cc-ctx-label">{t("ide.model")}</span>
         <span class="cc-ctx-value">{model()}</span>
       </div>
       <div class="cc-ctx-row">
-        <span class="cc-ctx-label">Statut</span>
+        <span class="cc-ctx-label">{t("ide.status")}</span>
         <span class={`cc-ctx-value cc-ctx-value--${phase()}`}>{phase()}</span>
       </div>
       <div class="cc-ctx-row">
-        <span class="cc-ctx-label">Messages</span>
+        <span class="cc-ctx-label">{t("ide.messages")}</span>
         <span class="cc-ctx-value">{msgCount()}</span>
       </div>
+    </div>
+  );
+}
+
+// ─── Session History Section ───
+
+function SessionHistorySection() {
+  const { t } = useT();
+  const ai = useAiSessionStore();
+  const ide = useIdeStore();
+  const [loaded, setLoaded] = createSignal(false);
+
+  async function load() {
+    if (!loaded()) {
+      await ai.fetchPastSessions();
+      setLoaded(true);
+    }
+  }
+
+  function formatDate(iso: string) {
+    if (!iso) return "—";
+    const d = new Date(iso);
+    return d.toLocaleDateString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+  }
+
+  async function handleResume(sessionId: string, provider: string, model: string) {
+    const cwd = ide.projectPath() ?? ".";
+    await ai.startSession({
+      provider,
+      model,
+      cwd,
+      resume_session_id: sessionId,
+    });
+  }
+
+  return (
+    <div class="cc-ctx-history">
+      <Show when={!loaded()}>
+        <button
+          class="cc-ctx-history__load"
+          onClick={load}
+          style={{ background: "none", border: "none", color: "var(--accent-primary)", cursor: "pointer", "font-size": "11px", padding: "4px 0" }}
+        >
+          {t("ide.loadSession")}
+        </button>
+      </Show>
+      <Show when={loaded()}>
+        <Show when={ai.pastSessions().length > 0} fallback={
+          <div class="cc-ctx-muted">{t("ide.noSessionHistory")}</div>
+        }>
+          <div class="cc-ctx-tasks__list">
+            <For each={ai.pastSessions().slice(0, 20)}>
+              {(s) => (
+                <div
+                  class="cc-ctx-history__item"
+                  title={`${s.provider} — ${s.model} — ${s.event_count} ${t("ide.eventCount")}`}
+                >
+                  <button
+                    class="cc-ctx-history__view"
+                    onClick={() => ai.loadPastSession(s.session_id)}
+                  >
+                    <span class="cc-ctx-tasks__dot" />
+                    <span class="cc-ctx-history__label">
+                      {s.label || s.model || s.provider}
+                    </span>
+                    <span class="cc-ctx-history__date">
+                      {formatDate(s.started_at)}
+                    </span>
+                  </button>
+                  <Show when={s.provider === "claude-cli"}>
+                    <button
+                      class="cc-ctx-history__resume"
+                      onClick={() => handleResume(s.session_id, s.provider, s.model)}
+                      title={t("ide.resumeSession")}
+                    >
+                      &#x25B6;
+                    </button>
+                  </Show>
+                </div>
+              )}
+            </For>
+          </div>
+        </Show>
+      </Show>
     </div>
   );
 }
@@ -172,6 +261,7 @@ function SessionSection() {
 // ─── Main Context Panel ───
 
 export function ContextPanel(props: ContextPanelProps) {
+  const { t } = useT();
   function handleClose() {
     props.onClose?.();
   }
@@ -179,8 +269,8 @@ export function ContextPanel(props: ContextPanelProps) {
   return (
     <aside class="cc-context-panel">
       <div class="cc-context-panel__header">
-        <span>Context</span>
-        <button class="cc-context-panel__close" onClick={handleClose} title="Fermer (Ctrl+\)">
+        <span>{t("ide.context")}</span>
+        <button class="cc-context-panel__close" onClick={handleClose} title={`${t("common.close")} (Ctrl+\\)`}>
           <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
             <path d="M2 2L10 10M10 2L2 10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
           </svg>
@@ -188,23 +278,27 @@ export function ContextPanel(props: ContextPanelProps) {
       </div>
       <div class="cc-context-panel__body">
         <Show when={props.projectPath}>
-          <Section id="project" title="PROJECT" icon="&#x1F4C1;" badge="1">
+          <Section id="project" title={t("ide.project")} icon="&#x1F4C1;" badge="1">
             <ProjectSection projectPath={props.projectPath!} />
           </Section>
         </Show>
 
-        <Section id="session" title="SESSION">
+        <Section id="session" title={t("ide.session")}>
           <SessionSection />
         </Section>
 
         <Show when={props.projectPath}>
-          <Section id="git" title="GIT BRANCH">
+          <Section id="git" title={t("ide.gitBranch")}>
             <GitBranchSection projectPath={props.projectPath!} />
           </Section>
         </Show>
 
-        <Section id="tasks" title="TASKS">
+        <Section id="tasks" title={t("ide.tasks")}>
           <TasksSection />
+        </Section>
+
+        <Section id="history" title={t("ide.sessionHistory")}>
+          <SessionHistorySection />
         </Section>
       </div>
     </aside>

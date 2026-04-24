@@ -1,7 +1,7 @@
 import { createSignal } from "solid-js";
 import { api } from "../../infrastructure/api/apiClient";
 import { notify } from "../../infrastructure/tauri/notifications";
-import { playSoundLoop, stopSoundLoop } from "../../infrastructure/audio/soundPlayer";
+import { playSound, playSoundLoop, stopSoundLoop, type SoundName } from "../../infrastructure/audio/soundPlayer";
 import type { TimerStats } from "../../domain/models/TimerSession";
 import { useSettingsStore } from "./settingsStore";
 
@@ -13,6 +13,8 @@ export interface PomodoroSettings {
   shortBreakMin: number;
   longBreakMin: number;
   sessionsBeforeLong: number;
+  focusEndSound: SoundName;
+  breakEndSound: SoundName;
 }
 
 const DEFAULT_POMODORO: PomodoroSettings = {
@@ -20,6 +22,8 @@ const DEFAULT_POMODORO: PomodoroSettings = {
   shortBreakMin: 5,
   longBreakMin: 15,
   sessionsBeforeLong: 4,
+  focusEndSound: "focusEnd",
+  breakEndSound: "alarm",
 };
 
 const [timerMode, setTimerMode] = createSignal<TimerMode | null>(null);
@@ -27,7 +31,7 @@ const [timerState, setTimerState] = createSignal<TimerState>("idle");
 const [remainingSeconds, setRemainingSeconds] = createSignal(0);
 const [totalSeconds, setTotalSeconds] = createSignal(0);
 const [pomodoroCount, setPomodoroCount] = createSignal(0);
-const [pomodoroSettings] = createSignal<PomodoroSettings>(DEFAULT_POMODORO);
+const [pomodoroSettings, setPomodoroSettings] = createSignal<PomodoroSettings>(DEFAULT_POMODORO);
 const [todayStats, setTodayStats] = createSignal<TimerStats>({ totalSeconds: 0, sessionCount: 0 });
 const [selectedTaskId, setSelectedTaskId] = createSignal<string | null>(null);
 const [selectedTaskTitle, setSelectedTaskTitle] = createSignal<string | null>(null);
@@ -87,7 +91,7 @@ async function onTimerComplete() {
 
   if (mode === "pomodoro" && state === "focus") {
     // Auto-save completed pomodoro sessions (no note prompt for auto-complete)
-    await saveSession(true);
+    saveSession(true).catch(() => {});
     const count = pomodoroCount() + 1;
     setPomodoroCount(count);
 
@@ -95,25 +99,23 @@ async function onTimerComplete() {
     const isLongBreak = count % settings.sessionsBeforeLong === 0;
     const breakMin = isLongBreak ? settings.longBreakMin : settings.shortBreakMin;
 
-    playSoundLoop("focusEnd");
-    await notify(
-      "Pomodoro termine !",
-      isLongBreak
-        ? `Session ${count} terminee. Cliquez pour lancer la pause de ${breakMin} min.`
-        : `Session ${count} terminee. Cliquez pour lancer la pause de ${breakMin} min.`,
-      { silent: true },
-    );
-
-    // Wait for user to acknowledge before starting break
+    // Update state first, then notify (non-blocking)
     setTimerState("waiting");
     setIsFocusMode(false);
     clearTickInterval();
     const secs = breakMin * 60;
     setTotalSeconds(secs);
     setRemainingSeconds(secs);
-  } else if (mode === "pomodoro" && state === "break") {
-    await notify("Pause terminee !", "C'est reparti pour une session de focus.");
 
+    playSoundLoop(pomodoroSettings().focusEndSound);
+    notify(
+      "Pomodoro termine !",
+      `Session ${count} terminee. Cliquez pour lancer la pause de ${breakMin} min.`,
+      { silent: true },
+    ).catch(() => {});
+  } else if (mode === "pomodoro" && state === "break") {
+    // Play sound + update state first, notify in background
+    playSound(pomodoroSettings().breakEndSound);
     setTimerState("focus");
     const secs = pomodoroSettings().focusMin * 60;
     setTotalSeconds(secs);
@@ -121,12 +123,14 @@ async function onTimerComplete() {
     sessionStartedAt = new Date();
     if (focusModeEnabled()) setIsFocusMode(true);
     startTickInterval();
+
+    notify("Pause terminee !", "C'est reparti pour une session de focus.").catch(() => {});
   } else if (mode === "free") {
-    await saveSession(true);
-    await notify("Timer termine !", "Votre session de travail est terminee.");
+    saveSession(true).catch(() => {});
     setTimerState("idle");
     setTimerMode(null);
     setIsFocusMode(false);
+    notify("Timer termine !", "Votre session de travail est terminee.").catch(() => {});
   }
 }
 
@@ -312,6 +316,7 @@ export function useTimerStore() {
     totalSeconds,
     pomodoroCount,
     pomodoroSettings,
+    setPomodoroSettings,
     todayStats,
     selectedTaskId,
     selectedTaskTitle,

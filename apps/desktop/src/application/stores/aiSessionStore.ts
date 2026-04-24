@@ -28,6 +28,7 @@ export interface SessionConfig {
   base_url?: string | null;
   temperature?: number | null;
   max_tokens?: number | null;
+  resume_session_id?: string | null;
 }
 
 export type StreamPhase = "thinking" | "text";
@@ -62,6 +63,7 @@ export interface AiSession {
   capabilities: AdapterCapabilities;
   phase: SessionPhase;
   model: string;
+  label: string;
   messages: AiMessage[];
   pendingPermissions: Map<string, PermissionRequest>;
   isStreaming: boolean;
@@ -90,14 +92,28 @@ type AdapterEvent =
   | { type: "error"; message: string }
   | { type: "session_terminated"; reason: string };
 
+// ─── Past session type ───
+
+export interface PastSessionInfo {
+  session_id: string;
+  provider: string;
+  model: string;
+  started_at: string;
+  label: string;
+  event_count: number;
+}
+
 // ─── State ───
 
 const [sessions, setSessions] = createSignal<Map<string, AiSession>>(new Map());
 const [activeSessionId, setActiveSessionId] = createSignal<string | null>(null);
 const [providers, setProviders] = createSignal<ProviderInfo[]>([]);
+const [pastSessions, setPastSessions] = createSignal<PastSessionInfo[]>([]);
+const [loadedPastSession, setLoadedPastSession] = createSignal<{ id: string; lines: string[] } | null>(null);
 
 let listenerInitialized = false;
 let msgCounter = 0;
+const sessionCleanupCallbacks: ((sessionId: string) => void)[] = [];
 
 // ─── Helpers ───
 
@@ -115,11 +131,14 @@ function updateSession(id: string, updater: (session: AiSession) => AiSession) {
   });
 }
 
+const MAX_MESSAGES = 200;
+
 function addMessage(sessionId: string, msg: AiMessage) {
-  updateSession(sessionId, (s) => ({
-    ...s,
-    messages: [...s.messages, msg],
-  }));
+  updateSession(sessionId, (s) => {
+    const messages = [...s.messages, msg];
+    // Cap in-memory messages to prevent unbounded growth (older messages are on disk via SessionRecorder)
+    return { ...s, messages: messages.length > MAX_MESSAGES ? messages.slice(-MAX_MESSAGES) : messages };
+  });
 }
 
 function nextMsgId(): string {
@@ -315,6 +334,7 @@ export function useAiSessionStore() {
       capabilities,
       phase: "connecting",
       model: config.model,
+      label: "",
       messages: [],
       pendingPermissions: new Map(),
       isStreaming: false,
@@ -395,6 +415,9 @@ export function useAiSessionStore() {
       return next;
     });
 
+    // Notify cleanup callbacks (hookStore, etc.)
+    for (const cb of sessionCleanupCallbacks) cb(id);
+
     if (activeSessionId() === id) {
       setActiveSessionId(null);
     }
@@ -410,12 +433,45 @@ export function useAiSessionStore() {
     updateSession(id, (s) => ({ ...s, messages: [] }));
   }
 
+  function renameSession(sessionId: string, label: string) {
+    updateSession(sessionId, (s) => ({ ...s, label }));
+    invoke("ai_update_session_label", { sessionId, label }).catch(() => {});
+  }
+
+  async function fetchPastSessions() {
+    try {
+      const list = await invoke<PastSessionInfo[]>("ai_list_past_sessions");
+      setPastSessions(list);
+    } catch {
+      setPastSessions([]);
+    }
+  }
+
+  async function loadPastSession(sessionId: string) {
+    try {
+      const lines = await invoke<string[]>("ai_read_past_session", { sessionId });
+      setLoadedPastSession({ id: sessionId, lines });
+    } catch {
+      setLoadedPastSession(null);
+    }
+  }
+
+  function closePastSession() {
+    setLoadedPastSession(null);
+  }
+
+  function onSessionCleanup(cb: (sessionId: string) => void) {
+    sessionCleanupCallbacks.push(cb);
+  }
+
   return {
     // State
     sessions,
     activeSessionId,
     activeSession,
     providers,
+    pastSessions,
+    loadedPastSession,
 
     // Actions
     fetchProviders,
@@ -426,5 +482,10 @@ export function useAiSessionStore() {
     stopSession,
     switchSession,
     clearMessages,
+    renameSession,
+    fetchPastSessions,
+    loadPastSession,
+    closePastSession,
+    onSessionCleanup,
   };
 }

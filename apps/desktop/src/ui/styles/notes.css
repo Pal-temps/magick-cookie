@@ -2,27 +2,51 @@
    Notes View — Responsive
    ═══════════════════════════════════════════ */
 
-.notes-container {
-  container-type: inline-size;
-  container-name: notes;
+/* ─── Main Tabs (Choc'Notes / Crookies / Snippets) ─── */
+.notes-main-tabs {
   display: flex;
-  height: 100%;
-  overflow: hidden;
-  position: relative;
-}
-
-/* ─── Sidebar ─── */
-
-.notes-sidebar {
-  width: 260px;
-  min-width: 260px;
-  border-right: 1px solid var(--border-color);
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
+  gap: 0;
+  border-bottom: 1px solid var(--border-color);
   background: var(--bg-surface);
-  z-index: 2;
+  flex-shrink: 0;
+  padding: 0;
+  overflow: hidden;
 }
+
+.notes-main-tab {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 4px;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  border: none;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--text-secondary);
+  transition: all 180ms ease;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.notes-main-tab:hover {
+  color: var(--text-primary);
+  background: var(--bg-elevated);
+}
+
+.notes-main-tab--active {
+  font-weight: 600;
+  color: var(--text-primary);
+  border-bottom-color: var(--accent-primary);
+}
+
+.notes-main-tab--active:hover {
+  background: transparent;
+}
+
+/* ─── Sidebar search (now in global sidebar) ─── */
 
 .notes-sidebar-search {
   padding: 8px;
@@ -38,10 +62,10 @@
   overflow-y: auto;
 }
 
-/* ─── Editor ─── */
+/* ─── Editor (now full-width, sidebar is in AppLayout) ─── */
 
 .notes-editor {
-  flex: 1;
+  height: 100%;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -75,20 +99,7 @@
   justify-content: flex-end;
 }
 
-.notes-toggle-sidebar {
-  display: none;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  border: 1px solid var(--border-color);
-  color: var(--text-secondary);
-  cursor: pointer;
-  font-size: 14px;
-  flex-shrink: 0;
-}
+/* toggle-sidebar removed — sidebar is global now */
 
 /* ─── Editor content ─── */
 
@@ -124,103 +135,260 @@
 }
 
 /* ═══════════════════════════════════════════
-   Responsive Breakpoints
+   Responsive — toolbar wraps on small widths
    ═══════════════════════════════════════════ */
 
-/* --- Compact / Mobile-like (<500px) --- */
-@container notes (max-width: 499px) {
-  .notes-sidebar {
-    position: absolute;
-    top: 0;
-    left: 0;
-    bottom: 0;
-    width: 280px;
-    min-width: 280px;
-    box-shadow: 4px 0 24px var(--shadow-color);
-    transform: translateX(-100%);
-    transition: transform 200ms ease;
-  }
-
-  .notes-sidebar.notes-sidebar--open {
-    transform: translateX(0);
-  }
-
-  .notes-toggle-sidebar {
-    display: inline-flex;
-  }
-
-  .notes-toolbar {
-    padding: 4px 8px;
-    flex-wrap: wrap;
-  }
-
-  .notes-toolbar-right {
-    gap: 4px;
-  }
-
-  .notes-textarea,
-  .notes-preview {
-    padding: 12px;
-    font-size: 12px;
-  }
-
-  .notes-toolbar-filename {
-    font-size: 11px !important;
-    max-width: 120px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
+.notes-toolbar {
+  flex-wrap: wrap;
 }
 
-/* --- Medium (500-899px) --- */
-@container notes (min-width: 500px) and (max-width: 899px) {
-  .notes-sidebar {
-    width: 200px;
-    min-width: 200px;
-  }
-
-  .notes-textarea,
-  .notes-preview {
-    padding: 14px 16px;
-  }
+.notes-toolbar-filename {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
 }
 
-/* --- Large (900-1399px) --- default styles */
+/* ─── Notes tabs ─── */
 
-/* --- Ultra-wide (1400px+) --- */
-@container notes (min-width: 1400px) {
-  .notes-sidebar {
-    width: 300px;
-    min-width: 300px;
-  }
-
-  .notes-textarea,
-  .notes-preview {
-    padding: 24px 32px;
-    max-width: 1000px;
-  }
-
-  .notes-toolbar {
-    padding: 8px 16px;
-  }
+.notes-tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid var(--border-color);
+  flex-shrink: 0;
 }
 
-/* --- Super ultra-wide (2000px+) --- */
-@container notes (min-width: 2000px) {
-  .notes-sidebar {
-    width: 340px;
-    min-width: 340px;
-  }
+.notes-tab {
+  flex: 1;
+  padding: 6px 4px;
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all 0.15s;
+  text-align: center;
+}
 
-  .notes-textarea,
-  .notes-preview {
-    padding: 32px 48px;
-    max-width: 1200px;
-    font-size: 14px;
-  }
+.notes-tab:hover {
+  color: var(--text-secondary);
+  background: var(--bg-hover);
+}
 
-  .notes-toolbar {
-    padding: 10px 24px;
-  }
+.notes-tab--active {
+  color: var(--text-primary);
+  border-bottom-color: var(--accent-primary);
+}
+
+/* ─── Collapsible Category Sections ─── */
+
+.notes-category {
+  margin-bottom: 0;
+  transition: opacity 180ms ease;
+}
+
+.notes-category--drop-target {
+  box-shadow: inset 0 -2px 0 var(--accent-primary);
+  background: color-mix(in srgb, var(--accent-primary) 6%, transparent);
+}
+
+.notes-category--dragging {
+  opacity: 0.5;
+}
+
+.notes-category__drag-handle {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 20px;
+  color: var(--text-muted);
+  opacity: 0;
+  cursor: grab;
+  transition: opacity 180ms ease, color 180ms ease, background 180ms ease;
+  user-select: none;
+  border-radius: 3px;
+  touch-action: none;
+}
+
+.notes-category__header:hover .notes-category__drag-handle {
+  opacity: 0.5;
+}
+
+.notes-category__drag-handle:hover {
+  opacity: 1 !important;
+  color: var(--accent-primary);
+  background: color-mix(in srgb, var(--accent-primary) 10%, transparent);
+  cursor: grab;
+}
+
+.notes-category__drag-handle:active {
+  cursor: grabbing;
+}
+
+.notes-category__ghost {
+  position: fixed;
+  z-index: 1000;
+  padding: 5px 12px;
+  background: var(--bg-surface);
+  border: 1.5px solid var(--accent-primary);
+  border-radius: var(--radius-md);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--accent-primary);
+  pointer-events: none;
+  box-shadow: 0 4px 16px var(--shadow-color);
+  white-space: nowrap;
+}
+
+.notes-category__header {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  padding: 7px 8px;
+  background: var(--bg-surface);
+  border: none;
+  border-bottom: 1px solid var(--border-color);
+  cursor: pointer;
+  color: var(--text-secondary);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  user-select: none;
+}
+
+.notes-category__header:hover {
+  color: var(--text-primary);
+  background: var(--bg-elevated);
+}
+
+.notes-category__chevron {
+  flex-shrink: 0;
+  transition: transform 0.15s ease;
+  color: var(--text-secondary);
+}
+
+.notes-category__chevron--open {
+  transform: rotate(90deg);
+}
+
+.notes-category__title {
+  flex: 1;
+  text-align: left;
+}
+
+.notes-category__body {
+  padding-left: 2px;
+}
+
+/* ─── Folder Row ─── */
+
+.notes-folder-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  padding: 4px 6px;
+  text-align: left;
+  cursor: pointer;
+  color: var(--text-primary);
+  transition: background 0.1s;
+  overflow: hidden;
+}
+
+.notes-folder-row:hover {
+  background: var(--bg-elevated);
+}
+
+.notes-folder-chevron {
+  flex-shrink: 0;
+  color: var(--text-muted);
+  transition: transform 0.15s ease;
+  opacity: 0.6;
+}
+
+.notes-folder-row:hover .notes-folder-chevron {
+  opacity: 1;
+}
+
+.notes-folder-chevron--open {
+  transform: rotate(90deg);
+}
+
+.notes-folder-icon {
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+.notes-folder-name {
+  font-size: 12px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.notes-folder-count {
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+/* ─── File Row ─── */
+
+.notes-file-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  padding: 4px 6px;
+  text-align: left;
+  cursor: pointer;
+  color: var(--text-primary);
+  transition: background 0.1s;
+  overflow: hidden;
+}
+
+.notes-file-row:hover {
+  background: var(--bg-elevated);
+}
+
+.notes-file-row--active {
+  background: var(--accent-primary);
+}
+
+.notes-file-row--active:hover {
+  background: var(--accent-primary);
+}
+
+.notes-file-icon {
+  font-size: 11px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.notes-file-icon--drawing {
+  color: var(--cal-purple);
+}
+
+.notes-file-name {
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+
+.notes-file-meta {
+  font-size: 10px;
+  color: var(--text-muted);
+  flex-shrink: 0;
 }

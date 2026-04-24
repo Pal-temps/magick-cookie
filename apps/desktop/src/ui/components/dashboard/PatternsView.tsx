@@ -1,5 +1,6 @@
 import { onMount, Show, For, createMemo } from "solid-js";
 import { useAnalyticsStore } from "../../../application/stores/analyticsStore";
+import { useT } from "../../../i18n/context";
 import { Button } from "../common/Button";
 import { CookieLoader } from "../common/CookieLoader";
 
@@ -9,6 +10,7 @@ interface PatternsViewProps {
 
 export function PatternsView(props: PatternsViewProps) {
   const { patterns, patternsLoading, fetchPatterns } = useAnalyticsStore();
+  const { t } = useT();
 
   onMount(() => {
     const to = new Date();
@@ -65,38 +67,38 @@ export function PatternsView(props: PatternsViewProps) {
       {/* Header */}
       <div style={{ display: "flex", "align-items": "center", "justify-content": "space-between", "margin-bottom": "20px" }}>
         <h2 style={{ margin: "0", "font-size": "20px", "font-weight": "600", color: "var(--text-primary)" }}>
-          Patterns de productivite
+          {t("dashboard.productivityPatterns")}
         </h2>
-        <Button variant="ghost" size="sm" onClick={props.onClose}>Retour</Button>
+        <Button variant="ghost" size="sm" onClick={props.onClose}>{t("common.back")}</Button>
       </div>
 
       <Show when={patternsLoading()}>
-        <CookieLoader message="Chargement..." />
+        <CookieLoader message={t("common.loading")} />
       </Show>
 
       <Show when={!patternsLoading() && patterns()}>
         {/* Best hours & days */}
         <div style={{ display: "grid", "grid-template-columns": "1fr 1fr 1fr", gap: "12px", "margin-bottom": "24px" }}>
           <div style={cardStyle}>
-            <div style={{ "font-size": "11px", color: "var(--text-muted)", "margin-bottom": "8px" }}>Tes meilleures heures</div>
+            <div style={{ "font-size": "11px", color: "var(--text-muted)", "margin-bottom": "8px" }}>{t("dashboard.bestHours")}</div>
             <div style={{ "font-size": "18px", "font-weight": "700", color: "var(--accent-primary)" }}>
               {patterns()!.bestHours.length > 0
                 ? patterns()!.bestHours.map(h => `${h}h`).join(", ")
-                : "Pas assez de donnees"}
+                : t("dashboard.notEnoughData")}
             </div>
           </div>
           <div style={cardStyle}>
-            <div style={{ "font-size": "11px", color: "var(--text-muted)", "margin-bottom": "8px" }}>Tes meilleurs jours</div>
+            <div style={{ "font-size": "11px", color: "var(--text-muted)", "margin-bottom": "8px" }}>{t("dashboard.bestDays")}</div>
             <div style={{ "font-size": "18px", "font-weight": "700", color: "var(--accent-primary)" }}>
               {patterns()!.bestDays.length > 0
                 ? patterns()!.bestDays.join(", ")
-                : "Pas assez de donnees"}
+                : t("dashboard.notEnoughData")}
             </div>
           </div>
           <div style={cardStyle}>
-            <div style={{ "font-size": "11px", color: "var(--text-muted)", "margin-bottom": "8px" }}>Tendance</div>
+            <div style={{ "font-size": "11px", color: "var(--text-muted)", "margin-bottom": "8px" }}>{t("dashboard.trend")}</div>
             <Show when={patterns()!.weeklyTrend !== null} fallback={
-              <div style={{ "font-size": "14px", color: "var(--text-muted)" }}>Pas de periode precedente</div>
+              <div style={{ "font-size": "14px", color: "var(--text-muted)" }}>{t("dashboard.noPreviousPeriod")}</div>
             }>
               <div style={{
                 "font-size": "22px",
@@ -106,7 +108,7 @@ export function PatternsView(props: PatternsViewProps) {
                 {patterns()!.weeklyTrend! >= 0 ? "\u2191" : "\u2193"} {Math.abs(patterns()!.weeklyTrend!)}%
               </div>
               <div style={{ "font-size": "10px", color: "var(--text-muted)", "margin-top": "2px" }}>
-                vs periode precedente
+                {t("dashboard.vsPrevPeriod")}
               </div>
             </Show>
           </div>
@@ -115,7 +117,7 @@ export function PatternsView(props: PatternsViewProps) {
         {/* Heatmap */}
         <div style={{ ...cardStyle, "margin-bottom": "24px" }}>
           <h3 style={{ margin: "0 0 12px", "font-size": "14px", "font-weight": "600", color: "var(--text-primary)" }}>
-            Heatmap d'activite
+            {t("dashboard.activityHeatmap")}
           </h3>
           {/* Hour labels */}
           <div style={{ display: "flex", "margin-left": "36px", "margin-bottom": "4px" }}>
@@ -155,7 +157,7 @@ export function PatternsView(props: PatternsViewProps) {
           </For>
           {/* Legend */}
           <div style={{ display: "flex", "align-items": "center", gap: "4px", "margin-top": "8px", "margin-left": "36px" }}>
-            <span style={{ "font-size": "9px", color: "var(--text-muted)" }}>Moins</span>
+            <span style={{ "font-size": "9px", color: "var(--text-muted)" }}>{t("dashboard.less")}</span>
             <For each={[0, 0.25, 0.5, 0.75, 1]}>
               {(val) => (
                 <div style={{
@@ -166,14 +168,14 @@ export function PatternsView(props: PatternsViewProps) {
                 }} />
               )}
             </For>
-            <span style={{ "font-size": "9px", color: "var(--text-muted)" }}>Plus</span>
+            <span style={{ "font-size": "9px", color: "var(--text-muted)" }}>{t("dashboard.more")}</span>
           </div>
         </div>
 
         {/* Bar chart: Heures de focus */}
         <div style={cardStyle}>
           <h3 style={{ margin: "0 0 12px", "font-size": "14px", "font-weight": "600", color: "var(--text-primary)" }}>
-            Heures de focus
+            {t("dashboard.focusHours")}
           </h3>
           <div style={{ display: "flex", gap: "1px", "align-items": "flex-end", height: "120px" }}>
             <For each={patterns()!.hourlyDistribution}>
@@ -222,14 +224,14 @@ export function PatternsView(props: PatternsViewProps) {
             </For>
           </div>
           <div style={{ "font-size": "10px", color: "var(--text-muted)", "margin-top": "8px", "text-align": "center" }}>
-            Minutes de focus moyennes par heure (30 derniers jours)
+            {t("dashboard.avgFocusMinutesPerHour")}
           </div>
         </div>
       </Show>
 
       <Show when={!patternsLoading() && !patterns()}>
         <div style={{ color: "var(--text-muted)", "font-size": "13px", "text-align": "center", padding: "40px 0" }}>
-          Aucune donnee disponible
+          {t("dashboard.noDataAvailable")}
         </div>
       </Show>
     </div>

@@ -1,8 +1,11 @@
 import { Show } from "solid-js";
 import { useIdeStore } from "../../../application/stores/ideStore";
+import { useWorkflowStore } from "../../../application/stores/workflowStore";
+import { useT } from "../../../i18n/context";
 import { MonacoEditor } from "./MonacoEditor";
 import { EditorTabs } from "./EditorTabs";
 import { ResizeHandle } from "./ResizeHandle";
+import { WorkflowEditor } from "./WorkflowEditor";
 import type { MonacoEditorApi } from "./MonacoEditor";
 
 interface CodeDrawerProps {
@@ -12,9 +15,12 @@ interface CodeDrawerProps {
 }
 
 export function CodeDrawer(props: CodeDrawerProps) {
+  const { t } = useT();
   const ide = useIdeStore();
+  const wfStore = useWorkflowStore();
 
   const hasProject = () => ide.projectPath() !== null;
+  const editingWf = () => wfStore.editingWorkflowId();
 
   // Compute display names
   const tabDisplayNames = () => {
@@ -49,11 +55,20 @@ export function CodeDrawer(props: CodeDrawerProps) {
       >
         {/* Header */}
         <div class="cc-code-drawer__header">
-          <span class="cc-code-drawer__title">Code</span>
+          <Show when={editingWf()} fallback={
+            <span class="cc-code-drawer__title">{t("ide.code")}</span>
+          }>
+            <button
+              class="cc-code-drawer__back"
+              onClick={() => wfStore.setEditingWorkflowId(null)}
+              title={t("ide.backToCode")}
+            >&larr;</button>
+            <span class="cc-code-drawer__title">{t("ide.workflow")}</span>
+          </Show>
           <button
             class="cc-code-drawer__close"
-            onClick={() => ide.toggleCodeDrawer()}
-            title="Fermer (Ctrl+E)"
+            onClick={() => { wfStore.setEditingWorkflowId(null); ide.toggleCodeDrawer(); }}
+            title={`${t("common.close")} (Ctrl+E)`}
           >&times;</button>
         </div>
 
@@ -71,25 +86,29 @@ export function CodeDrawer(props: CodeDrawerProps) {
 
         {/* Editor */}
         <div class="cc-code-drawer__editor">
-          <Show when={ide.activeTab()} fallback={
-            <div class="ide-empty">
-              <Show when={hasProject()} fallback={
-                <span>Selectionnez un projet dans la sidebar</span>
-              }>
-                <span>Cliquer sur un fichier pour l'ouvrir</span>
-                <span><kbd>Ctrl+S</kbd> sauvegarder &middot; <kbd>Ctrl+W</kbd> fermer</span>
-              </Show>
-            </div>
+          <Show when={editingWf()} fallback={
+            <Show when={ide.activeTab()} fallback={
+              <div class="ide-empty">
+                <Show when={hasProject()} fallback={
+                  <span>{t("ide.selectProjectSidebar")}</span>
+                }>
+                  <span>{t("ide.clickFileToOpen")}</span>
+                  <span><kbd>Ctrl+S</kbd> sauvegarder &middot; <kbd>Ctrl+W</kbd> fermer</span>
+                </Show>
+              </div>
+            }>
+              <MonacoEditor
+                value={ide.activeTab()!.content}
+                language={ide.activeTab()!.language}
+                path={ide.activeTab()!.path}
+                onChange={(val) => ide.updateTabContent(ide.activeTab()!.id, val)}
+                style={{ flex: "1", "min-height": "0" }}
+                ref={(api) => props.onEditorReady?.(api)}
+                onAiAction={() => {}}
+              />
+            </Show>
           }>
-            <MonacoEditor
-              value={ide.activeTab()!.content}
-              language={ide.activeTab()!.language}
-              path={ide.activeTab()!.path}
-              onChange={(val) => ide.updateTabContent(ide.activeTab()!.id, val)}
-              style={{ flex: "1", "min-height": "0" }}
-              ref={(api) => props.onEditorReady?.(api)}
-              onAiAction={() => {}}
-            />
+            <WorkflowEditor workflowId={editingWf()!} />
           </Show>
         </div>
       </div>

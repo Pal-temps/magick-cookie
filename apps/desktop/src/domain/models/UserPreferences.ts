@@ -1,5 +1,6 @@
 export interface UserPreferences {
   version: 1;
+  locale: "fr" | "en";
   theme: {
     theme: "dark" | "light" | "cookie";
     mode: "manual" | "auto-system" | "auto-schedule";
@@ -34,8 +35,9 @@ export interface UserPreferences {
 
 export const DEFAULT_PREFERENCES: UserPreferences = {
   version: 1,
+  locale: "fr",
   theme: {
-    theme: "dark",
+    theme: "cookie",
     mode: "manual",
     schedule: { darkStart: 20, darkEnd: 7 },
   },

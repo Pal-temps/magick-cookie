@@ -1,4 +1,5 @@
 import { createSignal, createEffect, on, Show } from "solid-js";
+import { useT } from "../../../i18n/context";
 import { useViewStore } from "../../../application/stores/viewStore";
 import { LlmSettings } from "./LlmSettings";
 import { ThemeSettings } from "./ThemeSettings";
@@ -18,12 +19,14 @@ import { DataSettings } from "./DataSettings";
 import { ConnectorSettings } from "./ConnectorSettings";
 import { RssSettings } from "./RssSettings";
 import { InfraSettings } from "./InfraSettings";
+import { LocaleSettings } from "./LocaleSettings";
 
-type SettingsTab = "theme" | "llm" | "focus" | "connectors" | "github" | "brief" | "vps" | "bookmarks" | "projects" | "routines" | "webhooks" | "caldav" | "email-rules" | "habits" | "shortcuts" | "rss" | "infra" | "data";
+type SettingsTab = "locale" | "theme" | "llm" | "focus" | "connectors" | "github" | "brief" | "vps" | "bookmarks" | "projects" | "routines" | "webhooks" | "caldav" | "email-rules" | "habits" | "shortcuts" | "rss" | "infra" | "data";
 
 export function SettingsView() {
+  const { t } = useT();
   const { settingsTab, setSettingsTab } = useViewStore();
-  const [tab, setTab] = createSignal<SettingsTab>("theme");
+  const [tab, setTab] = createSignal<SettingsTab>("locale");
 
   // Open on a specific tab if requested (e.g. from AiButton → "llm")
   createEffect(on(settingsTab, (requested) => {
@@ -33,25 +36,26 @@ export function SettingsView() {
     }
   }));
 
-  const tabs: { id: SettingsTab; label: string }[] = [
-    { id: "theme", label: "Apparence" },
-    { id: "focus", label: "Focus" },
-    { id: "bookmarks", label: "Signets" },
-    { id: "projects", label: "Projets" },
-    { id: "llm", label: "Intelligence artificielle" },
-    { id: "brief", label: "Brief" },
-    { id: "caldav", label: "CalDAV" },
-    { id: "email-rules", label: "Regles email" },
-    { id: "rss", label: "Flux RSS" },
-    { id: "habits", label: "Habitudes" },
-    { id: "routines", label: "Routines" },
-    { id: "webhooks", label: "Webhooks" },
-    { id: "shortcuts", label: "Raccourcis" },
-    { id: "connectors", label: "Connecteurs" },
-    { id: "github", label: "GitHub" },
-    { id: "vps", label: "VPS" },
-    { id: "infra", label: "Infrastructure" },
-    { id: "data", label: "Donnees" },
+  const tabs: { id: SettingsTab; key: string }[] = [
+    { id: "locale", key: "settings.language" },
+    { id: "theme", key: "settings.theme" },
+    { id: "focus", key: "settings.focus" },
+    { id: "bookmarks", key: "settings.bookmarks" },
+    { id: "projects", key: "settings.projects" },
+    { id: "llm", key: "settings.llm" },
+    { id: "brief", key: "settings.brief" },
+    { id: "caldav", key: "settings.caldav" },
+    { id: "email-rules", key: "settings.email" },
+    { id: "rss", key: "settings.rss" },
+    { id: "habits", key: "settings.habits" },
+    { id: "routines", key: "settings.routines" },
+    { id: "webhooks", key: "settings.webhooks" },
+    { id: "shortcuts", key: "settings.shortcuts" },
+    { id: "connectors", key: "settings.connectors" },
+    { id: "github", key: "GitHub" },
+    { id: "vps", key: "settings.vps" },
+    { id: "infra", key: "settings.infra" },
+    { id: "data", key: "settings.data" },
   ];
 
   return (
@@ -72,31 +76,34 @@ export function SettingsView() {
           "letter-spacing": "0.05em",
           color: "var(--text-muted)",
         }}>
-          Parametres
+          {t("settings.title")}
         </div>
-        {tabs.map((t) => (
+        {tabs.map((tabDef) => (
           <button
-            onClick={() => setTab(t.id)}
+            onClick={() => setTab(tabDef.id)}
             style={{
               display: "block",
               width: "100%",
               padding: "8px 16px",
               border: "none",
-              background: tab() === t.id ? "var(--bg-elevated)" : "transparent",
-              color: tab() === t.id ? "var(--text-primary)" : "var(--text-muted)",
+              background: tab() === tabDef.id ? "var(--bg-elevated)" : "transparent",
+              color: tab() === tabDef.id ? "var(--text-primary)" : "var(--text-muted)",
               "font-size": "13px",
               "text-align": "left",
               cursor: "pointer",
-              "font-weight": tab() === t.id ? "500" : "400",
+              "font-weight": tab() === tabDef.id ? "500" : "400",
             }}
           >
-            {t.label}
+            {t(tabDef.key)}
           </button>
         ))}
       </div>
 
       {/* Content */}
       <div style={{ flex: "1", "overflow-y": "auto" }}>
+        <Show when={tab() === "locale"}>
+          <LocaleSettings />
+        </Show>
         <Show when={tab() === "theme"}>
           <ThemeSettings />
         </Show>

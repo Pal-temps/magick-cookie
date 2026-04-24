@@ -1,6 +1,7 @@
 import { createSignal, For, Show } from "solid-js";
 import type { EmailAccount } from "../../../domain/models/Email";
 import type { SendEmailDTO } from "../../../domain/models/Email";
+import { useT } from "../../../i18n/context";
 import { Button } from "../common/Button";
 
 interface ComposeEmailProps {
@@ -11,6 +12,7 @@ interface ComposeEmailProps {
 }
 
 export function ComposeEmail(props: ComposeEmailProps) {
+  const { t } = useT();
   const pf = props.prefill;
   const [selectedAccountId, setSelectedAccountId] = createSignal(pf?.accountId ?? props.accounts[0]?.id ?? "");
   const [to, setTo] = createSignal(pf?.to?.join(", ") ?? "");
@@ -30,11 +32,11 @@ export function ComposeEmail(props: ComposeEmailProps) {
   async function handleSend() {
     const toAddrs = parseAddresses(to());
     if (toAddrs.length === 0) {
-      setError("Au moins un destinataire requis");
+      setError(t("email.recipientRequired"));
       return;
     }
     if (!body()) {
-      setError("Le message ne peut pas etre vide");
+      setError(t("email.emptyBodyError"));
       return;
     }
 
@@ -51,7 +53,7 @@ export function ComposeEmail(props: ComposeEmailProps) {
       await props.onSend(input);
       props.onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Erreur lors de l'envoi");
+      setError(err instanceof Error ? err.message : t("email.sendError"));
     } finally {
       setIsSending(false);
     }
@@ -79,15 +81,15 @@ export function ComposeEmail(props: ComposeEmailProps) {
     <div style={{ padding: "20px", height: "100%", display: "flex", "flex-direction": "column" }}>
       <div style={{ display: "flex", "justify-content": "space-between", "align-items": "center", "margin-bottom": "16px" }}>
         <h2 style={{ "font-size": "16px", "font-weight": "600", color: "var(--text-primary)", margin: "0" }}>
-          Nouveau message
+          {t("email.newMessage")}
         </h2>
-        <Button size="sm" variant="ghost" onClick={props.onClose}>Fermer</Button>
+        <Button size="sm" variant="ghost" onClick={props.onClose}>{t("common.close")}</Button>
       </div>
 
       <div style={{ display: "flex", "flex-direction": "column", gap: "10px", flex: "1", "min-height": "0" }}>
         {/* Account selector */}
         <div>
-          <span style={labelStyle}>De</span>
+          <span style={labelStyle}>{t("email.from")}</span>
           <select
             style={{ ...inputStyle, cursor: "pointer" }}
             value={selectedAccountId()}
@@ -104,12 +106,12 @@ export function ComposeEmail(props: ComposeEmailProps) {
         {/* To */}
         <div>
           <div style={{ display: "flex", "align-items": "center", gap: "8px" }}>
-            <span style={labelStyle}>A</span>
+            <span style={labelStyle}>{t("email.to")}</span>
             <Show when={!showCc()}>
               <span
                 style={{ "font-size": "11px", color: "var(--accent)", cursor: "pointer" }}
                 onClick={() => setShowCc(true)}
-              >Cc</span>
+              >{t("email.cc")}</span>
             </Show>
           </div>
           <input
@@ -123,7 +125,7 @@ export function ComposeEmail(props: ComposeEmailProps) {
         {/* Cc */}
         <Show when={showCc()}>
           <div>
-            <span style={labelStyle}>Cc</span>
+            <span style={labelStyle}>{t("email.cc")}</span>
             <input
               style={inputStyle}
               value={cc()}
@@ -135,12 +137,12 @@ export function ComposeEmail(props: ComposeEmailProps) {
 
         {/* Subject */}
         <div>
-          <span style={labelStyle}>Sujet</span>
+          <span style={labelStyle}>{t("email.subject")}</span>
           <input
             style={inputStyle}
             value={subject()}
             onInput={(e) => setSubject(e.target.value)}
-            placeholder="Sujet du message"
+            placeholder={t("email.subjectPlaceholder")}
           />
         </div>
 
@@ -157,7 +159,7 @@ export function ComposeEmail(props: ComposeEmailProps) {
             }}
             value={body()}
             onInput={(e) => setBody(e.target.value)}
-            placeholder="Votre message..."
+            placeholder={t("email.messagePlaceholder")}
           />
         </div>
 
@@ -177,17 +179,17 @@ export function ComposeEmail(props: ComposeEmailProps) {
         {/* Actions */}
         <div style={{ display: "flex", "justify-content": "space-between", "align-items": "center" }}>
           <div style={{ "font-size": "11px", color: "var(--text-muted)" }}>
-            Envoi via {selectedAccount()?.smtpHost}:{selectedAccount()?.smtpPort}
+            {t("email.sendVia")} {selectedAccount()?.smtpHost}:{selectedAccount()?.smtpPort}
           </div>
           <div style={{ display: "flex", gap: "8px" }}>
-            <Button size="sm" variant="ghost" onClick={props.onClose}>Annuler</Button>
+            <Button size="sm" variant="ghost" onClick={props.onClose}>{t("common.cancel")}</Button>
             <Button
               size="sm"
               variant="primary"
               onClick={handleSend}
               disabled={isSending() || !to() || !body()}
             >
-              {isSending() ? "Envoi..." : "Envoyer"}
+              {isSending() ? t("email.sending") : t("email.sendBtn")}
             </Button>
           </div>
         </div>

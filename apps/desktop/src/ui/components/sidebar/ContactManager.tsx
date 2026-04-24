@@ -1,8 +1,14 @@
-import { createSignal, For, Show } from "solid-js";
+import { createSignal, onMount, For, Show } from "solid-js";
 import { useCalendarStore } from "../../../application/stores/calendarStore";
+import { useT } from "../../../i18n/context";
 
 export function ContactManager() {
-  const { contacts, createContact, deleteContact } = useCalendarStore();
+  const { contacts, fetchContacts, createContact, deleteContact } = useCalendarStore();
+
+  onMount(() => {
+    if (contacts().length === 0) fetchContacts();
+  });
+  const { t, locale } = useT();
 
   const [isAdding, setIsAdding] = createSignal(false);
   const [newName, setNewName] = createSignal("");
@@ -28,7 +34,7 @@ export function ContactManager() {
 
   function formatDate(dateStr: string) {
     const d = new Date(dateStr);
-    return d.toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
+    return d.toLocaleDateString(locale() === "fr" ? "fr-FR" : "en-US", { day: "numeric", month: "short" });
   }
 
   function secondaryInfo(c: { birthDate: string | null; phone: string | null; email: string | null }) {
@@ -56,7 +62,7 @@ export function ContactManager() {
             const parts = [c.name];
             if (c.phone) parts.push(c.phone);
             if (c.email) parts.push(c.email);
-            if (c.birthDate) parts.push(`anniversaire: ${new Date(c.birthDate).toLocaleDateString("fr-FR")}`);
+            if (c.birthDate) parts.push(`${t("rss.birthday")}: ${new Date(c.birthDate).toLocaleDateString(locale() === "fr" ? "fr-FR" : "en-US")}`);
             const md = `**${c.name}**` + (parts.length > 1 ? ` — ${parts.slice(1).join(", ")}` : "");
             e.dataTransfer!.setData("application/x-magick-cookie", JSON.stringify({ type: "contact", markdown: md }));
             e.dataTransfer!.setData("text/plain", md);
@@ -108,7 +114,7 @@ export function ContactManager() {
 
       <Show when={contacts().length === 0 && !isAdding()}>
         <div style={{ "font-size": "11px", color: "var(--text-muted)", padding: "4px 0" }}>
-          Aucun contact
+          {t("rss.noContact")}
         </div>
       </Show>
 
@@ -122,14 +128,14 @@ export function ContactManager() {
           "margin-top": "2px",
         }}
       >
-        {isAdding() ? "Annuler" : "+ Ajouter"}
+        {isAdding() ? t("common.cancel") : t("rss.addContact")}
       </button>
 
       <Show when={isAdding()}>
         <form onSubmit={handleAdd} style={{ display: "flex", "flex-direction": "column", gap: "4px", "margin-top": "4px" }}>
           <input
             style={inputStyle}
-            placeholder="Nom"
+            placeholder={t("rss.contactName")}
             value={newName()}
             onInput={(e) => setNewName(e.currentTarget.value)}
             required
@@ -137,7 +143,7 @@ export function ContactManager() {
           <input
             type="date"
             style={{ ...inputStyle, "font-size": "11px", padding: "4px 6px" }}
-            placeholder="Date de naissance"
+            placeholder={t("rss.birthDate")}
             value={newDate()}
             onInput={(e) => setNewDate(e.currentTarget.value)}
           />
@@ -145,14 +151,14 @@ export function ContactManager() {
             <input
               type="tel"
               style={{ ...inputStyle, flex: "1", "font-size": "11px", padding: "4px 6px" }}
-              placeholder="Telephone"
+              placeholder={t("rss.phone")}
               value={newPhone()}
               onInput={(e) => setNewPhone(e.currentTarget.value)}
             />
             <input
               type="email"
               style={{ ...inputStyle, flex: "1", "font-size": "11px", padding: "4px 6px" }}
-              placeholder="Email"
+              placeholder={t("rss.email")}
               value={newEmail()}
               onInput={(e) => setNewEmail(e.currentTarget.value)}
             />

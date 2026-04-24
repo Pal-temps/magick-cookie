@@ -2,13 +2,24 @@ import { createSignal } from "solid-js";
 import type { Task, TaskSource, TaskDetailData, SyncResult } from "../../domain/models/Task";
 import { api } from "../../infrastructure/api/apiClient";
 
+/** Response shape for paginated task endpoints */
+interface PaginatedResponse<T> { data: T[]; total: number }
+
+const PAGE_SIZE = 50;
+
 const [tasks, setTasks] = createSignal<Task[]>([]);
+const [totalTasks, setTotalTasks] = createSignal(0);
+const [hasMoreTasks, setHasMoreTasks] = createSignal(false);
+const [isLoadingMore, setIsLoadingMore] = createSignal(false);
 const [selectedTask, setSelectedTask] = createSignal<Task | null>(null);
 const [taskDetail, setTaskDetail] = createSignal<TaskDetailData | null>(null);
 const [isLoadingTaskDetail, setIsLoadingTaskDetail] = createSignal(false);
 const [isSyncing, setIsSyncing] = createSignal(false);
 const [sourceFilter, setSourceFilter] = createSignal<TaskSource | "all">("all");
 const [configuredConnectors, setConfiguredConnectors] = createSignal<Set<string>>(new Set());
+
+/** Track which fetch mode was last used so loadMore appends to the right endpoint */
+let lastFetchMode: "all" | "unscheduled" = "all";
 
 export interface ConnectorConfigSummary {
   type: string;
@@ -17,19 +28,75 @@ export interface ConnectorConfigSummary {
 
 export function useTaskStore() {
   async function fetchTasks() {
+    lastFetchMode = "all";
     const src = sourceFilter();
-    const url = src === "all" ? "/tasks" : `/tasks?source=${src}`;
-    const data = await api.get<Task[]>(url);
-    setTasks(data);
+    const params = new URLSearchParams();
+    if (src !== "all") params.set("source", src);
+    params.set("limit", String(PAGE_SIZE));
+    params.set("offset", "0");
+    const qs = params.toString();
+
+    const raw = await api.getRaw<PaginatedResponse<Task>>(`/tasks?${qs}`);
+    // Backward compatibility: if API returns old format without total
+    const data = raw?.data ?? (raw as unknown as Task[]);
+    const total = raw?.total ?? (Array.isArray(raw) ? (raw as unknown as Task[]).length : 0);
+
+    setTasks(Array.isArray(data) ? data : []);
+    setTotalTasks(total);
+    setHasMoreTasks(Array.isArray(data) && data.length >= PAGE_SIZE && data.length < total);
   }
 
   async function fetchUnscheduledTasks() {
+    lastFetchMode = "unscheduled";
     const src = sourceFilter();
-    const url = src === "all"
-      ? "/tasks/unscheduled"
-      : `/tasks?source=${src}`;
-    const data = await api.get<Task[]>(url);
-    setTasks(data);
+    const params = new URLSearchParams();
+    if (src !== "all") params.set("source", src);
+    params.set("limit", String(PAGE_SIZE));
+    params.set("offset", "0");
+
+    const endpoint = src === "all" ? "/tasks/unscheduled" : "/tasks";
+    const qs = params.toString();
+
+    const raw = await api.getRaw<PaginatedResponse<Task>>(`${endpoint}?${qs}`);
+    const data = raw?.data ?? (raw as unknown as Task[]);
+    const total = raw?.total ?? (Array.isArray(raw) ? (raw as unknown as Task[]).length : 0);
+
+    setTasks(Array.isArray(data) ? data : []);
+    setTotalTasks(total);
+    setHasMoreTasks(Array.isArray(data) && data.length >= PAGE_SIZE && data.length < total);
+  }
+
+  async function loadMoreTasks() {
+    if (isLoadingMore() || !hasMoreTasks()) return;
+    setIsLoadingMore(true);
+    try {
+      const src = sourceFilter();
+      const offset = tasks().length;
+      const params = new URLSearchParams();
+      if (src !== "all") params.set("source", src);
+      params.set("limit", String(PAGE_SIZE));
+      params.set("offset", String(offset));
+
+      const endpoint = lastFetchMode === "unscheduled" && src === "all"
+        ? "/tasks/unscheduled"
+        : "/tasks";
+      const qs = params.toString();
+
+      const raw = await api.getRaw<PaginatedResponse<Task>>(`${endpoint}?${qs}`);
+      const data = raw?.data ?? (raw as unknown as Task[]);
+      const total = raw?.total ?? totalTasks();
+
+      if (Array.isArray(data) && data.length > 0) {
+        setTasks((prev) => [...prev, ...data]);
+      }
+      setTotalTasks(total);
+      const newLen = tasks().length;
+      setHasMoreTasks(Array.isArray(data) && data.length >= PAGE_SIZE && newLen < total);
+    } catch (err) {
+      console.error("[tasks] Failed to load more tasks:", err);
+    } finally {
+      setIsLoadingMore(false);
+    }
   }
 
   async function fetchConnectorConfigs() {
@@ -85,6 +152,20 @@ export function useTaskStore() {
     }
   }
 
+  async function updateTask(id: string, fields: Partial<Pick<Task, "title" | "startDate" | "dueDate" | "status" | "priority">>) {
+    const prev = tasks();
+    setTasks((t) => t.map((task) => task.id === id ? { ...task, ...fields, updatedAt: new Date().toISOString() } : task));
+    try {
+      const updated = await api.patch<Task>(`/tasks/${id}`, fields);
+      if (updated) {
+        setTasks((t) => t.map((task) => task.id === id ? updated : task));
+      }
+    } catch (err) {
+      console.error("[tasks] Failed to update task:", err);
+      setTasks(prev);
+    }
+  }
+
   function closeTaskDetail() {
     setSelectedTask(null);
     setTaskDetail(null);
@@ -96,11 +177,12 @@ export function useTaskStore() {
   }
 
   return {
-    tasks, selectedTask, taskDetail, isLoadingTaskDetail, isSyncing,
+    tasks, totalTasks, hasMoreTasks, isLoadingMore,
+    selectedTask, taskDetail, isLoadingTaskDetail, isSyncing,
     sourceFilter, setSourceFilter,
     configuredConnectors,
     setSelectedTask,
-    fetchTasks, fetchUnscheduledTasks, fetchConnectorConfigs, syncConnector,
-    createTask, openTaskDetail, closeTaskDetail, isConnectorConfigured,
+    fetchTasks, fetchUnscheduledTasks, loadMoreTasks, fetchConnectorConfigs, syncConnector,
+    createTask, updateTask, openTaskDetail, closeTaskDetail, isConnectorConfigured,
   };
 }

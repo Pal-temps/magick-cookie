@@ -1,4 +1,5 @@
 import { createSignal, For, Show, onMount } from "solid-js";
+import { useT } from "../../../i18n/context";
 import { Button } from "../common/Button";
 import {
   type BriefTemplate,
@@ -12,6 +13,7 @@ import {
 } from "../../../application/brief/briefTemplates";
 
 export function BriefSettings() {
+  const { t } = useT();
   const [allTemplates, setAllTemplates] = createSignal<BriefTemplate[]>([]);
   const [activeId, setActiveId] = createSignal("standup-fr");
   const [editingTemplate, setEditingTemplate] = createSignal<BriefTemplate | null>(null);
@@ -87,14 +89,14 @@ export function BriefSettings() {
         "font-weight": "600",
         color: "var(--text-primary)",
       }}>
-        Templates de brief
+        {t("settings.briefTemplates")}
       </h3>
       <p style={{
         margin: "0 0 20px",
         "font-size": "12px",
         color: "var(--text-muted)",
       }}>
-        Choisissez un template pour personnaliser le format de votre brief quotidien.
+        {t("settings.briefTemplatesDesc")}
       </p>
 
       {/* Template list */}
@@ -149,7 +151,7 @@ export function BriefSettings() {
                       color: "var(--text-muted)",
                       "font-weight": "400",
                     }}>
-                      preset
+                      {t("settings.preset")}
                     </span>
                   </Show>
                 </div>
@@ -172,7 +174,7 @@ export function BriefSettings() {
                   size="sm"
                   onClick={() => handleEdit(template)}
                 >
-                  {template.builtin ? "Voir" : "Editer"}
+                  {template.builtin ? t("settings.view") : t("common.edit")}
                 </Button>
                 <Show when={!template.builtin}>
                   <Button
@@ -180,7 +182,7 @@ export function BriefSettings() {
                     size="sm"
                     onClick={() => handleDelete(template.id)}
                   >
-                    Suppr.
+                    {t("common.delete")}
                   </Button>
                 </Show>
               </div>
@@ -192,7 +194,7 @@ export function BriefSettings() {
       {/* Add custom button */}
       <Show when={!creating() && !editingTemplate()}>
         <Button variant="secondary" size="sm" onClick={handleStartCreate}>
-          + Nouveau template
+          {t("settings.newTemplate")}
         </Button>
       </Show>
 
@@ -213,14 +215,14 @@ export function BriefSettings() {
               color: "var(--text-secondary)",
               "margin-bottom": "4px",
             }}>
-              Nom
+              {t("settings.name")}
             </label>
             <input
               type="text"
               value={editName()}
               onInput={(e) => setEditName(e.currentTarget.value)}
               disabled={!!editingTemplate()?.builtin}
-              placeholder="Mon template"
+              placeholder={t("settings.myTemplate")}
               style={{
                 width: "100%",
                 padding: "6px 10px",
@@ -243,7 +245,7 @@ export function BriefSettings() {
               color: "var(--text-secondary)",
               "margin-bottom": "4px",
             }}>
-              Prompt systeme
+              {t("settings.systemPrompt")}
             </label>
             <textarea
               value={editPrompt()}
@@ -270,11 +272,11 @@ export function BriefSettings() {
 
           <div style={{ display: "flex", gap: "8px", "justify-content": "flex-end" }}>
             <Button variant="ghost" size="sm" onClick={handleCancel}>
-              Annuler
+              {t("common.cancel")}
             </Button>
             <Show when={!editingTemplate()?.builtin}>
               <Button variant="secondary" size="sm" onClick={handleSave}>
-                {creating() ? "Creer" : "Enregistrer"}
+                {creating() ? t("common.create") : t("common.save")}
               </Button>
             </Show>
           </div>
@@ -287,7 +289,7 @@ export function BriefSettings() {
           "font-size": "12px",
           color: "var(--accent-color)",
         }}>
-          Template enregistre.
+          {t("settings.templateSaved")}
         </div>
       </Show>
     </div>

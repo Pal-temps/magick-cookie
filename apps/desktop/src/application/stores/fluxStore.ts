@@ -91,6 +91,30 @@ export function articleToFluxable(article: RssArticle, feedLabel?: string): Flux
   };
 }
 
+// ─── Kanban / Counts types (mirrors API) ───
+
+export interface FluxKanbanItem {
+  entityType: FluxEntityType;
+  entityId: string;
+  fluxStatus: FluxStatus | "undecided";
+  title: string;
+  source: string;
+  preview: string | null;
+  date: string | null;
+}
+
+export interface FluxKanbanColumn {
+  status: FluxStatus | "undecided";
+  items: FluxKanbanItem[];
+  total: number;
+}
+
+export interface FluxCountsResult {
+  [entityType: string]: {
+    [status: string]: number;
+  };
+}
+
 // ─── State ───
 
 const [fluxMap, setFluxMap] = createSignal<Map<string, FluxStatus>>(new Map());
@@ -103,17 +127,120 @@ const [activeEntityType, setActiveEntityType] = createSignal<FluxEntityType | "a
 const [suggestions, setSuggestions] = createSignal<FluxSuggestion[]>([]);
 const [suggestLoading, setSuggestLoading] = createSignal(false);
 
+/** Kanban columns from GET /flux/kanban — paginated per column */
+const [kanbanColumns, setKanbanColumns] = createSignal<Record<string, FluxKanbanColumn>>({});
+const [isKanbanLoading, setIsKanbanLoading] = createSignal(false);
+
+/** Lightweight counts from GET /flux/counts — for sidebar badges */
+const [fluxCounts, setFluxCounts] = createSignal<FluxCountsResult | null>(null);
+
+const KANBAN_PAGE_SIZE = 50;
+
 // ─── Store ───
 
 export function useFluxStore() {
   async function fetchFlux(entityType?: FluxEntityType) {
     const qs = entityType ? `?type=${entityType}` : "";
     const data = await api.get<FluxItem[]>(`/flux${qs}`);
+    // Backward compat: data might be an array (old API) or undefined
+    const items = Array.isArray(data) ? data : [];
     const map = new Map<string, FluxStatus>();
-    for (const item of data) {
+    for (const item of items) {
       map.set(fluxKey(item.entityType, item.entityId), item.fluxStatus);
     }
     setFluxMap(map);
+  }
+
+  /** Fetch kanban columns from GET /flux/kanban — paginated, enriched by the API */
+  async function fetchKanban(limit: number = KANBAN_PAGE_SIZE) {
+    setIsKanbanLoading(true);
+    try {
+      const columns = await api.get<FluxKanbanColumn[]>(`/flux/kanban?limit=${limit}`);
+      if (!Array.isArray(columns)) return;
+      const record: Record<string, FluxKanbanColumn> = {};
+      for (const col of columns) {
+        record[col.status] = col;
+      }
+      setKanbanColumns(record);
+
+      // Also populate fluxMap from kanban data so swipe/move still works
+      const map = new Map(fluxMap());
+      for (const col of columns) {
+        if (col.status === "undecided") continue;
+        for (const item of col.items) {
+          map.set(fluxKey(item.entityType, item.entityId), item.fluxStatus as FluxStatus);
+        }
+      }
+      setFluxMap(map);
+    } finally {
+      setIsKanbanLoading(false);
+    }
+  }
+
+  /** Fetch lightweight counts for sidebar badges: GET /flux/counts */
+  async function fetchCounts() {
+    try {
+      const data = await api.get<FluxCountsResult>("/flux/counts");
+      if (data && typeof data === "object") {
+        setFluxCounts(data);
+      }
+    } catch (e) {
+      console.error("[flux] Failed to fetch counts:", e);
+    }
+  }
+
+  /** Load more items for a single kanban column: GET /flux?status=X&limit=50&offset=N */
+  async function loadMoreColumn(status: FluxStatus | "undecided", offset: number) {
+    try {
+      if (status === "undecided") {
+        // Undecided items are not in flux table — fetched differently
+        // For now, re-fetch kanban with higher limit (will be improved in step 5)
+        return;
+      }
+      const raw = await api.getRaw<{ data: FluxItem[]; total: number }>(
+        `/flux?status=${status}&limit=${KANBAN_PAGE_SIZE}&offset=${offset}`
+      );
+      const items = raw?.data ?? [];
+      const total = raw?.total ?? 0;
+
+      if (items.length === 0) return;
+
+      // We need to enrich these FluxItems to FluxKanbanItems.
+      // For now, convert with minimal metadata (title will show entityId).
+      // The kanban view should ideally call an enrichment endpoint or
+      // the API should return enriched items. As a pragmatic step,
+      // append raw flux items with entity info as-is.
+      setKanbanColumns((prev) => {
+        const col = prev[status];
+        if (!col) return prev;
+        const newItems: FluxKanbanItem[] = items.map((fi) => ({
+          entityType: fi.entityType,
+          entityId: fi.entityId,
+          fluxStatus: fi.fluxStatus,
+          title: fi.entityId, // placeholder — will be enriched by kanban view
+          source: fi.entityType,
+          preview: null,
+          date: fi.decidedAt,
+        }));
+        return {
+          ...prev,
+          [status]: {
+            ...col,
+            items: [...col.items, ...newItems],
+            total,
+          },
+        };
+      });
+
+      // Update fluxMap
+      const map = new Map(fluxMap());
+      for (const fi of items) {
+        map.set(fluxKey(fi.entityType, fi.entityId), fi.fluxStatus);
+      }
+      setFluxMap(map);
+    } catch (e) {
+      console.error(`[flux] Failed to load more for column ${status}:`, e);
+    }
   }
 
   function startFlux(items: FluxableItem[]) {
@@ -249,9 +376,12 @@ export function useFluxStore() {
     fluxMap, pendingDecisions, fluxQueue, currentIndex,
     isFluxing, isSaving, activeEntityType, setActiveEntityType,
     suggestions, suggestLoading,
+    kanbanColumns, isKanbanLoading,
+    fluxCounts,
 
     // Actions
-    fetchFlux, startFlux, currentItem, remainingCount,
+    fetchFlux, fetchKanban, fetchCounts, loadMoreColumn,
+    startFlux, currentItem, remainingCount,
     swipe, undoLast, saveFlux, stopFlux, finishFlux,
     getItemStatus, getItemsByStatus, getUndecidedItems,
     moveItem, undecideItem,

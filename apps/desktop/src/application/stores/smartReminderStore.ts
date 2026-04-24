@@ -46,13 +46,19 @@ export function useSmartReminderStore() {
     }
   }
 
+  let initialTimeoutId: ReturnType<typeof setTimeout> | null = null;
+
   function startSmartReminders() {
     // Initial check after a short delay
-    setTimeout(checkAlerts, 10_000);
+    initialTimeoutId = setTimeout(checkAlerts, 10_000);
     pollIntervalId = setInterval(checkAlerts, POLL_INTERVAL_MS);
   }
 
   function stopSmartReminders() {
+    if (initialTimeoutId !== null) {
+      clearTimeout(initialTimeoutId);
+      initialTimeoutId = null;
+    }
     if (pollIntervalId !== null) {
       clearInterval(pollIntervalId);
       pollIntervalId = null;

@@ -2,6 +2,7 @@ import { onMount, onCleanup, createEffect, createSignal, Show, For } from "solid
 import { useVpsStore } from "../../../application/stores/vpsStore";
 import { Button } from "../common/Button";
 import { CookieLoader } from "../common/CookieLoader";
+import { useT } from "../../../i18n/context";
 
 const LEVEL_COLORS: Record<string, string> = {
   ERROR: "#d63031",
@@ -41,9 +42,27 @@ function formatTimestamp(ts: string): string {
 }
 
 export function VpsView() {
+  const { t } = useT();
   const store = useVpsStore();
   const [alertsOpen, setAlertsOpen] = createSignal(true);
   const [loading, setLoading] = createSignal(true);
+  const [showSseDialog, setShowSseDialog] = createSignal(false);
+  const [sseName, setSseName] = createSignal("");
+  const [sseUrl, setSseUrl] = createSignal("");
+  const [sseEventsInput, setSseEventsInput] = createSignal("");
+
+  function handleAddSseFlux() {
+    const name = sseName().trim();
+    const url = sseUrl().trim();
+    if (!name || !url) return;
+    const events = sseEventsInput().split(",").map((e) => e.trim()).filter(Boolean);
+    const flux = store.addSseFlux(name, url, events);
+    store.connectSseFlux(flux.id);
+    setShowSseDialog(false);
+    setSseName("");
+    setSseUrl("");
+    setSseEventsInput("");
+  }
 
   let logEndRef: HTMLDivElement | undefined;
 
@@ -91,7 +110,7 @@ export function VpsView() {
       }}>
         <div style={{ display: "flex", "align-items": "center", gap: "10px" }}>
           <span style={{ "font-size": "14px", "font-weight": "600", color: "var(--text-primary)" }}>
-            VPS Monitoring
+            {t("vps.monitoring")}
           </span>
           <div style={{ display: "flex", "align-items": "center", gap: "6px" }}>
             <span style={{
@@ -102,7 +121,7 @@ export function VpsView() {
               background: store.isConnected() ? "#00b894" : "#d63031",
             }} />
             <span style={{ "font-size": "11px", color: "var(--text-muted)" }}>
-              {store.isConnected() ? "Connecté" : "Déconnecté"}
+              {store.isConnected() ? t("vps.connected") : t("vps.disconnected")}
             </span>
           </div>
         </div>
@@ -119,11 +138,11 @@ export function VpsView() {
                 cursor: "pointer",
               }}
             >
-              {store.alertCount()} alerte{store.alertCount() > 1 ? "s" : ""}
+              {store.alertCount()} {store.alertCount() > 1 ? t("vps.alerts") : t("vps.alert")}
             </span>
           </Show>
           <Button size="sm" variant="secondary" onClick={store.flushLogs}>
-            Flush
+            {t("vps.flush")}
           </Button>
         </div>
       </div>
@@ -131,7 +150,7 @@ export function VpsView() {
       {/* Main content */}
       <Show when={!loading()} fallback={
         <div style={{ flex: "1", display: "flex", "align-items": "center", "justify-content": "center" }}>
-          <CookieLoader size={48} message="Chargement VPS..." />
+          <CookieLoader size={48} message={t("vps.loadingVps")} />
         </div>
       }>
         <div style={{ flex: "1", display: "flex", overflow: "hidden" }}>
@@ -153,12 +172,12 @@ export function VpsView() {
                 "text-transform": "uppercase",
                 "letter-spacing": "0.5px",
               }}>
-                Services
+                {t("vps.services")}
               </span>
             </div>
             <Show when={store.health()?.services} fallback={
               <div style={{ padding: "4px 12px", "font-size": "11px", color: "var(--text-muted)" }}>
-                Aucun service
+                {t("vps.noService")}
               </div>
             }>
               <For each={store.health()!.services}>
@@ -201,7 +220,7 @@ export function VpsView() {
                 "text-transform": "uppercase",
                 "letter-spacing": "0.5px",
               }}>
-                Fichiers
+                {t("vps.files")}
               </span>
             </div>
             <For each={store.logFiles()}>
@@ -231,6 +250,52 @@ export function VpsView() {
                 </button>
               )}
             </For>
+            {/* SSE Flux section */}
+            <div style={{ padding: "14px 12px 6px", display: "flex", "align-items": "center", "justify-content": "space-between" }}>
+              <span style={{
+                "font-size": "11px",
+                "font-weight": "600",
+                color: "var(--text-muted)",
+                "text-transform": "uppercase",
+                "letter-spacing": "0.5px",
+              }}>
+                Flux SSE
+              </span>
+              <button
+                onClick={() => setShowSseDialog(true)}
+                style={{
+                  background: "none", border: "1px solid var(--border-color)", color: "var(--text-muted)",
+                  "border-radius": "var(--radius-sm)", cursor: "pointer", "font-size": "12px",
+                  width: "20px", height: "20px", display: "flex", "align-items": "center", "justify-content": "center",
+                }}
+                title="Ajouter un flux SSE"
+              >+</button>
+            </div>
+            <For each={store.sseFluxList()}>
+              {(flux) => (
+                <div style={{
+                  display: "flex", "align-items": "center", gap: "6px", padding: "4px 12px",
+                  background: store.activeSseFluxId() === flux.id ? "var(--bg-elevated)" : "transparent",
+                  cursor: "pointer",
+                }} onClick={() => store.connectSseFlux(flux.id)}>
+                  <span style={{
+                    display: "inline-block", width: "6px", height: "6px", "border-radius": "50%",
+                    background: store.activeSseFluxId() === flux.id && store.sseConnected() ? "#00b894" : "var(--text-muted)",
+                    "flex-shrink": "0",
+                  }} />
+                  <span style={{
+                    "font-size": "12px", color: store.activeSseFluxId() === flux.id ? "var(--text-primary)" : "var(--text-muted)",
+                    "font-weight": store.activeSseFluxId() === flux.id ? "500" : "400",
+                    flex: "1", overflow: "hidden", "text-overflow": "ellipsis", "white-space": "nowrap",
+                  }}>{flux.name}</span>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); store.removeSseFlux(flux.id); }}
+                    style={{ background: "none", border: "none", color: "var(--text-muted)", cursor: "pointer", "font-size": "10px", padding: "0 2px", opacity: "0.5" }}
+                    title="Supprimer"
+                  >&times;</button>
+                </div>
+              )}
+            </For>
           </div>
 
           {/* Main area */}
@@ -245,7 +310,7 @@ export function VpsView() {
               "flex-shrink": "0",
             }}>
               <span style={{ "font-size": "12px", color: "var(--text-primary)", "font-weight": "500" }}>
-                Logs ({store.selectedFile()})
+                {t("vps.logs")} ({store.selectedFile()})
               </span>
               <select
                 value={store.levelFilter()}
@@ -278,7 +343,7 @@ export function VpsView() {
             }}>
               <Show when={store.logs().length > 0} fallback={
                 <div style={{ padding: "20px 0", color: "var(--text-muted)", "font-size": "12px", "text-align": "center", "font-family": "inherit" }}>
-                  Aucun log à afficher
+                  {t("vps.noLog")}
                 </div>
               }>
                 <For each={store.logs()}>
@@ -346,13 +411,13 @@ export function VpsView() {
                 }}>
                   &#9654;
                 </span>
-                Alertes ({(store.alerts() ?? []).length})
+                {t("vps.alerts")} ({(store.alerts() ?? []).length})
               </button>
               <Show when={alertsOpen()}>
                 <div style={{ overflow: "auto", padding: "0 12px 8px", flex: "1" }}>
                   <Show when={(store.alerts() ?? []).length > 0} fallback={
                     <div style={{ "font-size": "11px", color: "var(--text-muted)", padding: "4px 0" }}>
-                      Aucune alerte
+                      {t("vps.noAlert")}
                     </div>
                   }>
                     <For each={store.alerts() ?? []}>
@@ -390,6 +455,81 @@ export function VpsView() {
                   </Show>
                 </div>
               </Show>
+            </div>
+          </div>
+        </div>
+      </Show>
+
+      {/* SSE Events overlay when a flux is active */}
+      <Show when={store.activeSseFluxId()}>
+        <div style={{
+          position: "absolute", bottom: "0", right: "0", width: "400px", "max-height": "300px",
+          background: "var(--bg-surface)", border: "1px solid var(--border-color)",
+          "border-radius": "var(--radius-md) 0 0 0", "box-shadow": "0 -4px 16px var(--shadow-color)",
+          display: "flex", "flex-direction": "column", overflow: "hidden", "z-index": "10",
+        }}>
+          <div style={{
+            display: "flex", "align-items": "center", "justify-content": "space-between",
+            padding: "6px 10px", "border-bottom": "1px solid var(--border-color)", "flex-shrink": "0",
+          }}>
+            <div style={{ display: "flex", "align-items": "center", gap: "6px" }}>
+              <span style={{ display: "inline-block", width: "6px", height: "6px", "border-radius": "50%", background: store.sseConnected() ? "#00b894" : "#d63031" }} />
+              <span style={{ "font-size": "12px", "font-weight": "600", color: "var(--text-primary)" }}>
+                {store.sseFluxList().find((f) => f.id === store.activeSseFluxId())?.name ?? "SSE"}
+              </span>
+              <span style={{ "font-size": "10px", color: "var(--text-muted)" }}>({store.sseEvents().length})</span>
+            </div>
+            <button onClick={() => store.disconnectSseFlux()} style={{ background: "none", border: "none", color: "var(--text-muted)", cursor: "pointer", "font-size": "16px" }}>&times;</button>
+          </div>
+          <div style={{
+            flex: "1", overflow: "auto", padding: "4px 8px",
+            "font-family": "'JetBrains Mono', monospace", "font-size": "10px", "line-height": "1.5",
+          }}>
+            <Show when={store.sseEvents().length > 0} fallback={
+              <div style={{ padding: "12px", "text-align": "center", color: "var(--text-muted)", "font-size": "11px" }}>En attente d'events...</div>
+            }>
+              <For each={store.sseEvents()}>
+                {(evt) => (
+                  <div style={{ padding: "2px 0", "border-bottom": "1px solid color-mix(in srgb, var(--border-color) 30%, transparent)" }}>
+                    <span style={{ color: "var(--text-muted)", "margin-right": "6px" }}>{formatTimestamp(evt.timestamp)}</span>
+                    <span style={{ color: "var(--accent-primary)", "font-weight": "600", "margin-right": "6px" }}>{evt.type}</span>
+                    <span style={{ color: "var(--text-secondary)", "word-break": "break-all" }}>{evt.data.slice(0, 200)}</span>
+                  </div>
+                )}
+              </For>
+            </Show>
+          </div>
+        </div>
+      </Show>
+
+      {/* SSE Flux config dialog */}
+      <Show when={showSseDialog()}>
+        <div style={{ position: "fixed", inset: "0", background: "rgba(0,0,0,0.5)", display: "flex", "align-items": "center", "justify-content": "center", "z-index": "1000" }}
+          onClick={() => setShowSseDialog(false)}>
+          <div style={{ background: "var(--bg-surface)", border: "1px solid var(--border-color)", "border-radius": "12px", width: "400px", "max-width": "90vw", "box-shadow": "0 16px 48px rgba(0,0,0,0.4)" }}
+            onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: "flex", "align-items": "center", "justify-content": "space-between", padding: "14px 18px", "border-bottom": "1px solid var(--border-color)", "font-size": "14px", "font-weight": "600", color: "var(--text-primary)" }}>
+              Nouveau flux SSE
+              <button onClick={() => setShowSseDialog(false)} style={{ background: "none", border: "none", color: "var(--text-muted)", "font-size": "18px", cursor: "pointer" }}>&times;</button>
+            </div>
+            <div style={{ padding: "16px 18px", display: "flex", "flex-direction": "column", gap: "12px" }}>
+              <div style={{ display: "flex", "flex-direction": "column", gap: "4px" }}>
+                <label style={{ "font-size": "11px", "font-weight": "600", color: "var(--text-secondary)" }}>Nom</label>
+                <input value={sseName()} onInput={(e) => setSseName(e.currentTarget.value)} placeholder="Mon serveur" style={{ padding: "6px 10px", background: "var(--bg-base)", border: "1px solid var(--border-color)", "border-radius": "6px", color: "var(--text-primary)", "font-size": "12px", outline: "none" }} />
+              </div>
+              <div style={{ display: "flex", "flex-direction": "column", gap: "4px" }}>
+                <label style={{ "font-size": "11px", "font-weight": "600", color: "var(--text-secondary)" }}>URL SSE</label>
+                <input value={sseUrl()} onInput={(e) => setSseUrl(e.currentTarget.value)} placeholder="https://mon-serveur.com/api/sse" style={{ padding: "6px 10px", background: "var(--bg-base)", border: "1px solid var(--border-color)", "border-radius": "6px", color: "var(--text-primary)", "font-size": "12px", outline: "none" }} />
+              </div>
+              <div style={{ display: "flex", "flex-direction": "column", gap: "4px" }}>
+                <label style={{ "font-size": "11px", "font-weight": "600", color: "var(--text-secondary)" }}>Events (optionnel)</label>
+                <input value={sseEventsInput()} onInput={(e) => setSseEventsInput(e.currentTarget.value)} placeholder="log, alert, deploy (virgules)" style={{ padding: "6px 10px", background: "var(--bg-base)", border: "1px solid var(--border-color)", "border-radius": "6px", color: "var(--text-primary)", "font-size": "12px", outline: "none" }} />
+                <span style={{ "font-size": "10px", color: "var(--text-muted)" }}>Noms d'events SSE separes par virgules. Vide = ecoute "message".</span>
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: "8px", padding: "12px 18px", "border-top": "1px solid var(--border-color)" }}>
+              <Button variant="primary" size="sm" onClick={handleAddSseFlux} disabled={!sseName().trim() || !sseUrl().trim()}>Connecter</Button>
+              <Button variant="ghost" size="sm" onClick={() => setShowSseDialog(false)}>Annuler</Button>
             </div>
           </div>
         </div>

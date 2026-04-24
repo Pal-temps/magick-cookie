@@ -6,6 +6,7 @@ import { CodeDrawer } from "./CodeDrawer";
 import { ContextPanel } from "./ContextPanel";
 import type { MonacoEditorApi } from "./MonacoEditor";
 import "../../styles/ide.css";
+import "../../styles/workflow-editor.css";
 
 export function IdeView() {
   const ide = useIdeStore();

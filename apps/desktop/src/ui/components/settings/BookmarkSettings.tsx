@@ -1,9 +1,11 @@
 import { createSignal, For, Show } from "solid-js";
 import { useBookmarkStore, type CreateBookmarkInput } from "../../../application/stores/bookmarkStore";
+import { useT } from "../../../i18n/context";
 import { Button } from "../common/Button";
 
 export function BookmarkSettings() {
   const { bookmarks, createBookmark, updateBookmark, deleteBookmark, toggleFavorite } = useBookmarkStore();
+  const { t } = useT();
   const [editing, setEditing] = createSignal<string | null>(null);
   const [creating, setCreating] = createSignal(false);
   const [name, setName] = createSignal("");
@@ -68,10 +70,10 @@ export function BookmarkSettings() {
   return (
     <div style={{ padding: "24px", "max-width": "700px" }}>
       <h3 style={{ margin: "0 0 4px", "font-size": "16px", "font-weight": "600", color: "var(--text-primary)" }}>
-        Signets
+        {t("settings.bookmarks")}
       </h3>
       <p style={{ margin: "0 0 20px", "font-size": "12px", color: "var(--text-muted)" }}>
-        Gerez vos signets. Les favoris apparaissent dans la sidebar.
+        {t("settings.bookmarksDesc")}
       </p>
 
       {/* List */}
@@ -106,7 +108,7 @@ export function BookmarkSettings() {
               <div style={{ display: "flex", gap: "4px", "flex-shrink": "0" }}>
                 <button
                   onClick={() => toggleFavorite(bookmark.id)}
-                  title={bookmark.isFavorite ? "Retirer des favoris" : "Ajouter aux favoris"}
+                  title={bookmark.isFavorite ? t("settings.removeFavorite") : t("settings.addFavorite")}
                   style={{
                     background: "none",
                     border: "none",
@@ -119,10 +121,10 @@ export function BookmarkSettings() {
                   {bookmark.isFavorite ? "★" : "☆"}
                 </button>
                 <Button variant="ghost" size="sm" onClick={() => startEdit(bookmark.id)}>
-                  Editer
+                  {t("common.edit")}
                 </Button>
                 <Button variant="ghost" size="sm" onClick={() => handleDelete(bookmark.id)}>
-                  Suppr.
+                  {t("common.delete")}
                 </Button>
               </div>
             </div>
@@ -131,7 +133,7 @@ export function BookmarkSettings() {
 
         <Show when={bookmarks().length === 0}>
           <div style={{ "font-size": "12px", color: "var(--text-muted)", padding: "12px 0" }}>
-            Aucun signet. Cliquez sur "+ Nouveau signet" pour commencer.
+            {t("settings.bookmarksEmpty")}
           </div>
         </Show>
       </div>
@@ -139,7 +141,7 @@ export function BookmarkSettings() {
       {/* Add button */}
       <Show when={!creating() && !editing()}>
         <Button variant="secondary" size="sm" onClick={startCreate}>
-          + Nouveau signet
+          {t("settings.newBookmark")}
         </Button>
       </Show>
 
@@ -155,7 +157,7 @@ export function BookmarkSettings() {
           <div style={{ display: "flex", gap: "12px", "margin-bottom": "12px" }}>
             <div style={{ flex: "1" }}>
               <label style={{ display: "block", "font-size": "12px", "font-weight": "500", color: "var(--text-secondary)", "margin-bottom": "4px" }}>
-                Nom
+                {t("settings.name")}
               </label>
               <input
                 type="text"
@@ -167,7 +169,7 @@ export function BookmarkSettings() {
             </div>
             <div style={{ width: "80px" }}>
               <label style={{ display: "block", "font-size": "12px", "font-weight": "500", color: "var(--text-secondary)", "margin-bottom": "4px" }}>
-                Emoji
+                {t("settings.emoji")}
               </label>
               <input
                 type="text"
@@ -193,10 +195,10 @@ export function BookmarkSettings() {
           </div>
           <div style={{ display: "flex", gap: "8px", "justify-content": "flex-end" }}>
             <Button variant="ghost" size="sm" onClick={resetForm}>
-              Annuler
+              {t("common.cancel")}
             </Button>
             <Button variant="secondary" size="sm" onClick={handleSave}>
-              {creating() ? "Creer" : "Enregistrer"}
+              {creating() ? t("common.create") : t("common.save")}
             </Button>
           </div>
         </div>
