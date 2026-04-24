@@ -1,4 +1,4 @@
-import { eq, and, isNull, notInArray, sql, desc, count } from "drizzle-orm";
+import { eq, and, isNull, inArray, notInArray, sql, desc, count } from "drizzle-orm";
 import type { Database } from "../database/client";
 import { tasks } from "../database/schema";
 import type { TaskRepository } from "../../domain/task/task.repository";
@@ -22,6 +22,12 @@ export class DrizzleTaskRepository implements TaskRepository {
   async findById(id: string): Promise<Task | null> {
     const rows = await this.db.select().from(tasks).where(eq(tasks.id, id));
     return rows[0] ? this.toDomain(rows[0]) : null;
+  }
+
+  async findByIds(ids: string[]): Promise<Task[]> {
+    if (ids.length === 0) return [];
+    const rows = await this.db.select().from(tasks).where(inArray(tasks.id, ids));
+    return rows.map(this.toDomain);
   }
 
   async findByExternalId(externalId: string, source: TaskSource): Promise<Task | null> {

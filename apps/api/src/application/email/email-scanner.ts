@@ -29,15 +29,31 @@ const DANGEROUS_EXTENSIONS = new Set([
 
 const MACRO_EXTENSIONS = new Set(["docm", "xlsm", "pptm"]);
 
+// Real brand names whose legitimate emails should come from the brand's own domain. If one of
+// these appears in the sender's display name but the `From:` domain doesn't match, we treat that
+// as a spoofing signal. Generic urgency words ("urgent", "security", "verify") were moved out
+// because they produced too many false positives — a real PayPal security notice legitimately
+// contains the word "security".
 const BRAND_KEYWORDS = [
   "paypal", "amazon", "google", "microsoft", "apple", "netflix",
-  "bank", "banque", "security", "securite", "urgent", "account suspended",
-  "compte suspendu", "verify", "confirm identity",
+  "facebook", "instagram", "linkedin", "twitter", "ebay", "stripe",
+  "dhl", "fedex", "ups", "la poste", "chronopost",
 ];
 
+// Must match a phrase, not a single word — "urgent" alone appears in millions of legitimate
+// emails (calendar invites, meeting notes, RH communications). We only flag when urgency is
+// combined with an action requested of the reader, which is the phishing pattern.
 const URGENCY_PATTERNS = [
-  /urgent/i, /imm[ée]diat/i, /action requise/i, /compte.*suspendu/i,
-  /verify/i, /confirm.*now/i, /act.*immediately/i,
+  /action requise/i,
+  /action required/i,
+  /compte (a ete )?suspendu/i,
+  /account (has been )?suspended/i,
+  /verify your (account|identity|password)/i,
+  /confirm your (account|identity|password)/i,
+  /click (here|below) (to|now)/i,
+  /act (now|immediately|fast)/i,
+  /within 24 hours/i,
+  /last (warning|notice|chance)/i,
 ];
 
 const SHORT_URL_DOMAINS = new Set([
@@ -87,13 +103,23 @@ function checkAttachments(names: string[], warnings: string[]): number {
   return score;
 }
 
+// A brand legitimately owns a domain when one of its labels equals the brand exactly —
+// `paypal.com`, `mail.paypal.com`, `paypal.co.uk` match; `paypal-reset.com`,
+// `paypal.attacker.com`, `notpaypal.com` do not (substring matches would let the attacker
+// smuggle the brand name into their own domain).
+function domainOwnedByBrand(domain: string, brand: string): boolean {
+  const brandToken = brand.replace(/\s/g, "");
+  const labels = domain.split(".");
+  return labels.slice(0, -1).some((label) => label === brandToken);
+}
+
 function checkSender(fromAddress: string, fromName: string, warnings: string[]): number {
   let score = 0;
   const nameLower = fromName.toLowerCase();
   const domain = fromAddress.split("@")[1]?.toLowerCase() ?? "";
 
   for (const brand of BRAND_KEYWORDS) {
-    if (nameLower.includes(brand) && !domain.includes(brand.replace(/\s/g, ""))) {
+    if (nameLower.includes(brand) && !domainOwnedByBrand(domain, brand)) {
       warnings.push(`Usurpation possible : le nom "${fromName}" ne correspond pas au domaine ${domain}`);
       score += 3;
       break;

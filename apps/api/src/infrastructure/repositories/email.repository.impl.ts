@@ -1,4 +1,4 @@
-import { eq, and, desc, gte, lte, sql } from "drizzle-orm";
+import { eq, and, desc, gte, lte, inArray, sql } from "drizzle-orm";
 import type { Database } from "../database/client";
 import { emails } from "../database/schema";
 import type { EmailRepository } from "../../domain/email/email.repository";
@@ -43,6 +43,12 @@ export class DrizzleEmailRepository implements EmailRepository {
   async findById(id: string): Promise<Email | null> {
     const rows = await this.db.select().from(emails).where(eq(emails.id, id)).limit(1);
     return rows.length > 0 ? this.toDomain(rows[0]) : null;
+  }
+
+  async findByIds(ids: string[]): Promise<Email[]> {
+    if (ids.length === 0) return [];
+    const rows = await this.db.select().from(emails).where(inArray(emails.id, ids));
+    return rows.map(this.toDomain);
   }
 
   async findMaxUid(accountId: string, folder: string): Promise<number | null> {

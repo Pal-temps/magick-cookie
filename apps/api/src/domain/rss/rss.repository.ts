@@ -14,6 +14,7 @@ export interface RssArticleRepository {
   findByFeed(feedId: string, options?: { unread?: boolean; starred?: boolean; limit?: number; offset?: number }): Promise<RssArticle[]>;
   findAll(options?: { feedId?: string; unread?: boolean; starred?: boolean; limit?: number; offset?: number }): Promise<RssArticle[]>;
   findById(id: string): Promise<RssArticle | null>;
+  findByIds(ids: string[]): Promise<RssArticle[]>;
   create(input: CreateRssArticleInput): Promise<RssArticle | null>;
   bulkCreate(inputs: CreateRssArticleInput[]): Promise<number>;
   updateFlags(id: string, flags: { isRead?: boolean; isStarred?: boolean }): Promise<RssArticle | null>;

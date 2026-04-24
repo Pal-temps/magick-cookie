@@ -241,40 +241,34 @@ ${JSON.stringify(itemsJson, null, 2)}`;
       }
     }
 
-    // Fetch tasks
+    // Batch-fetch per entity type — one SQL query each instead of one per id
+    // (previous Promise.all(map(findById)) was O(n) round-trips per kanban board).
     if (taskIds.length > 0 && this.taskRepo) {
-      const tasks = await Promise.all(taskIds.map(id => this.taskRepo!.findById(id)));
+      const tasks = await this.taskRepo.findByIds(taskIds);
       for (const t of tasks) {
-        if (t) {
-          map.set(`task:${t.id}`, {
-            title: t.title,
-            source: t.source,
-            preview: t.description?.slice(0, 120) ?? null,
-            date: t.createdAt.toISOString(),
-          });
-        }
+        map.set(`task:${t.id}`, {
+          title: t.title,
+          source: t.source,
+          preview: t.description?.slice(0, 120) ?? null,
+          date: t.createdAt.toISOString(),
+        });
       }
     }
 
-    // Fetch emails
     if (emailIds.length > 0 && this.emailRepo) {
-      const emails = await Promise.all(emailIds.map(id => this.emailRepo!.findById(id)));
+      const emails = await this.emailRepo.findByIds(emailIds);
       for (const e of emails) {
-        if (e) {
-          map.set(`email:${e.id}`, {
-            title: e.subject ?? "(sans sujet)",
-            source: e.fromName ?? e.fromAddress,
-            preview: e.bodyText?.slice(0, 120) ?? null,
-            date: e.sentAt.toISOString(),
-          });
-        }
+        map.set(`email:${e.id}`, {
+          title: e.subject ?? "(sans sujet)",
+          source: e.fromName ?? e.fromAddress,
+          preview: e.bodyText?.slice(0, 120) ?? null,
+          date: e.sentAt.toISOString(),
+        });
       }
     }
 
-    // Fetch RSS articles
     if (articleIds.length > 0 && this.rssArticleRepo) {
-      const articles = await Promise.all(articleIds.map(id => this.rssArticleRepo!.findById(id)));
-      // Fetch feed labels for source info
+      const articles = await this.rssArticleRepo.findByIds(articleIds);
       let feedLabelMap = new Map<string, string>();
       if (this.rssFeedRepo) {
         const feeds = await this.rssFeedRepo.findAll();
@@ -282,14 +276,12 @@ ${JSON.stringify(itemsJson, null, 2)}`;
       }
 
       for (const a of articles) {
-        if (a) {
-          map.set(`rss_article:${a.id}`, {
-            title: a.title ?? "(sans titre)",
-            source: feedLabelMap.get(a.feedId) ?? a.author ?? "RSS",
-            preview: a.description?.slice(0, 120) ?? null,
-            date: a.publishedAt?.toISOString() ?? a.createdAt.toISOString(),
-          });
-        }
+        map.set(`rss_article:${a.id}`, {
+          title: a.title ?? "(sans titre)",
+          source: feedLabelMap.get(a.feedId) ?? a.author ?? "RSS",
+          preview: a.description?.slice(0, 120) ?? null,
+          date: a.publishedAt?.toISOString() ?? a.createdAt.toISOString(),
+        });
       }
     }
 

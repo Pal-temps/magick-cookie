@@ -1,4 +1,4 @@
-import { eq, and, desc, lt, sql } from "drizzle-orm";
+import { eq, and, desc, lt, inArray, sql } from "drizzle-orm";
 import type { Database } from "../database/client";
 import { rssArticles } from "../database/schema";
 import type { RssArticleRepository } from "../../domain/rss/rss.repository";
@@ -44,6 +44,12 @@ export class DrizzleRssArticleRepository implements RssArticleRepository {
   async findById(id: string): Promise<RssArticle | null> {
     const rows = await this.db.select().from(rssArticles).where(eq(rssArticles.id, id)).limit(1);
     return rows.length > 0 ? this.toDomain(rows[0]) : null;
+  }
+
+  async findByIds(ids: string[]): Promise<RssArticle[]> {
+    if (ids.length === 0) return [];
+    const rows = await this.db.select().from(rssArticles).where(inArray(rssArticles.id, ids));
+    return rows.map(this.toDomain);
   }
 
   async create(input: CreateRssArticleInput): Promise<RssArticle | null> {

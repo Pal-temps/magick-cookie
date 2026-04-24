@@ -15,6 +15,7 @@ export interface EmailRepository {
   findByAccount(accountId: string, options?: { folder?: string; unread?: boolean; limit?: number; offset?: number }): Promise<Email[]>;
   findAll(options?: { folder?: string; unread?: boolean; limit?: number; offset?: number }): Promise<Email[]>;
   findById(id: string): Promise<Email | null>;
+  findByIds(ids: string[]): Promise<Email[]>;
   findMaxUid(accountId: string, folder: string): Promise<number | null>;
   create(input: CreateEmailInput): Promise<Email | null>;
   bulkCreate(inputs: CreateEmailInput[]): Promise<number>;

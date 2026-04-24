@@ -8,6 +8,7 @@ export interface PaginationOptions {
 export interface TaskRepository {
   findAll(options?: { source?: string; limit?: number; offset?: number }): Promise<Task[]>;
   findById(id: string): Promise<Task | null>;
+  findByIds(ids: string[]): Promise<Task[]>;
   findByExternalId(externalId: string, source: TaskSource): Promise<Task | null>;
   findBySource(source: TaskSource): Promise<Task[]>;
   findUnscheduled(options?: PaginationOptions): Promise<Task[]>;
