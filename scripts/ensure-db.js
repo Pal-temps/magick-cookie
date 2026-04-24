@@ -2,7 +2,7 @@
 // Ensure the Postgres container is running and ready before proceeding
 const { execSync } = require("child_process");
 
-const CONTAINER = "magick-cookie-db";
+const CONTAINER = "magick-cookie-pg";
 const MAX_WAIT = 30; // seconds
 
 function getContainerStatus() {
@@ -44,7 +44,7 @@ async function main() {
       execSync(`docker start ${CONTAINER}`, { stdio: "inherit" });
     } else {
       // Container doesn't exist — create it via compose
-      execSync("docker compose up -d db", { stdio: "inherit" });
+      execSync("docker compose up -d pg", { stdio: "inherit" });
     }
   }
 

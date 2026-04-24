@@ -1,35 +1,65 @@
 services:
-  db:
+  pg:
     image: postgres:17-alpine
-    container_name: magick-cookie-db
+    container_name: magick-cookie-pg
+    restart: unless-stopped
     environment:
-      POSTGRES_DB: do_it_now
+      POSTGRES_DB: magick_cookie
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
     ports:
       - "47532:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
-    command: postgres -c max_connections=200
+    command: postgres -c max_connections=50
+    stop_grace_period: 30s
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 5s
       timeout: 3s
       retries: 5
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+          cpus: "1.0"
 
   api:
     build:
       context: .
       dockerfile: apps/api/Dockerfile
     container_name: magick-cookie-api
+    init: true
     ports:
       - "47300:47300"
     environment:
       PORT: 47300
-      DATABASE_URL: postgres://postgres:postgres@db:5432/do_it_now
+      DATABASE_URL: postgres://postgres:postgres@pg:5432/magick_cookie
     depends_on:
-      db:
+      pg:
         condition: service_healthy
+    stop_grace_period: 10s
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:47300/api/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    deploy:
+      resources:
+        limits:
+          memory: 256m
+          cpus: "1.0"
 
 volumes:
   pgdata:

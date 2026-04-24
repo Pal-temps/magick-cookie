@@ -12,6 +12,8 @@ RUN bun install --frozen-lockfile
 # Copy API source
 COPY apps/api apps/api
 
-EXPOSE 3000
+USER bun
+
+EXPOSE 47300
 
 CMD ["bun", "run", "--hot", "apps/api/src/index.ts"]

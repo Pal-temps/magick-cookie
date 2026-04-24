@@ -1,8 +1,9 @@
 #!/usr/bin/env node
-// Kill processes occupying ports used by do-it-now (API: 47300, Vite: 1420)
+// Kill processes occupying ports used by Magick Cookie
+// API: 47300, Vite desktop: 47420
 const { execSync } = require("child_process");
 
-const PORTS = [47300, 1420];
+const PORTS = [47300, 47420];
 const isWindows = process.platform === "win32";
 
 for (const port of PORTS) {
