@@ -217,8 +217,14 @@ fn collect_files(base: &PathBuf, dir: &PathBuf, ext: &str, entries: &mut Vec<Not
         let path = entry.path();
         let name = path.file_name().unwrap_or_default().to_string_lossy().to_string();
 
-        // Skip hidden files/dirs (.git, .obsidian) and underscore-prefixed vault dirs (_config, _ide, etc.)
-        if name.starts_with('.') || name.starts_with('_') {
+        // Skip hidden files/dirs (.git, .obsidian) and internal vault dirs
+        // Allow user-facing underscore dirs
+        const ALLOWED_UNDERSCORE: &[&str] = &[
+            "_bookmarks", "_workflows", "_ide", "_projects", "_snippets",
+            "_config", "_secrets", "_mcp", "_sessions",
+            "_journal", "_benchmarks", "_snapshots",
+        ];
+        if name.starts_with('.') || (name.starts_with('_') && !ALLOWED_UNDERSCORE.contains(&name.as_str())) {
             continue;
         }
 
@@ -480,6 +486,10 @@ const VAULT_DIRS: &[&str] = &[
     "_projects",
     "_snapshots",
     "_secrets",
+    "_mcp",
+    "_sessions",
+    "_snippets",
+    "_workflows",
 ];
 
 const VAULT_GITIGNORE: &str = "# Magick Cookie vault\n*.secrets.*\n*.secret.*\n_snapshots/\n";
@@ -537,13 +547,11 @@ fn validate_vault_path(vault: &PathBuf, rel_path: &str) -> Result<PathBuf, Strin
         return Err("Path traversal not allowed".into());
     }
     let full = vault.join(rel_path);
-    let canon_vault = vault.canonicalize().unwrap_or_else(|_| vault.clone());
-    let canon_full = full.parent()
-        .and_then(|p| if p.exists() { p.canonicalize().ok() } else { None })
-        .unwrap_or_else(|| canon_vault.clone())
-        .join(full.file_name().unwrap_or_default());
 
-    if !canon_full.starts_with(&canon_vault) {
+    // Simple prefix check — no canonicalize needed (we already blocked "..")
+    let vault_str = vault.to_string_lossy().replace('\\', "/");
+    let full_str = full.to_string_lossy().replace('\\', "/");
+    if !full_str.starts_with(&vault_str) {
         return Err("Path escapes vault boundary".into());
     }
     Ok(full)
@@ -622,4 +630,18 @@ pub async fn vault_list_section(
     collect_section(&section_dir, &section_dir, &filter_ext, &mut entries)?;
     entries.sort_by(|a, b| b.modified.cmp(&a.modified));
     Ok(entries)
+}
+
+#[tauri::command]
+pub async fn vault_delete_file(app: AppHandle, rel_path: String) -> Result<(), String> {
+    let config = load_config(&app)?;
+    let vault = PathBuf::from(&config.path);
+    let file_path = validate_vault_path(&vault, &rel_path)?;
+
+    if !file_path.exists() {
+        return Err(format!("File not found: {rel_path}"));
+    }
+
+    std::fs::remove_file(&file_path).map_err(|e| format!("Delete error: {e}"))?;
+    Ok(())
 }

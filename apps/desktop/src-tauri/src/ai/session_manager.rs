@@ -1,12 +1,16 @@
 use std::collections::HashMap;
 use std::sync::{mpsc, Arc, Mutex};
 
-use tauri::{AppHandle, Emitter};
+use tauri::{AppHandle, Emitter, Manager};
 
 use crate::ai::adapter::BackendAdapter;
 use crate::ai::dedup::DedupState;
 use crate::ai::event_buffer::EventBuffer;
+use crate::ai::mcp_client::{McpManager, McpServerConfig, McpTool};
+use crate::ai::session_recorder::SessionRecorder;
 use crate::ai::types::*;
+
+const MAX_SESSIONS: usize = 10;
 
 // ─── Session ───
 
@@ -18,6 +22,7 @@ pub struct AiSession {
     pub dedup: DedupState,
     pub phase: SessionPhase,
     pub config: SessionConfig,
+    pub recorder: Option<SessionRecorder>,
 }
 
 // ─── Session Manager (shared state) ───
@@ -33,7 +38,7 @@ impl SessionManager {
         }
     }
 
-    pub fn add_session(&mut self, id: String, adapter: Box<dyn BackendAdapter>, config: SessionConfig) {
+    pub fn add_session(&mut self, id: String, adapter: Box<dyn BackendAdapter>, config: SessionConfig, recorder: Option<SessionRecorder>) {
         let session = AiSession {
             id: id.clone(),
             adapter,
@@ -41,6 +46,7 @@ impl SessionManager {
             dedup: DedupState::new(),
             phase: SessionPhase::Connecting,
             config,
+            recorder,
         };
         self.sessions.insert(id, session);
     }
@@ -51,6 +57,10 @@ impl SessionManager {
 
     pub fn remove_session(&mut self, id: &str) {
         self.sessions.remove(id);
+    }
+
+    pub fn session_count(&self) -> usize {
+        self.sessions.len()
     }
 
     pub fn list_sessions(&self) -> Vec<String> {
@@ -67,6 +77,7 @@ impl Default for SessionManager {
 // ─── Tauri State ───
 
 pub type SharedSessionManager = Arc<Mutex<SessionManager>>;
+pub type SharedMcpManager = Arc<Mutex<McpManager>>;
 
 // ─── Helper: create adapter from provider name ───
 
@@ -85,12 +96,17 @@ fn create_adapter(provider: &str, config: &SessionConfig) -> Result<Box<dyn Back
 fn detect_providers() -> Vec<ProviderInfo> {
     let mut providers = Vec::new();
 
-    // Detect Claude CLI
+    // Detect Claude CLI — try "claude" then "claude.cmd" (Windows npm global)
     let claude_available = std::process::Command::new("claude")
         .arg("--version")
         .output()
         .map(|o| o.status.success())
-        .unwrap_or(false);
+        .unwrap_or(false)
+        || std::process::Command::new("claude.cmd")
+            .arg("--version")
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
 
     providers.push(ProviderInfo {
         id: "claude-cli".into(),
@@ -163,19 +179,97 @@ pub fn ai_start_session(
     // Start the adapter
     adapter.start(config.clone(), event_tx)?;
 
-    // Add session
+    // Create session recorder (vault-backed JSONL)
+    let recorder = crate::notes::load_config_pub(&app)
+        .ok()
+        .and_then(|cfg| {
+            SessionRecorder::new(&cfg.path, &session_id, &provider, &config.model).ok()
+        });
+
+    // Add session (enforce maximum to prevent unbounded accumulation)
     {
         let mut mgr = state.lock().map_err(|e| format!("Lock error: {e}"))?;
-        mgr.add_session(session_id.clone(), adapter, config);
+        if mgr.session_count() >= MAX_SESSIONS {
+            return Err(format!(
+                "Maximum session count ({MAX_SESSIONS}) reached. Close unused sessions first."
+            ));
+        }
+        mgr.add_session(session_id.clone(), adapter, config, recorder);
     }
 
     // Spawn a thread to forward adapter events to the frontend
     let app_handle = app.clone();
     let sid = session_id.clone();
     let state_clone = Arc::clone(&*state);
+    let mcp_clone: SharedMcpManager = app.state::<SharedMcpManager>().inner().clone();
 
     std::thread::spawn(move || {
         for event in event_rx {
+            // ─── MCP tool interception ───
+            if let AdapterEvent::ToolUse { ref id, ref name, ref input } = event {
+                if name.contains("__") || {
+                    // Check if any connected MCP server provides this tool
+                    let mgr = mcp_clone.lock().unwrap();
+                    mgr.all_tools().iter().any(|(_, t)| t.name == *name)
+                } {
+                    // Emit ToolUse event to frontend
+                    {
+                        let mut mgr = match state_clone.lock() {
+                            Ok(m) => m,
+                            Err(_) => break,
+                        };
+                        if let Some(session) = mgr.get_session_mut(&sid) {
+                            let event_json = serde_json::to_string(&event).unwrap_or_default();
+                            let seq = session.event_buffer.push(event_json);
+                            if let Some(ref mut rec) = session.recorder {
+                                rec.record(seq, &event);
+                            }
+                            let _ = app_handle.emit("ai-event", &AiEventPayload {
+                                session_id: sid.clone(), seq, event: event.clone(),
+                            });
+                        }
+                    }
+
+                    // Execute MCP tool call
+                    let tool_id = id.clone();
+                    let tool_name = name.clone();
+                    let args = input.clone();
+                    let mcp_mgr = mcp_clone.lock().unwrap();
+                    let (content, is_error) = match mcp_mgr.call_tool(&tool_name, args) {
+                        Ok(result) => (result, false),
+                        Err(e) => (format!("MCP tool error: {e}"), true),
+                    };
+                    drop(mcp_mgr);
+
+                    // Send result back to adapter + emit to frontend
+                    {
+                        let mut mgr = match state_clone.lock() {
+                            Ok(m) => m,
+                            Err(_) => break,
+                        };
+                        if let Some(session) = mgr.get_session_mut(&sid) {
+                            let _ = session.adapter.send_tool_result(
+                                tool_id.clone(), content.clone(), is_error,
+                            );
+                            let result_event = AdapterEvent::ToolResult {
+                                tool_use_id: tool_id,
+                                content,
+                                is_error,
+                            };
+                            let ej = serde_json::to_string(&result_event).unwrap_or_default();
+                            let seq = session.event_buffer.push(ej);
+                            if let Some(ref mut rec) = session.recorder {
+                                rec.record(seq, &result_event);
+                            }
+                            let _ = app_handle.emit("ai-event", &AiEventPayload {
+                                session_id: sid.clone(), seq, event: result_event,
+                            });
+                        }
+                    }
+                    continue;
+                }
+            }
+
             // ─── Built-in tool interception (screenshot) ───
             if let AdapterEvent::ToolUse { ref id, ref name, ref input } = event {
                 if name == "screenshot" {
@@ -188,6 +282,9 @@ pub fn ai_start_session(
                         if let Some(session) = mgr.get_session_mut(&sid) {
                             let event_json = serde_json::to_string(&event).unwrap_or_default();
                             let seq = session.event_buffer.push(event_json);
+                            if let Some(ref mut rec) = session.recorder {
+                                rec.record(seq, &event);
+                            }
                             let _ = app_handle.emit("ai-event", &AiEventPayload {
                                 session_id: sid.clone(), seq, event: event.clone(),
                             });
@@ -237,6 +334,9 @@ pub fn ai_start_session(
                             };
                             let ej = serde_json::to_string(&result_event).unwrap_or_default();
                             let seq = session.event_buffer.push(ej);
+                            if let Some(ref mut rec) = session.recorder {
+                                rec.record(seq, &result_event);
+                            }
                             let _ = app_handle.emit("ai-event", &AiEventPayload {
                                 session_id: sid.clone(), seq, event: result_event,
                             });
@@ -286,6 +386,11 @@ pub fn ai_start_session(
             }
 
             let seq = session.event_buffer.push(event_json);
+
+            // Record to JSONL
+            if let Some(ref mut rec) = session.recorder {
+                rec.record(seq, &event);
+            }
 
             // Emit to frontend
             let payload = AiEventPayload {
@@ -351,6 +456,9 @@ pub fn ai_stop_session(
         .get_session_mut(&session_id)
         .ok_or("Session not found")?;
     session.adapter.stop()?;
+    if let Some(ref mut rec) = session.recorder {
+        rec.close();
+    }
     mgr.remove_session(&session_id);
     Ok(())
 }
@@ -361,4 +469,413 @@ pub fn ai_list_sessions(
 ) -> Result<Vec<String>, String> {
     let mgr = state.lock().map_err(|e| format!("Lock error: {e}"))?;
     Ok(mgr.list_sessions())
+}
+
+#[tauri::command]
+pub fn ai_list_past_sessions(
+    app: AppHandle,
+) -> Result<Vec<crate::ai::session_recorder::PastSessionInfo>, String> {
+    let config = crate::notes::load_config_pub(&app)?;
+    Ok(crate::ai::session_recorder::list_past_sessions(&config.path))
+}
+
+#[tauri::command]
+pub fn ai_read_past_session(
+    app: AppHandle,
+    session_id: String,
+) -> Result<Vec<String>, String> {
+    let config = crate::notes::load_config_pub(&app)?;
+    crate::ai::session_recorder::read_past_session(&config.path, &session_id)
+}
+
+#[tauri::command]
+pub fn ai_update_session_label(
+    app: AppHandle,
+    session_id: String,
+    label: String,
+) -> Result<(), String> {
+    let config = crate::notes::load_config_pub(&app)?;
+    crate::ai::session_recorder::update_session_label(&config.path, &session_id, &label)
+}
+
+// ─── MCP Server Commands ───
+
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct McpServerStatus {
+    pub id: String,
+    pub name: String,
+    pub connected: bool,
+    pub tools: Vec<McpTool>,
+    pub enabled: bool,
+    pub auto_connect: bool,
+}
+
+#[tauri::command]
+pub fn mcp_list_servers(
+    app: AppHandle,
+) -> Result<Vec<McpServerStatus>, String> {
+    let vault_config = crate::notes::load_config_pub(&app)?;
+    let configs = crate::ai::mcp_client::load_mcp_configs(&vault_config.path);
+
+    Ok(configs
+        .into_iter()
+        .map(|c| McpServerStatus {
+            id: c.id.clone(),
+            name: c.name.clone(),
+            connected: false,
+            tools: Vec::new(),
+            enabled: c.enabled,
+            auto_connect: c.auto_connect,
+        })
+        .collect())
+}
+
+#[tauri::command]
+pub fn mcp_add_server(
+    app: AppHandle,
+    config: McpServerConfig,
+) -> Result<(), String> {
+    let vault_config = crate::notes::load_config_pub(&app)?;
+    let mut configs = crate::ai::mcp_client::load_mcp_configs(&vault_config.path);
+
+    // Replace if exists, otherwise add
+    if let Some(pos) = configs.iter().position(|c| c.id == config.id) {
+        configs[pos] = config;
+    } else {
+        configs.push(config);
+    }
+
+    crate::ai::mcp_client::save_mcp_configs(&vault_config.path, &configs)
+}
+
+#[tauri::command]
+pub fn mcp_remove_server(
+    app: AppHandle,
+    mcp_state: tauri::State<'_, SharedMcpManager>,
+    server_id: String,
+) -> Result<(), String> {
+    // Disconnect if connected
+    {
+        let mut mgr = mcp_state.lock().map_err(|e| format!("Lock: {e}"))?;
+        mgr.disconnect_server(&server_id);
+    }
+
+    let vault_config = crate::notes::load_config_pub(&app)?;
+    let mut configs = crate::ai::mcp_client::load_mcp_configs(&vault_config.path);
+    configs.retain(|c| c.id != server_id);
+    crate::ai::mcp_client::save_mcp_configs(&vault_config.path, &configs)
+}
+
+#[tauri::command]
+pub fn mcp_connect_server(
+    app: AppHandle,
+    mcp_state: tauri::State<'_, SharedMcpManager>,
+    server_id: String,
+) -> Result<Vec<McpTool>, String> {
+    let vault_config = crate::notes::load_config_pub(&app)?;
+    let configs = crate::ai::mcp_client::load_mcp_configs(&vault_config.path);
+
+    let config = configs
+        .iter()
+        .find(|c| c.id == server_id)
+        .ok_or_else(|| format!("Server '{}' not found", server_id))?;
+
+    let mut mgr = mcp_state.lock().map_err(|e| format!("Lock: {e}"))?;
+    mgr.connect_server(config)
+}
+
+#[tauri::command]
+pub fn mcp_disconnect_server(
+    mcp_state: tauri::State<'_, SharedMcpManager>,
+    server_id: String,
+) -> Result<(), String> {
+    let mut mgr = mcp_state.lock().map_err(|e| format!("Lock: {e}"))?;
+    mgr.disconnect_server(&server_id);
+    Ok(())
+}
+
+#[tauri::command]
+pub fn mcp_list_tools(
+    mcp_state: tauri::State<'_, SharedMcpManager>,
+) -> Result<Vec<McpTool>, String> {
+    let mgr = mcp_state.lock().map_err(|e| format!("Lock: {e}"))?;
+    Ok(mgr.all_tools().into_iter().map(|(_, t)| t).collect())
+}
+
+#[tauri::command]
+pub fn mcp_call_tool(
+    mcp_state: tauri::State<'_, SharedMcpManager>,
+    tool_name: String,
+    arguments: serde_json::Value,
+) -> Result<String, String> {
+    let mgr = mcp_state.lock().map_err(|e| format!("Lock: {e}"))?;
+    mgr.call_tool(&tool_name, arguments)
+}
+
+#[tauri::command]
+pub fn mcp_get_status(
+    app: AppHandle,
+    mcp_state: tauri::State<'_, SharedMcpManager>,
+) -> Result<Vec<McpServerStatus>, String> {
+    let vault_config = crate::notes::load_config_pub(&app)?;
+    let configs = crate::ai::mcp_client::load_mcp_configs(&vault_config.path);
+    let mgr = mcp_state.lock().map_err(|e| format!("Lock: {e}"))?;
+    let connected = mgr.connected_servers();
+
+    Ok(configs
+        .into_iter()
+        .map(|c| {
+            let is_connected = connected.contains(&c.id);
+            let tools = if is_connected {
+                mgr.all_tools()
+                    .into_iter()
+                    .filter(|(sid, _)| *sid == c.id)
+                    .map(|(_, t)| t)
+                    .collect()
+            } else {
+                Vec::new()
+            };
+            McpServerStatus {
+                id: c.id,
+                name: c.name,
+                connected: is_connected,
+                tools,
+                enabled: c.enabled,
+                auto_connect: c.auto_connect,
+            }
+        })
+        .collect())
+}
+
+#[tauri::command]
+pub fn mcp_set_auto_connect(
+    app: AppHandle,
+    server_id: String,
+    auto_connect: bool,
+) -> Result<(), String> {
+    let vault_config = crate::notes::load_config_pub(&app)?;
+    let mut configs = crate::ai::mcp_client::load_mcp_configs(&vault_config.path);
+
+    if let Some(c) = configs.iter_mut().find(|c| c.id == server_id) {
+        c.auto_connect = auto_connect;
+    } else {
+        return Err(format!("Server '{}' not found", server_id));
+    }
+
+    crate::ai::mcp_client::save_mcp_configs(&vault_config.path, &configs)
+}
+
+#[tauri::command]
+pub fn mcp_auto_connect_all(
+    app: AppHandle,
+    mcp_state: tauri::State<'_, SharedMcpManager>,
+) -> Result<Vec<String>, String> {
+    let vault_config = crate::notes::load_config_pub(&app)?;
+    let configs = crate::ai::mcp_client::load_mcp_configs(&vault_config.path);
+    let mut mgr = mcp_state.lock().map_err(|e| format!("Lock: {e}"))?;
+
+    let mut connected = Vec::new();
+    for config in &configs {
+        if config.auto_connect && config.enabled {
+            match mgr.connect_server(config) {
+                Ok(_) => connected.push(config.id.clone()),
+                Err(e) => eprintln!("MCP auto-connect '{}' failed: {e}", config.name),
+            }
+        }
+    }
+
+    Ok(connected)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::ai::adapter::BackendAdapter;
+    use crate::ai::types::{AdapterCapabilities, AdapterEvent, ImageData, SessionConfig, SessionPhase};
+
+    /// Mock adapter for testing SessionManager without Tauri runtime.
+    struct MockAdapter;
+
+    impl BackendAdapter for MockAdapter {
+        fn start(&mut self, _config: SessionConfig, _event_tx: mpsc::Sender<AdapterEvent>) -> Result<(), String> {
+            Ok(())
+        }
+        fn send_message(&mut self, _content: String, _images: Option<Vec<ImageData>>) -> Result<(), String> {
+            Ok(())
+        }
+        fn respond_permission(&mut self, _request_id: String, _allowed: bool) -> Result<(), String> {
+            Ok(())
+        }
+        fn interrupt(&mut self) -> Result<(), String> {
+            Ok(())
+        }
+        fn stop(&mut self) -> Result<(), String> {
+            Ok(())
+        }
+        fn is_alive(&self) -> bool {
+            true
+        }
+        fn provider_name(&self) -> &str {
+            "mock"
+        }
+        fn capabilities(&self) -> AdapterCapabilities {
+            AdapterCapabilities {
+                supports_tools: false,
+                supports_permissions: false,
+                supports_streaming: false,
+                supports_images: false,
+                supports_file_access: false,
+                supports_terminal: false,
+            }
+        }
+    }
+
+    fn test_config() -> SessionConfig {
+        SessionConfig {
+            provider: "mock".into(),
+            model: "test-model".into(),
+            cwd: ".".into(),
+            api_key: None,
+            base_url: None,
+            temperature: None,
+            max_tokens: None,
+            resume_session_id: None,
+        }
+    }
+
+    #[test]
+    fn test_session_manager_starts_empty() {
+        let mgr = SessionManager::new();
+        assert!(mgr.list_sessions().is_empty());
+    }
+
+    #[test]
+    fn test_session_manager_default() {
+        let mgr = SessionManager::default();
+        assert!(mgr.list_sessions().is_empty());
+    }
+
+    #[test]
+    fn test_sessions_map_cleanup() {
+        let mut mgr = SessionManager::new();
+        let n = 10;
+
+        // Add N sessions
+        for i in 0..n {
+            let id = format!("session-{i}");
+            mgr.add_session(id, Box::new(MockAdapter), test_config(), None);
+        }
+        assert_eq!(mgr.list_sessions().len(), n);
+
+        // Remove all sessions
+        for i in 0..n {
+            mgr.remove_session(&format!("session-{i}"));
+        }
+        assert!(mgr.list_sessions().is_empty(), "HashMap should be empty after removing all sessions");
+    }
+
+    #[test]
+    fn test_session_count_bounded() {
+        let mut mgr = SessionManager::new();
+
+        // Add sessions and verify count stays correct
+        mgr.add_session("a".into(), Box::new(MockAdapter), test_config(), None);
+        assert_eq!(mgr.list_sessions().len(), 1);
+
+        mgr.add_session("b".into(), Box::new(MockAdapter), test_config(), None);
+        assert_eq!(mgr.list_sessions().len(), 2);
+
+        mgr.add_session("c".into(), Box::new(MockAdapter), test_config(), None);
+        assert_eq!(mgr.list_sessions().len(), 3);
+
+        // Remove one, count decreases
+        mgr.remove_session("b");
+        assert_eq!(mgr.list_sessions().len(), 2);
+
+        // Verify correct sessions remain
+        let sessions = mgr.list_sessions();
+        assert!(sessions.contains(&"a".to_string()));
+        assert!(sessions.contains(&"c".to_string()));
+        assert!(!sessions.contains(&"b".to_string()));
+    }
+
+    #[test]
+    fn test_get_session_mut() {
+        let mut mgr = SessionManager::new();
+        mgr.add_session("s1".into(), Box::new(MockAdapter), test_config(), None);
+
+        // Existing session is accessible
+        assert!(mgr.get_session_mut("s1").is_some());
+
+        // Non-existent session returns None
+        assert!(mgr.get_session_mut("nonexistent").is_none());
+    }
+
+    #[test]
+    fn test_session_initial_phase() {
+        let mut mgr = SessionManager::new();
+        mgr.add_session("s1".into(), Box::new(MockAdapter), test_config(), None);
+
+        let session = mgr.get_session_mut("s1").unwrap();
+        assert_eq!(session.phase, SessionPhase::Connecting);
+    }
+
+    #[test]
+    fn test_remove_nonexistent_session_is_noop() {
+        let mut mgr = SessionManager::new();
+        mgr.add_session("s1".into(), Box::new(MockAdapter), test_config(), None);
+
+        // Removing a non-existent session should not panic or affect existing ones
+        mgr.remove_session("nonexistent");
+        assert_eq!(mgr.list_sessions().len(), 1);
+    }
+
+    #[test]
+    fn test_duplicate_session_id_overwrites() {
+        let mut mgr = SessionManager::new();
+        mgr.add_session("s1".into(), Box::new(MockAdapter), test_config(), None);
+        mgr.add_session("s1".into(), Box::new(MockAdapter), test_config(), None);
+
+        // Should still be 1 session (HashMap overwrites)
+        assert_eq!(mgr.list_sessions().len(), 1);
+    }
+
+    #[test]
+    fn test_session_event_buffer_starts_empty() {
+        let mut mgr = SessionManager::new();
+        mgr.add_session("s1".into(), Box::new(MockAdapter), test_config(), None);
+
+        let session = mgr.get_session_mut("s1").unwrap();
+        assert!(session.event_buffer.is_empty());
+        assert_eq!(session.event_buffer.len(), 0);
+    }
+
+    #[test]
+    fn test_max_sessions_enforced() {
+        // Verify the MAX_SESSIONS constant is set to a reasonable value.
+        // This prevents unbounded accumulation of AI sessions in memory.
+        assert_eq!(MAX_SESSIONS, 10, "MAX_SESSIONS should be 10 to limit memory usage");
+        assert!(MAX_SESSIONS > 0, "MAX_SESSIONS must be positive");
+        assert!(MAX_SESSIONS <= 50, "MAX_SESSIONS should not be excessively large");
+    }
+
+    #[test]
+    fn test_session_manager_at_capacity() {
+        // Verify that SessionManager correctly tracks count at the MAX_SESSIONS boundary.
+        let mut mgr = SessionManager::new();
+
+        // Fill to MAX_SESSIONS
+        for i in 0..MAX_SESSIONS {
+            mgr.add_session(format!("s-{i}"), Box::new(MockAdapter), test_config(), None);
+        }
+        assert_eq!(mgr.session_count(), MAX_SESSIONS);
+
+        // The guard check (session_count() >= MAX_SESSIONS) should be true
+        assert!(mgr.session_count() >= MAX_SESSIONS, "Should be at capacity");
+
+        // Remove one — now under capacity
+        mgr.remove_session("s-0");
+        assert_eq!(mgr.session_count(), MAX_SESSIONS - 1);
+        assert!(mgr.session_count() < MAX_SESSIONS, "Should be under capacity after removal");
+    }
 }

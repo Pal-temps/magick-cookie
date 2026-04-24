@@ -32,6 +32,7 @@ pub struct SessionConfig {
     pub base_url: Option<String>,
     pub temperature: Option<f32>,
     pub max_tokens: Option<u32>,
+    pub resume_session_id: Option<String>,
 }
 
 // ─── Image data ───

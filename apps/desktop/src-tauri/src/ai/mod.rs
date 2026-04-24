@@ -1,6 +1,9 @@
 pub mod types;
 pub mod adapter;
 pub mod session_manager;
+pub mod session_recorder;
+pub mod hook_runner;
 pub mod dedup;
 pub mod event_buffer;
 pub mod adapters;
+pub mod mcp_client;

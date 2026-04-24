@@ -59,3 +59,64 @@ impl Default for DedupState {
         Self::new()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_first_message_is_not_duplicate() {
+        let mut dedup = DedupState::new();
+        assert!(!dedup.is_duplicate("hello"));
+    }
+
+    #[test]
+    fn test_same_message_is_duplicate() {
+        let mut dedup = DedupState::new();
+        assert!(!dedup.is_duplicate("hello"));
+        assert!(dedup.is_duplicate("hello"));
+    }
+
+    #[test]
+    fn test_different_messages_are_not_duplicates() {
+        let mut dedup = DedupState::new();
+        assert!(!dedup.is_duplicate("hello"));
+        assert!(!dedup.is_duplicate("world"));
+    }
+
+    #[test]
+    fn test_window_eviction() {
+        let mut dedup = DedupState::new();
+        // Fill the window (WINDOW_SIZE = 50)
+        for i in 0..WINDOW_SIZE {
+            assert!(!dedup.is_duplicate(&format!("msg-{i}")));
+        }
+        // First message should have been evicted after adding one more
+        assert!(!dedup.is_duplicate("overflow"));
+        assert!(!dedup.is_duplicate("msg-0")); // evicted, so not a dup
+    }
+
+    #[test]
+    fn test_clear_resets_state() {
+        let mut dedup = DedupState::new();
+        assert!(!dedup.is_duplicate("hello"));
+        assert!(dedup.is_duplicate("hello"));
+        dedup.clear();
+        assert!(!dedup.is_duplicate("hello")); // no longer a dup after clear
+    }
+
+    #[test]
+    fn test_is_duplicate_by_id() {
+        let mut dedup = DedupState::new();
+        assert!(!dedup.is_duplicate_by_id("uuid-1"));
+        assert!(dedup.is_duplicate_by_id("uuid-1"));
+        assert!(!dedup.is_duplicate_by_id("uuid-2"));
+    }
+
+    #[test]
+    fn test_empty_string() {
+        let mut dedup = DedupState::new();
+        assert!(!dedup.is_duplicate(""));
+        assert!(dedup.is_duplicate(""));
+    }
+}

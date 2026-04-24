@@ -1,4 +1,5 @@
 mod ai;
+mod browser;
 mod desktop_mode;
 mod fs;
 mod git;
@@ -15,6 +16,15 @@ use tauri::{
     Emitter, Manager,
 };
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut};
+
+/// Global keyboard shortcuts — single source of truth.
+/// Each entry: (modifiers, key code, action name emitted via "global-shortcut" event).
+const GLOBAL_SHORTCUTS: &[(Modifiers, Code, &str)] = &[
+    (Modifiers::SHIFT.union(Modifiers::SUPER), Code::KeyN, "capture"),
+    (Modifiers::SHIFT.union(Modifiers::SUPER), Code::KeyT, "timer"),
+    (Modifiers::SHIFT.union(Modifiers::SUPER), Code::KeyB, "brief"),
+    (Modifiers::SHIFT.union(Modifiers::SUPER), Code::KeyD, "desktop"),
+];
 
 /// Open a detached window (terminal or AI session).
 #[tauri::command]
@@ -64,15 +74,21 @@ fn send_to_desktop(app: &tauri::AppHandle) {
 pub fn run() {
     let session_manager: ai::session_manager::SharedSessionManager =
         std::sync::Arc::new(std::sync::Mutex::new(ai::session_manager::SessionManager::new()));
+    let mcp_manager: ai::session_manager::SharedMcpManager =
+        std::sync::Arc::new(std::sync::Mutex::new(ai::mcp_client::McpManager::new()));
     let pty_store: std::sync::Arc<pty::PtyStore> = pty::new_pty_store();
     let watcher_state: watcher::SharedWatcher = watcher::new_shared_watcher();
     let secrets_state: secrets::SharedSecrets = std::sync::Mutex::new(secrets::SecretsState::new());
+    let browser_store: std::sync::Arc<browser::BrowserStore> =
+        std::sync::Arc::new(browser::BrowserStore::new());
 
     tauri::Builder::default()
         .manage(session_manager)
+        .manage(mcp_manager)
         .manage(pty_store)
         .manage(watcher_state)
         .manage(secrets_state)
+        .manage(browser_store)
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_dialog::init())
@@ -81,24 +97,12 @@ pub fn run() {
             tauri_plugin_global_shortcut::Builder::new()
                 .with_handler(|app, shortcut, event| {
                     if event.state == tauri_plugin_global_shortcut::ShortcutState::Pressed {
-                        let capture = Shortcut::new(Some(Modifiers::SHIFT | Modifiers::SUPER), Code::KeyN);
-                        let timer = Shortcut::new(Some(Modifiers::SHIFT | Modifiers::SUPER), Code::KeyT);
-                        let brief = Shortcut::new(Some(Modifiers::SHIFT | Modifiers::SUPER), Code::KeyB);
-                        let desktop = Shortcut::new(Some(Modifiers::SHIFT | Modifiers::SUPER), Code::KeyD);
-
-                        let action = if shortcut == &capture {
-                            "capture"
-                        } else if shortcut == &timer {
-                            "timer"
-                        } else if shortcut == &brief {
-                            "brief"
-                        } else if shortcut == &desktop {
-                            "desktop"
-                        } else {
-                            return;
-                        };
-
-                        let _ = app.emit("global-shortcut", action);
+                        for &(mods, code, action) in GLOBAL_SHORTCUTS {
+                            if shortcut == &Shortcut::new(Some(mods), code) {
+                                let _ = app.emit("global-shortcut", action);
+                                return;
+                            }
+                        }
                     }
                 })
                 .build(),
@@ -119,7 +123,7 @@ pub fn run() {
             }
 
             // Build tray menu
-            let show = MenuItem::with_id(app, "show", "Ouvrir do-it-now", true, None::<&str>)?;
+            let show = MenuItem::with_id(app, "show", "Ouvrir Magick Cookie", true, None::<&str>)?;
             let desktop = MenuItem::with_id(app, "desktop", "Mode Bureau", true, None::<&str>)?;
             let quit = MenuItem::with_id(app, "quit", "Quitter", true, None::<&str>)?;
             let menu = Menu::with_items(app, &[&show, &desktop, &quit])?;
@@ -128,7 +132,7 @@ pub fn run() {
             TrayIconBuilder::new()
                 .icon(app.default_window_icon().unwrap().clone())
                 .menu(&menu)
-                .tooltip("do-it-now")
+                .tooltip("Magick Cookie")
                 .on_menu_event(|app, event| match event.id.as_ref() {
                     "show" => {
                         restore_main_window(app);
@@ -158,16 +162,11 @@ pub fn run() {
                 })
                 .build(app)?;
 
-            // Register global shortcuts (ignore errors if already taken by another app)
-            let shortcuts = [
-                Shortcut::new(Some(Modifiers::SHIFT | Modifiers::SUPER), Code::KeyN),
-                Shortcut::new(Some(Modifiers::SHIFT | Modifiers::SUPER), Code::KeyT),
-                Shortcut::new(Some(Modifiers::SHIFT | Modifiers::SUPER), Code::KeyB),
-                Shortcut::new(Some(Modifiers::SHIFT | Modifiers::SUPER), Code::KeyD),
-            ];
-            for shortcut in shortcuts {
-                if let Err(e) = app.global_shortcut().register(shortcut) {
-                    eprintln!("Warning: could not register shortcut {:?}: {}", shortcut, e);
+            // Register global shortcuts (ignore "already registered" — may be held by a prior instance)
+            for &(mods, code, _) in GLOBAL_SHORTCUTS {
+                let shortcut = Shortcut::new(Some(mods), code);
+                if !app.global_shortcut().is_registered(shortcut) {
+                    let _ = app.global_shortcut().register(shortcut);
                 }
             }
 
@@ -198,6 +197,7 @@ pub fn run() {
             notes::vault_read_json,
             notes::vault_write_json,
             notes::vault_list_section,
+            notes::vault_delete_file,
             fs::fs_list_dir,
             fs::fs_read_file,
             fs::fs_write_file,
@@ -225,6 +225,20 @@ pub fn run() {
             ai::session_manager::ai_interrupt,
             ai::session_manager::ai_stop_session,
             ai::session_manager::ai_list_sessions,
+            ai::session_manager::ai_list_past_sessions,
+            ai::session_manager::ai_read_past_session,
+            ai::session_manager::ai_update_session_label,
+            ai::session_manager::mcp_list_servers,
+            ai::session_manager::mcp_add_server,
+            ai::session_manager::mcp_remove_server,
+            ai::session_manager::mcp_connect_server,
+            ai::session_manager::mcp_disconnect_server,
+            ai::session_manager::mcp_list_tools,
+            ai::session_manager::mcp_call_tool,
+            ai::session_manager::mcp_get_status,
+            ai::session_manager::mcp_set_auto_connect,
+            ai::session_manager::mcp_auto_connect_all,
+            ai::hook_runner::ai_run_hook,
             pty::pty_spawn,
             pty::pty_write,
             pty::pty_resize,
@@ -234,6 +248,9 @@ pub fn run() {
             secrets::secrets_init,
             secrets::secrets_lock,
             secrets::secrets_is_unlocked,
+            secrets::secrets_is_local_mode,
+            secrets::secrets_set_local_mode,
+            secrets::secrets_delete_group,
             secrets::secrets_list,
             secrets::secrets_get,
             secrets::secrets_set,
@@ -246,9 +263,25 @@ pub fn run() {
             secrets::secrets_list_ssh_keys,
             secrets::secrets_get_ssh_private_key,
             secrets::secrets_export_ssh_key,
+            secrets::secrets_export_kdbx,
+            secrets::secrets_import_kdbx,
             screenshot::capture_app_screenshot,
             screenshot::capture_app_region,
             screenshot::capture_screen_screenshot,
+            screenshot::capture_browser_screenshot,
+            browser::browser_create,
+            browser::browser_destroy,
+            browser::browser_navigate,
+            browser::browser_go_back,
+            browser::browser_go_forward,
+            browser::browser_reload,
+            browser::browser_set_visible,
+            browser::browser_set_bounds,
+            browser::browser_open_devtools,
+            browser::browser_get_url,
+            browser::browser_eval,
+            browser::browser_list,
+            browser::browser_pop_out,
             open_detached_window,
         ])
         .on_window_event(|window, event| {
@@ -260,4 +293,33 @@ pub fn run() {
         })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::HashSet;
+
+    #[test]
+    fn no_duplicate_global_shortcuts() {
+        let mut seen = HashSet::new();
+        for &(mods, code, action) in GLOBAL_SHORTCUTS {
+            let key = (mods, code);
+            assert!(
+                seen.insert(key),
+                "Duplicate shortcut for action '{action}': {mods:?} + {code:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn no_duplicate_shortcut_actions() {
+        let mut seen = HashSet::new();
+        for &(_, _, action) in GLOBAL_SHORTCUTS {
+            assert!(
+                seen.insert(action),
+                "Duplicate action name in GLOBAL_SHORTCUTS: '{action}'"
+            );
+        }
+    }
 }

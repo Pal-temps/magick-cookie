@@ -4,6 +4,7 @@ use tauri::Manager;
 use xcap::image;
 
 use crate::ai::types::ImageData;
+use crate::browser::BrowserStore;
 
 /// Max width for screenshots sent to AI (keeps token cost low: ~1-2 tiles)
 const MAX_WIDTH: u32 = 1280;
@@ -54,7 +55,7 @@ fn find_app_window(app: &tauri::AppHandle) -> Result<xcap::Window, String> {
         .into_iter()
         .find(|w| {
             let t = w.title();
-            t.contains(&window_title) || t.contains("do-it-now") || t.contains("Do-It-Now")
+            t.contains(&window_title) || t.contains("magick-cookie") || t.contains("Magick Cookie")
         })
         .ok_or_else(|| "Application window not found in window list".into())
 }
@@ -100,6 +101,50 @@ pub fn capture_app_region(
 
     let cropped = image::imageops::crop_imm(&full, cx, cy, cw, ch).to_image();
     let data = encode_png_base64(&cropped)?;
+
+    Ok(ImageData {
+        media_type: "image/png".into(),
+        data,
+    })
+}
+
+/// Capture a browser child webview by cropping the app window to the webview area.
+#[tauri::command]
+pub fn capture_browser_screenshot(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, std::sync::Arc<BrowserStore>>,
+    id: String,
+) -> Result<ImageData, String> {
+    let label = {
+        let instances = state.instances.lock().unwrap();
+        let inst = instances.get(&id).ok_or("Browser not found")?;
+        inst.label.clone()
+    };
+
+    let wv = app.get_webview(&label).ok_or("Webview not found")?;
+    let pos = wv.position().map_err(|e| format!("get position: {e}"))?;
+    let size = wv.size().map_err(|e| format!("get size: {e}"))?;
+
+    let target = find_app_window(&app)?;
+    let full = target
+        .capture_image()
+        .map_err(|e| format!("Window capture failed: {e}"))?;
+
+    let scale = full.width() as f64 / target.width() as f64;
+    let cx = (pos.x as f64 * scale) as u32;
+    let cy = (pos.y as f64 * scale) as u32;
+    let cw = (size.width as f64 * scale) as u32;
+    let ch = (size.height as f64 * scale) as u32;
+
+    let (img_w, img_h) = (full.width(), full.height());
+    let cx = cx.min(img_w.saturating_sub(1));
+    let cy = cy.min(img_h.saturating_sub(1));
+    let cw = cw.min(img_w - cx);
+    let ch = ch.min(img_h - cy);
+
+    let cropped = image::imageops::crop_imm(&full, cx, cy, cw, ch).to_image();
+    let resized = resize_for_ai(cropped);
+    let data = encode_png_base64(&resized)?;
 
     Ok(ImageData {
         media_type: "image/png".into(),

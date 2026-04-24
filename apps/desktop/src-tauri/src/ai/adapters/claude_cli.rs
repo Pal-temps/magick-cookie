@@ -1,214 +1,143 @@
-use std::io::{BufRead, BufReader, Write};
+use std::io::{BufRead, BufReader};
 use std::process::{Child, Command, Stdio};
-use std::sync::mpsc;
+use std::sync::{mpsc, Arc, Mutex};
 use std::thread;
 
 use crate::ai::adapter::BackendAdapter;
 use crate::ai::types::*;
 
-/// Claude Code CLI adapter.
-/// Spawns `claude` CLI with stream-json I/O and bridges NDJSON ↔ AdapterEvent.
+/// Claude Code CLI adapter using `--resume` for multi-turn conversations.
+///
+/// Each message spawns a new `claude --print --verbose --output-format stream-json --resume <id>`
+/// process. Claude CLI handles session persistence internally.
 pub struct ClaudeCliAdapter {
-    process: Option<Child>,
+    binary: String,
+    cwd: String,
+    model: String,
+    /// Claude CLI session ID (captured from the first `system.init` response)
+    cli_session_id: Arc<Mutex<Option<String>>>,
+    /// Current running process (one per turn)
+    current_process: Option<Child>,
+    /// Channel to forward events to the session manager
+    event_tx: Option<mpsc::Sender<AdapterEvent>>,
     alive: bool,
 }
 
 impl ClaudeCliAdapter {
     pub fn new() -> Self {
         Self {
-            process: None,
+            binary: String::new(),
+            cwd: String::new(),
+            model: String::new(),
+            cli_session_id: Arc::new(Mutex::new(None)),
+            current_process: None,
+            event_tx: None,
             alive: false,
         }
     }
 
     /// Find the claude binary in PATH
     fn find_binary() -> Result<String, String> {
-        // Try 'claude' directly
-        if Command::new("claude")
-            .arg("--version")
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .status()
-            .map(|s| s.success())
-            .unwrap_or(false)
-        {
-            return Ok("claude".into());
+        for name in &["claude", "claude.cmd"] {
+            if Command::new(name)
+                .arg("--version")
+                .stdout(Stdio::null())
+                .stderr(Stdio::null())
+                .status()
+                .map(|s| s.success())
+                .unwrap_or(false)
+            {
+                return Ok((*name).into());
+            }
         }
-        Err("Claude CLI not found in PATH. Install it: https://docs.anthropic.com/en/docs/claude-code".into())
+        Err("Claude CLI not found in PATH. Install: https://docs.anthropic.com/en/docs/claude-code".into())
     }
 
-    /// Parse a NDJSON line from Claude CLI stdout into AdapterEvent(s)
-    fn parse_ndjson_line(line: &str) -> Vec<AdapterEvent> {
-        let Ok(json) = serde_json::from_str::<serde_json::Value>(line) else {
-            return vec![];
-        };
+    /// Spawn a claude process for a single turn and stream NDJSON events.
+    /// Returns the child process handle.
+    fn spawn_turn(
+        binary: &str,
+        cwd: &str,
+        model: &str,
+        prompt: &str,
+        session_id: Option<&str>,
+        event_tx: mpsc::Sender<AdapterEvent>,
+        cli_session_id: Arc<Mutex<Option<String>>>,
+    ) -> Result<Child, String> {
+        let mut args = vec![
+            "--print".to_string(),
+            "--verbose".to_string(),
+            "--output-format".to_string(),
+            "stream-json".to_string(),
+            "-p".to_string(),
+            prompt.to_string(),
+        ];
 
-        let msg_type = json.get("type").and_then(|v| v.as_str()).unwrap_or("");
+        if !model.is_empty() {
+            args.push("--model".to_string());
+            args.push(model.to_string());
+        }
 
-        match msg_type {
-            "system" => {
-                let subtype = json.get("subtype").and_then(|v| v.as_str()).unwrap_or("");
-                if subtype == "init" {
-                    let model = json.get("model").and_then(|v| v.as_str()).unwrap_or("unknown").to_string();
-                    let tools = json.get("tools")
-                        .and_then(|v| v.as_array())
-                        .map(|arr| arr.iter().filter_map(|t| t.get("name").and_then(|n| n.as_str()).map(|s| s.to_string())).collect())
-                        .unwrap_or_default();
-                    return vec![AdapterEvent::SessionReady { model, tools }];
-                }
-                vec![]
-            }
+        if let Some(sid) = session_id {
+            args.push("--resume".to_string());
+            args.push(sid.to_string());
+        }
 
-            "assistant" => {
-                let content = Self::extract_content(&json);
-                let model = json.get("message").and_then(|m| m.get("model")).and_then(|v| v.as_str()).map(|s| s.to_string());
+        let mut cmd = Command::new(binary);
+        cmd.args(&args)
+            .current_dir(cwd)
+            .stdin(Stdio::null())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped());
 
-                let mut events = vec![];
+        let mut child = cmd.spawn().map_err(|e| format!("Failed to spawn claude: {e}"))?;
 
-                // Extract tool_use blocks from content_blocks
-                if let Some(blocks) = json.get("message")
-                    .and_then(|m| m.get("content"))
-                    .and_then(|c| c.as_array())
-                {
-                    for block in blocks {
-                        let block_type = block.get("type").and_then(|v| v.as_str()).unwrap_or("");
-                        if block_type == "tool_use" {
-                            let id = block.get("id").and_then(|v| v.as_str()).unwrap_or("").to_string();
-                            let name = block.get("name").and_then(|v| v.as_str()).unwrap_or("").to_string();
-                            let input = block.get("input").cloned().unwrap_or(serde_json::Value::Null);
-                            events.push(AdapterEvent::ToolUse { id, name, input });
+        let stdout = child.stdout.take().ok_or("Failed to capture stdout")?;
+        let stderr = child.stderr.take().ok_or("Failed to capture stderr")?;
+
+        // stdout reader thread — parse NDJSON and forward events
+        let tx = event_tx.clone();
+        let sid_capture = cli_session_id.clone();
+        thread::spawn(move || {
+            let reader = BufReader::new(stdout);
+            for line in reader.lines() {
+                let Ok(line) = line else { break };
+                let line = line.trim().to_string();
+                if line.is_empty() { continue; }
+
+                // Capture session_id from any NDJSON line
+                if let Ok(json) = serde_json::from_str::<serde_json::Value>(&line) {
+                    if let Some(sid) = json.get("session_id").and_then(|v| v.as_str()) {
+                        let mut lock = sid_capture.lock().unwrap();
+                        if lock.is_none() {
+                            *lock = Some(sid.to_string());
                         }
                     }
                 }
 
-                if !content.is_empty() {
-                    events.push(AdapterEvent::AssistantMessage { content, model });
+                let events = parse_ndjson_line(&line);
+                for event in events {
+                    if tx.send(event).is_err() { return; }
                 }
-
-                events
             }
+            // Turn complete — process exited (normal for --print mode)
+        });
 
-            "content_block_delta" | "stream_event" => {
-                // Streaming token
-                let delta = json.get("delta").or_else(|| json.get("event").and_then(|e| e.get("delta")));
-                if let Some(delta) = delta {
-                    let delta_type = delta.get("type").and_then(|v| v.as_str()).unwrap_or("");
-                    match delta_type {
-                        "text_delta" => {
-                            let text = delta.get("text").and_then(|v| v.as_str()).unwrap_or("").to_string();
-                            if !text.is_empty() {
-                                return vec![AdapterEvent::StreamToken { text, phase: StreamPhase::Text }];
-                            }
-                        }
-                        "thinking_delta" => {
-                            let text = delta.get("thinking").and_then(|v| v.as_str()).unwrap_or("").to_string();
-                            if !text.is_empty() {
-                                return vec![AdapterEvent::StreamToken { text, phase: StreamPhase::Thinking }];
-                            }
-                        }
-                        _ => {}
-                    }
+        // stderr reader thread
+        let tx_err = event_tx;
+        thread::spawn(move || {
+            let reader = BufReader::new(stderr);
+            for line in reader.lines() {
+                let Ok(line) = line else { break };
+                let line = line.trim().to_string();
+                if line.is_empty() { continue; }
+                if line.contains("error") || line.contains("Error") || line.contains("FATAL") {
+                    let _ = tx_err.send(AdapterEvent::Error { message: line });
                 }
-                vec![]
             }
+        });
 
-            "result" => {
-                let stop_reason = json.get("stop_reason").and_then(|v| v.as_str()).map(|s| s.to_string())
-                    .or_else(|| json.get("result").and_then(|r| r.get("stop_reason")).and_then(|v| v.as_str()).map(|s| s.to_string()));
-
-                // Extract tool_result if present
-                let mut events = vec![];
-                if let Some(subtype) = json.get("subtype").and_then(|v| v.as_str()) {
-                    if subtype == "tool_result" {
-                        let tool_use_id = json.get("tool_use_id").and_then(|v| v.as_str()).unwrap_or("").to_string();
-                        let content = json.get("content").and_then(|v| v.as_str()).unwrap_or("").to_string();
-                        let is_error = json.get("is_error").and_then(|v| v.as_bool()).unwrap_or(false);
-                        events.push(AdapterEvent::ToolResult { tool_use_id, content, is_error });
-                    }
-                }
-
-                events.push(AdapterEvent::TurnComplete { stop_reason });
-                events
-            }
-
-            "tool_use" => {
-                let id = json.get("id").and_then(|v| v.as_str()).unwrap_or("").to_string();
-                let name = json.get("name").and_then(|v| v.as_str()).unwrap_or("").to_string();
-                let input = json.get("input").cloned().unwrap_or(serde_json::Value::Null);
-                vec![AdapterEvent::ToolUse { id, name, input }]
-            }
-
-            "tool_result" => {
-                let tool_use_id = json.get("tool_use_id").and_then(|v| v.as_str()).unwrap_or("").to_string();
-                let content = Self::extract_tool_result_content(&json);
-                let is_error = json.get("is_error").and_then(|v| v.as_bool()).unwrap_or(false);
-                vec![AdapterEvent::ToolResult { tool_use_id, content, is_error }]
-            }
-
-            "permission_request" | "control_request" => {
-                let request_id = json.get("request_id")
-                    .or_else(|| json.get("id"))
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("")
-                    .to_string();
-
-                let request = json.get("request").unwrap_or(&json);
-                let tool_name = request.get("tool")
-                    .or_else(|| request.get("tool_name"))
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("unknown")
-                    .to_string();
-                let tool_input = request.get("input")
-                    .or_else(|| request.get("tool_input"))
-                    .cloned()
-                    .unwrap_or(serde_json::Value::Null);
-                let description = request.get("description")
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("")
-                    .to_string();
-
-                vec![AdapterEvent::PermissionRequest { request_id, tool_name, tool_input, description }]
-            }
-
-            _ => vec![]
-        }
-    }
-
-    fn extract_content(json: &serde_json::Value) -> String {
-        // Try message.content as array of blocks
-        if let Some(blocks) = json.get("message")
-            .and_then(|m| m.get("content"))
-            .and_then(|c| c.as_array())
-        {
-            let texts: Vec<&str> = blocks.iter()
-                .filter(|b| b.get("type").and_then(|t| t.as_str()) == Some("text"))
-                .filter_map(|b| b.get("text").and_then(|t| t.as_str()))
-                .collect();
-            if !texts.is_empty() {
-                return texts.join("");
-            }
-        }
-
-        // Try direct content string
-        json.get("content")
-            .or_else(|| json.get("message").and_then(|m| m.get("content")))
-            .and_then(|v| v.as_str())
-            .unwrap_or("")
-            .to_string()
-    }
-
-    fn extract_tool_result_content(json: &serde_json::Value) -> String {
-        // Content can be a string or array of content blocks
-        if let Some(s) = json.get("content").and_then(|v| v.as_str()) {
-            return s.to_string();
-        }
-        if let Some(arr) = json.get("content").and_then(|v| v.as_array()) {
-            let texts: Vec<&str> = arr.iter()
-                .filter_map(|b| b.get("text").and_then(|t| t.as_str()))
-                .collect();
-            return texts.join("\n");
-        }
-        String::new()
+        Ok(child)
     }
 }
 
@@ -219,182 +148,98 @@ impl BackendAdapter for ClaudeCliAdapter {
         event_tx: mpsc::Sender<AdapterEvent>,
     ) -> Result<(), String> {
         let binary = Self::find_binary()?;
-
-        let mut args = vec![
-            "-p".to_string(),
-            "".to_string(),
-            "--output-format".to_string(),
-            "stream-json".to_string(),
-            "--input-format".to_string(),
-            "stream-json".to_string(),
-        ];
-
-        if !config.model.is_empty() {
-            args.push("--model".to_string());
-            args.push(config.model.clone());
-        }
-
-        let mut cmd = Command::new(&binary);
-        cmd.args(&args)
-            .current_dir(&config.cwd)
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped());
-
-        let mut child = cmd.spawn().map_err(|e| format!("Failed to spawn claude: {e}"))?;
+        self.binary = binary.clone();
+        self.cwd = config.cwd.clone();
+        self.model = config.model.clone();
+        self.event_tx = Some(event_tx.clone());
         self.alive = true;
 
-        // Read stdout NDJSON in a background thread
-        let stdout = child.stdout.take().ok_or("Failed to capture stdout")?;
-        let stderr = child.stderr.take().ok_or("Failed to capture stderr")?;
-        let tx = event_tx.clone();
+        // If resuming an existing session, pre-fill the session_id
+        if let Some(ref resume_id) = config.resume_session_id {
+            *self.cli_session_id.lock().unwrap() = Some(resume_id.clone());
+        }
 
-        // stdout reader thread
-        thread::spawn(move || {
-            let reader = BufReader::new(stdout);
-            for line in reader.lines() {
-                let Ok(line) = line else { break };
-                let line = line.trim().to_string();
-                if line.is_empty() { continue; }
+        // Spawn an initial turn to get the session_id and init event
+        let child = Self::spawn_turn(
+            &binary,
+            &config.cwd,
+            &config.model,
+            "Reponds en une phrase: tu es pret.",
+            config.resume_session_id.as_deref(),
+            event_tx,
+            self.cli_session_id.clone(),
+        )?;
 
-                let events = ClaudeCliAdapter::parse_ndjson_line(&line);
-                for event in events {
-                    if tx.send(event).is_err() { return; }
-                }
-            }
-            // Process ended
-            let _ = tx.send(AdapterEvent::SessionTerminated {
-                reason: "CLI process stdout closed".into(),
-            });
-        });
-
-        // stderr reader thread (emit errors)
-        let tx_err = event_tx;
-        thread::spawn(move || {
-            let reader = BufReader::new(stderr);
-            for line in reader.lines() {
-                let Ok(line) = line else { break };
-                let line = line.trim().to_string();
-                if line.is_empty() { continue; }
-                // Only emit real errors, not info/debug
-                if line.contains("error") || line.contains("Error") || line.contains("FATAL") {
-                    let _ = tx_err.send(AdapterEvent::Error { message: line });
-                }
-            }
-        });
-
-        self.process = Some(child);
+        self.current_process = Some(child);
         Ok(())
     }
 
     fn send_message(
         &mut self,
         content: String,
-        images: Option<Vec<ImageData>>,
+        _images: Option<Vec<ImageData>>,
     ) -> Result<(), String> {
-        let child = self.process.as_mut().ok_or("No process running")?;
-        let stdin = child.stdin.as_mut().ok_or("No stdin available")?;
+        if !self.alive {
+            return Err("Adapter not alive".into());
+        }
 
-        // Build content: plain string or array with image blocks (Anthropic format)
-        let msg_content = if let Some(imgs) = images.filter(|v| !v.is_empty()) {
-            let mut blocks: Vec<serde_json::Value> = imgs.iter().map(|img| {
-                serde_json::json!({
-                    "type": "image",
-                    "source": {
-                        "type": "base64",
-                        "media_type": &img.media_type,
-                        "data": &img.data,
-                    }
-                })
-            }).collect();
-            blocks.push(serde_json::json!({ "type": "text", "text": &content }));
-            serde_json::json!(blocks)
-        } else {
-            serde_json::json!(content)
-        };
+        let tx = self.event_tx.as_ref().ok_or("No event channel")?.clone();
 
-        let msg = serde_json::json!({
-            "type": "user_message",
-            "content": msg_content,
-        });
+        // Kill any previous process that's still running
+        if let Some(mut prev) = self.current_process.take() {
+            // Try to wait, kill if still running
+            match prev.try_wait() {
+                Ok(Some(_)) => {} // already exited
+                _ => { let _ = prev.kill(); let _ = prev.wait(); }
+            }
+        }
 
-        let mut line = serde_json::to_string(&msg).map_err(|e| format!("JSON error: {e}"))?;
-        line.push('\n');
+        // Get the session_id for --resume
+        let session_id = self.cli_session_id.lock().unwrap().clone();
 
-        stdin.write_all(line.as_bytes()).map_err(|e| format!("Write error: {e}"))?;
-        stdin.flush().map_err(|e| format!("Flush error: {e}"))?;
+        let child = Self::spawn_turn(
+            &self.binary,
+            &self.cwd,
+            &self.model,
+            &content,
+            session_id.as_deref(),
+            tx,
+            self.cli_session_id.clone(),
+        )?;
 
+        self.current_process = Some(child);
         Ok(())
     }
 
     fn respond_permission(
         &mut self,
-        request_id: String,
-        allowed: bool,
+        _request_id: String,
+        _allowed: bool,
     ) -> Result<(), String> {
-        let child = self.process.as_mut().ok_or("No process running")?;
-        let stdin = child.stdin.as_mut().ok_or("No stdin available")?;
-
-        let msg = serde_json::json!({
-            "type": "permission_response",
-            "request_id": request_id,
-            "behavior": if allowed { "allow" } else { "deny" },
-        });
-
-        let mut line = serde_json::to_string(&msg).map_err(|e| format!("JSON error: {e}"))?;
-        line.push('\n');
-
-        stdin.write_all(line.as_bytes()).map_err(|e| format!("Write error: {e}"))?;
-        stdin.flush().map_err(|e| format!("Flush error: {e}"))?;
-
+        // Permission handling is not supported in --print/--resume mode
+        // Claude CLI handles permissions based on --permission-mode flag
         Ok(())
     }
 
     fn send_tool_result(
         &mut self,
-        tool_use_id: String,
-        content: String,
-        is_error: bool,
+        _tool_use_id: String,
+        _content: String,
+        _is_error: bool,
     ) -> Result<(), String> {
-        let child = self.process.as_mut().ok_or("No process running")?;
-        let stdin = child.stdin.as_mut().ok_or("No stdin available")?;
-
-        let msg = serde_json::json!({
-            "type": "tool_result",
-            "tool_use_id": tool_use_id,
-            "content": content,
-            "is_error": is_error,
-        });
-
-        let mut line = serde_json::to_string(&msg).map_err(|e| format!("JSON error: {e}"))?;
-        line.push('\n');
-
-        stdin.write_all(line.as_bytes()).map_err(|e| format!("Write error: {e}"))?;
-        stdin.flush().map_err(|e| format!("Flush error: {e}"))?;
-
         Ok(())
     }
 
     fn interrupt(&mut self) -> Result<(), String> {
-        // Send interrupt signal to the CLI process
-        if let Some(child) = &mut self.process {
-            // On Unix, send SIGINT; on Windows, just kill the process group
-            #[cfg(unix)]
-            {
-                use std::os::unix::process::CommandExt;
-                unsafe { libc::kill(child.id() as i32, libc::SIGINT); }
-            }
-            #[cfg(windows)]
-            {
-                // Windows: send Ctrl+C via stdin isn't reliable, try killing
-                let _ = child.kill();
-            }
+        if let Some(mut child) = self.current_process.take() {
+            let _ = child.kill();
+            let _ = child.wait();
         }
         Ok(())
     }
 
     fn stop(&mut self) -> Result<(), String> {
-        if let Some(mut child) = self.process.take() {
+        if let Some(mut child) = self.current_process.take() {
             let _ = child.kill();
             let _ = child.wait();
         }
@@ -413,11 +258,140 @@ impl BackendAdapter for ClaudeCliAdapter {
     fn capabilities(&self) -> AdapterCapabilities {
         AdapterCapabilities {
             supports_tools: true,
-            supports_permissions: true,
+            supports_permissions: false, // not in --print mode
             supports_streaming: true,
-            supports_images: true,
+            supports_images: false, // TODO: could pass via file
             supports_file_access: true,
             supports_terminal: true,
         }
     }
+}
+
+// ─── NDJSON parser (standalone function for use in threads) ───
+
+fn parse_ndjson_line(line: &str) -> Vec<AdapterEvent> {
+    let Ok(json) = serde_json::from_str::<serde_json::Value>(line) else {
+        return vec![];
+    };
+
+    let msg_type = json.get("type").and_then(|v| v.as_str()).unwrap_or("");
+
+    match msg_type {
+        "system" => {
+            let subtype = json.get("subtype").and_then(|v| v.as_str()).unwrap_or("");
+            if subtype == "init" {
+                let model = json.get("model").and_then(|v| v.as_str()).unwrap_or("unknown").to_string();
+                let tools = json.get("tools")
+                    .and_then(|v| v.as_array())
+                    .map(|arr| arr.iter().filter_map(|t| {
+                        // tools can be strings or objects with "name" field
+                        t.as_str().map(|s| s.to_string())
+                            .or_else(|| t.get("name").and_then(|n| n.as_str()).map(|s| s.to_string()))
+                    }).collect())
+                    .unwrap_or_default();
+                return vec![AdapterEvent::SessionReady { model, tools }];
+            }
+            vec![]
+        }
+
+        "assistant" => {
+            let content = extract_content(&json);
+            let model = json.get("message")
+                .and_then(|m| m.get("model"))
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string());
+
+            let mut events = vec![];
+
+            // Extract tool_use blocks
+            if let Some(blocks) = json.get("message")
+                .and_then(|m| m.get("content"))
+                .and_then(|c| c.as_array())
+            {
+                for block in blocks {
+                    if block.get("type").and_then(|v| v.as_str()) == Some("tool_use") {
+                        let id = block.get("id").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                        let name = block.get("name").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                        let input = block.get("input").cloned().unwrap_or(serde_json::Value::Null);
+                        events.push(AdapterEvent::ToolUse { id, name, input });
+                    }
+                }
+            }
+
+            if !content.is_empty() {
+                events.push(AdapterEvent::AssistantMessage { content, model });
+            }
+
+            events
+        }
+
+        "result" => {
+            let stop_reason = json.get("stop_reason")
+                .or_else(|| json.get("result").and_then(|r| r.get("stop_reason")))
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string());
+
+            let mut events = vec![];
+
+            // Extract final result text if present
+            if let Some(result_text) = json.get("result").and_then(|v| v.as_str()) {
+                if !result_text.is_empty() {
+                    // Only emit if we haven't already from an "assistant" message
+                    // The result field is a summary; the assistant message has the full content
+                }
+            }
+
+            events.push(AdapterEvent::TurnComplete { stop_reason });
+            events
+        }
+
+        "tool_use" => {
+            let id = json.get("id").and_then(|v| v.as_str()).unwrap_or("").to_string();
+            let name = json.get("name").and_then(|v| v.as_str()).unwrap_or("").to_string();
+            let input = json.get("input").cloned().unwrap_or(serde_json::Value::Null);
+            vec![AdapterEvent::ToolUse { id, name, input }]
+        }
+
+        "tool_result" => {
+            let tool_use_id = json.get("tool_use_id").and_then(|v| v.as_str()).unwrap_or("").to_string();
+            let content = extract_tool_result_content(&json);
+            let is_error = json.get("is_error").and_then(|v| v.as_bool()).unwrap_or(false);
+            vec![AdapterEvent::ToolResult { tool_use_id, content, is_error }]
+        }
+
+        _ => vec![]
+    }
+}
+
+fn extract_content(json: &serde_json::Value) -> String {
+    if let Some(blocks) = json.get("message")
+        .and_then(|m| m.get("content"))
+        .and_then(|c| c.as_array())
+    {
+        let texts: Vec<&str> = blocks.iter()
+            .filter(|b| b.get("type").and_then(|t| t.as_str()) == Some("text"))
+            .filter_map(|b| b.get("text").and_then(|t| t.as_str()))
+            .collect();
+        if !texts.is_empty() {
+            return texts.join("");
+        }
+    }
+    json.get("content")
+        .or_else(|| json.get("message").and_then(|m| m.get("content")))
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string()
+}
+
+fn extract_tool_result_content(json: &serde_json::Value) -> String {
+    if let Some(s) = json.get("content").and_then(|v| v.as_str()) {
+        return s.to_string();
+    }
+    if let Some(arr) = json.get("content").and_then(|v| v.as_array()) {
+        let texts: Vec<&str> = arr.iter()
+            .filter_map(|b| b.get("text").and_then(|t| t.as_str()))
+            .collect();
+        return texts.join("\n");
+    }
+    String::new()
 }
