@@ -49,7 +49,15 @@ export function createWebhookRoutes(service: WebhookService) {
 
   // List events for a webhook
   app.get("/:id/events", async (c) => {
-    const limit = c.req.query("limit") ? parseInt(c.req.query("limit")!, 10) : undefined;
+    const rawLimit = c.req.query("limit");
+    let limit: number | undefined;
+    if (rawLimit !== undefined) {
+      const n = Number(rawLimit);
+      if (!Number.isInteger(n) || n < 1) {
+        return c.json({ error: "limit must be a positive integer" }, 400);
+      }
+      limit = Math.min(n, 500);
+    }
     const events = await service.getEvents(c.req.param("id"), limit);
     return c.json({ data: events });
   });

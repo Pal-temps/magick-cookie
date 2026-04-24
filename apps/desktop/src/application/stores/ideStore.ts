@@ -97,6 +97,7 @@ const [expandedFolders, setExpandedFolders] = createSignal<Set<string>>(new Set(
 // ─── File watcher state ───
 
 let fsChangeUnlisten: UnlistenFn | null = null;
+let fsChangeListenPromise: Promise<UnlistenFn> | null = null;
 let refreshDebounce: ReturnType<typeof setTimeout> | null = null;
 
 // ─── Persistence helpers ───
@@ -330,9 +331,9 @@ export function useIdeStore() {
   // ─── File watcher ───
 
   async function startWatcher(watchPath: string) {
-    // Listen for fs-change events (only once)
-    if (!fsChangeUnlisten) {
-      fsChangeUnlisten = await listen<{ path: string; kind: string }>("fs-change", (event) => {
+    // Listen for fs-change events (only once — await any in-flight attach to avoid double-registering)
+    if (!fsChangeUnlisten && !fsChangeListenPromise) {
+      fsChangeListenPromise = listen<{ path: string; kind: string }>("fs-change", (event) => {
         const { path: changedPath, kind } = event.payload;
 
         // Debounce file tree refresh
@@ -357,6 +358,10 @@ export function useIdeStore() {
           if (tab) closeTab(tab.id);
         }
       });
+      fsChangeUnlisten = await fsChangeListenPromise;
+    } else if (fsChangeListenPromise && !fsChangeUnlisten) {
+      // Concurrent caller — wait for the in-flight attach to finish
+      await fsChangeListenPromise;
     }
 
     // Start Rust watcher

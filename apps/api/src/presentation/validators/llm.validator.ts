@@ -21,3 +21,9 @@ export const generateEventsSchema = z.object({
   prompt: z.string().min(1).max(2000),
   date: z.string().min(1),
 });
+
+export const generateCodeSchema = z.object({
+  title: z.string().min(1).max(500),
+  description: z.union([z.string().max(5000), z.null()]).optional(),
+  comments: z.array(z.string().max(1000)).max(50).optional(),
+});

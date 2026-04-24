@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import type { TaskService } from "../../application/task/task.service";
 import type { TaskDetailService } from "../../application/task/task-detail.service";
-import { taskQuerySchema } from "../validators/task.validator";
+import { taskQuerySchema, taskUpdateSchema } from "../validators/task.validator";
 
 export function createTaskRoutes(
   taskService: TaskService,
@@ -73,16 +73,20 @@ export function createTaskRoutes(
 
   // PATCH /api/tasks/:id — update task fields
   app.patch("/:id", async (c) => {
-    const body = await c.req.json();
-    const input: Record<string, unknown> = {};
-    if (body.title !== undefined) input.title = body.title;
-    if (body.description !== undefined) input.description = body.description;
-    if (body.status !== undefined) input.status = body.status;
-    if (body.priority !== undefined) input.priority = body.priority;
-    if (body.startDate !== undefined) input.startDate = body.startDate ? new Date(body.startDate) : null;
-    if (body.dueDate !== undefined) input.dueDate = body.dueDate ? new Date(body.dueDate) : null;
+    const parsed = taskUpdateSchema.safeParse(await c.req.json());
+    if (!parsed.success) {
+      return c.json({ error: "Invalid task update", issues: parsed.error.issues }, 400);
+    }
+    const { title, description, status, priority, startDate, dueDate } = parsed.data;
+    const input: Parameters<typeof taskService.update>[1] = {};
+    if (title !== undefined) input.title = title;
+    if (description !== undefined) input.description = description;
+    if (status !== undefined) input.status = status;
+    if (priority !== undefined) input.priority = priority;
+    if (startDate !== undefined) input.startDate = startDate ? new Date(startDate) : null;
+    if (dueDate !== undefined) input.dueDate = dueDate ? new Date(dueDate) : null;
 
-    const data = await taskService.update(c.req.param("id"), input as any);
+    const data = await taskService.update(c.req.param("id"), input);
     if (!data) return c.json({ error: "Task not found" }, 404);
     return c.json({ data });
   });

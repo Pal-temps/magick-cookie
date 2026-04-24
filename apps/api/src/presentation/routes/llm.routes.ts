@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import type { LlmService } from "../../application/llm/llm.service";
-import { updateLlmConfigSchema, chatSchema, generateEventsSchema } from "../validators/llm.validator";
+import { updateLlmConfigSchema, chatSchema, generateEventsSchema, generateCodeSchema } from "../validators/llm.validator";
 
 export function createLlmRoutes(llmService: LlmService) {
   const app = new Hono();
@@ -34,12 +34,14 @@ export function createLlmRoutes(llmService: LlmService) {
 
   // POST /api/llm/generate-code
   app.post("/generate-code", async (c) => {
-    const { title, description, comments } = await c.req.json();
-    if (!title) return c.json({ error: "title required" }, 400);
+    const parsed = generateCodeSchema.safeParse(await c.req.json());
+    if (!parsed.success) {
+      return c.json({ error: "Invalid generate-code input", issues: parsed.error.issues }, 400);
+    }
     const result = await llmService.generateCode({
-      title: String(title),
-      description: description ? String(description) : null,
-      comments: Array.isArray(comments) ? comments.map(String) : [],
+      title: parsed.data.title,
+      description: parsed.data.description ?? null,
+      comments: parsed.data.comments ?? [],
     });
     return c.json({ data: result });
   });

@@ -73,6 +73,9 @@ export interface EmailDigest {
 
 const [unreadPerAccount, setUnreadPerAccount] = createSignal<Record<string, number>>({});
 
+// Monotonic token for fetchEmails — drops stale responses when account/folder changes mid-flight.
+let fetchEmailsToken = 0;
+
 const ACCOUNT_COLORS = [
   "var(--cal-blue)", "var(--cal-green)", "var(--cal-orange)",
   "var(--cal-pink)", "var(--cal-red)", "var(--cal-purple)",
@@ -98,6 +101,7 @@ export function useEmailStore() {
   async function fetchEmails() {
     const accountId = activeAccountId();
     const folder = activeFolder();
+    const token = ++fetchEmailsToken;
 
     // 1. Load from cache first for instant display
     const cache = loadEmailCache(accountId, folder);
@@ -119,12 +123,15 @@ export function useEmailStore() {
 
       const qs = params.toString();
       const data = await api.get<Email[]>(`/emails?${qs}`);
+      // Drop stale response: a newer fetch has been started while this one was in flight.
+      if (token !== fetchEmailsToken) return;
       setEmails(data);
       setHasMore(data.length >= PAGE_SIZE);
       setIsStale(false);
 
       // Update cache with fresh data
       const unread = await api.get<{ count: number }>("/emails/unread-count");
+      if (token !== fetchEmailsToken) return;
       setUnreadCount(unread.count);
       saveEmailCache(data, unread.count, accountId, folder);
     } catch (err) {
@@ -133,7 +140,7 @@ export function useEmailStore() {
         console.error("[email] Failed to fetch emails and no cache available:", err);
       }
     } finally {
-      setIsLoading(false);
+      if (token === fetchEmailsToken) setIsLoading(false);
     }
   }
 
