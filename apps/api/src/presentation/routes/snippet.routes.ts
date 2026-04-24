@@ -1,21 +1,31 @@
 import { Hono } from "hono";
+import { z } from "zod";
 import type { SnippetService } from "../../application/snippet/snippet.service";
 import { createSnippetSchema, updateSnippetSchema } from "../validators/snippet.validator";
+
+// Optional limit/offset (unlike paginationSchema, no default — undefined means "no limit" in repo).
+const optionalPaginationSchema = z.object({
+  limit: z.coerce.number().int().min(1).max(500).optional(),
+  offset: z.coerce.number().int().min(0).optional(),
+});
 
 export function createSnippetRoutes(service: SnippetService) {
   const app = new Hono();
 
   app.get("/", async (c) => {
-    const tag = c.req.query("tag");
-    const language = c.req.query("language");
-    const limit = c.req.query("limit");
-    const offset = c.req.query("offset");
+    const parsed = optionalPaginationSchema.safeParse({
+      limit: c.req.query("limit"),
+      offset: c.req.query("offset"),
+    });
+    if (!parsed.success) {
+      return c.json({ error: parsed.error.flatten().fieldErrors }, 400);
+    }
 
     const snippets = await service.getAll({
-      tag: tag || undefined,
-      language: language || undefined,
-      limit: limit ? parseInt(limit, 10) : undefined,
-      offset: offset ? parseInt(offset, 10) : undefined,
+      tag: c.req.query("tag") || undefined,
+      language: c.req.query("language") || undefined,
+      limit: parsed.data.limit,
+      offset: parsed.data.offset,
     });
     return c.json({ data: snippets });
   });
