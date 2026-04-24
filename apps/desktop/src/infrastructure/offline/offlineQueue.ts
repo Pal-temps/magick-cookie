@@ -62,6 +62,7 @@ export function useOfflineQueue() {
   }
 
   async function replayQueue(): Promise<void> {
+    if (isSyncing()) return;
     const pending = queue();
     if (pending.length === 0) return;
 

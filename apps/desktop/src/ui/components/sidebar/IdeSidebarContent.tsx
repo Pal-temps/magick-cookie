@@ -230,7 +230,7 @@ export function IdeSidebarContent() {
 
     function commitRename(id: string) {
       const val = editValue().trim();
-      if (val) ai.renameSession(id, val);
+      if (val) ai.renameSession(id, val).catch(() => { /* already logged + reverted in store */ });
       setEditingId(null);
     }
 

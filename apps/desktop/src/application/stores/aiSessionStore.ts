@@ -433,9 +433,18 @@ export function useAiSessionStore() {
     updateSession(id, (s) => ({ ...s, messages: [] }));
   }
 
-  function renameSession(sessionId: string, label: string) {
+  async function renameSession(sessionId: string, label: string) {
+    const previousLabel = sessions().find((s) => s.id === sessionId)?.label;
     updateSession(sessionId, (s) => ({ ...s, label }));
-    invoke("ai_update_session_label", { sessionId, label }).catch(() => {});
+    try {
+      await invoke("ai_update_session_label", { sessionId, label });
+    } catch (err) {
+      console.error("[ai-session] rename failed, reverting:", err);
+      if (previousLabel !== undefined) {
+        updateSession(sessionId, (s) => ({ ...s, label: previousLabel }));
+      }
+      throw err;
+    }
   }
 
   async function fetchPastSessions() {
