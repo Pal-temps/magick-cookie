@@ -70,6 +70,8 @@ import { WebhookService } from "./application/webhook/webhook.service";
 import { UserPreferencesService } from "./application/user-preferences/user-preferences.service";
 import { AgentService } from "./application/agent/agent.service";
 import { ToolRegistry } from "./application/agent/tool-registry";
+import { AiToolCallService } from "./application/ai-tool-call/ai-tool-call.service";
+import { DrizzleAiToolCallRepository } from "./infrastructure/repositories/ai-tool-call.repository.impl";
 import { createAnalyticsTools } from "./application/agent/tools/analytics.tools";
 import { createTaskTools } from "./application/agent/tools/task.tools";
 import { createTimerTools } from "./application/agent/tools/timer.tools";
@@ -184,6 +186,7 @@ const routineRepo = new DrizzleRoutineRepository(db);
 const webhookRepo = new DrizzleWebhookRepository(db);
 const userPreferencesRepo = new DrizzleUserPreferencesRepository(db);
 const connectorConfigRepo = new DrizzleConnectorConfigRepository(db);
+const aiToolCallRepo = new DrizzleAiToolCallRepository(db);
 
 const calendarService = new CalendarService(calendarRepo);
 const eventService = new EventService(eventRepo, reminderRepo);
@@ -224,7 +227,8 @@ const webhookService = new WebhookService(webhookRepo);
 const userPreferencesService = new UserPreferencesService(userPreferencesRepo);
 
 // Agent (tool-calling chat)
-const toolRegistry = new ToolRegistry();
+const aiToolCallService = new AiToolCallService(aiToolCallRepo);
+const toolRegistry = new ToolRegistry(aiToolCallService);
 toolRegistry.registerAll(createAnalyticsTools(analyticsService));
 toolRegistry.registerAll(createTaskTools(taskService, fluxService));
 toolRegistry.registerAll(createTimerTools(timerSessionService));

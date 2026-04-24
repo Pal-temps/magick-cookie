@@ -1,12 +1,13 @@
-import type { AgentTool } from "../tool-registry";
+import { z } from "zod";
+import { defineTool, type AgentTool } from "../tool-registry";
 import type { SkillService } from "../../skills/skill.service";
 
 export function createSkillTools(skills: SkillService): AgentTool[] {
   return [
-    {
+    defineTool({
       name: "skill_list",
       description: "Liste tous les skills et hooks disponibles dans le vault. Les skills sont des automatisations reutilisables (deploy, backup, etc.).",
-      parameters: {},
+      params: z.object({}),
       execute: async () => {
         const allSkills = skills.listSkills();
         const allHooks = skills.listHooks();
@@ -24,16 +25,16 @@ export function createSkillTools(skills: SkillService): AgentTool[] {
           })),
         };
       },
-    },
-    {
+    }),
+    defineTool({
       name: "skill_get",
       description: "Recupere les instructions detaillees d'un skill. Utile pour comprendre ce que le skill fait avant de l'executer.",
-      parameters: {
-        name: { type: "string", description: "Nom du skill", required: true },
-      },
-      execute: async (params) => {
-        const skill = skills.getSkill(params.name as string);
-        if (!skill) return { error: `Skill "${params.name}" non trouve` };
+      params: z.object({
+        name: z.string().min(1).max(200).describe("Nom du skill"),
+      }),
+      execute: async ({ name }) => {
+        const skill = skills.getSkill(name);
+        if (!skill) return { error: `Skill "${name}" non trouve` };
         return {
           name: skill.name,
           description: skill.description,
@@ -42,21 +43,21 @@ export function createSkillTools(skills: SkillService): AgentTool[] {
           instructions: skill.instructions,
         };
       },
-    },
-    {
+    }),
+    defineTool({
       name: "skill_prompt",
       description: "Genere le prompt systeme a partir d'un skill avec des parametres remplis. Retourne les instructions pretes a executer. Utilise ensuite les tools requis pour suivre les instructions.",
-      parameters: {
-        name: { type: "string", description: "Nom du skill", required: true },
-        params: { type: "string", description: "Parametres au format JSON (ex: {\"subdomain\": \"app\", \"repo\": \"https://...\"})", required: false },
-      },
-      execute: async (p) => {
-        const skill = skills.getSkill(p.name as string);
-        if (!skill) return { error: `Skill "${p.name}" non trouve` };
+      params: z.object({
+        name: z.string().min(1).max(200).describe("Nom du skill"),
+        params: z.string().max(10_000).optional().describe("Parametres au format JSON (ex: {\"subdomain\": \"app\", \"repo\": \"https://...\"})"),
+      }),
+      execute: async ({ name, params: paramsJson }) => {
+        const skill = skills.getSkill(name);
+        if (!skill) return { error: `Skill "${name}" non trouve` };
 
         let params: Record<string, string> = {};
         try {
-          if (p.params) params = JSON.parse(p.params as string);
+          if (paramsJson) params = JSON.parse(paramsJson);
         } catch { /* ignore parse errors */ }
 
         // Fill defaults
@@ -71,6 +72,6 @@ export function createSkillTools(skills: SkillService): AgentTool[] {
           prompt,
         };
       },
-    },
+    }),
   ];
 }

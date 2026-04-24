@@ -1,53 +1,56 @@
-import type { AgentTool } from "../tool-registry";
+import { z } from "zod";
+import { defineTool, type AgentTool } from "../tool-registry";
 import type { TimerSessionService } from "../../timer-session/timer-session.service";
+
+const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Format attendu YYYY-MM-DD");
 
 export function createTimerTools(timerService: TimerSessionService): AgentTool[] {
   return [
-    {
+    defineTool({
       name: "get_today_timer_stats",
       description: "Recupere les stats timer du jour (temps total, nombre de sessions)",
-      parameters: {},
+      params: z.object({}),
       execute: async () => timerService.getTodayStats(),
-    },
-    {
+    }),
+    defineTool({
       name: "get_timer_sessions",
       description: "Liste les sessions timer sur une periode",
-      parameters: {
-        from: { type: "string", description: "Date debut YYYY-MM-DD", required: true },
-        to: { type: "string", description: "Date fin YYYY-MM-DD", required: true },
-      },
-      execute: async (params) => {
-        const sessions = await timerService.getAll(new Date(params.from as string), new Date((params.to as string) + "T23:59:59"));
+      params: z.object({
+        from: isoDate.describe("Date debut YYYY-MM-DD"),
+        to: isoDate.describe("Date fin YYYY-MM-DD"),
+      }),
+      execute: async ({ from, to }) => {
+        const sessions = await timerService.getAll(new Date(from), new Date(`${to}T23:59:59`));
         return sessions.slice(0, 20);
       },
-    },
-    {
+    }),
+    defineTool({
       name: "save_timer_session",
       description: "Enregistre une session de timer terminee. Utilise pour logger du temps retroactivement.",
-      parameters: {
-        mode: { type: "string", description: "Mode : pomodoro ou free", required: true },
-        durationMinutes: { type: "number", description: "Duree prevue en minutes", required: true },
-        actualSeconds: { type: "number", description: "Duree reelle en secondes", required: true },
-        completed: { type: "boolean", description: "Session completee ou non", required: false },
-        label: { type: "string", description: "Note/label de session", required: false },
-        projectId: { type: "string", description: "ID du projet associe", required: false },
-        taskId: { type: "string", description: "ID de la tache associee", required: false },
-      },
-      execute: async (params) => {
+      params: z.object({
+        mode: z.string().min(1).max(50).describe("Mode : pomodoro ou free"),
+        durationMinutes: z.number().int().min(0).describe("Duree prevue en minutes"),
+        actualSeconds: z.number().int().min(0).describe("Duree reelle en secondes"),
+        completed: z.boolean().optional().describe("Session completee ou non"),
+        label: z.string().max(255).optional().describe("Note/label de session"),
+        projectId: z.string().optional().describe("ID du projet associe"),
+        taskId: z.string().optional().describe("ID de la tache associee"),
+      }),
+      execute: async ({ mode, durationMinutes, actualSeconds, completed, label, projectId, taskId }) => {
         const now = new Date();
-        const startedAt = new Date(now.getTime() - (params.actualSeconds as number) * 1000);
+        const startedAt = new Date(now.getTime() - actualSeconds * 1000);
         return timerService.create({
-          mode: params.mode as string,
-          durationMinutes: params.durationMinutes as number,
-          actualSeconds: params.actualSeconds as number,
-          startedAt: startedAt,
+          mode,
+          durationMinutes,
+          actualSeconds,
+          startedAt,
           endedAt: now,
-          completed: (params.completed as boolean) ?? true,
-          label: (params.label as string) ?? null,
-          projectId: (params.projectId as string) ?? null,
-          taskId: (params.taskId as string) ?? null,
+          completed: completed ?? true,
+          label: label ?? null,
+          projectId: projectId ?? null,
+          taskId: taskId ?? null,
         });
       },
-    },
+    }),
   ];
 }

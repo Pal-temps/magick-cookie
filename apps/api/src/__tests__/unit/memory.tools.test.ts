@@ -81,16 +81,16 @@ describe("memory.tools", () => {
     });
 
     it("should reject invalid type", async () => {
-      const result = await saveTool.execute({ type: "invalid_type", content: "something" });
+      const result = (await saveTool.execute({ type: "invalid_type", content: "something" })) as { error?: string };
 
-      expect(result).toEqual({ error: "Type invalide. Utilise : fact, context, preference" });
+      expect(result.error).toBe("Parametres invalides");
       expect(mockRepo.create).not.toHaveBeenCalled();
     });
 
     it("should reject empty string type", async () => {
-      const result = await saveTool.execute({ type: "", content: "something" });
+      const result = (await saveTool.execute({ type: "", content: "something" })) as { error?: string };
 
-      expect(result).toEqual({ error: "Type invalide. Utilise : fact, context, preference" });
+      expect(result.error).toBe("Parametres invalides");
       expect(mockRepo.create).not.toHaveBeenCalled();
     });
   });
@@ -143,9 +143,9 @@ describe("memory.tools", () => {
     });
 
     it("should reject invalid type filter", async () => {
-      const result = await getTool.execute({ type: "bad_type" });
+      const result = (await getTool.execute({ type: "bad_type" })) as { error?: string };
 
-      expect(result).toEqual({ error: "Type invalide. Utilise : fact, context, preference" });
+      expect(result.error).toBe("Parametres invalides");
       expect(mockRepo.findActive).not.toHaveBeenCalled();
     });
 

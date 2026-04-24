@@ -81,16 +81,11 @@ export class AgentService {
       // Execute tool calls
       const results: ToolResult[] = [];
       for (const tc of toolCalls) {
-        const tool = this.toolRegistry.get(tc.tool);
-        if (!tool) {
-          results.push({ tool: tc.tool, result: null, error: `Outil inconnu: ${tc.tool}` });
-          continue;
-        }
-        try {
-          const result = await tool.execute(tc.params);
-          results.push({ tool: tc.tool, result });
-        } catch (e) {
-          results.push({ tool: tc.tool, result: null, error: String(e) });
+        const dispatch = await this.toolRegistry.dispatch(tc.tool, tc.params, { conversationId });
+        if (dispatch.status === "ok") {
+          results.push({ tool: tc.tool, result: dispatch.result });
+        } else {
+          results.push({ tool: tc.tool, result: null, error: dispatch.error ?? dispatch.status });
         }
       }
 
@@ -153,19 +148,14 @@ export class AgentService {
         return;
       }
 
-      // Execute tools
+      // Execute tools via the registry (validation + rate limit + audit).
       const results: ToolResult[] = [];
       for (const tc of toolCalls) {
-        const tool = this.toolRegistry.get(tc.tool);
-        if (!tool) {
-          results.push({ tool: tc.tool, result: null, error: `Outil inconnu: ${tc.tool}` });
-          continue;
-        }
-        try {
-          const result = await tool.execute(tc.params);
-          results.push({ tool: tc.tool, result });
-        } catch (e) {
-          results.push({ tool: tc.tool, result: null, error: String(e) });
+        const dispatch = await this.toolRegistry.dispatch(tc.tool, tc.params, { conversationId });
+        if (dispatch.status === "ok") {
+          results.push({ tool: tc.tool, result: dispatch.result });
+        } else {
+          results.push({ tool: tc.tool, result: null, error: dispatch.error ?? dispatch.status });
         }
       }
 

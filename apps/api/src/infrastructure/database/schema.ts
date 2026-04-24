@@ -397,6 +397,24 @@ export const connectorConfigs = pgTable("connector_configs", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });
 
+// Audit trail for every agent tool invocation — see docs/plans/ai-integration-2026-04-25.md (P2).
+export const aiToolCalls = pgTable("ai_tool_calls", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  conversationId: uuid("conversation_id"),
+  sessionId: varchar("session_id", { length: 255 }),
+  toolName: varchar("tool_name", { length: 100 }).notNull(),
+  permissionLevel: varchar("permission_level", { length: 20 }).notNull().default("auto"),
+  args: text("args").notNull().default("{}"),
+  result: text("result"),
+  errorMessage: text("error_message"),
+  status: varchar("status", { length: 20 }).notNull(),
+  durationMs: integer("duration_ms"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  index("idx_ai_tool_calls_conversation").on(table.conversationId, table.createdAt),
+  index("idx_ai_tool_calls_tool").on(table.toolName, table.createdAt),
+]);
+
 export const contacts = pgTable("contacts", {
   id: uuid("id").primaryKey().defaultRandom(),
   name: varchar("name", { length: 255 }).notNull(),

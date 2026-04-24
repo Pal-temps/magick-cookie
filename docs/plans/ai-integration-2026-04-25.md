@@ -182,7 +182,7 @@ L'utilisateur saisit son token GitHub **une seule fois** dans ConnectorSettings.
 
 ## Phase 2 — Tool convention + permission layer
 
-**Statut** : ⬜ À faire
+**Statut** : ✅ Terminé (2026-04-25)
 **Durée estimée** : 1 session
 **Dépend de** : rien (peut être parallèle à P1)
 **Débloque** : Phases 3, 4, 5
@@ -192,14 +192,14 @@ Cadre commun avant d'ajouter ~20 tools supplémentaires.
 
 ### Tâches
 
-- [ ] Contract tool unique `{ name, description, paramsSchema (zod), execute, permissionLevel }`
-- [ ] `permissionLevel` enum : `auto` | `user-confirm` | `admin`
-- [ ] Helper `defineTool(cfg)` dans `tool-registry.ts` pour réduire la boilerplate
-- [ ] `agent.service.ts` intercepte les tools `user-confirm` → émet `permission_request` event → attend réponse
-- [ ] Propagation côté Rust via `ai_respond_permission` (déjà existant)
-- [ ] Nouvelle table `ai_tool_calls` : session_id, turn, tool_name, args_hash, result_hash, timestamp, status
-- [ ] Rate limits configurables par tool (ex: send_email max 5/min)
-- [ ] Logging structuré des erreurs de tool avec correlation_id
+- [x] Contract tool unique `{ name, description, paramsSchema (zod), execute, permissionLevel }`
+- [x] `permissionLevel` enum : `auto` | `user-confirm` | `admin`
+- [x] Helper `defineTool(cfg)` dans `tool-registry.ts` pour réduire la boilerplate
+- [x] `agent.service.ts` intercepte les tools `user-confirm` — pour l'instant deny + audit. Le flux interactif `permission_request` → `ai_respond_permission` sera branché en P4 quand un UI le consommera.
+- [ ] Propagation côté Rust via `ai_respond_permission` — reporté à P4 (channel pas encore requis pour l'API-side agent qui est non-interactif)
+- [x] Nouvelle table `ai_tool_calls` : conversationId, sessionId, toolName, permissionLevel, args, result, errorMessage, status, durationMs, createdAt
+- [x] Rate limits configurables par tool (scope conversation+tool, sliding window in-memory)
+- [x] Logging structuré des erreurs de tool avec status structuré (`ok` / `error` / `denied` / `invalid_input` / `rate_limited`)
 
 ### Done when
 Un nouveau tool s'écrit en ~20 lignes. Les actions sensibles demandent confirmation inline. L'audit trail est interrogeable.
@@ -491,7 +491,7 @@ L'AI enchaîne intelligemment plusieurs features. Observability complète.
 | Phase | Statut | Session(s) | Dépend de |
 |-------|--------|------------|-----------|
 | P1 GitHub unification | ✅ | 1 dense | — |
-| P2 Tool convention | ⬜ | 1 | — |
+| P2 Tool convention | ✅ | 1 | — |
 | P3 Notes bridge | ⬜ | 1-2 | P2 |
 | P4 Domaines CRUD | ⬜ | 2-3 | P2 |
 | P5 Providers tools | ⬜ | 1 | P1, P2 |
@@ -520,3 +520,15 @@ L'AI enchaîne intelligemment plusieurs features. Observability complète.
   - `DrizzleGitHubConfigRepository` fichier supprimé ; `DrizzleGitHubPRRepository` migré sur `syncedIssues`
   - Frontend `GitHubSettings.tsx` supprimé + entrée onglet + 7 clés i18n orphelines (`githubDesc`, `createTokenHint`, `githubUsername`, `usernameHint`, `reposToWatch`, `reposSeparated`, `repoFormatHint`)
   - Tests : 1057 pass (+7 nouveaux dans `github.service.test.ts`), 0 fail, TS 0 erreur (desktop + api)
+- **P2 implémenté** :
+  - Migration `0035_ai_tool_calls.sql` + schéma `aiToolCalls` (conversation/session/tool/perm/args/result/status/duration)
+  - Domain `AiToolCall` entity + `AiToolCallRepository` interface + `AiToolCallService` (DDD strict : domain → app → infra)
+  - `DrizzleAiToolCallRepository` impl (repo sous `infrastructure/repositories/`)
+  - `defineTool<T>(cfg)` helper : zod params schema, `permissionLevel`, `rateLimit`, execute typé via `z.infer<T>`
+  - `ToolRegistry.dispatch(name, params, ctx)` : validation zod → rate limit → permission → execute → audit. Jamais throw, retourne toujours un `ToolDispatchResult` structuré.
+  - `agent.service.ts` utilise `dispatch` au lieu de `tool.execute` — audit automatique
+  - Rate limiter in-memory sliding window, scope `{tool, conversationId|sessionId|global}`
+  - Permissions `user-confirm`/`admin` refusées avec audit tant que le canal n'est pas branché (flip en P4/P6)
+  - Les 10 tool files migrés vers `defineTool` (task, memory, timer, analytics, brief, email, calendar, bookmark, project, skill, git-remote, deploy, dns, ssh)
+  - Tests : 1070 pass (+13 dans `tool-registry.test.ts`, 3 `memory.tools.test.ts` mis à jour pour matcher le nouveau shape d'erreur). 0 fail, TS 0 erreur.
+  - Note : le flux `permission_request` interactif côté API-agent est reporté à P4/P6 quand un UI le consomme. Le foundation (permissionLevel + dispatch deny) est en place.
