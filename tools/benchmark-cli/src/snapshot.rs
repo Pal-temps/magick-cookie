@@ -1,3 +1,8 @@
+// Units note: memory values labelled `*_mb` are actually mebibytes (MiB, 1024² bytes).
+// sysinfo returns memory in bytes; we divide by 1024*1024 for display. `cpu_total_percent` is
+// the sum of per-process CPU percents reported by the OS — it can exceed 100% on multi-core
+// machines (one process saturating 4 cores shows as ~400%). Don't interpret it as 0-100%.
+
 use serde::{Deserialize, Serialize};
 use sysinfo::{ProcessesToUpdate, System};
 

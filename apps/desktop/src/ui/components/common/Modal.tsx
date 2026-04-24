@@ -38,6 +38,7 @@ export function Modal(props: ModalProps) {
             <h2 style={{ "font-size": "18px", "font-weight": "600" }}>{props.title}</h2>
             <button
               onClick={props.onClose}
+              aria-label="Close"
               style={{
                 width: "28px",
                 height: "28px",

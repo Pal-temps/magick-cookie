@@ -1,4 +1,4 @@
-import { createSignal, createEffect, on, Show } from "solid-js";
+import { createSignal, createEffect, on, onCleanup, Show } from "solid-js";
 import { createVirtualizer } from "@tanstack/solid-virtual";
 import type { FluxKanbanItem, FluxStatus } from "../../../application/stores/fluxStore";
 
@@ -32,7 +32,12 @@ function entityTypeLabel(type: string): string {
 
 export function VirtualKanbanColumn(props: VirtualKanbanColumnProps) {
   let scrollRef!: HTMLDivElement;
+  let loadMoreTimer: ReturnType<typeof setTimeout> | null = null;
   const [isLoadingMore, setIsLoadingMore] = createSignal(false);
+
+  onCleanup(() => {
+    if (loadMoreTimer !== null) clearTimeout(loadMoreTimer);
+  });
 
   const virtualizer = createVirtualizer({
     get count() { return props.items.length; },
@@ -53,8 +58,13 @@ export function VirtualKanbanColumn(props: VirtualKanbanColumnProps) {
     ) {
       setIsLoadingMore(true);
       props.onLoadMore();
-      // Reset loading flag after a short delay to avoid rapid re-triggers
-      setTimeout(() => setIsLoadingMore(false), 1000);
+      // Reset loading flag after a short delay to avoid rapid re-triggers. Track the handle so
+      // unmount doesn't fire setState against a dead component.
+      if (loadMoreTimer !== null) clearTimeout(loadMoreTimer);
+      loadMoreTimer = setTimeout(() => {
+        loadMoreTimer = null;
+        setIsLoadingMore(false);
+      }, 1000);
     }
   }
 

@@ -1,7 +1,7 @@
 import { createSignal, createResource, Show, For } from "solid-js";
-import { invoke } from "@tauri-apps/api/core";
 import { useSecretsStore } from "../../../application/stores/secretsStore";
 import { useCalendarStore } from "../../../application/stores/calendarStore";
+import { useNotesStore } from "../../../application/stores/notesStore";
 import { useViewStore } from "../../../application/stores/viewStore";
 import { useT } from "../../../i18n/context";
 
@@ -18,12 +18,14 @@ export function SetupChecklist() {
   const { t } = useT();
   const secrets = useSecretsStore();
   const { calendars } = useCalendarStore();
+  const notes = useNotesStore();
   const { setViewMode } = useViewStore();
   const [dismissed, setDismissed] = createSignal(localStorage.getItem("setup-dismissed") === "1");
 
+  // Delegates to notesStore so no UI component talks to `invoke` directly.
   const [vaultConfigured] = createResource(async () => {
     try {
-      const config = await invoke<{ path: string } | null>("notes_get_config");
+      const config = await notes.loadConfig();
       return !!config?.path;
     } catch {
       return false;
