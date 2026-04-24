@@ -25,7 +25,6 @@ import { DrizzleBookmarkCategoryRepository } from "./infrastructure/repositories
 import { DrizzleProjectRepository } from "./infrastructure/repositories/project.repository.impl";
 import { DrizzlePushNotificationRepository } from "./infrastructure/repositories/push-notification.repository.impl";
 import { DrizzleAgentMemoryRepository } from "./infrastructure/repositories/agent-memory.repository.impl";
-import { DrizzleGitHubConfigRepository } from "./infrastructure/repositories/github-config.repository.impl";
 import { DrizzleGitHubPRRepository } from "./infrastructure/repositories/github-pr.repository.impl";
 import { DrizzleAlarmRepository } from "./infrastructure/repositories/alarm.repository.impl";
 import { DrizzleRssFeedRepository } from "./infrastructure/repositories/rss-feed.repository.impl";
@@ -174,7 +173,6 @@ const bookmarkCategoryRepo = new DrizzleBookmarkCategoryRepository(db);
 const projectRepo = new DrizzleProjectRepository(db);
 const pushRepo = new DrizzlePushNotificationRepository(db);
 const agentMemoryRepo = new DrizzleAgentMemoryRepository(db);
-const githubConfigRepo = new DrizzleGitHubConfigRepository(db);
 const githubPrRepo = new DrizzleGitHubPRRepository(db);
 const alarmRepo = new DrizzleAlarmRepository(db);
 const rssFeedRepo = new DrizzleRssFeedRepository(db);
@@ -207,7 +205,7 @@ const gitRepoPaths = process.env.GIT_SCAN_REPOS?.split(",").map((p) => p.trim())
 const gitExecAdapter = new GitExecAdapter();
 const gitScanService = gitRepoPaths.length > 0 ? new GitScanService(gitRepoPaths, gitExecAdapter) : undefined;
 const briefService = new BriefService(timerSessionRepo, eventRepo, taskRepo, fluxRepo, emailRepo, llmService, gitScanService);
-const githubService = new GitHubService(githubConfigRepo, githubPrRepo);
+const githubService = new GitHubService(connectorConfigRepo, githubPrRepo);
 const vpsProxyService = new VpsProxyService(config.vpsApiUrl, config.vpsApiToken);
 const bookmarkService = new BookmarkService(bookmarkRepo, bookmarkCategoryRepo);
 const projectService = new ProjectService(projectRepo);
@@ -342,7 +340,7 @@ timers.push(startReminderChecker(reminderService, eventRepo, reminderEmitter));
   }
 
   try {
-    const ghConfig = await githubConfigRepo.get();
+    const ghConfig = await connectorConfigRepo.findByType("github");
     if (ghConfig) {
       timers.push(startGitHubSyncJob(githubService));
     } else {

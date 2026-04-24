@@ -199,18 +199,12 @@ export const chatMessages = pgTable("chat_messages", {
   index("idx_chat_messages_conversation").on(table.conversationId, table.createdAt),
 ]);
 
-export const githubConfig = pgTable("github_config", {
+// Generic synced issues/PRs cache table — source-agnostic so gitlab/clickup can
+// reuse this pattern later. Today only populated from the GitHub connector.
+export const syncedIssues = pgTable("synced_issues", {
   id: uuid("id").primaryKey().defaultRandom(),
-  token: text("token").notNull(),
-  username: varchar("username", { length: 255 }).notNull(),
-  repos: text("repos").notNull().default("[]"),
-  pollIntervalSeconds: integer("poll_interval_seconds").notNull().default(300),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
-});
-
-export const githubPrs = pgTable("github_prs", {
-  id: uuid("id").primaryKey().defaultRandom(),
+  source: varchar("source", { length: 50 }).notNull().default("github"),
+  externalId: varchar("external_id", { length: 500 }).notNull(),
   prNumber: integer("pr_number").notNull(),
   repo: varchar("repo", { length: 500 }).notNull(),
   title: varchar("title", { length: 1000 }).notNull(),
@@ -222,7 +216,7 @@ export const githubPrs = pgTable("github_prs", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 }, (table) => [
-  uniqueIndex("idx_github_prs_repo_number").on(table.repo, table.prNumber),
+  uniqueIndex("idx_synced_issues_source_external_id").on(table.source, table.externalId),
 ]);
 
 export const bookmarkCategories = pgTable("bookmark_categories", {

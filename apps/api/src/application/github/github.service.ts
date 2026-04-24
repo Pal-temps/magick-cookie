@@ -1,22 +1,61 @@
-import type { GitHubConfigRepository, GitHubPRRepository } from "../../domain/github/github.repository";
+import type { ConnectorConfigRepository } from "../../domain/connector-config/connector-config.repository";
+import type { ConnectorConfig } from "../../domain/connector-config/connector-config.entity";
+import type { GitHubPRRepository } from "../../domain/github/github.repository";
 import type { GitHubConfig, GitHubPR, WorkflowRun } from "../../domain/github/github.entity";
+
+const DEFAULT_POLL_INTERVAL_SECONDS = 300;
+
+interface GitHubSettings {
+  username?: string;
+  repos?: string[];
+  pollIntervalSeconds?: number;
+  syncIssues?: boolean;
+  syncPRs?: boolean;
+}
+
+function projectConfig(cfg: ConnectorConfig): GitHubConfig {
+  const settings = cfg.settings as GitHubSettings;
+  return {
+    id: cfg.id,
+    token: cfg.token,
+    username: settings.username ?? "",
+    repos: Array.isArray(settings.repos) ? settings.repos : [],
+    pollIntervalSeconds: settings.pollIntervalSeconds ?? DEFAULT_POLL_INTERVAL_SECONDS,
+    createdAt: cfg.createdAt,
+    updatedAt: cfg.updatedAt,
+  };
+}
 
 export class GitHubService {
   constructor(
-    private configRepo: GitHubConfigRepository,
+    private connectorConfigRepo: ConnectorConfigRepository,
     private prRepo: GitHubPRRepository,
   ) {}
 
   async getConfig(): Promise<GitHubConfig | null> {
-    return this.configRepo.get();
+    const cfg = await this.connectorConfigRepo.findByType("github");
+    return cfg ? projectConfig(cfg) : null;
   }
 
   async saveConfig(input: { token: string; username: string; repos: string[] }): Promise<GitHubConfig> {
-    return this.configRepo.save(input);
+    // Merge with existing settings so we don't clobber syncIssues/syncPRs/pollInterval.
+    const existing = await this.connectorConfigRepo.findByType("github");
+    const existingSettings = (existing?.settings as GitHubSettings | undefined) ?? {};
+    const merged = await this.connectorConfigRepo.upsert({
+      type: "github",
+      token: input.token,
+      settings: {
+        ...existingSettings,
+        username: input.username,
+        repos: input.repos,
+        pollIntervalSeconds: existingSettings.pollIntervalSeconds ?? DEFAULT_POLL_INTERVAL_SECONDS,
+      },
+    });
+    return projectConfig(merged);
   }
 
   async syncPRs(): Promise<GitHubPR[]> {
-    const cfg = await this.configRepo.get();
+    const cfg = await this.getConfig();
     if (!cfg) return [];
 
     const allPRs: GitHubPR[] = [];
@@ -130,7 +169,7 @@ export class GitHubService {
   }
 
   async deleteConfig(): Promise<void> {
-    await this.configRepo.delete();
+    await this.connectorConfigRepo.delete("github");
     await this.prRepo.deleteAll();
   }
 }

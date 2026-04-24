@@ -191,13 +191,6 @@ export interface Dictionary {
     classify: string;
     disable: string;
     enable: string;
-    githubDesc: string;
-    createTokenHint: string;
-    githubUsername: string;
-    usernameHint: string;
-    reposToWatch: string;
-    reposSeparated: string;
-    repoFormatHint: string;
     testConnection: string;
     activeConfig: string;
     user: string;

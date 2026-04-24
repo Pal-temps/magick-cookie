@@ -4,7 +4,6 @@ import { useViewStore } from "../../../application/stores/viewStore";
 import { LlmSettings } from "./LlmSettings";
 import { ThemeSettings } from "./ThemeSettings";
 import { FocusSettings } from "./FocusSettings";
-import { GitHubSettings } from "./GitHubSettings";
 import { BriefSettings } from "./BriefSettings";
 import { VpsSettings } from "./VpsSettings";
 import { BookmarkSettings } from "./BookmarkSettings";
@@ -21,7 +20,7 @@ import { RssSettings } from "./RssSettings";
 import { InfraSettings } from "./InfraSettings";
 import { LocaleSettings } from "./LocaleSettings";
 
-type SettingsTab = "locale" | "theme" | "llm" | "focus" | "connectors" | "github" | "brief" | "vps" | "bookmarks" | "projects" | "routines" | "webhooks" | "caldav" | "email-rules" | "habits" | "shortcuts" | "rss" | "infra" | "data";
+type SettingsTab = "locale" | "theme" | "llm" | "focus" | "connectors" | "brief" | "vps" | "bookmarks" | "projects" | "routines" | "webhooks" | "caldav" | "email-rules" | "habits" | "shortcuts" | "rss" | "infra" | "data";
 
 export function SettingsView() {
   const { t } = useT();
@@ -52,7 +51,6 @@ export function SettingsView() {
     { id: "webhooks", key: "settings.webhooks" },
     { id: "shortcuts", key: "settings.shortcuts" },
     { id: "connectors", key: "settings.connectors" },
-    { id: "github", key: "GitHub" },
     { id: "vps", key: "settings.vps" },
     { id: "infra", key: "settings.infra" },
     { id: "data", key: "settings.data" },
@@ -124,9 +122,6 @@ export function SettingsView() {
         </Show>
         <Show when={tab() === "connectors"}>
           <ConnectorSettings />
-        </Show>
-        <Show when={tab() === "github"}>
-          <GitHubSettings />
         </Show>
         <Show when={tab() === "habits"}>
           <HabitSettings />
