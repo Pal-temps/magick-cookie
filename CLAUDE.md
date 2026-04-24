@@ -1,4 +1,4 @@
-# Magick Cookie (Do-It-Now)
+# Magick Cookie
 
 ## Stack
 
@@ -19,6 +19,7 @@ apps/
   api/             → Backend Bun/Hono: agent tools, flux, analytics, deploy
 tools/
   screenshot-cli/  → CLI Rust standalone pour capture d'ecran
+  benchmark-cli/   → CLI Rust standalone pour benchmark & profiling
 ```
 
 ## Developpement
@@ -58,3 +59,24 @@ Options :
 - `-o <path>` : chemin de sortie
 - `--max-width 1280` : resize pour optimiser les tokens (defaut)
 - Sans `--full` : ouvre une fenetre de selection de zone (interactif, pour l'utilisateur)
+
+## Benchmark Tool
+
+Outil de benchmark et profiling memoire/CPU.
+
+**Commande rapide :**
+```bash
+tools/benchmark-cli/target/release/benchmark.exe snapshot
+```
+
+**Modes disponibles :**
+```bash
+benchmark snapshot              # Snapshot RAM/CPU de tous les process
+benchmark watch 5               # Monitoring continu (delta toutes les 5s)
+benchmark stress api            # Stress test API (SSE, sync, analytics)
+benchmark leak-detect 30        # Detection memory leaks sur 30s
+benchmark baseline save         # Sauvegarder comme reference
+benchmark baseline compare      # Comparer avec la reference
+benchmark full                  # Suite complete (snapshot + stress + leak)
+benchmark snapshot --json       # Output JSON
+```

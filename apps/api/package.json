@@ -9,10 +9,10 @@
     "db:reset": "bun run db:drop && bun run db:migrate && echo 'DB reset done'",
     "db:drop": "bun run src/scripts/db-drop.ts",
     "db:studio": "drizzle-kit studio",
-    "test": "bun test src/__tests__/unit",
-    "test:integration": "bun test src/__tests__/integration",
-    "test:e2e": "bun test src/__tests__/e2e",
-    "test:all": "bun test src/__tests__"
+    "test": "bash scripts/test-runner.sh src/__tests__/unit",
+    "test:integration": "bun test --verbose src/__tests__/integration",
+    "test:e2e": "bun test --verbose src/__tests__/e2e",
+    "test:all": "bun test --verbose src/__tests__"
   },
   "dependencies": {
     "@mozilla/readability": "^0.6.0",

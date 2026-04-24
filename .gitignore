@@ -22,3 +22,9 @@ apps/desktop/src-tauri/gen/
 .vscode/
 *.swp
 *.swo
+.benchmark-baseline.json
+
+# Claude Code local state / tooling scratch
+.claude/settings.local.json
+.claude/worktrees/
+.playwright-mcp/
