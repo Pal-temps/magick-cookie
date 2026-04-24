@@ -1,8 +1,11 @@
 import { createSignal, Show, For, onMount } from "solid-js";
+import { invoke } from "@tauri-apps/api/core";
+import { save, open } from "@tauri-apps/plugin-dialog";
 import { useSecretsStore, type SecretEntry, type SecretGroup } from "../../../application/stores/secretsStore";
 import { VaultUnlock } from "../common/VaultUnlock";
 import { PasswordGenerator } from "./PasswordGenerator";
 import { SshKeyManager } from "./SshKeyManager";
+import { useT } from "../../../i18n/context";
 import "../../styles/passwords.css";
 
 // Default groups managed by the app — cannot be renamed or deleted
@@ -20,8 +23,57 @@ function flattenGroups(group: SecretGroup, result: string[] = []): string[] {
   return result;
 }
 
+function StorageModeToggle() {
+  const { t } = useT();
+  const secrets = useSecretsStore();
+  const [localMode, setLocalMode] = createSignal(true);
+  const [gitConfigured, setGitConfigured] = createSignal(false);
+  const [error, setError] = createSignal("");
+
+  onMount(async () => {
+    try {
+      const cfg = await invoke<{ path: string; remote: string } | null>("notes_get_config");
+      const hasRemote = !!cfg && !!cfg.remote && cfg.remote.trim().length > 0;
+      setGitConfigured(hasRemote);
+      if (hasRemote) setLocalMode(await secrets.isLocalMode());
+    } catch { /* ignore */ }
+  });
+
+  return (
+    <Show when={gitConfigured()}>
+      <label class="vault-storage-toggle">
+        <input
+          type="checkbox"
+          checked={localMode()}
+          onChange={async (e) => {
+            const newVal = e.currentTarget.checked;
+            try {
+              await secrets.setLocalMode(newVal);
+              setLocalMode(newVal);
+              setError("");
+            } catch (err) {
+              setError(String(err));
+              e.currentTarget.checked = !newVal;
+            }
+          }}
+        />
+        <span class="vault-storage-toggle__label">{t("passwords.localOnly")}</span>
+        <span class="vault-storage-toggle__hint">
+          {localMode()
+            ? `🔒 ${t("passwords.localHint")}`
+            : `☁ ${t("passwords.syncHint")}`}
+        </span>
+        <Show when={error()}>
+          <span class="vault-storage-toggle__hint" style={{ color: "#e55" }}>{error()}</span>
+        </Show>
+      </label>
+    </Show>
+  );
+}
+
 export function PasswordsView() {
   const secrets = useSecretsStore();
+  const { t } = useT();
   const [showPassword, setShowPassword] = createSignal<Record<string, boolean>>({});
   const [revealedPassword, setRevealedPassword] = createSignal<Record<string, string>>({});
   const [editMode, setEditMode] = createSignal(false);
@@ -31,6 +83,43 @@ export function PasswordsView() {
   const [selectedEntry, setSelectedEntry] = createSignal<SecretEntry | null>(null);
   const [searchInput, setSearchInput] = createSignal("");
   const [copiedId, setCopiedId] = createSignal<string | null>(null);
+
+  // Import/Export KDBX
+  const [importDialog, setImportDialog] = createSignal<{ path: string; password: string } | null>(null);
+  const [importExportMsg, setImportExportMsg] = createSignal("");
+
+  async function handleExportKdbx() {
+    const path = await save({ defaultPath: "vault.kdbx", filters: [{ name: "KeePass", extensions: ["kdbx"] }] });
+    if (!path) return;
+    try {
+      await secrets.exportKdbx(path);
+      setImportExportMsg(t("passwords.exportSuccess"));
+      setTimeout(() => setImportExportMsg(""), 3000);
+    } catch (e) {
+      setImportExportMsg(String(e));
+    }
+  }
+
+  async function handleImportKdbxPick() {
+    const path = await open({ filters: [{ name: "KeePass", extensions: ["kdbx"] }], multiple: false });
+    if (!path) return;
+    setImportDialog({ path: path as string, password: "" });
+  }
+
+  async function handleImportKdbxConfirm() {
+    const d = importDialog();
+    if (!d) return;
+    try {
+      const count = await secrets.importKdbx(d.path, d.password);
+      setImportDialog(null);
+      setImportExportMsg(`${count} ${t("passwords.importSuccess")}`);
+      setTimeout(() => setImportExportMsg(""), 3000);
+      await secrets.fetchGroups();
+      await secrets.fetchEntries();
+    } catch (e) {
+      setImportExportMsg(String(e));
+    }
+  }
 
   // Group management
   const [contextMenu, setContextMenu] = createSignal<{ x: number; y: number; group: SecretGroup } | null>(null);
@@ -112,7 +201,7 @@ export function PasswordsView() {
   }
 
   async function deleteEntry(id: string) {
-    if (!confirm("Supprimer cette entree ?")) return;
+    if (!confirm(t("passwords.deleteEntry"))) return;
     await secrets.deleteEntry(id);
     setSelectedEntry(null);
   }
@@ -162,17 +251,17 @@ export function PasswordsView() {
     // Note: KeePass doesn't natively support renaming groups via the keepass-rs crate's public API.
     // We'd need to move all entries. For now, show info.
     setRenameGroup(null);
-    alert("Renommage de groupe : fonctionnalite a venir (necessite de deplacer toutes les entrees).");
+    alert(t("passwords.renameSoon"));
   }
 
   async function handleDeleteGroup(group: SecretGroup) {
     setContextMenu(null);
     if (isProtected(group.path)) return;
-    if (!confirm(`Supprimer le groupe "${group.name}" et toutes ses entrees ?`)) return;
-    // Delete all entries in the group
-    await secrets.fetchEntries(group.path);
-    for (const entry of secrets.entries()) {
-      await secrets.deleteEntry(entry.id);
+    if (!confirm(`Supprimer le groupe "${group.name}" et toutes ses entrées ?`)) return;
+    try {
+      await secrets.deleteGroup(group.path);
+    } catch (e) {
+      console.error("Failed to delete group:", e);
     }
     await secrets.fetchGroups();
     await secrets.fetchEntries();
@@ -214,8 +303,8 @@ export function PasswordsView() {
   }
 
   // ─── Guard: show inline unlock form when locked ───
-  if (!secrets.isUnlocked()) {
-    return (
+  return (
+    <Show when={secrets.isUnlocked()} fallback={
       <VaultUnlock
         inline
         onUnlocked={async () => {
@@ -223,15 +312,12 @@ export function PasswordsView() {
           await secrets.fetchEntries();
         }}
       />
-    );
-  }
-
-  return (
+    }>
     <div class="pwd-layout">
       {/* ─── Sidebar: groups ─── */}
       <div class="pwd-sidebar">
         <div class="pwd-sidebar__header">
-          <span>Groupes</span>
+          <span>{t("passwords.groups")}</span>
         </div>
 
         <div class="pwd-sidebar__list">
@@ -239,7 +325,7 @@ export function PasswordsView() {
             class={`pwd-group ${secrets.activeGroup() === null ? "pwd-group--active" : ""}`}
             onClick={() => selectGroup(null)}
           >
-            <span class="pwd-group__name">Tous</span>
+            <span class="pwd-group__name">{t("passwords.all")}</span>
           </button>
           <Show when={secrets.groups()}>
             <For each={secrets.groups()!.children}>
@@ -252,7 +338,7 @@ export function PasswordsView() {
         <div class="pwd-sidebar__footer">
           <Show when={!showNewGroup()}>
             <button class="pwd-btn pwd-btn--sm" style={{ width: "100%" }} onClick={() => setShowNewGroup(true)}>
-              + Nouveau groupe
+              {t("passwords.newGroup")}
             </button>
           </Show>
           <Show when={showNewGroup()}>
@@ -263,7 +349,7 @@ export function PasswordsView() {
                 value={newGroupName()}
                 onInput={(e) => setNewGroupName(e.currentTarget.value)}
                 onKeyDown={(e) => { if (e.key === "Enter") handleCreateGroup(); if (e.key === "Escape") setShowNewGroup(false); }}
-                placeholder="Nom du groupe"
+                placeholder={t("passwords.groupName")}
               />
               <div style={{ display: "flex", gap: "4px" }}>
                 <button class="pwd-btn pwd-btn--sm pwd-btn--primary" onClick={handleCreateGroup}>OK</button>
@@ -281,31 +367,69 @@ export function PasswordsView() {
           <div class="pwd-search">
             <input
               type="text"
-              placeholder="Rechercher..."
+              placeholder={t("passwords.search")}
               value={searchInput()}
               onInput={(e) => handleSearch(e.currentTarget.value)}
               class="pwd-search__input"
             />
           </div>
-          <button class="pwd-btn pwd-btn--primary" onClick={startCreate}>+ Nouveau</button>
-          <button class="pwd-btn" onClick={() => setShowGenerator((v) => !v)}>Generateur</button>
-          <button class={`pwd-btn ${showSshKeys() ? "pwd-btn--primary" : ""}`} onClick={() => setShowSshKeys((v) => !v)}>Cles SSH</button>
-          <div style={{ "margin-left": "auto", display: "flex", "align-items": "center", gap: "6px", "font-size": "11px", color: "var(--text-secondary)" }}>
+          <button class="pwd-btn pwd-btn--primary" onClick={startCreate}>{t("passwords.newEntry")}</button>
+          <button class="pwd-btn" onClick={() => setShowGenerator((v) => !v)}>{t("passwords.generator")}</button>
+          <button class={`pwd-btn ${showSshKeys() ? "pwd-btn--primary" : ""}`} onClick={() => setShowSshKeys((v) => !v)}>{t("passwords.sshKeys")}</button>
+          <button class="pwd-btn" onClick={handleExportKdbx}>{t("passwords.exportKdbx")}</button>
+          <button class="pwd-btn" onClick={handleImportKdbxPick}>{t("passwords.importKdbx")}</button>
+          <div class="pwd-toolbar__autolock">
             <span>Auto-lock:</span>
             <select
               value={secrets.autoLockMinutes()}
               onChange={(e) => secrets.setAutoLockMinutes(parseInt(e.currentTarget.value, 10))}
-              style={{ padding: "2px 4px", "font-size": "11px", background: "var(--bg-base)", border: "1px solid var(--border-color)", "border-radius": "var(--radius-sm)", color: "var(--text-primary)" }}
             >
-              <option value="0">Jamais</option>
+              <option value="0">{t("passwords.never")}</option>
               <option value="5">5 min</option>
               <option value="15">15 min</option>
               <option value="30">30 min</option>
               <option value="60">1 heure</option>
             </select>
-            <button class="pwd-btn pwd-btn--sm" onClick={() => secrets.lock()} title="Verrouiller maintenant">&#x1F512;</button>
+            <button class="pwd-btn pwd-btn--sm" onClick={() => secrets.lock()} title={t("passwords.lockNow")}>&#x1F512;</button>
           </div>
+          <StorageModeToggle />
         </div>
+
+        <Show when={importExportMsg()}>
+          <div style={{ padding: "6px 12px", "font-size": "12px", color: "var(--accent-primary)", background: "var(--bg-elevated)", "border-radius": "var(--radius-sm)", "margin-bottom": "4px" }}>
+            {importExportMsg()}
+          </div>
+        </Show>
+
+        <Show when={importDialog()}>
+          <div class="pwd-edit-form" style={{ "margin-bottom": "8px" }}>
+            <div class="pwd-edit-form__header">
+              {t("passwords.importPasswordPrompt")}
+              <button class="pwd-edit-form__close" onClick={() => setImportDialog(null)}>
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                  <path d="M2 2L10 10M10 2L2 10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+                </svg>
+              </button>
+            </div>
+            <div class="pwd-edit-form__body">
+              <label class="pwd-field">
+                <span>{t("passwords.password")}</span>
+                <input
+                  autofocus
+                  type="password"
+                  placeholder={t("passwords.importPasswordPlaceholder")}
+                  value={importDialog()!.password}
+                  onInput={(e) => setImportDialog((d) => d ? { ...d, password: e.currentTarget.value } : null)}
+                  onKeyDown={(e) => { if (e.key === "Enter") handleImportKdbxConfirm(); }}
+                />
+              </label>
+              <div class="pwd-edit-form__actions">
+                <button class="pwd-btn" onClick={() => setImportDialog(null)}>{t("passwords.cancel")}</button>
+                <button class="pwd-btn pwd-btn--primary" onClick={handleImportKdbxConfirm}>{t("passwords.importBtn")}</button>
+              </div>
+            </div>
+          </div>
+        </Show>
 
         <Show when={showGenerator()}>
           <PasswordGenerator onInsert={(pwd) => {
@@ -322,7 +446,7 @@ export function PasswordsView() {
         <Show when={editMode()}>
           <div class="pwd-edit-form">
             <div class="pwd-edit-form__header">
-              {selectedEntry() ? "Modifier" : "Nouvelle entree"}
+              {selectedEntry() ? t("passwords.editEntry") : t("passwords.newEntry")}
               <button class="pwd-edit-form__close" onClick={() => setEditMode(false)}>
                 <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
                   <path d="M2 2L10 10M10 2L2 10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
@@ -332,7 +456,7 @@ export function PasswordsView() {
             <div class="pwd-edit-form__body">
               {/* Group dropdown */}
               <label class="pwd-field">
-                <span>Groupe</span>
+                <span>{t("passwords.group")}</span>
                 <select
                   class="pwd-field__select"
                   value={newEntry().group ?? ""}
@@ -347,15 +471,15 @@ export function PasswordsView() {
                 </select>
               </label>
               <label class="pwd-field">
-                <span>Titre</span>
+                <span>{t("passwords.title")}</span>
                 <input value={newEntry().title ?? ""} onInput={(e) => setNewEntry((p) => ({ ...p, title: e.currentTarget.value }))} placeholder="github.com" />
               </label>
               <label class="pwd-field">
-                <span>Utilisateur</span>
+                <span>{t("passwords.user")}</span>
                 <input value={newEntry().username ?? ""} onInput={(e) => setNewEntry((p) => ({ ...p, username: e.currentTarget.value }))} placeholder="user@example.com" />
               </label>
               <label class="pwd-field">
-                <span>Mot de passe</span>
+                <span>{t("passwords.password")}</span>
                 <div style={{ display: "flex", gap: "4px" }}>
                   <input type="password" value={newEntry().password ?? ""} onInput={(e) => setNewEntry((p) => ({ ...p, password: e.currentTarget.value }))} style={{ flex: "1" }} />
                   <button class="pwd-btn" onClick={() => setShowGenerator(true)}>Gen</button>
@@ -366,12 +490,12 @@ export function PasswordsView() {
                 <input value={newEntry().url ?? ""} onInput={(e) => setNewEntry((p) => ({ ...p, url: e.currentTarget.value }))} placeholder="https://..." />
               </label>
               <label class="pwd-field">
-                <span>Notes</span>
+                <span>{t("passwords.notesField")}</span>
                 <textarea value={newEntry().notes ?? ""} onInput={(e) => setNewEntry((p) => ({ ...p, notes: e.currentTarget.value }))} rows={3} />
               </label>
               <div class="pwd-edit-form__actions">
-                <button class="pwd-btn" onClick={() => setEditMode(false)}>Annuler</button>
-                <button class="pwd-btn pwd-btn--primary" onClick={saveEntry}>Enregistrer</button>
+                <button class="pwd-btn" onClick={() => setEditMode(false)}>{t("passwords.cancel")}</button>
+                <button class="pwd-btn pwd-btn--primary" onClick={saveEntry}>{t("passwords.save")}</button>
               </div>
             </div>
           </div>
@@ -381,7 +505,7 @@ export function PasswordsView() {
         <Show when={!editMode()}>
           <div class="pwd-list">
             <For each={secrets.entries()} fallback={
-              <div class="pwd-empty">Aucune entree. Cliquez sur "+ Nouveau" pour commencer.</div>
+              <div class="pwd-empty">{t("passwords.noEntry")}</div>
             }>
               {(entry) => (
                 <div class="pwd-entry">
@@ -396,9 +520,9 @@ export function PasswordsView() {
                     <button
                       class={`pwd-btn pwd-btn--sm ${copiedId() === entry.id ? "pwd-btn--success" : ""}`}
                       onClick={() => copyPassword(entry.id)}
-                    >{copiedId() === entry.id ? "Copie!" : "Copier"}</button>
+                    >{copiedId() === entry.id ? t("passwords.copied") : t("passwords.copy")}</button>
                     <button class="pwd-btn pwd-btn--sm" onClick={() => togglePassword(entry.id)}>
-                      {showPassword()[entry.id] ? "Masquer" : "Voir"}
+                      {showPassword()[entry.id] ? t("passwords.hide") : t("passwords.show")}
                     </button>
                     <button class="pwd-btn pwd-btn--sm pwd-btn--danger" onClick={() => deleteEntry(entry.id)}>
                       &times;
@@ -422,11 +546,11 @@ export function PasswordsView() {
           onMouseDown={(e) => e.stopPropagation()}
         >
           <div class="ide-context-item" onClick={() => startRenameGroup(contextMenu()!.group)}>
-            Renommer
+            {t("passwords.renameGroup")}
           </div>
           <div class="ide-context-sep" />
           <div class="ide-context-item ide-context-item--danger" onClick={() => handleDeleteGroup(contextMenu()!.group)}>
-            Supprimer le groupe
+            {t("passwords.deleteGroup")}
           </div>
         </div>
       </Show>
@@ -445,7 +569,7 @@ export function PasswordsView() {
             </div>
             <div class="cc-config-dialog__body">
               <label class="cc-config-field">
-                <span class="cc-config-field__label">Nouveau nom</span>
+                <span class="cc-config-field__label">{t("passwords.newName")}</span>
                 <input
                   autofocus
                   class="cc-config-field__input"
@@ -456,12 +580,13 @@ export function PasswordsView() {
               </label>
             </div>
             <div class="cc-config-dialog__footer">
-              <button class="cc-config-dialog__btn cc-config-dialog__btn--cancel" onClick={() => setRenameGroup(null)}>Annuler</button>
-              <button class="cc-config-dialog__btn cc-config-dialog__btn--confirm" onClick={confirmRenameGroup}>Renommer</button>
+              <button class="cc-config-dialog__btn cc-config-dialog__btn--cancel" onClick={() => setRenameGroup(null)}>{t("passwords.cancel")}</button>
+              <button class="cc-config-dialog__btn cc-config-dialog__btn--confirm" onClick={confirmRenameGroup}>{t("passwords.renameGroup")}</button>
             </div>
           </div>
         </div>
       </Show>
     </div>
+    </Show>
   );
 }

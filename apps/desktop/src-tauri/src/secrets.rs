@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::Mutex;
 
@@ -6,6 +6,8 @@ use keepass::db::{Entry, Group, Value};
 use keepass::{Database, DatabaseKey};
 use serde::{Deserialize, Serialize};
 use tauri::AppHandle;
+
+use zeroize::Zeroize;
 
 use crate::notes;
 
@@ -50,9 +52,67 @@ pub type SharedSecrets = Mutex<SecretsState>;
 
 // ─── Helpers ───
 
+fn local_vault_path() -> Result<PathBuf, String> {
+    let local_dir = dirs::data_local_dir().ok_or("No local data dir")?;
+    let local_path = local_dir.join("magick-cookie-vault");
+    std::fs::create_dir_all(&local_path).map_err(|e| format!("mkdir error: {e}"))?;
+    Ok(local_path.join("vault.kdbx"))
+}
+
 fn kdbx_path(state: &SecretsState) -> Result<PathBuf, String> {
-    let vault = state.vault_path.as_ref().ok_or("Vault path not configured")?;
+    // No git vault path configured → always local (default when no git settings)
+    let Some(vault) = state.vault_path.as_ref() else {
+        return local_vault_path();
+    };
+
+    // User explicitly opted into local-only storage (not git-synced)
+    if vault.join("_secrets").join(".local-only").exists() {
+        return local_vault_path();
+    }
+
     Ok(vault.join("_secrets").join("vault.kdbx"))
+}
+
+/// Check if vault is in local-only mode
+fn is_local_mode(vault_path: &Path) -> bool {
+    vault_path.join("_secrets").join(".local-only").exists()
+}
+
+/// Set local-only mode
+fn set_local_mode(vault_path: &Path, local: bool) -> Result<(), String> {
+    let marker = vault_path.join("_secrets").join(".local-only");
+    std::fs::create_dir_all(vault_path.join("_secrets")).ok();
+    if local {
+        std::fs::write(&marker, "This vault stores secrets locally (not git-synced).\n")
+            .map_err(|e| format!("Write error: {e}"))?;
+        // Move existing kdbx from git vault to local if it exists
+        let git_kdbx = vault_path.join("_secrets").join("vault.kdbx");
+        if git_kdbx.exists() {
+            if let Some(local_dir) = dirs::data_local_dir() {
+                let local_path = local_dir.join("magick-cookie-vault");
+                std::fs::create_dir_all(&local_path).ok();
+                let dest = local_path.join("vault.kdbx");
+                if !dest.exists() {
+                    std::fs::rename(&git_kdbx, &dest)
+                        .map_err(|e| format!("Move to local error: {e}"))?;
+                }
+            }
+        }
+    } else {
+        if marker.exists() {
+            std::fs::remove_file(&marker).ok();
+        }
+        // Move kdbx back to git vault
+        if let Some(local_dir) = dirs::data_local_dir() {
+            let local_kdbx = local_dir.join("magick-cookie-vault").join("vault.kdbx");
+            let git_kdbx = vault_path.join("_secrets").join("vault.kdbx");
+            if local_kdbx.exists() && !git_kdbx.exists() {
+                std::fs::rename(&local_kdbx, &git_kdbx)
+                    .map_err(|e| format!("Move to git error: {e}"))?;
+            }
+        }
+    }
+    Ok(())
 }
 
 fn entry_to_secret(entry: &Entry, group_path: &str, include_password: bool) -> SecretEntry {
@@ -141,8 +201,8 @@ pub fn secrets_init(
 ) -> Result<(), String> {
     let mut s = state.lock().map_err(|e| e.to_string())?;
 
-    let config = notes::load_config_pub(&app)?;
-    s.vault_path = Some(PathBuf::from(&config.path));
+    // Git-backed vault path only if notes (git) is configured; otherwise fall back to local AppData.
+    s.vault_path = notes::load_config_pub(&app).ok().map(|c| PathBuf::from(&c.path));
     let path = kdbx_path(&s)?;
 
     if path.exists() {
@@ -173,6 +233,10 @@ pub fn secrets_init(
 pub fn secrets_lock(state: tauri::State<'_, SharedSecrets>) -> Result<(), String> {
     let mut s = state.lock().map_err(|e| e.to_string())?;
     s.db = None;
+    // Zeroize the master key bytes before dropping to prevent memory leaks of secrets
+    if let Some(ref mut key) = s.master_key {
+        key.zeroize();
+    }
     s.master_key = None;
     Ok(())
 }
@@ -180,6 +244,36 @@ pub fn secrets_lock(state: tauri::State<'_, SharedSecrets>) -> Result<(), String
 #[tauri::command]
 pub fn secrets_is_unlocked(state: tauri::State<'_, SharedSecrets>) -> bool {
     state.lock().map(|s| s.db.is_some()).unwrap_or(false)
+}
+
+#[tauri::command]
+pub fn secrets_is_local_mode(app: AppHandle) -> Result<bool, String> {
+    // No git config → always local (default)
+    match notes::load_config_pub(&app) {
+        Ok(config) => Ok(is_local_mode(&PathBuf::from(&config.path))),
+        Err(_) => Ok(true),
+    }
+}
+
+#[tauri::command]
+pub fn secrets_set_local_mode(
+    app: AppHandle,
+    state: tauri::State<'_, SharedSecrets>,
+    local: bool,
+) -> Result<(), String> {
+    let config = notes::load_config_pub(&app)
+        .map_err(|_| "Configurez d'abord un dépôt Git dans les réglages pour activer la synchronisation cloud.".to_string())?;
+    let vault_path = PathBuf::from(&config.path);
+
+    // Must be locked to change mode (avoids corruption)
+    let s = state.lock().map_err(|e| e.to_string())?;
+    if s.db.is_some() {
+        return Err("Verrouillez le coffre-fort avant de changer le mode de stockage".into());
+    }
+    drop(s);
+
+    set_local_mode(&vault_path, local)?;
+    Ok(())
 }
 
 #[tauri::command]
@@ -253,6 +347,42 @@ pub fn secrets_groups(state: tauri::State<'_, SharedSecrets>) -> Result<SecretGr
     let s = state.lock().map_err(|e| e.to_string())?;
     let db = s.db.as_ref().ok_or("Vault not unlocked")?;
     Ok(collect_groups(&db.root, ""))
+}
+
+#[tauri::command]
+pub fn secrets_delete_group(state: tauri::State<'_, SharedSecrets>, path: String) -> Result<(), String> {
+    // Prevent deleting protected groups
+    let protected = ["App Secrets", "Passwords"];
+    if protected.iter().any(|p| path == *p || path.starts_with(&format!("{p}/"))) {
+        return Err("Ce groupe est protégé et ne peut pas être supprimé".into());
+    }
+
+    let mut s = state.lock().map_err(|e| e.to_string())?;
+    let db = s.db.as_mut().ok_or("Vault not unlocked")?;
+
+    // Find and remove the group
+    let parts: Vec<&str> = path.split('/').collect();
+    if parts.is_empty() {
+        return Err("Chemin de groupe invalide".into());
+    }
+
+    let group_name = parts.last().unwrap().to_string();
+    let parent_path = parts[..parts.len() - 1].join("/");
+
+    let parent = if parent_path.is_empty() {
+        &mut db.root
+    } else {
+        get_or_create_group(&mut db.root, &parent_path)
+    };
+
+    let before = parent.groups.len();
+    parent.groups.retain(|g| g.name != group_name);
+    if parent.groups.len() == before {
+        return Err(format!("Groupe '{}' introuvable", group_name));
+    }
+
+    save_db(&s)?;
+    Ok(())
 }
 
 #[tauri::command]
@@ -382,6 +512,74 @@ pub fn secrets_generate_ssh_key(
     })
 }
 
+/// Export the entire KDBX vault to a chosen path
+#[tauri::command]
+pub fn secrets_export_kdbx(
+    state: tauri::State<'_, SharedSecrets>,
+    output_path: String,
+) -> Result<(), String> {
+    let s = state.lock().map_err(|e| e.to_string())?;
+    let db = s.db.as_ref().ok_or("Vault not unlocked")?;
+    let master = s.master_key.as_ref().ok_or("No master key")?;
+
+    let path = PathBuf::from(&output_path);
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent).map_err(|e| format!("mkdir error: {e}"))?;
+    }
+    let mut file = std::fs::File::create(&path).map_err(|e| format!("Create error: {e}"))?;
+    let key = DatabaseKey::new().with_password(master);
+    db.save(&mut file, key).map_err(|e| format!("Export KDBX error: {e}"))
+}
+
+/// Import entries from an external KDBX file into the current vault
+#[tauri::command]
+pub fn secrets_import_kdbx(
+    state: tauri::State<'_, SharedSecrets>,
+    input_path: String,
+    import_password: String,
+) -> Result<usize, String> {
+    let path = PathBuf::from(&input_path);
+    if !path.exists() {
+        return Err("File not found".into());
+    }
+
+    let mut file = std::fs::File::open(&path).map_err(|e| format!("Open error: {e}"))?;
+    let key = DatabaseKey::new().with_password(&import_password);
+    let import_db = Database::open(&mut file, key).map_err(|e| format!("Unlock import file error: {e}"))?;
+
+    let mut s = state.lock().map_err(|e| e.to_string())?;
+    let db = s.db.as_mut().ok_or("Vault not unlocked")?;
+
+    let mut count = 0;
+    fn import_entries(src: &Group, dst: &mut Group, path: &str, count: &mut usize) {
+        for entry in &src.entries {
+            let mut cloned = Entry::new();
+            for (k, v) in &entry.fields {
+                cloned.fields.insert(k.clone(), v.clone());
+            }
+            cloned.tags = entry.tags.clone();
+            dst.entries.push(cloned);
+            *count += 1;
+        }
+        for sub in &src.groups {
+            let sub_path = if path.is_empty() { sub.name.clone() } else { format!("{}/{}", path, sub.name) };
+            let exists = dst.groups.iter().position(|g| g.name == sub.name);
+            let idx = if let Some(idx) = exists {
+                idx
+            } else {
+                dst.groups.push(Group::new(&sub.name));
+                dst.groups.len() - 1
+            };
+            import_entries(sub, &mut dst.groups[idx], &sub_path, count);
+        }
+    }
+
+    import_entries(&import_db.root, &mut db.root, "", &mut count);
+    save_db(&s)?;
+
+    Ok(count)
+}
+
 /// List all SSH keys stored in the vault (public keys only)
 #[tauri::command]
 pub fn secrets_list_ssh_keys(
@@ -469,4 +667,96 @@ pub fn secrets_export_ssh_key(
     }
 
     Ok(resolved)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_vault_starts_locked() {
+        let state = SecretsState::new();
+        assert!(state.db.is_none(), "db should be None on creation");
+        assert!(state.master_key.is_none(), "master_key should be None on creation");
+        assert!(state.vault_path.is_none(), "vault_path should be None on creation");
+    }
+
+    #[test]
+    fn test_vault_lock_clears_state() {
+        // Simulate an "unlocked" state by setting fields directly
+        let state = Mutex::new(SecretsState {
+            db: Some(Database::new(Default::default())),
+            master_key: Some("test-password".to_string()),
+            vault_path: Some(PathBuf::from("/tmp/test-vault")),
+        });
+
+        // Verify it's "unlocked"
+        {
+            let s = state.lock().unwrap();
+            assert!(s.db.is_some());
+            assert!(s.master_key.is_some());
+        }
+
+        // Simulate lock: same logic as secrets_lock command (zeroize before drop)
+        {
+            let mut s = state.lock().unwrap();
+            s.db = None;
+            if let Some(ref mut key) = s.master_key {
+                key.zeroize();
+            }
+            s.master_key = None;
+        }
+
+        // Verify locked state
+        {
+            let s = state.lock().unwrap();
+            assert!(s.db.is_none(), "db should be None after lock");
+            assert!(s.master_key.is_none(), "master_key should be None after lock");
+            // vault_path is intentionally preserved across lock/unlock
+            assert!(s.vault_path.is_some(), "vault_path should be preserved after lock");
+        }
+    }
+
+    #[test]
+    fn test_vault_multiple_lock_unlock_cycles() {
+        let state = Mutex::new(SecretsState::new());
+
+        for i in 0..5 {
+            // Simulate unlock
+            {
+                let mut s = state.lock().unwrap();
+                s.db = Some(Database::new(Default::default()));
+                s.master_key = Some(format!("password-{i}"));
+            }
+            {
+                let s = state.lock().unwrap();
+                assert!(s.db.is_some(), "db should be Some after unlock cycle {i}");
+                assert!(s.master_key.is_some(), "master_key should be Some after unlock cycle {i}");
+            }
+
+            // Simulate lock (zeroize before drop)
+            {
+                let mut s = state.lock().unwrap();
+                s.db = None;
+                if let Some(ref mut key) = s.master_key {
+                    key.zeroize();
+                }
+                s.master_key = None;
+            }
+            {
+                let s = state.lock().unwrap();
+                assert!(s.db.is_none(), "db should be None after lock cycle {i}");
+                assert!(s.master_key.is_none(), "master_key should be None after lock cycle {i}");
+            }
+        }
+    }
+
+    #[test]
+    fn test_shared_secrets_type_alias() {
+        // Verify SharedSecrets (Mutex<SecretsState>) works correctly
+        let shared: SharedSecrets = Mutex::new(SecretsState::new());
+        let s = shared.lock().unwrap();
+        assert!(s.db.is_none());
+        assert!(s.master_key.is_none());
+    }
 }
