@@ -4,6 +4,8 @@ import type { FluxRepository } from "../../domain/flux/flux.repository";
 import type { FluxItem, SetFluxInput } from "../../domain/flux/flux.entity";
 import type { TaskRepository } from "../../domain/task/task.repository";
 import type { Task } from "../../domain/task/task.entity";
+import type { Email } from "../../domain/email/email.entity";
+import type { RssArticle } from "../../domain/rss/rss.entity";
 
 const now = new Date("2026-04-01");
 
@@ -15,6 +17,47 @@ const makeFluxItem = (overrides: Partial<FluxItem> = {}): FluxItem => ({
   decidedAt: now,
   createdAt: now,
   updatedAt: now,
+  ...overrides,
+});
+
+const makeEmail = (overrides: Partial<Email> = {}): Email => ({
+  id: "e-1",
+  accountId: "acc-1",
+  messageId: "<msg-1@example.com>",
+  imapUid: 1,
+  subject: "Invoice",
+  fromAddress: "boss@example.com",
+  fromName: "Boss",
+  toAddresses: [],
+  ccAddresses: [],
+  bodyText: "Please review",
+  bodyHtml: null,
+  hasAttachments: false,
+  attachmentNames: [],
+  isRead: false,
+  isStarred: false,
+  isArchived: false,
+  folder: "INBOX",
+  summary: null,
+  classification: null,
+  sentAt: now,
+  createdAt: now,
+  ...overrides,
+});
+
+const makeArticle = (overrides: Partial<RssArticle> = {}): RssArticle => ({
+  id: "a-1",
+  feedId: "feed-1",
+  guid: "guid-1",
+  title: "Breaking news",
+  link: "https://example.com/post",
+  description: "A short description",
+  content: null,
+  author: "Jane",
+  publishedAt: now,
+  isRead: false,
+  isStarred: false,
+  createdAt: now,
   ...overrides,
 });
 
@@ -241,14 +284,78 @@ describe("FluxService", () => {
 
     it("filters by entityType when provided", async () => {
       const mockLlm = { chat: mock(() => Promise.resolve("[]")) };
-      const svc = new FluxService(mockRepo as any, mockTaskRepo as any, mockLlm as any);
+      const mockEmailRepo = { findAll: mock(() => Promise.resolve([])) };
+      const svc = new FluxService(mockRepo as any, mockTaskRepo as any, mockLlm as any, mockEmailRepo as any);
 
       mockRepo.findAll.mockReturnValue(Promise.resolve([]));
-      mockTaskRepo.findAll.mockReturnValue(Promise.resolve([]));
 
       await svc.suggestFlux("email");
       // Should NOT call taskRepo since we're filtering for email only
       expect(mockTaskRepo.findAll).not.toHaveBeenCalled();
+      // SHOULD call emailRepo since we're filtering for email
+      expect(mockEmailRepo.findAll).toHaveBeenCalledTimes(1);
+    });
+
+    it("gathers untriaged emails when emailRepo is provided", async () => {
+      const llmResponse = JSON.stringify([
+        { id: "e-1", type: "email", status: "priority", reason: "From boss" },
+      ]);
+      const mockLlm = { chat: mock(() => Promise.resolve(llmResponse)) };
+      const mockEmailRepo = {
+        findAll: mock(() => Promise.resolve([makeEmail({ id: "e-1", subject: "Invoice due" })])),
+      };
+      const svc = new FluxService(
+        mockRepo as any, mockTaskRepo as any, mockLlm as any, mockEmailRepo as any,
+      );
+      mockRepo.findAll.mockReturnValue(Promise.resolve([]));
+      mockTaskRepo.findAll.mockReturnValue(Promise.resolve([]));
+
+      const result = await svc.suggestFlux();
+      expect(result).toHaveLength(1);
+      expect(result[0].entityType).toBe("email");
+      expect(result[0].entityId).toBe("e-1");
+      expect(result[0].suggestedStatus).toBe("priority");
+    });
+
+    it("skips already-triaged emails", async () => {
+      const mockLlm = { chat: mock(() => Promise.resolve("[]")) };
+      const mockEmailRepo = {
+        findAll: mock(() => Promise.resolve([makeEmail({ id: "e-1" })])),
+      };
+      const svc = new FluxService(
+        mockRepo as any, mockTaskRepo as any, mockLlm as any, mockEmailRepo as any,
+      );
+      mockRepo.findAll.mockReturnValue(Promise.resolve([
+        makeFluxItem({ entityType: "email", entityId: "e-1" }),
+      ]));
+      mockTaskRepo.findAll.mockReturnValue(Promise.resolve([]));
+
+      const result = await svc.suggestFlux();
+      expect(result).toEqual([]);
+      expect(mockLlm.chat).not.toHaveBeenCalled();
+    });
+
+    it("gathers untriaged RSS articles when rssArticleRepo is provided", async () => {
+      const llmResponse = JSON.stringify([
+        { id: "a-1", type: "rss_article", status: "later", reason: "Interesting" },
+      ]);
+      const mockLlm = { chat: mock(() => Promise.resolve(llmResponse)) };
+      const mockRssRepo = {
+        findAll: mock(() => Promise.resolve([makeArticle({ id: "a-1", title: "Rust 2.0" })])),
+      };
+      const svc = new FluxService(
+        mockRepo as any, mockTaskRepo as any, mockLlm as any,
+        undefined, mockRssRepo as any,
+      );
+      mockRepo.findAll.mockReturnValue(Promise.resolve([]));
+      mockTaskRepo.findAll.mockReturnValue(Promise.resolve([]));
+
+      const result = await svc.suggestFlux();
+      expect(result).toHaveLength(1);
+      expect(result[0].entityType).toBe("rss_article");
+      expect(result[0].entityId).toBe("a-1");
+      expect(result[0].suggestedStatus).toBe("later");
+      expect(mockRssRepo.findAll).toHaveBeenCalledWith({ unread: true, limit: 100 });
     });
   });
 });

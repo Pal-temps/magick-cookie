@@ -11,8 +11,11 @@ export function createUserPreferencesRoutes(service: UserPreferencesService) {
   });
 
   app.put("/", async (c) => {
-    const body = userPreferencesSchema.parse(await c.req.json());
-    const saved = await service.save(body);
+    const parsed = userPreferencesSchema.safeParse(await c.req.json());
+    if (!parsed.success) {
+      return c.json({ error: "Invalid preferences", issues: parsed.error.issues }, 400);
+    }
+    const saved = await service.save(parsed.data);
     return c.json({ data: saved });
   });
 

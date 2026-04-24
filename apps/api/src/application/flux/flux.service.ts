@@ -172,7 +172,35 @@ export class FluxService {
       }
     }
 
-    // TODO: gather untriaged emails and RSS articles when their repos are injected
+    // Gather untriaged emails (inbox-only, newest first via repo default)
+    if ((!entityType || entityType === "email") && this.emailRepo) {
+      const emails = await this.emailRepo.findAll({ folder: "INBOX", limit: SUGGEST_MAX_ITEMS });
+      for (const e of emails) {
+        if (decidedKeys.has(`email:${e.id}`)) continue;
+        const preview = (e.summary ?? e.bodyText ?? "").slice(0, 200).replace(/\s+/g, " ").trim();
+        items.push({
+          entityType: "email",
+          entityId: e.id,
+          title: e.subject ?? "(sans objet)",
+          meta: `from=${e.fromName ?? e.fromAddress} read=${e.isRead} starred=${e.isStarred} preview="${preview}"`,
+        });
+      }
+    }
+
+    // Gather untriaged RSS articles (unread, newest first)
+    if ((!entityType || entityType === "rss_article") && this.rssArticleRepo) {
+      const articles = await this.rssArticleRepo.findAll({ unread: true, limit: SUGGEST_MAX_ITEMS });
+      for (const a of articles) {
+        if (decidedKeys.has(`rss_article:${a.id}`)) continue;
+        const preview = (a.description ?? "").slice(0, 200).replace(/\s+/g, " ").trim();
+        items.push({
+          entityType: "rss_article",
+          entityId: a.id,
+          title: a.title ?? "(sans titre)",
+          meta: `author=${a.author ?? "?"} starred=${a.isStarred} preview="${preview}"`,
+        });
+      }
+    }
 
     if (items.length === 0) return [];
 

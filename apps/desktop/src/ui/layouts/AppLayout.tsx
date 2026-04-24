@@ -1,6 +1,7 @@
 import type { JSX } from "solid-js";
 import { Show, For, Switch, Match } from "solid-js";
 import { useT } from "../../i18n/context";
+import { formatDate } from "../../i18n/format";
 import { useViewStore } from "../../application/stores/viewStore";
 import { useCalendarStore } from "../../application/stores/calendarStore";
 import { useTaskStore } from "../../application/stores/taskStore";
@@ -31,7 +32,7 @@ interface AppLayoutProps {
 }
 
 export function AppLayout(props: AppLayoutProps) {
-  const { t } = useT();
+  const { t, locale } = useT();
   const viewStore = useViewStore();
   const { viewMode, setViewMode, currentDate, navigatePrev, navigateNext, goToToday, sidebarVisible } = viewStore;
   const { openCreateForm, setShowAiGenerator } = useCalendarStore();
@@ -44,9 +45,7 @@ export function AppLayout(props: AppLayoutProps) {
   const { favorites } = useBookmarkStore();
 
   const headerTitle = () => {
-    const d = currentDate();
-    const loc = t("nav.dashboard") ? "fr-FR" : "en-US"; // TODO: use format helper
-    return d.toLocaleDateString(loc, { month: "long", year: "numeric" });
+    return formatDate(currentDate(), locale(), { month: "long", year: "numeric" });
   };
 
   // --- Menu definitions ---
