@@ -38,6 +38,9 @@ base64 = "0.22"
 dirs = "6.0.0"
 chrono = { version = "0.4", features = ["serde"] }
 zeroize = "1"
+sha2 = "0.10"
+flate2 = "1"
+tar = "0.4"
 
 [target.'cfg(target_os = "windows")'.dependencies]
 windows = { version = "0.58", features = ["Win32_UI_WindowsAndMessaging", "Win32_Foundation"] }

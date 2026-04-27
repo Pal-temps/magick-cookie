@@ -1,6 +1,7 @@
 mod ai;
 mod browser;
 mod desktop_mode;
+mod devops;
 mod fs;
 mod git;
 mod notes;
