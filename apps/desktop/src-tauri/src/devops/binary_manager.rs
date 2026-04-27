@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 use serde::Serialize;
 use sha2::{Digest, Sha256};
 
-use super::manifest::{ArchiveType, Manifest, ManifestError, ResolvedAsset, Triple};
+use super::manifest::{ArchiveType, Manifest, ManifestError, Triple};
 
 /// Where on disk we install runtime-downloaded CLIs. One folder per CLI:
 ///   <root>/<cli_name>/<cli_name>[.exe]
@@ -68,6 +68,16 @@ pub struct AvailableCli {
     pub installed: bool,
 }
 
+/// Coarse-grained phases of an `install_with_progress()` run.
+/// Mapped to event variants by the Tauri layer; keeping it as an enum here means callers
+/// can match exhaustively and we don't leak event-name strings into the core.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum InstallPhase {
+    Downloading,
+    Verifying,
+    Extracting,
+}
+
 pub struct BinaryManager {
     install_root: PathBuf,
     manifest: Manifest,
@@ -93,9 +103,10 @@ impl BinaryManager {
         Ok(Self { install_root, manifest, triple })
     }
 
-    pub fn install_root(&self) -> &Path { &self.install_root }
-    pub fn host_triple(&self) -> Triple { self.triple }
-    pub fn manifest(&self) -> &Manifest { &self.manifest }
+    #[cfg(test)]
+    fn install_root(&self) -> &Path { &self.install_root }
+    #[cfg(test)]
+    fn host_triple(&self) -> Triple { self.triple }
 
     fn cli_dir(&self, name: &str) -> PathBuf {
         self.install_root.join(name)
@@ -153,7 +164,14 @@ impl BinaryManager {
 
     /// Downloads, verifies, and extracts the CLI for the host triple.
     /// Idempotent: returns the existing path if already installed and `force=false`.
-    pub fn install(&self, name: &str, force: bool) -> Result<PathBuf, BinaryManagerError> {
+    /// Invokes `on_phase` whenever the install transitions to a new coarse phase; pass a
+    /// no-op closure if you don't care about progress.
+    pub fn install_with_progress<F: Fn(InstallPhase)>(
+        &self,
+        name: &str,
+        force: bool,
+        on_phase: F,
+    ) -> Result<PathBuf, BinaryManagerError> {
         if !force {
             if let Some(p) = self.resolve(name) {
                 return Ok(p);
@@ -170,8 +188,11 @@ impl BinaryManager {
 
         let result = (|| -> Result<PathBuf, BinaryManagerError> {
             let archive_path = tmp_dir.join(&asset.archive_basename);
+            on_phase(InstallPhase::Downloading);
             download_to(&asset.url, &archive_path)?;
+            on_phase(InstallPhase::Verifying);
             verify_sha256(&asset.checksums_url, &archive_path, &asset.archive_basename)?;
+            on_phase(InstallPhase::Extracting);
             extract(&archive_path, &tmp_dir, asset.archive)?;
 
             let inner = tmp_dir.join(&asset.inner_path);
@@ -449,7 +470,9 @@ mod tests {
             return;
         }
         let bm = mk_manager();
-        let path = bm.install("gh", true).expect("install must succeed");
+        let path = bm
+            .install_with_progress("gh", true, |_| {})
+            .expect("install must succeed");
         assert!(path.is_file());
         let resolved = bm.resolve("gh").expect("resolve after install");
         assert_eq!(resolved, path);

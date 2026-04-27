@@ -82,6 +82,7 @@ pub fn run() {
     let secrets_state: secrets::SharedSecrets = std::sync::Mutex::new(secrets::SecretsState::new());
     let browser_store: std::sync::Arc<browser::BrowserStore> =
         std::sync::Arc::new(browser::BrowserStore::new());
+    let cli_manager: devops::SharedBinaryManager = devops::new_state();
 
     tauri::Builder::default()
         .manage(session_manager)
@@ -90,6 +91,7 @@ pub fn run() {
         .manage(watcher_state)
         .manage(secrets_state)
         .manage(browser_store)
+        .manage(cli_manager)
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_dialog::init())
@@ -283,6 +285,11 @@ pub fn run() {
             browser::browser_eval,
             browser::browser_list,
             browser::browser_pop_out,
+            devops::commands::cli_list_available,
+            devops::commands::cli_list_installed,
+            devops::commands::cli_install,
+            devops::commands::cli_uninstall,
+            devops::commands::cli_resolve,
             open_detached_window,
         ])
         .on_window_event(|window, event| {

@@ -4,6 +4,7 @@ use std::collections::HashMap;
 const MANIFEST_JSON: &str = include_str!("../../cli-manifest.json");
 const SUPPORTED_SCHEMA: u32 = 1;
 
+#[cfg(test)]
 pub const ALL_TRIPLES: &[Triple] = &[
     Triple::X86_64WindowsMsvc,
     Triple::Aarch64WindowsMsvc,
@@ -102,7 +103,10 @@ pub struct CliEntry {
     #[serde(rename = "displayName")]
     pub display_name: String,
     pub homepage: String,
+    /// Manifest documents the upstream license; not surfaced to Rust callers yet but kept
+    /// so the JSON spec stays self-describing.
     #[serde(default)]
+    #[allow(dead_code)]
     pub license: Option<String>,
     pub release: ReleaseEntry,
     pub assets: HashMap<Triple, AssetEntry>,
