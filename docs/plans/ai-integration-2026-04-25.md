@@ -298,7 +298,7 @@ Démo : "Cookia, écris-moi une note sur la refonte Flux" → fichier apparaît 
 
 ## Phase 4 — Domaines user-facing CRUD
 
-**Statut** : ⬜ À faire
+**Statut** : 🟡 En cours (4.1 Calendar shippée 2026-04-28)
 **Durée estimée** : 2-3 sessions (2-3 domaines par session)
 **Dépend de** : P2
 **Débloque** : Phase 6
@@ -309,12 +309,12 @@ Tous les domaines user-facing sont CRUD-able par l'AI.
 ### Sous-tâches par domaine
 
 #### 4.1 — Calendar + CalDAV
-- [ ] `calendar_list`
-- [ ] `calendar_create_event` (user-confirm)
-- [ ] `calendar_update_event`
-- [ ] `calendar_delete_event` (user-confirm)
-- [ ] `calendar_find_conflict`
-- [ ] `calendar_generate_events_from_prompt` (wrapper `llmService.generateEvents`)
+- [x] `calendar_list` (2026-04-28)
+- [x] `calendar_create_event` (user-confirm) (2026-04-28)
+- [x] `calendar_update_event` (2026-04-28)
+- [x] `calendar_delete_event` (user-confirm) (2026-04-28)
+- [x] `calendar_find_conflict` (2026-04-28)
+- [x] `calendar_generate_events_from_prompt` (wrapper `llmService.generateEvents`) (2026-04-28)
 
 #### 4.2 — Email actions
 - [ ] `email_compose`
@@ -509,6 +509,14 @@ L'AI enchaîne intelligemment plusieurs features. Observability complète.
 ---
 
 ## Journal de session
+
+### 2026-04-28
+- **P4.1 Calendar tools shippées** : `apps/api/src/application/agent/tools/calendar.tools.ts` créé avec les 6 tools (list, create [user-confirm], update, delete [user-confirm], find_conflict, generate_events_from_prompt). L'ancien `createCalendarTools` 2-tools de `brief.tools.ts` est dégagé.
+- Wiring : `calendarService` + `llmService` ajoutés au call site de `createCalendarTools` dans `apps/api/src/index.ts`.
+- Tests : +23 unit tests `calendar.tools.test.ts` (couvre permission level, validation zod, half-open conflict semantics, calendarName lookup case-insensitive, fallback "LLM non configure").
+- **P3 DoD gap fermé** : `notes.tools.test.ts` ajoute 21 unit tests sur les 7 notes_* tools (le P3 avait omis le test des tools — uniquement repo + service avaient été couverts).
+- Baseline unit : 1065 → 1109 pass / 0 fail. tsc desktop+api clean.
+- Audit gh/glab : déjà bien architecturés en provider sur le domain `connector-config` (single source of truth via `connectorConfigRepo.findByType("github"|"gitlab"|"clickup")`). Clients HTTP isolés dans `infrastructure/connectors/`. Le `ProviderService` agnostique reste à créer en P5.
 
 ### 2026-04-25
 - Plan initial rédigé suite à l'audit complet (3 agents Explore en parallèle)
