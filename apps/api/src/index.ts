@@ -75,7 +75,8 @@ import { DrizzleAiToolCallRepository } from "./infrastructure/repositories/ai-to
 import { createAnalyticsTools } from "./application/agent/tools/analytics.tools";
 import { createTaskTools } from "./application/agent/tools/task.tools";
 import { createTimerTools } from "./application/agent/tools/timer.tools";
-import { createBriefTools, createEmailTools, createCalendarTools, createBookmarkTools, createProjectTools } from "./application/agent/tools/brief.tools";
+import { createBriefTools, createEmailTools, createBookmarkTools, createProjectTools } from "./application/agent/tools/brief.tools";
+import { createCalendarTools } from "./application/agent/tools/calendar.tools";
 import { createMemoryTools } from "./application/agent/tools/memory.tools";
 import { createDnsTools } from "./application/agent/tools/dns.tools";
 import { createSshTools } from "./application/agent/tools/ssh.tools";
@@ -238,7 +239,7 @@ toolRegistry.registerAll(createTaskTools(taskService, fluxService));
 toolRegistry.registerAll(createTimerTools(timerSessionService));
 toolRegistry.registerAll(createBriefTools(briefService));
 toolRegistry.registerAll(createEmailTools(emailService, llmService));
-toolRegistry.registerAll(createCalendarTools(eventService));
+toolRegistry.registerAll(createCalendarTools(eventService, calendarService, llmService));
 toolRegistry.registerAll(createBookmarkTools(bookmarkService));
 toolRegistry.registerAll(createProjectTools(projectService));
 toolRegistry.registerAll(createMemoryTools(agentMemoryRepo));

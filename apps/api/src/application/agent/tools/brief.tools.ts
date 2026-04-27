@@ -3,7 +3,6 @@ import { defineTool, type AgentTool } from "../tool-registry";
 import type { BriefService } from "../../brief/brief.service";
 import type { EmailService } from "../../email/email.service";
 import type { LlmService } from "../../llm/llm.service";
-import type { EventService } from "../../event/event.service";
 import type { BookmarkService } from "../../bookmark/bookmark.service";
 import type { ProjectService } from "../../project/project.service";
 
@@ -67,33 +66,6 @@ export function createEmailTools(emailService: EmailService, llmService?: LlmSer
         );
         await emailService.updateSummary(email.id, email.summary || "", classification);
         return { classification, cached: false };
-      },
-    }),
-  ];
-}
-
-export function createCalendarTools(eventService: EventService): AgentTool[] {
-  return [
-    defineTool({
-      name: "get_events_today",
-      description: "Liste les evenements du calendrier pour aujourd'hui",
-      params: z.object({}),
-      execute: async () => {
-        const now = new Date();
-        const start = new Date(now); start.setHours(0, 0, 0, 0);
-        const end = new Date(now); end.setHours(23, 59, 59, 999);
-        return eventService.getAll({ from: start, to: end });
-      },
-    }),
-    defineTool({
-      name: "get_events",
-      description: "Liste les evenements du calendrier sur une periode",
-      params: z.object({
-        from: isoDate.describe("Date debut YYYY-MM-DD"),
-        to: isoDate.describe("Date fin YYYY-MM-DD"),
-      }),
-      execute: async ({ from, to }) => {
-        return eventService.getAll({ from: new Date(from), to: new Date(`${to}T23:59:59`) });
       },
     }),
   ];
