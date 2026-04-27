@@ -13,6 +13,7 @@ bun.lock
 # Tauri
 apps/desktop/src-tauri/target/
 apps/desktop/src-tauri/gen/
+apps/desktop/src-tauri/binaries/
 
 # Drizzle (keep migrations tracked, ignore generated meta snapshots cache)
 

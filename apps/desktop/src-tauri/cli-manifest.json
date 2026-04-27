@@ -1,0 +1,24 @@
+{
+  "$schema_version": 1,
+  "_doc": "Devops CLIs Cookia knows how to install on demand. Consumed by both the TS dev fetch script (apps/desktop/scripts/fetch-cli-binaries.ts) and the Rust runtime BinaryManager (apps/desktop/src-tauri/src/devops/). Substitution token: {version} is replaced with the cli's `version` field at resolve time.",
+  "clis": {
+    "gh": {
+      "version": "2.66.1",
+      "displayName": "GitHub CLI",
+      "homepage": "https://cli.github.com",
+      "license": "MIT",
+      "release": {
+        "urlBase": "https://github.com/cli/cli/releases/download/v{version}",
+        "checksumsAsset": "gh_{version}_checksums.txt"
+      },
+      "assets": {
+        "x86_64-pc-windows-msvc":   { "asset": "gh_{version}_windows_amd64.zip",  "archive": "zip",    "innerPath": "bin/gh.exe" },
+        "aarch64-pc-windows-msvc":  { "asset": "gh_{version}_windows_arm64.zip",  "archive": "zip",    "innerPath": "bin/gh.exe" },
+        "x86_64-apple-darwin":      { "asset": "gh_{version}_macOS_amd64.zip",    "archive": "zip",    "innerPath": "gh_{version}_macOS_amd64/bin/gh" },
+        "aarch64-apple-darwin":     { "asset": "gh_{version}_macOS_arm64.zip",    "archive": "zip",    "innerPath": "gh_{version}_macOS_arm64/bin/gh" },
+        "x86_64-unknown-linux-gnu": { "asset": "gh_{version}_linux_amd64.tar.gz", "archive": "tar.gz", "innerPath": "gh_{version}_linux_amd64/bin/gh" },
+        "aarch64-unknown-linux-gnu":{ "asset": "gh_{version}_linux_arm64.tar.gz", "archive": "tar.gz", "innerPath": "gh_{version}_linux_arm64/bin/gh" }
+      }
+    }
+  }
+}

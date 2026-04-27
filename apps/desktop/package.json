@@ -8,7 +8,9 @@
     "build": "vite build",
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
-    "tauri:build": "tauri build"
+    "tauri:build": "tauri build",
+    "fetch:binaries": "bun run scripts/fetch-cli-binaries.ts",
+    "fetch:binaries:all": "bun run scripts/fetch-cli-binaries.ts --all"
   },
   "dependencies": {
     "@excalidraw/excalidraw": "^0.18.0",
