@@ -19,8 +19,9 @@ import { ConnectorSettings } from "./ConnectorSettings";
 import { RssSettings } from "./RssSettings";
 import { InfraSettings } from "./InfraSettings";
 import { LocaleSettings } from "./LocaleSettings";
+import { DevopsCliSettings } from "./DevopsCliSettings";
 
-type SettingsTab = "locale" | "theme" | "llm" | "focus" | "connectors" | "brief" | "vps" | "bookmarks" | "projects" | "routines" | "webhooks" | "caldav" | "email-rules" | "habits" | "shortcuts" | "rss" | "infra" | "data";
+type SettingsTab = "locale" | "theme" | "llm" | "focus" | "connectors" | "brief" | "vps" | "bookmarks" | "projects" | "routines" | "webhooks" | "caldav" | "email-rules" | "habits" | "shortcuts" | "rss" | "infra" | "devops-cli" | "data";
 
 export function SettingsView() {
   const { t } = useT();
@@ -53,6 +54,7 @@ export function SettingsView() {
     { id: "connectors", key: "settings.connectors" },
     { id: "vps", key: "settings.vps" },
     { id: "infra", key: "settings.infra" },
+    { id: "devops-cli", key: "settings.devopsCli" },
     { id: "data", key: "settings.data" },
   ];
 
@@ -149,6 +151,9 @@ export function SettingsView() {
         </Show>
         <Show when={tab() === "infra"}>
           <InfraSettings />
+        </Show>
+        <Show when={tab() === "devops-cli"}>
+          <DevopsCliSettings />
         </Show>
         <Show when={tab() === "data"}>
           <DataSettings />
