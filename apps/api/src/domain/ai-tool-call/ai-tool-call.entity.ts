@@ -13,6 +13,7 @@ export interface AiToolCall {
   errorMessage: string | null;
   status: ToolCallStatus;
   durationMs: number | null;
+  undoToken: string | null;
   createdAt: Date;
 }
 
@@ -26,6 +27,7 @@ export interface RecordToolCallInput {
   errorMessage?: string;
   status: ToolCallStatus;
   durationMs?: number;
+  undoToken?: string | null;
 }
 
 export interface FindToolCallsOptions {

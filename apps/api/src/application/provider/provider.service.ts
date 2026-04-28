@@ -43,6 +43,11 @@ export class ProviderService {
     return { type, configured: true, username };
   }
 
+  async getGitHubToken(): Promise<string | null> {
+    const cfg = await this.connectorConfigRepo.findByType("github");
+    return cfg?.enabled ? cfg.token : null;
+  }
+
   /** Returns null when the provider is not configured. Callers must check + return a structured error. */
   async getGitHubClient(): Promise<GitHubApiClient | null> {
     const cfg = await this.connectorConfigRepo.findByType("github");

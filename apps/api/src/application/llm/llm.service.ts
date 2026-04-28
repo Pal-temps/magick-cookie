@@ -4,9 +4,13 @@ import type { LlmPort, LlmMessage, ChatOptions } from "../../domain/llm/llm.port
 import { OllamaAdapter } from "../../infrastructure/adapters/ollama.adapter";
 import { OpenAICompatibleAdapter } from "../../infrastructure/adapters/openai-compatible.adapter";
 import { AnthropicAdapter } from "../../infrastructure/adapters/anthropic.adapter";
+import type { LlmBudgetService } from "./llm-budget.service";
 
 export class LlmService {
-  constructor(private configRepo: LlmConfigRepository) {}
+  constructor(
+    private configRepo: LlmConfigRepository,
+    private budget?: LlmBudgetService,
+  ) {}
 
   async getConfig(): Promise<LlmConfig | null> {
     return this.configRepo.getActive();
@@ -17,19 +21,27 @@ export class LlmService {
   }
 
   async chat(messages: LlmMessage[], options?: ChatOptions): Promise<string> {
+    if (this.budget) await this.budget.check();
     const config = await this.configRepo.getActive();
     if (!config) throw new Error("No LLM configured");
 
     const adapter = this.createAdapter(config);
-    return adapter.chat(messages, config.model, options);
+    const result = await adapter.chat(messages, config.model, options);
+    this.budget?.increment();
+    return result;
   }
 
   async *chatStream(messages: LlmMessage[]): AsyncIterable<string> {
+    if (this.budget) await this.budget.check();
     const config = await this.configRepo.getActive();
     if (!config) throw new Error("No LLM configured");
 
     const adapter = this.createAdapter(config);
-    yield* adapter.chatStream(messages, config.model);
+    let first = true;
+    for await (const chunk of adapter.chatStream(messages, config.model)) {
+      if (first) { this.budget?.increment(); first = false; }
+      yield chunk;
+    }
   }
 
   async summarize(text: string, systemPrompt: string): Promise<string> {

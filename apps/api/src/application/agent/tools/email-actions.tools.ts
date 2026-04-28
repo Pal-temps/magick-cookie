@@ -167,9 +167,14 @@ export function createEmailActionTools(emailService: EmailService): AgentTool[] 
       }),
       execute: async ({ emailId }) => {
         try {
+          // Capture email state before deletion for undo token.
+          const snapshot = await emailService.getEmailById(emailId);
           const ok = await emailService.deleteEmail(emailId);
           if (!ok) return { error: `Email introuvable ou suppression IMAP echouee: ${emailId}` };
-          return { deleted: true, id: emailId };
+          const undoToken = snapshot
+            ? JSON.stringify({ id: snapshot.id, subject: snapshot.subject, from: snapshot.from, folder: snapshot.folder, accountId: snapshot.accountId })
+            : null;
+          return { deleted: true, id: emailId, _undoToken: undoToken };
         } catch (err) {
           return errorPayload(err);
         }

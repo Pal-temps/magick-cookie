@@ -20,6 +20,7 @@ export class DrizzleAiToolCallRepository implements AiToolCallRepository {
         errorMessage: input.errorMessage ?? null,
         status: input.status,
         durationMs: input.durationMs ?? null,
+        undoToken: input.undoToken ?? null,
       })
       .returning();
     return this.toDomain(row);
@@ -61,6 +62,7 @@ export class DrizzleAiToolCallRepository implements AiToolCallRepository {
       errorMessage: row.errorMessage,
       status: row.status as ToolCallStatus,
       durationMs: row.durationMs,
+      undoToken: row.undoToken ?? null,
       createdAt: row.createdAt,
     };
   }

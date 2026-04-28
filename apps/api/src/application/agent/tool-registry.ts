@@ -304,8 +304,16 @@ export class ToolRegistry {
     // 4) Execute + audit.
     const startedAt = Date.now();
     try {
-      const result = await tool.execute(params);
+      const rawResult = await tool.execute(params);
       const durationMs = Date.now() - startedAt;
+      // Strip _undoToken from the result the LLM sees — it's audit-only.
+      let undoToken: string | null = null;
+      let result: unknown = rawResult;
+      if (rawResult !== null && typeof rawResult === "object" && "_undoToken" in rawResult) {
+        const { _undoToken, ...rest } = rawResult as Record<string, unknown>;
+        undoToken = typeof _undoToken === "string" ? _undoToken : null;
+        result = rest;
+      }
       await this.recordAudit({
         toolName: tool.name,
         permissionLevel,
@@ -313,6 +321,7 @@ export class ToolRegistry {
         result,
         status: "ok",
         durationMs,
+        undoToken,
         context,
       });
       return { status: "ok", toolName: tool.name, result };
@@ -340,6 +349,7 @@ export class ToolRegistry {
     errorMessage?: string;
     status: ToolCallStatus;
     durationMs?: number;
+    undoToken?: string | null;
     context: ToolContext;
   }): Promise<void> {
     if (!this.auditService) return;
@@ -354,6 +364,7 @@ export class ToolRegistry {
         errorMessage: input.errorMessage,
         status: input.status,
         durationMs: input.durationMs,
+        undoToken: input.undoToken,
       });
     } catch (err) {
       // Audit failure must never break the dispatch path.

@@ -253,6 +253,13 @@
       "when": 1777248000000,
       "tag": "0035_ai_tool_calls",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1777334400000,
+      "tag": "0036_undo_token",
+      "breakpoints": true
     }
   ]
 }

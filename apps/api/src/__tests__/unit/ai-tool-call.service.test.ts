@@ -14,6 +14,7 @@ const makeCall = (overrides: Partial<AiToolCall> = {}): AiToolCall => ({
   errorMessage: null,
   status: "ok" as ToolCallStatus,
   durationMs: 100,
+  undoToken: null,
   createdAt: new Date(),
   ...overrides,
 });

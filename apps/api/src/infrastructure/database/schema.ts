@@ -409,6 +409,7 @@ export const aiToolCalls = pgTable("ai_tool_calls", {
   errorMessage: text("error_message"),
   status: varchar("status", { length: 20 }).notNull(),
   durationMs: integer("duration_ms"),
+  undoToken: text("undo_token"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [
   index("idx_ai_tool_calls_conversation").on(table.conversationId, table.createdAt),
