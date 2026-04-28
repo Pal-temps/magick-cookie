@@ -386,7 +386,7 @@ Démo réalisable : *"Lis mon email de CNR puis ajoute un évènement dans mon c
 
 ## Phase 5 — Providers unifiés dans les tools AI
 
-**Statut** : ⬜ À faire
+**Statut** : ✅ Terminé (2026-04-28)
 **Durée estimée** : 1 session
 **Dépend de** : P1, P2
 
@@ -395,23 +395,12 @@ L'AI parle de "mon GitHub / mon GitLab / mon ClickUp" sans jamais demander le to
 
 ### Tâches
 
-- [ ] `ProviderService` qui expose `getActiveToken(provider)`, `getUsername(provider)`, `isConfigured(provider)` — lit `connector_configs`
-- [ ] Tools GitHub :
-  - [ ] `github_list_repos`
-  - [ ] `github_create_issue`
-  - [ ] `github_close_issue`
-  - [ ] `github_add_comment`
-  - [ ] `github_trigger_workflow`
-  - [ ] `github_list_prs`
-  - [ ] `github_review_pr` (user-confirm)
-- [ ] Tools GitLab (mêmes verbes, préfixe `gitlab_`)
-- [ ] Tools ClickUp :
-  - [ ] `clickup_create_task`
-  - [ ] `clickup_assign`
-  - [ ] `clickup_change_status`
-  - [ ] `clickup_add_comment`
-- [ ] Si provider non configuré, tool retourne `{ error: "Provider not configured", configureUrl: "settings/connectors" }`
-- [ ] Bloc `<providers>` dans le SystemPrompt listant ce qui est configuré
+- [x] `ProviderService` (`getStatus(type)` / `isConfigured(type)` / `getGitHubClient` / `getGitLabClient` / `getClickUpClient`) (2026-04-28)
+- [x] Tools GitHub (7 tools, `github_review_pr` user-confirm) (2026-04-28)
+- [x] Tools GitLab (7 tools, `gitlab_review_mr` user-confirm — équivalent MR) (2026-04-28)
+- [x] Tools ClickUp (`clickup_create_task` / `assign` / `change_status` / `add_comment`) (2026-04-28)
+- [x] `PROVIDER_NOT_CONFIGURED` helper exporté par `ProviderService` — shape uniforme `{ error, provider, configureUrl }` (2026-04-28)
+- [ ] Bloc `<providers>` dans le SystemPrompt — pas encore branché côté agent.service (à faire en P6 quand l'orchestration arrive)
 
 ### Done when
 *"Crée une issue GitHub pour le bug FluxView"* → issue créée sous l'identité unique, sans prompt token.
@@ -495,7 +484,7 @@ L'AI enchaîne intelligemment plusieurs features. Observability complète.
 | P2 Tool convention | ✅ | 1 | — |
 | P3 Notes bridge | ✅ | 1-2 | P2 |
 | P4 Domaines CRUD | ✅ | 1 | P2 |
-| P5 Providers tools | ⬜ | 1 | P1, P2 |
+| P5 Providers tools | ✅ | 1 | P1, P2 |
 | P6 Orchestration | ⬜ | 1-2 | P3, P4, P5 |
 
 **Total estimé** : 8-10 sessions de travail focalisé.
@@ -511,6 +500,11 @@ L'AI enchaîne intelligemment plusieurs features. Observability complète.
 ## Journal de session
 
 ### 2026-04-28
+- **P5 shippée en 3 sous-commits** :
+  - **P5.1** : `ProviderService` + extension de `GitHubApiClient` (listRepos / createIssue / closeIssue / addIssueComment / triggerWorkflow / listPullRequests / reviewPullRequest) + `github.tools.ts` 7 tools + 30 tests.
+  - **P5.2** : extension de `GitLabApiClient` (équivalents listProjects / createIssue / closeIssue / addIssueComment / triggerPipeline / listMergeRequests / reviewMergeRequest qui combine note + approve) + `gitlab.tools.ts` 7 tools + 17 tests.
+  - **P5.3** : extension de `ClickUpApiClient` (createTask / assignTask / changeTaskStatus / addTaskComment) + `clickup.tools.ts` 4 tools + 14 tests.
+- TODO restant P5 : injecter un bloc `<providers>` dans le SystemPrompt de l'agent.service pour que le LLM sache ce qui est configuré (peut être fait en P6 avec l'orchestration).
 - **P4.7 Alarms + Routines shippée — clôture P4** : nouveaux fichiers `alarm.tools.ts` (4 tools) et `routine.tools.ts` (4 tools, zod discriminated union sur les 4 shapes de RoutineStep). +25 tests unit.
 - **P4.6 Contacts shippée** : `contact.tools.ts` avec 5 tools (CRUD + find_by_email). find_by_email = filtre client-side over getAll() (carnet de contacts trop petit pour mériter un repo lookup dédié). +15 tests.
 - **P4.5 Snippets shippée** : `snippet.tools.ts` avec 5 tools (CRUD + search_by_tag). +16 tests.
