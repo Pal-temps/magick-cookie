@@ -1,4 +1,4 @@
-import { Show, For, createSignal, Switch, Match, onMount, onCleanup } from "solid-js";
+import { Show, For, createSignal, createEffect, Switch, Match, onMount, onCleanup } from "solid-js";
 import { invoke } from "@tauri-apps/api/core";
 import { useAiSessionStore, type AiSession } from "../../../application/stores/aiSessionStore";
 import { useIdeStore } from "../../../application/stores/ideStore";
@@ -11,6 +11,7 @@ import { AiComposer } from "./AiComposer";
 import type { MonacoEditorApi } from "./MonacoEditor";
 import { ALL_MODES, type SessionModeId } from "./sessionModes";
 import { buildContextParts } from "./contextInjection";
+import { getCookiaContext, clearCookiaContext } from "../../../application/stores/cookiaContextStore";
 
 type AiTab = "session" | "diffs" | "processes" | "files" | "validation";
 
@@ -28,6 +29,17 @@ export function AiChatContent(props: AiChatContentProps) {
   const hooks = useHookStore();
   const [activeTab, setActiveTab] = createSignal<AiTab>("session");
   const [sessionMode, setSessionMode] = createSignal<SessionModeId>("general");
+  const [composerInitialText, setComposerInitialText] = createSignal<string | undefined>(undefined);
+
+  // Consume "Ask Cookia" context from other views and pre-fill the composer
+  createEffect(() => {
+    const ctx = getCookiaContext();
+    if (ctx) {
+      setComposerInitialText(ctx.prompt);
+      clearCookiaContext();
+      setActiveTab("session"); // ensure the session tab is visible
+    }
+  });
 
   const session = (): AiSession | undefined => {
     return ai.sessions().get(props.sessionId);
@@ -259,6 +271,7 @@ export function AiChatContent(props: AiChatContentProps) {
                   activeFileName={getActiveFileName()}
                   activeSelection={getActiveSelection()}
                   capabilities={session()?.capabilities ?? null}
+                  initialText={composerInitialText()}
                 />
               </div>
             </Match>

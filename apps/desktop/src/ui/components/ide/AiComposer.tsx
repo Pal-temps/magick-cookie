@@ -1,4 +1,4 @@
-import { createSignal, Show, For, onCleanup } from "solid-js";
+import { createSignal, createEffect, Show, For, onCleanup } from "solid-js";
 import { invoke } from "@tauri-apps/api/core";
 import { useIdeStore } from "../../../application/stores/ideStore";
 import { useBrowserTabStore } from "../../../application/stores/browserTabStore";
@@ -11,6 +11,7 @@ interface AiComposerProps {
   activeFileName?: string | null;
   activeSelection?: string | null;
   capabilities?: AdapterCapabilities | null;
+  initialText?: string;
 }
 
 interface QuickAction {
@@ -50,6 +51,12 @@ export function AiComposer(props: AiComposerProps) {
   const { t } = useT();
   const ide = useIdeStore();
   const [text, setText] = createSignal("");
+
+  // Pre-fill composer when a context is pushed from another view ("Ask Cookia" button)
+  createEffect(() => {
+    if (props.initialText) setText(props.initialText);
+  });
+
   const [pendingScreenshot, setPendingScreenshot] = createSignal<{ media_type: string; data: string } | null>(null);
   const [isCapturing, setIsCapturing] = createSignal(false);
   const [attachments, setAttachments] = createSignal<ContextAttachment[]>([]);

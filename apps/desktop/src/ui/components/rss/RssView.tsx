@@ -7,6 +7,9 @@ import { Button } from "../common/Button";
 import { AiButton } from "../common/AiButton";
 import { CookieLoader } from "../common/CookieLoader";
 import { RssCatalog } from "./RssCatalog";
+import { setCookiaContext } from "../../../application/stores/cookiaContextStore";
+import { useViewStore } from "../../../application/stores/viewStore";
+import { buildRssPrompt } from "../ide/cookiaPromptBuilders";
 import "../../styles/rss.css";
 
 export function RssView() {
@@ -18,6 +21,23 @@ export function RssView() {
     digest, digestLoading, fetchDigest, generateDigest, saveDigestToNotes, digestSavedToNotes,
   } = rssStore;
   const { t, locale } = useT();
+  const { setViewMode } = useViewStore();
+
+  function askCookia() {
+    const article = selectedArticle();
+    if (!article) return;
+    const feedName = feeds().find((f) => f.id === article.feedId)?.title ?? "";
+    setCookiaContext({
+      prompt: buildRssPrompt({
+        feedLabel: feedName,
+        title: article.title ?? "",
+        bodyText: article.content ?? article.description ?? null,
+        link: article.link ?? null,
+      }),
+      source: "rss",
+    });
+    setViewMode("ide");
+  }
 
   const [showCatalog, setShowCatalog] = createSignal(false);
   const [showDigest, setShowDigest] = createSignal(false);
@@ -236,6 +256,9 @@ export function RssView() {
                       {t("rss.openBrowser")}
                     </Button>
                   </Show>
+                  <AiButton size="sm" variant="secondary" onClick={askCookia}>
+                    Ask Cookia
+                  </AiButton>
                 </div>
               </div>
 

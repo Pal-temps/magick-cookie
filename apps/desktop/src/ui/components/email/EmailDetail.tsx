@@ -3,6 +3,9 @@ import type { Email, SecurityLevel } from "../../../domain/models/Email";
 import { useT } from "../../../i18n/context";
 import { Button } from "../common/Button";
 import { AiButton } from "../common/AiButton";
+import { setCookiaContext } from "../../../application/stores/cookiaContextStore";
+import { useViewStore } from "../../../application/stores/viewStore";
+import { buildEmailPrompt } from "../ide/cookiaPromptBuilders";
 import "../../styles/email.css";
 
 const SEC_ICONS: Record<SecurityLevel, string> = {
@@ -26,6 +29,19 @@ interface EmailDetailProps {
 
 export function EmailDetail(props: EmailDetailProps) {
   const { t } = useT();
+  const { setViewMode } = useViewStore();
+
+  function askCookia(email: Email) {
+    setCookiaContext({
+      prompt: buildEmailPrompt({
+        from: email.fromAddress,
+        subject: email.subject ?? "",
+        bodyText: email.bodyText ?? null,
+      }),
+      source: "email",
+    });
+    setViewMode("ide");
+  }
 
   function formatDate(iso: string): string {
     return new Date(iso).toLocaleDateString("fr-FR", {
@@ -70,6 +86,9 @@ export function EmailDetail(props: EmailDetailProps) {
                     {props.summaryLoading ? "..." : t("email.summarize")}
                   </AiButton>
                 </Show>
+                <AiButton size="sm" variant="secondary" onClick={() => askCookia(email())}>
+                  Ask Cookia
+                </AiButton>
                 <Show when={props.onReply}>
                   <Button size="sm" variant="secondary" onClick={() => props.onReply?.()}>
                     {t("email.reply")}
