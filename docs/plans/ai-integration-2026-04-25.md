@@ -1,8 +1,8 @@
 # Plan — Intégration AI complète (Cookia × toutes les features)
 
 **Date de création** : 2026-04-25
-**Dernière mise à jour** : 2026-04-25
-**Statut global** : 🟡 En attente de démarrage (Phase 1)
+**Dernière mise à jour** : 2026-04-28
+**Statut global** : 🟢 P1-P5 ✅ + P6 🟡 (6.1/6.2/6.3 ✅, restent 6.4 safety rails + 6.5 MCP)
 
 ---
 
@@ -427,7 +427,7 @@ L'AI parle de "mon GitHub / mon GitLab / mon ClickUp" sans jamais demander le to
 
 ## Phase 6 — Orchestration cross-domaine + observabilité
 
-**Statut** : ⬜ À faire
+**Statut** : 🟡 En cours (6.1 + 6.2 + 6.3 shippées 2026-04-28 — restent 6.4 safety rails + 6.5 MCP)
 **Durée estimée** : 1-2 sessions
 **Dépend de** : P3, P4, P5
 
@@ -436,21 +436,29 @@ L'AI enchaîne intelligemment plusieurs features. Observability complète.
 
 ### Tâches
 
-- [ ] Templates d'orchestration dans skills vault
-  - [ ] `triage_inbox.md` (emails → classifie → flux → tasks)
-  - [ ] `monday_brief.md` (emails + events + tasks → note récap)
-  - [ ] `rss_digest_to_note.md`
-- [ ] Session modes : `brief`, `ide-dev`, `triage`, `meeting-prep`
-  - [ ] Chaque mode charge un subset de tools + system prompt dédié
-- [ ] Observability dashboard : vue "AI Activity"
-  - [ ] Lit `ai_tool_calls`
-  - [ ] Affiche latences, coûts LLM, tools les plus utilisés, échecs
-- [ ] Safety rails
-  - [ ] Rollback tokens pour ops destructives (delete email génère undo_token valide 5 min)
-  - [ ] Budget LLM configurable par jour
-- [ ] MCP expansion
-  - [ ] Documenter comment exposer un domaine en serveur MCP
-  - [ ] POC : packager `memory.tools` comme MCP server indépendant
+**P6.2** ✅ Templates d'orchestration dans `docs/skills-templates/` (à copier dans `_ide/skills/` du vault utilisateur — 2026-04-28)
+- [x] `triage_inbox.md` (emails → classifie → flux → tasks, cap max_emails, jamais de delete)
+- [x] `monday_brief.md` (weekly review + agenda + priorités + inbox snapshot → note `_ide/briefs/monday-{date}.md`)
+- [x] `rss_digest_to_note.md` (digest LLM 24h → note `_ide/digests/rss-{date}.md`)
+
+**P6.1** ✅ Session modes (2026-04-28)
+- [x] `general`/`brief`/`triage`/`ide-dev`/`meeting-prep` — `application/agent/session-modes.ts`
+- [x] Chaque mode charge un subset de tools (whitelist explicite) + un hint dans le system prompt
+- [x] Bloc `<providers>` (P5 todo) injecté dans le system prompt via `AgentService.buildProvidersSection`
+
+**P6.3** ✅ Observability dashboard (2026-04-28)
+- [x] Route `/api/ai/tool-calls` (list paginée + filtres status/tool/conversation) + `/api/ai/tool-calls/stats` (agrégations sur les 500 derniers appels)
+- [x] Tab Settings → "Activité IA" (4 cartes summary, top-10 tools, table des appels récents avec filtre)
+- [x] Auto-refresh 30s
+- [ ] Latences/coûts LLM par modèle — non couverts (les coûts LLM ne sont pas encore tracés ailleurs)
+
+**P6.4** ⬜ Safety rails — pas démarré
+- [ ] Rollback tokens pour ops destructives (delete email génère undo_token valide 5 min)
+- [ ] Budget LLM configurable par jour
+
+**P6.5** ⬜ MCP expansion — pas démarré
+- [ ] Documenter comment exposer un domaine en serveur MCP
+- [ ] POC : packager `memory.tools` comme MCP server indépendant
 
 ### Done when
 *"Prépare mon brief du lundi"* → l'AI lit emails, events, tasks non triées, génère le digest RSS, écrit le tout dans une note, prend ~30s, coût affiché, undo dispo.
@@ -485,7 +493,7 @@ L'AI enchaîne intelligemment plusieurs features. Observability complète.
 | P3 Notes bridge | ✅ | 1-2 | P2 |
 | P4 Domaines CRUD | ✅ | 1 | P2 |
 | P5 Providers tools | ✅ | 1 | P1, P2 |
-| P6 Orchestration | ⬜ | 1-2 | P3, P4, P5 |
+| P6 Orchestration | 🟡 | 1-2 | P3, P4, P5 |
 
 **Total estimé** : 8-10 sessions de travail focalisé.
 
@@ -500,6 +508,13 @@ L'AI enchaîne intelligemment plusieurs features. Observability complète.
 ## Journal de session
 
 ### 2026-04-28
+- **P6 démarrée — 3 sous-commits livrés** :
+  - **P6.1** session modes + tool whitelist + bloc providers dans system prompt. `session-modes.ts` (5 modes), refactor `formatToolsForLlm` extrait du registry, `AgentService` accepte `SendMessageOptions { mode }` + `ProviderService` pour rendre le bloc connectés. +13 tests.
+  - **P6.2** 3 templates de skills d'orchestration (triage_inbox / monday_brief / rss_digest_to_note) sous `docs/skills-templates/` avec README d'installation. Pas de code (skills = contenu vault).
+  - **P6.3** AI Activity dashboard. Route `/api/ai/tool-calls{,/stats}`, `AiToolCallService.getStats()` agrège en mémoire (totalCalls / byTool sorted / byStatus / avgDurationMs sur ok-only / 20 dernières failures), `aiActivityService` TS + `AiActivitySettings.tsx` (4 cartes + top-10 + table filtrée + 30s refresh). +17 tests.
+- **Sécurité — durcissement permission tiers** sur les tools qui utilisent des secrets KDBX-sourced : `ssh_exec` → `admin`, `ssh_upload`/`caddy_add_site`/`dns_create_record`/`dns_delete_record`/`git_remote_create`/`git_remote_delete` → `user-confirm`. Le dispatcher refusait déjà ces tiers tant que le canal de permission n'est pas branché — ces flags sont effectifs dès aujourd'hui contre prompt-injection. +4 tests d'assertion.
+- **Flake `BriefService > overdue events` corrigé** : la date de référence du test est maintenant fixée au 2026-03-18 au lieu d'utiliser `new Date()` (qui flakouait dans la 1ère heure UTC du jour quand `pastTime = now - 1h` retombait sur la veille).
+- **TODO résiduels P6** : safety rails (P6.4 — undo tokens + LLM budget) et MCP expansion (P6.5 — POC `memory.tools` packagé en MCP server).
 - **P5 shippée en 3 sous-commits** :
   - **P5.1** : `ProviderService` + extension de `GitHubApiClient` (listRepos / createIssue / closeIssue / addIssueComment / triggerWorkflow / listPullRequests / reviewPullRequest) + `github.tools.ts` 7 tools + 30 tests.
   - **P5.2** : extension de `GitLabApiClient` (équivalents listProjects / createIssue / closeIssue / addIssueComment / triggerPipeline / listMergeRequests / reviewMergeRequest qui combine note + approve) + `gitlab.tools.ts` 7 tools + 17 tests.
