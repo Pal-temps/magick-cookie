@@ -9,6 +9,8 @@ import { useT } from "../../../i18n/context";
 import { AiMessageFeed } from "./AiMessageFeed";
 import { AiComposer } from "./AiComposer";
 import type { MonacoEditorApi } from "./MonacoEditor";
+import { ALL_MODES, type SessionModeId } from "./sessionModes";
+import { buildContextParts } from "./contextInjection";
 
 type AiTab = "session" | "diffs" | "processes" | "files" | "validation";
 
@@ -25,6 +27,7 @@ export function AiChatContent(props: AiChatContentProps) {
   const snippetStore = useSnippetStore();
   const hooks = useHookStore();
   const [activeTab, setActiveTab] = createSignal<AiTab>("session");
+  const [sessionMode, setSessionMode] = createSignal<SessionModeId>("general");
 
   const session = (): AiSession | undefined => {
     return ai.sessions().get(props.sessionId);
@@ -82,20 +85,19 @@ export function AiChatContent(props: AiChatContentProps) {
     // Inject context on first message of the session
     if (!contextInjected()) {
       setContextInjected(true);
-      const contextParts: string[] = [];
 
       // Project CLAUDE.md
+      let claudeMd: string | null = null;
       try {
-        const context = await ide.readProjectContext();
-        if (context) contextParts.push(`[Contexte projet — CLAUDE.md]\n${context}`);
+        claudeMd = await ide.readProjectContext() || null;
       } catch { /* no context */ }
 
       // Active workflow instructions + resolve file references
+      let workflowPart: string | null = null;
       const workflow = wf.getWorkflowForSession(props.sessionId);
       if (workflow) {
         const resolvedParts: string[] = [];
 
-        // Resolve file references in preCommit/postCommit/instructions
         async function resolveRef(ref: string): Promise<string> {
           try {
             if (ref.startsWith("file:")) {
@@ -115,12 +117,11 @@ export function AiChatContent(props: AiChatContentProps) {
                 return `[Article RSS favori]\nURL a lire/analyser: ${url}`;
               }
               if (path.startsWith("notes::")) {
-                const content = await invoke<string>("notes_read", { path: path.slice(7) });
-                return `[Note: ${path.split("/").pop()}]\n${content}`;
+                const noteContent = await invoke<string>("notes_read", { path: path.slice(7) });
+                return `[Note: ${path.split("/").pop()}]\n${noteContent}`;
               }
-              // Vault file
-              const content = await invoke<string>("vault_read_json", { relPath: path });
-              return `[${path.split("/").pop()}]\n${content}`;
+              const fileContent = await invoke<string>("vault_read_json", { relPath: path });
+              return `[${path.split("/").pop()}]\n${fileContent}`;
             }
             return `Commande: \`${ref}\``;
           } catch {
@@ -147,10 +148,11 @@ export function AiChatContent(props: AiChatContentProps) {
         }
 
         if (resolvedParts.length > 0) {
-          contextParts.push(resolvedParts.join("\n\n"));
+          workflowPart = resolvedParts.join("\n\n");
         }
       }
 
+      const contextParts = buildContextParts({ mode: sessionMode(), claudeMd, workflowPart });
       if (contextParts.length > 0) {
         content = contextParts.join("\n\n---\n\n") + "\n\n---\n\n" + content;
       }
@@ -215,6 +217,26 @@ export function AiChatContent(props: AiChatContentProps) {
           </button>
         ))}
       </div>
+
+      {/* Session mode selector — only shown on the session tab */}
+      <Show when={activeTab() === "session"}>
+        <div class="cc-mode-bar">
+          <For each={ALL_MODES}>
+            {(mode) => (
+              <button
+                class={`cc-mode-pill ${sessionMode() === mode.id ? "cc-mode-pill--active" : ""}`}
+                title={mode.description}
+                onClick={() => {
+                  setSessionMode(mode.id);
+                  setContextInjected(false);
+                }}
+              >
+                {mode.label}
+              </button>
+            )}
+          </For>
+        </div>
+      </Show>
 
       {/* Content area */}
       <div class="cc-content-area">

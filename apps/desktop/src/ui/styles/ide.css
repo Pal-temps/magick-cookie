@@ -2535,6 +2535,43 @@
   color: var(--text-muted);
 }
 
+/* ─── Session Mode Bar ─── */
+
+.cc-mode-bar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border-color);
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
+.cc-mode-pill {
+  padding: 2px 8px;
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--text-muted);
+  background: transparent;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s, border-color 0.15s;
+  white-space: nowrap;
+}
+
+.cc-mode-pill:hover {
+  color: var(--text-secondary);
+  background: var(--bg-elevated);
+}
+
+.cc-mode-pill--active {
+  color: var(--accent-primary);
+  border-color: var(--accent-primary);
+  background: color-mix(in srgb, var(--accent-primary) 12%, transparent);
+}
+
 /* ─── Processes Tab ─── */
 
 .cc-processes-tab {
