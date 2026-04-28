@@ -50,6 +50,28 @@ interface RawGitLabBoard {
   lists: { id: number; label: { name: string } }[];
 }
 
+export interface GitLabProject {
+  id: number;
+  pathWithNamespace: string;
+  description: string | null;
+  visibility: string;
+  webUrl: string;
+  defaultBranch: string;
+  openIssuesCount: number;
+}
+
+export interface GitLabMergeRequest {
+  iid: number;
+  projectId: number;
+  title: string;
+  state: string;
+  webUrl: string;
+  isDraft: boolean;
+  sourceBranch: string;
+  targetBranch: string;
+  author: string;
+}
+
 export class GitLabApiClient {
   constructor(private token: string, private baseUrl = "https://gitlab.com") {}
 
@@ -168,5 +190,149 @@ export class GitLabApiClient {
     return {
       "PRIVATE-TOKEN": this.token,
     };
+  }
+
+  // ─── Write operations (Phase 5 of the AI plan) ───
+
+  async listProjects(membership: boolean = true): Promise<GitLabProject[]> {
+    // membership=true → only projects the user is a member of (sane default).
+    const res = await fetch(`${this.baseUrl}/api/v4/projects?membership=${membership}&per_page=100&order_by=last_activity_at`, {
+      headers: this.headers(),
+    });
+    if (!res.ok) throw new Error(`GitLab API error (GET /projects): ${res.status}`);
+    const raw = (await res.json()) as Array<{
+      id: number;
+      path_with_namespace: string;
+      description: string | null;
+      visibility: string;
+      web_url: string;
+      default_branch: string;
+      open_issues_count?: number;
+    }>;
+    return raw.map((p) => ({
+      id: p.id,
+      pathWithNamespace: p.path_with_namespace,
+      description: p.description,
+      visibility: p.visibility,
+      webUrl: p.web_url,
+      defaultBranch: p.default_branch,
+      openIssuesCount: p.open_issues_count ?? 0,
+    }));
+  }
+
+  async createIssue(projectId: number, input: { title: string; description?: string; labels?: string[]; assigneeIds?: number[] }): Promise<{ iid: number; webUrl: string }> {
+    const res = await fetch(`${this.baseUrl}/api/v4/projects/${projectId}/issues`, {
+      method: "POST",
+      headers: { ...this.headers(), "Content-Type": "application/json" },
+      body: JSON.stringify({
+        title: input.title,
+        description: input.description,
+        labels: input.labels?.join(","),
+        assignee_ids: input.assigneeIds,
+      }),
+    });
+    if (!res.ok) {
+      const body = await res.text();
+      throw new Error(`GitLab API error (POST issue ${projectId}): ${res.status} ${body.slice(0, 200)}`);
+    }
+    const data = (await res.json()) as { iid: number; web_url: string };
+    return { iid: data.iid, webUrl: data.web_url };
+  }
+
+  async closeIssue(projectId: number, iid: number): Promise<void> {
+    const res = await fetch(`${this.baseUrl}/api/v4/projects/${projectId}/issues/${iid}?state_event=close`, {
+      method: "PUT",
+      headers: this.headers(),
+    });
+    if (!res.ok) {
+      throw new Error(`GitLab API error (PUT issue ${projectId}#${iid}): ${res.status}`);
+    }
+  }
+
+  async addIssueComment(projectId: number, iid: number, body: string): Promise<{ id: number }> {
+    const res = await fetch(`${this.baseUrl}/api/v4/projects/${projectId}/issues/${iid}/notes`, {
+      method: "POST",
+      headers: { ...this.headers(), "Content-Type": "application/json" },
+      body: JSON.stringify({ body }),
+    });
+    if (!res.ok) {
+      throw new Error(`GitLab API error (POST issue note): ${res.status}`);
+    }
+    const data = (await res.json()) as { id: number };
+    return { id: data.id };
+  }
+
+  async triggerPipeline(projectId: number, ref: string, variables?: Record<string, string>): Promise<{ id: number; webUrl: string }> {
+    const res = await fetch(`${this.baseUrl}/api/v4/projects/${projectId}/pipeline`, {
+      method: "POST",
+      headers: { ...this.headers(), "Content-Type": "application/json" },
+      body: JSON.stringify({
+        ref,
+        variables: variables
+          ? Object.entries(variables).map(([key, value]) => ({ key, value }))
+          : undefined,
+      }),
+    });
+    if (!res.ok) {
+      throw new Error(`GitLab API error (POST pipeline): ${res.status}`);
+    }
+    const data = (await res.json()) as { id: number; web_url: string };
+    return { id: data.id, webUrl: data.web_url };
+  }
+
+  async listMergeRequests(projectId: number, state: "opened" | "closed" | "merged" | "all" = "opened"): Promise<GitLabMergeRequest[]> {
+    const res = await fetch(`${this.baseUrl}/api/v4/projects/${projectId}/merge_requests?state=${state}&per_page=100`, {
+      headers: this.headers(),
+    });
+    if (!res.ok) throw new Error(`GitLab API error (GET MRs ${projectId}): ${res.status}`);
+    const raw = (await res.json()) as Array<{
+      iid: number;
+      title: string;
+      state: string;
+      web_url: string;
+      draft: boolean;
+      source_branch: string;
+      target_branch: string;
+      author: { username: string };
+    }>;
+    return raw.map((m) => ({
+      iid: m.iid,
+      projectId,
+      title: m.title,
+      state: m.state,
+      webUrl: m.web_url,
+      isDraft: m.draft,
+      sourceBranch: m.source_branch,
+      targetBranch: m.target_branch,
+      author: m.author.username,
+    }));
+  }
+
+  /**
+   * GitLab equivalent of "review a PR": post a note on the MR. Approving an MR is
+   * a separate API path, so we accept an explicit `approve` flag that hits
+   * `/merge_requests/:iid/approve` after the comment posts.
+   */
+  async reviewMergeRequest(projectId: number, iid: number, body: string, approve: boolean): Promise<{ noteId: number; approved: boolean }> {
+    const noteRes = await fetch(`${this.baseUrl}/api/v4/projects/${projectId}/merge_requests/${iid}/notes`, {
+      method: "POST",
+      headers: { ...this.headers(), "Content-Type": "application/json" },
+      body: JSON.stringify({ body }),
+    });
+    if (!noteRes.ok) {
+      throw new Error(`GitLab API error (POST MR note): ${noteRes.status}`);
+    }
+    const note = (await noteRes.json()) as { id: number };
+
+    if (approve) {
+      const approveRes = await fetch(`${this.baseUrl}/api/v4/projects/${projectId}/merge_requests/${iid}/approve`, {
+        method: "POST",
+        headers: this.headers(),
+      });
+      if (!approveRes.ok) {
+        throw new Error(`GitLab API error (POST MR approve): ${approveRes.status}`);
+      }
+    }
+    return { noteId: note.id, approved: approve };
   }
 }
