@@ -23,7 +23,8 @@ export function createGitRemoteTools(gitRemote: GitRemoteService): AgentTool[] {
     }),
     defineTool({
       name: "git_remote_create",
-      description: "Cree un nouveau repo git. Pour 'vps-bare', cree un bare repo sur le serveur avec un hook post-receive qui auto-deploy a chaque push. Pour 'github'/'gitlab', cree un repo sur la plateforme.",
+      description: "Cree un nouveau repo git. Pour 'vps-bare', cree un bare repo sur le serveur avec un hook post-receive qui auto-deploy a chaque push. Pour 'github'/'gitlab', cree un repo sur la plateforme. Side-effect significatif (auto-deploy possible): exige une confirmation utilisateur.",
+      permissionLevel: "user-confirm",
       params: z.object({
         provider: z.enum(PROVIDERS).describe("Provider: 'vps-bare' (recommande, auto-deploy), 'github', ou 'gitlab'"),
         name: z.string().min(1).max(140).describe("Nom du repo (ex: 'mon-app')"),
@@ -33,8 +34,6 @@ export function createGitRemoteTools(gitRemote: GitRemoteService): AgentTool[] {
         description: z.string().max(1000).optional().describe("Description du repo (github/gitlab)"),
         private: z.boolean().optional().describe("Repo prive (defaut: true)"),
       }),
-      // Creating a git remote is a meaningful side-effect (can auto-deploy). Left as "auto"
-      // for now — will flip to user-confirm once P4 wires the permission channel.
       execute: async ({ provider, name, server_id, build_command, start_command, description, private: isPrivate }) => {
         const repo = await gitRemote.createRepo(provider as GitRemoteProvider, {
           name,
@@ -55,12 +54,12 @@ export function createGitRemoteTools(gitRemote: GitRemoteService): AgentTool[] {
     }),
     defineTool({
       name: "git_remote_delete",
-      description: "Supprime un repo git et ses fichiers associes (app + hook pour vps-bare).",
+      description: "Supprime un repo git et ses fichiers associes (app + hook pour vps-bare). Action destructive: exige une confirmation utilisateur.",
+      permissionLevel: "user-confirm",
       params: z.object({
         provider: z.enum(PROVIDERS).describe("Provider du repo"),
         name: z.string().min(1).max(140).describe("Nom du repo"),
       }),
-      // Destructive: once P4 wires permissions, flip to "user-confirm".
       execute: async ({ provider, name }) => {
         await gitRemote.deleteRepo(provider as GitRemoteProvider, name);
         return { deleted: true };

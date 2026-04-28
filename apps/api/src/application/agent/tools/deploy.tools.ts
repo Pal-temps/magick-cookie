@@ -15,7 +15,8 @@ export function createDeployTools(ssh: SshService): AgentTool[] {
   return [
     defineTool({
       name: "caddy_add_site",
-      description: "Ajoute un site dans la config Caddy (reverse proxy + auto-HTTPS). Ne cree PAS de record DNS — utilise dns_create_record d'abord.",
+      description: "Ajoute un site dans la config Caddy (reverse proxy + auto-HTTPS). Ne cree PAS de record DNS — utilise dns_create_record d'abord. Modifie l'infra: exige une confirmation utilisateur.",
+      permissionLevel: "user-confirm",
       params: z.object({
         server_id: z.string().min(1).describe("ID du serveur"),
         domain: z.string().min(1).max(253).describe("Domaine complet (ex: app.paltemps.fr)"),

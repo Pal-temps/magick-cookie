@@ -40,12 +40,14 @@ export function createSshTools(ssh: SshService): AgentTool[] {
     }),
     defineTool({
       name: "ssh_exec",
-      description: "Execute une commande SSH sur un serveur. Retourne stdout, stderr et le code de sortie. ATTENTION: les commandes sont executees avec les privileges de l'utilisateur SSH configure.",
+      description: "Execute une commande SSH sur un serveur. Retourne stdout, stderr et le code de sortie. ATTENTION: les commandes sont executees avec les privileges de l'utilisateur SSH configure. Action admin: exfiltration potentielle (ex: 'cat ~/.ssh/id_ed25519').",
+      // Arbitrary shell on a remote with KDBX-sourced credentials. Treat as admin —
+      // the dispatcher denies admin tools until an explicit elevated channel is wired.
+      permissionLevel: "admin",
       params: z.object({
         server_id: z.string().min(1).describe("ID du serveur (utilise server_list pour le trouver)"),
         command: z.string().min(1).max(10_000).describe("Commande a executer"),
       }),
-      // Arbitrary shell exec — would become user-confirm in P4.
       execute: async ({ server_id, command }) => {
         const result = await ssh.exec(server_id, command);
         return {
@@ -58,7 +60,8 @@ export function createSshTools(ssh: SshService): AgentTool[] {
     }),
     defineTool({
       name: "ssh_upload",
-      description: "Upload un fichier texte sur un serveur via SFTP. Utile pour ecrire des fichiers de config (Caddy, nginx, systemd, etc.).",
+      description: "Upload un fichier texte sur un serveur via SFTP. Utile pour ecrire des fichiers de config (Caddy, nginx, systemd, etc.). Action sensible: exige une confirmation utilisateur.",
+      permissionLevel: "user-confirm",
       params: z.object({
         server_id: z.string().min(1).describe("ID du serveur"),
         content: z.string().max(1_000_000).describe("Contenu du fichier"),

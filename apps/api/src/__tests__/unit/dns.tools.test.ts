@@ -32,6 +32,13 @@ describe("dns.tools", () => {
     ]);
   });
 
+  it("write tools are user-confirm (DNS is public infra + TXT is an exfil vector)", () => {
+    expect(createRecord.permissionLevel).toBe("user-confirm");
+    expect(deleteRecord.permissionLevel).toBe("user-confirm");
+    expect(listZones.permissionLevel).toBe("auto");
+    expect(listRecords.permissionLevel).toBe("auto");
+  });
+
   it("dns_list_zones wraps the result with a count", async () => {
     svc.getZones.mockReturnValue(Promise.resolve(["paltemps.fr", "example.com"] as never));
     const result = (await listZones.execute({})) as { count: number; zones: unknown[] };

@@ -29,7 +29,8 @@ export function createDnsTools(dns: DnsService): AgentTool[] {
     }),
     defineTool({
       name: "dns_create_record",
-      description: "Cree un enregistrement DNS. Detecte automatiquement si la zone est sur OVH ou Cloudflare. Pour creer un sous-domaine, utilise type='A' avec l'IP du serveur.",
+      description: "Cree un enregistrement DNS. Detecte automatiquement si la zone est sur OVH ou Cloudflare. Pour creer un sous-domaine, utilise type='A' avec l'IP du serveur. Modifie l'infra publique + vecteur d'exfiltration possible (TXT): exige une confirmation utilisateur.",
+      permissionLevel: "user-confirm",
       params: z.object({
         zone: z.string().min(1).max(253).describe("Nom de la zone (ex: paltemps.fr)"),
         type: z.enum(RECORD_TYPES).describe("Type: A, AAAA, CNAME, MX, TXT"),
@@ -44,12 +45,12 @@ export function createDnsTools(dns: DnsService): AgentTool[] {
     }),
     defineTool({
       name: "dns_delete_record",
-      description: "Supprime un enregistrement DNS par son ID. Utilise dns_list_records pour trouver l'ID d'abord.",
+      description: "Supprime un enregistrement DNS par son ID. Utilise dns_list_records pour trouver l'ID d'abord. Action destructive sur infra publique: exige une confirmation utilisateur.",
+      permissionLevel: "user-confirm",
       params: z.object({
         zone: z.string().min(1).max(253).describe("Nom de la zone"),
         record_id: z.string().min(1).describe("ID de l'enregistrement a supprimer"),
       }),
-      // Destructive: flip to "user-confirm" in P4 once permission channel is wired.
       execute: async ({ zone, record_id }) => {
         await dns.deleteRecord(zone, record_id);
         return { deleted: true };

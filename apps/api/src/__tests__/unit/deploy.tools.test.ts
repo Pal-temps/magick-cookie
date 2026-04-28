@@ -33,6 +33,11 @@ describe("deploy.tools", () => {
     expect(tools.find((t) => t.name === "deploy_app")).toBeUndefined();
   });
 
+  it("caddy_add_site is user-confirm (modifies infra), caddy_list_sites stays auto (read-only)", () => {
+    expect(addSite.permissionLevel).toBe("user-confirm");
+    expect(listSites.permissionLevel).toBe("auto");
+  });
+
   it("caddy_add_site uploads the Caddyfile + reloads systemd caddy", async () => {
     await addSite.execute({ server_id: "srv-1", domain: "app.paltemps.fr", port: 3000 });
 

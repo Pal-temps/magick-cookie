@@ -33,6 +33,13 @@ describe("git-remote.tools", () => {
     ]);
   });
 
+  it("write tools are user-confirm (auto-deploy side-effect on vps-bare)", () => {
+    expect(createTool.permissionLevel).toBe("user-confirm");
+    expect(deleteTool.permissionLevel).toBe("user-confirm");
+    expect(providersTool.permissionLevel).toBe("auto");
+    expect(listTool.permissionLevel).toBe("auto");
+  });
+
   it("git_remote_providers returns the service list", async () => {
     svc.availableProviders.mockReturnValue(["vps-bare", "github"]);
     const result = (await providersTool.execute({})) as { providers: string[] };

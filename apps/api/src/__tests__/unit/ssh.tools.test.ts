@@ -31,6 +31,13 @@ describe("ssh.tools", () => {
     expect(tools.map((t) => t.name).sort()).toEqual(["server_add", "server_list", "ssh_exec", "ssh_upload"]);
   });
 
+  it("permission tiers: ssh_exec=admin (arbitrary shell), ssh_upload=user-confirm, rest=auto", () => {
+    expect(execTool.permissionLevel).toBe("admin");
+    expect(uploadTool.permissionLevel).toBe("user-confirm");
+    expect(listTool.permissionLevel).toBe("auto");
+    expect(addTool.permissionLevel).toBe("auto");
+  });
+
   it("server_list wraps with count", async () => {
     svc.listServers.mockReturnValue([{ id: "a" }, { id: "b" }] as never);
     const result = (await listTool.execute({})) as { count: number };
