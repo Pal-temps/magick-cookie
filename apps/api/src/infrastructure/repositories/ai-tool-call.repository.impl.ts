@@ -29,6 +29,7 @@ export class DrizzleAiToolCallRepository implements AiToolCallRepository {
     const conditions = [];
     if (options.conversationId) conditions.push(eq(aiToolCalls.conversationId, options.conversationId));
     if (options.toolName) conditions.push(eq(aiToolCalls.toolName, options.toolName));
+    if (options.status) conditions.push(eq(aiToolCalls.status, options.status));
 
     let query = this.db.select().from(aiToolCalls).$dynamic();
     if (conditions.length > 0) query = query.where(and(...conditions));

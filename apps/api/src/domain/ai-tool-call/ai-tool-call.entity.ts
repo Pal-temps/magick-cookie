@@ -31,6 +31,7 @@ export interface RecordToolCallInput {
 export interface FindToolCallsOptions {
   conversationId?: string;
   toolName?: string;
+  status?: ToolCallStatus;
   limit?: number;
   offset?: number;
 }

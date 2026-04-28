@@ -208,6 +208,17 @@ export interface Dictionary {
     every: string;
     infraTitle: string;
     infraDesc: string;
+    aiActivity: string;
+    aiActivityTitle: string;
+    aiActivityDesc: string;
+    aiActivityTotal: string;
+    aiActivitySuccess: string;
+    aiActivityErrors: string;
+    aiActivityAvgLatency: string;
+    aiActivityTopTools: string;
+    aiActivityFilterStatus: string;
+    aiActivityRecent: string;
+    aiActivityEmpty: string;
     devopsCli: string;
     devopsCliTitle: string;
     devopsCliDesc: string;
