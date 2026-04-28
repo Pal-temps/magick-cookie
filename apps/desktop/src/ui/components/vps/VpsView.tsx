@@ -2,6 +2,7 @@ import { onMount, onCleanup, createEffect, createSignal, Show, For } from "solid
 import { useVpsStore } from "../../../application/stores/vpsStore";
 import { Button } from "../common/Button";
 import { CookieLoader } from "../common/CookieLoader";
+import { SettingsGear } from "../common/SettingsGear";
 import { useT } from "../../../i18n/context";
 
 const LEVEL_COLORS: Record<string, string> = {
@@ -144,6 +145,7 @@ export function VpsView() {
           <Button size="sm" variant="secondary" onClick={store.flushLogs}>
             {t("vps.flush")}
           </Button>
+          <SettingsGear tab="vps" title="Paramètres VPS" />
         </div>
       </div>
 

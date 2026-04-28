@@ -274,3 +274,44 @@ body {
   background: var(--accent-primary);
   color: #fff;
 }
+
+/* ─── Settings Gear ─── */
+.settings-gear {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: color 0.15s, background 0.15s;
+}
+
+.settings-gear:hover {
+  color: var(--accent-primary);
+  background: var(--bg-elevated);
+}
+
+/* ─── Empty state configure CTA ─── */
+.settings-gear-cta {
+  display: inline-block;
+  margin-top: 8px;
+  padding: 4px 12px;
+  border: 1px solid var(--accent-primary);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--accent-primary);
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.settings-gear-cta:hover {
+  background: var(--accent-primary);
+  color: #fff;
+}

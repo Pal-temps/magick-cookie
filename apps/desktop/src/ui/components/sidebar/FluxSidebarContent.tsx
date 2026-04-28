@@ -7,6 +7,7 @@ import { useViewStore } from "../../../application/stores/viewStore";
 import { emailAccountFilter, setEmailAccountFilter } from "../flux/FluxView";
 import { Button } from "../common/Button";
 import { AiButton } from "../common/AiButton";
+import { SettingsGear } from "../common/SettingsGear";
 import { setCookiaContext } from "../../../application/stores/cookiaContextStore";
 import { buildFluxTriagePrompt } from "../ide/cookiaPromptBuilders";
 import { CookieLoader } from "../common/CookieLoader";
@@ -325,6 +326,14 @@ export function FluxSidebarContent() {
             onClick={() => { selectEntity(id); if (hasChildren(id)) toggleExpanded(id); }}
           >{sectionLabel(id)}</span>
           <span style={badgeStyle(active())} onClick={() => { selectEntity(id); if (hasChildren(id)) toggleExpanded(id); }}>{sectionCount(id)}</span>
+          <Show when={id === "email" || id === "rss_article" || id === "task"}>
+            <span onClick={(e) => e.stopPropagation()}>
+              <SettingsGear
+                tab={id === "email" ? "email-rules" : id === "rss_article" ? "rss" : "connectors"}
+                title="Paramètres"
+              />
+            </span>
+          </Show>
         </div>
 
         {/* Sub-items for Taches */}

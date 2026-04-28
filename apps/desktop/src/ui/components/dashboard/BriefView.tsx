@@ -2,6 +2,7 @@ import { createSignal, onMount, Show, For } from "solid-js";
 import { useAnalyticsStore, type BriefRawData } from "../../../application/stores/analyticsStore";
 import { Button } from "../common/Button";
 import { CookieLoader } from "../common/CookieLoader";
+import { SettingsGear } from "../common/SettingsGear";
 import {
   getAllTemplates,
   getActiveTemplateId,
@@ -185,7 +186,10 @@ export function BriefView(props: BriefViewProps) {
             </For>
           </select>
         </div>
-        <Button variant="ghost" size="sm" onClick={props.onClose}>Retour</Button>
+        <div style={{ display: "flex", "align-items": "center", gap: "6px" }}>
+          <SettingsGear tab="brief" title="Paramètres Brief" />
+          <Button variant="ghost" size="sm" onClick={props.onClose}>Retour</Button>
+        </div>
       </div>
 
       {/* Content */}

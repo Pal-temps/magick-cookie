@@ -5,6 +5,7 @@ import { formatDate as formatIntlDate } from "../../../i18n/format";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { Button } from "../common/Button";
 import { AiButton } from "../common/AiButton";
+import { SettingsGear } from "../common/SettingsGear";
 import { CookieLoader } from "../common/CookieLoader";
 import { RssCatalog } from "./RssCatalog";
 import { setCookiaContext } from "../../../application/stores/cookiaContextStore";
@@ -21,7 +22,7 @@ export function RssView() {
     digest, digestLoading, fetchDigest, generateDigest, saveDigestToNotes, digestSavedToNotes,
   } = rssStore;
   const { t, locale } = useT();
-  const { setViewMode } = useViewStore();
+  const { setViewMode, openSettings } = useViewStore();
 
   function askCookia() {
     const article = selectedArticle();
@@ -92,6 +93,7 @@ export function RssView() {
           <Button size="sm" variant="ghost" onClick={() => setShowCatalog(true)}>
             {t("rss.catalog")}
           </Button>
+          <SettingsGear tab="rss" title="Paramètres RSS" />
         </div>
       </div>
 
@@ -228,7 +230,18 @@ export function RssView() {
 
                 <Show when={articles().length === 0}>
                   <div class="rss-article-list__empty">
-                    {feeds().length === 0 ? t("rss.noFeed") : t("rss.noArticle")}
+                    <Show
+                      when={feeds().length === 0}
+                      fallback={t("rss.noArticle")}
+                    >
+                      <span>{t("rss.noFeed")}</span>
+                      <button
+                        class="settings-gear-cta"
+                        onClick={() => openSettings("rss")}
+                      >
+                        Configurer →
+                      </button>
+                    </Show>
                   </div>
                 </Show>
               </Show>

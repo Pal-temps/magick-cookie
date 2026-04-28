@@ -8,12 +8,15 @@ import { AccountSettings } from "./AccountSettings";
 import { ComposeEmail } from "./ComposeEmail";
 import { Button } from "../common/Button";
 import { CookieLoader } from "../common/CookieLoader";
+import { SettingsGear } from "../common/SettingsGear";
+import { useViewStore } from "../../../application/stores/viewStore";
 import type { SendEmailDTO } from "../../../domain/models/Email";
 import "../../styles/email.css";
 
 export function EmailView() {
   const store = useEmailStore();
   const { t } = useT();
+  const { openSettings } = useViewStore();
   const [showSettings, setShowSettings] = createSignal(false);
   const [showDigest, setShowDigest] = createSignal(false);
   const [showCompose, setShowCompose] = createSignal(false);
@@ -168,6 +171,7 @@ export function EmailView() {
             <Button size="sm" variant="ghost" onClick={() => setShowSettings(true)}>
               {t("email.accounts")}
             </Button>
+            <SettingsGear tab="email-rules" title="Paramètres email" />
           </div>
         </div>
 
@@ -185,20 +189,34 @@ export function EmailView() {
                 <CookieLoader size={32} message={t("email.loading")} />
               </div>
             }>
-              <EmailList
-                emails={store.emails()}
-                accounts={store.accounts()}
-                selectedId={store.selectedEmail()?.id ?? null}
-                focusedIndex={store.focusedIndex()}
-                activeAccountId={store.activeAccountId()}
-                hasMore={store.hasMore()}
-                isLoadingMore={store.isLoadingMore()}
-                getAccountColor={store.getAccountColor}
-                onSelect={store.selectEmail}
-                onToggleStar={store.toggleStar}
-                onLoadMore={store.loadMoreEmails}
-                onBulkDelete={store.bulkDeleteEmails}
-              />
+              <Show
+                when={store.accounts().length > 0}
+                fallback={
+                  <div class="email-list__empty">
+                    <div style={{ display: "flex", "flex-direction": "column", "align-items": "center", gap: "8px" }}>
+                      <span>Aucun compte email configuré</span>
+                      <button class="settings-gear-cta" onClick={() => openSettings("email-rules")}>
+                        Configurer →
+                      </button>
+                    </div>
+                  </div>
+                }
+              >
+                <EmailList
+                  emails={store.emails()}
+                  accounts={store.accounts()}
+                  selectedId={store.selectedEmail()?.id ?? null}
+                  focusedIndex={store.focusedIndex()}
+                  activeAccountId={store.activeAccountId()}
+                  hasMore={store.hasMore()}
+                  isLoadingMore={store.isLoadingMore()}
+                  getAccountColor={store.getAccountColor}
+                  onSelect={store.selectEmail}
+                  onToggleStar={store.toggleStar}
+                  onLoadMore={store.loadMoreEmails}
+                  onBulkDelete={store.bulkDeleteEmails}
+                />
+              </Show>
             </Show>
           </div>
 

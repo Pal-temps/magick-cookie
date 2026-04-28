@@ -10,6 +10,7 @@ import { UnscheduledTasks } from "./UnscheduledTasks";
 import { ContactManager } from "./ContactManager";
 import { CollapsibleSection } from "../common/CollapsibleSection";
 import { Button } from "../common/Button";
+import { SettingsGear } from "../common/SettingsGear";
 import { openUrl } from "@tauri-apps/plugin-opener";
 
 const DEFAULT_ORDER = ["favoris", "filtres", "contacts", "taches"];
@@ -103,10 +104,11 @@ export function CalendarSidebarContent() {
   return (
     <>
       {/* Top actions */}
-      <div style={{ padding: "10px 12px", display: "flex", gap: "6px" }}>
+      <div style={{ padding: "10px 12px", display: "flex", "align-items": "center", gap: "6px" }}>
         <Button variant="primary" onClick={openCreateForm} style={{ flex: "1" }} size="sm">
           + Evenement
         </Button>
+        <SettingsGear tab="caldav" title="Paramètres calendrier" />
       </div>
 
       {/* Scrollable sections */}
