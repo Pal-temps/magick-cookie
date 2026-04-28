@@ -298,7 +298,7 @@ Démo : "Cookia, écris-moi une note sur la refonte Flux" → fichier apparaît 
 
 ## Phase 4 — Domaines user-facing CRUD
 
-**Statut** : 🟡 En cours (4.1 Calendar + 4.2 Email actions shippées 2026-04-28)
+**Statut** : 🟡 En cours (4.1 Calendar + 4.2 Email + 4.3 RSS shippées 2026-04-28)
 **Durée estimée** : 2-3 sessions (2-3 domaines par session)
 **Dépend de** : P2
 **Débloque** : Phase 6
@@ -327,12 +327,12 @@ Tous les domaines user-facing sont CRUD-able par l'AI.
 - [x] `email_bulk_delete` (admin) (2026-04-28)
 
 #### 4.3 — RSS management
-- [ ] `rss_add_feed`
-- [ ] `rss_remove_feed` (user-confirm)
-- [ ] `rss_star`
-- [ ] `rss_mark_read`
-- [ ] `rss_mark_all_read`
-- [ ] `rss_generate_digest`
+- [x] `rss_add_feed` (2026-04-28)
+- [x] `rss_remove_feed` (user-confirm) (2026-04-28)
+- [x] `rss_star` (2026-04-28)
+- [x] `rss_mark_read` (2026-04-28)
+- [x] `rss_mark_all_read` (2026-04-28)
+- [x] `rss_generate_digest` (2026-04-28)
 
 #### 4.4 — Bookmarks
 - [ ] `bookmark_list`
@@ -511,6 +511,8 @@ L'AI enchaîne intelligemment plusieurs features. Observability complète.
 ## Journal de session
 
 ### 2026-04-28
+- **P4.3 RSS management shippée** : 6 tools dans `rss.tools.ts` (add_feed, remove_feed [user-confirm], star, mark_read, mark_all_read, generate_digest). Wraps `RssService` 1:1, +16 tests unit.
+- **Flake `BriefService > overdue events` corrigé** : remplacement de `new Date()` (capture wall-clock) par une date fixe 2026-03-18. Le test échouait dans la première heure UTC du jour parce que `pastTime = now - 1h` retombait sur la veille, exclu par le filtre `endAt >= todayStart`. Suite passe de 1213 + 1 fail ambient à 1214 + 0 fail.
 - **P4.2 Email actions shippées** : nouveau fichier `email-actions.tools.ts` avec les 8 tools du plan (compose / send [user-confirm] / reply [user-confirm] / mark_read / star / move / delete [user-confirm] / bulk_delete [admin]).
 - Pour rendre `email_move` fonctionnel end-to-end : ajout de `ImapConnector.moveMessage`, `EmailRepository.updateFolder`, `EmailService.moveEmail` (pattern IMAP-first puis DB).
 - Tests : +25 tests unit `email-actions.tools.test.ts` (regex email, cap 100 IDs, permission tiers, no-double-Re:, replyAll cc inclusion, guard email-not-found pour reply).
