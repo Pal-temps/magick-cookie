@@ -309,10 +309,13 @@ describe("BriefService", () => {
     });
 
     test("collects overdue events as blockers", async () => {
-      const now = new Date();
-      const todayStart = new Date(now);
-      todayStart.setHours(0, 0, 0, 0);
-      const pastTime = new Date(now.getTime() - 3600000); // 1 hour ago
+      // Use a fixed past date (like the other tests) instead of `new Date()`.
+      // The service computes `todayStart = startOfDay(date)` from the param and
+      // `now = new Date()` from the wall clock. Filter: `endAt < now AND endAt >= todayStart`.
+      // With a fixed past date for `date`, both branches are stable regardless of when
+      // the suite runs — previously this test flaked when the wall clock was within an
+      // hour of local midnight (pastTime = now - 1h would fall into yesterday).
+      const date = new Date("2026-03-18T15:00:00");
 
       eventRepo.findAll
         .mockReturnValueOnce(Promise.resolve([])) // yesterday events
@@ -321,13 +324,13 @@ describe("BriefService", () => {
             {
               id: "e-3",
               title: "Overdue meeting",
-              startAt: new Date(pastTime.getTime() - 3600000),
-              endAt: pastTime,
+              startAt: new Date("2026-03-18T13:00:00"),
+              endAt: new Date("2026-03-18T14:00:00"),
             },
           ] as any),
         );
 
-      const result = await service.generate(now);
+      const result = await service.generate(date);
 
       expect(result.rawData.blockers.overdueEvents).toHaveLength(1);
       expect(result.rawData.blockers.overdueEvents[0].title).toBe("Overdue meeting");
