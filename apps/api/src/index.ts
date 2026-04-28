@@ -150,6 +150,7 @@ import { createLlmRoutes } from "./presentation/routes/llm.routes";
 import { createBriefRoutes } from "./presentation/routes/brief.routes";
 import { createGitHubRoutes } from "./presentation/routes/github.routes";
 import { createVpsRoutes } from "./presentation/routes/vps.routes";
+import { createRelayRoutes } from "./presentation/routes/relay.routes";
 import { createBookmarkRoutes } from "./presentation/routes/bookmark.routes";
 import { createProjectRoutes } from "./presentation/routes/project.routes";
 import { createSmartReminderRoutes } from "./presentation/routes/smart-reminder.routes";
@@ -361,6 +362,7 @@ app.route("/api/email-rules", createEmailRuleRoutes(emailRuleService));
 app.route("/api/routines", createRoutineRoutes(routineService));
 app.route("/api/webhooks", createWebhookRoutes(webhookService));
 app.route("/api/user-preferences", createUserPreferencesRoutes(userPreferencesService));
+app.route("/api/relay", createRelayRoutes());
 
 // --- Jobs ---
 const timers: Timer[] = [];

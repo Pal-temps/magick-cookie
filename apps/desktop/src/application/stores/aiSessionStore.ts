@@ -436,7 +436,7 @@ export function useAiSessionStore() {
   function injectSystemMessage(content: string, sessionId?: string) {
     const id = sessionId ?? activeSessionId();
     if (!id) return;
-    const seq = (sessions().find((s) => s.id === id)?.messages.length ?? 0);
+    const seq = (sessions().get(id)?.messages.length ?? 0);
     addMessage(id, {
       id: `sys-${Date.now()}-${Math.random().toString(36).slice(2)}`,
       seq,
@@ -447,7 +447,7 @@ export function useAiSessionStore() {
   }
 
   async function renameSession(sessionId: string, label: string) {
-    const previousLabel = sessions().find((s) => s.id === sessionId)?.label;
+    const previousLabel = sessions().get(sessionId)?.label;
     updateSession(sessionId, (s) => ({ ...s, label }));
     try {
       await invoke("ai_update_session_label", { sessionId, label });

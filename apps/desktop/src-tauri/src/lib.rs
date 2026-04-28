@@ -6,6 +6,7 @@ mod fs;
 mod git;
 mod notes;
 mod pty;
+mod remote_control;
 mod screenshot;
 mod secrets;
 mod watcher;
@@ -290,6 +291,9 @@ pub fn run() {
             devops::commands::cli_install,
             devops::commands::cli_uninstall,
             devops::commands::cli_resolve,
+            remote_control::ai_start_remote_session,
+            remote_control::ai_stop_remote_session,
+            remote_control::ai_get_remote_session,
             open_detached_window,
         ])
         .on_window_event(|window, event| {

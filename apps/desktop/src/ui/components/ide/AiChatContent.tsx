@@ -14,6 +14,7 @@ import { buildContextParts } from "./contextInjection";
 import { getCookiaContext, clearCookiaContext } from "../../../application/stores/cookiaContextStore";
 import { SLASH_COMMANDS, parseSlashCommand } from "./slashCommands";
 import { buildCompactPrompt, buildHelpMessage, isClaudeCliProvider } from "./slashHandlers";
+import { RemoteControlModal } from "./RemoteControlModal";
 
 type AiTab = "session" | "diffs" | "processes" | "files" | "validation";
 
@@ -32,6 +33,7 @@ export function AiChatContent(props: AiChatContentProps) {
   const [activeTab, setActiveTab] = createSignal<AiTab>("session");
   const [sessionMode, setSessionMode] = createSignal<SessionModeId>("general");
   const [composerInitialText, setComposerInitialText] = createSignal<string | undefined>(undefined);
+  const [showRemoteModal, setShowRemoteModal] = createSignal(false);
 
   // Consume "Ask Cookia" context from other views and pre-fill the composer
   createEffect(() => {
@@ -111,6 +113,8 @@ export function AiChatContent(props: AiChatContentProps) {
         } else if (parsed.command === "clear") {
           ai.clearMessages(props.sessionId);
           setContextInjected(false);
+        } else if (parsed.command === "remote-control") {
+          setShowRemoteModal(true);
         } else {
           ai.injectSystemMessage(`/${parsed.command} : fonctionnalité à venir.`, props.sessionId);
         }
@@ -469,6 +473,11 @@ export function AiChatContent(props: AiChatContentProps) {
 
         {/* Context panel is rendered at IdeView level */}
       </div>
+
+      {/* Remote control modal */}
+      <Show when={showRemoteModal()}>
+        <RemoteControlModal onClose={() => setShowRemoteModal(false)} />
+      </Show>
     </div>
   );
 }

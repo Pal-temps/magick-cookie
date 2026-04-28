@@ -3339,3 +3339,103 @@
   color: #fff;
 }
 
+/* ─── Remote Control Modal ─── */
+
+.cc-remote-modal {
+  max-width: 480px;
+}
+
+.cc-remote-modal__loading {
+  font-size: 13px;
+  color: var(--text-muted);
+  padding: 16px 0;
+  text-align: center;
+}
+
+.cc-remote-modal__error {
+  font-size: 12px;
+  color: var(--color-danger);
+  padding: 8px;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--color-danger) 10%, transparent);
+}
+
+.cc-remote-modal__content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.cc-remote-modal__timer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cc-remote-modal__timer-label {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.cc-remote-modal__timer-value {
+  font-size: 15px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--accent-primary);
+}
+
+.cc-remote-modal__url-block {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.cc-remote-modal__url-label {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.cc-remote-modal__url-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.cc-remote-modal__url {
+  flex: 1;
+  font-size: 11px;
+  padding: 6px 8px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-base);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: block;
+}
+
+.cc-remote-modal__copy {
+  flex-shrink: 0;
+  font-size: 11px;
+  padding: 5px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-color);
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.cc-remote-modal__copy:hover {
+  border-color: var(--accent-primary);
+  color: var(--accent-primary);
+}
+
+.cc-remote-modal__hint {
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
