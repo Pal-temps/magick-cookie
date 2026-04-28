@@ -82,6 +82,8 @@ import { createEmailActionTools } from "./application/agent/tools/email-actions.
 import { createRssTools } from "./application/agent/tools/rss.tools";
 import { createSnippetTools } from "./application/agent/tools/snippet.tools";
 import { createContactTools } from "./application/agent/tools/contact.tools";
+import { createAlarmTools } from "./application/agent/tools/alarm.tools";
+import { createRoutineTools } from "./application/agent/tools/routine.tools";
 import { createMemoryTools } from "./application/agent/tools/memory.tools";
 import { createDnsTools } from "./application/agent/tools/dns.tools";
 import { createSshTools } from "./application/agent/tools/ssh.tools";
@@ -248,6 +250,8 @@ toolRegistry.registerAll(createEmailActionTools(emailService));
 toolRegistry.registerAll(createRssTools(rssService));
 toolRegistry.registerAll(createSnippetTools(snippetService));
 toolRegistry.registerAll(createContactTools(contactService));
+toolRegistry.registerAll(createAlarmTools(alarmService));
+toolRegistry.registerAll(createRoutineTools(routineService));
 toolRegistry.registerAll(createCalendarTools(eventService, calendarService, llmService));
 toolRegistry.registerAll(createBookmarkTools(bookmarkService));
 toolRegistry.registerAll(createProjectTools(projectService));
