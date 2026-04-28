@@ -9,6 +9,8 @@ import { api } from "../../../infrastructure/api/apiClient";
 import { Modal } from "../common/Modal";
 import { Button } from "../common/Button";
 import { AiButton } from "../common/AiButton";
+import { setCookiaContext } from "../../../application/stores/cookiaContextStore";
+import { buildTaskPrompt } from "../ide/cookiaPromptBuilders";
 import "../../styles/taskjar.css";
 
 function priorityLabel(priority: string | null): { text: string; color: string } | null {
@@ -34,6 +36,21 @@ export function TaskDetail() {
   const { createSnippet } = useSnippetStore();
   const { setViewMode } = useViewStore();
   const [generating, setGenerating] = createSignal(false);
+
+  function askCookia() {
+    const t = task();
+    const detail = taskDetail();
+    setCookiaContext({
+      prompt: buildTaskPrompt({
+        name: t.title,
+        description: detail?.description ?? null,
+        priority: t.priority,
+      }),
+      source: "task",
+    });
+    closeTaskDetail();
+    setViewMode("ide");
+  }
 
   const task = () => selectedTask() as Task;
 
@@ -157,6 +174,9 @@ export function TaskDetail() {
               }}
             >
               {generating() ? "Generation..." : "Generer du code"}
+            </AiButton>
+            <AiButton variant="secondary" onClick={askCookia}>
+              Ask Cookia
             </AiButton>
           </div>
         </div>

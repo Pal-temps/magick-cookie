@@ -7,6 +7,8 @@ import { useViewStore } from "../../../application/stores/viewStore";
 import { emailAccountFilter, setEmailAccountFilter } from "../flux/FluxView";
 import { Button } from "../common/Button";
 import { AiButton } from "../common/AiButton";
+import { setCookiaContext } from "../../../application/stores/cookiaContextStore";
+import { buildFluxTriagePrompt } from "../ide/cookiaPromptBuilders";
 import { CookieLoader } from "../common/CookieLoader";
 import type { TaskSource } from "../../../domain/models/Task";
 
@@ -94,7 +96,12 @@ export function FluxSidebarContent() {
   const taskStore = useTaskStore();
   const emailStore = useEmailStore();
   const rssStore = useRssStore();
-  const { openSettings } = useViewStore();
+  const { openSettings, setViewMode } = useViewStore();
+
+  function askCookia() {
+    setCookiaContext({ prompt: buildFluxTriagePrompt(), source: "flux" });
+    setViewMode("ide");
+  }
 
   // Fetch server counts on mount if not already loaded
   onMount(() => {
@@ -480,6 +487,9 @@ export function FluxSidebarContent() {
           size="sm"
           style={{ width: "100%" }}
         >{flux.suggestLoading() ? "..." : "IA Tri"}</AiButton>
+        <AiButton size="sm" variant="secondary" onClick={askCookia} style={{ width: "100%" }}>
+          Ask Cookia
+        </AiButton>
       </div>
     </div>
   );

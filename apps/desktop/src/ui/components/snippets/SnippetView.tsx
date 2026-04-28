@@ -1,10 +1,14 @@
 import { createSignal, For, Show, createMemo } from "solid-js";
 import { useSnippetStore, type Snippet, type CreateSnippetInput } from "../../../application/stores/snippetStore";
 import { Button } from "../common/Button";
+import { AiButton } from "../common/AiButton";
 import { CookieLoader } from "../common/CookieLoader";
 import { MonacoEditor } from "../ide/MonacoEditor";
 import { useT } from "../../../i18n/context";
 import { API_BASE, authHeaders } from "../../../infrastructure/config";
+import { setCookiaContext } from "../../../application/stores/cookiaContextStore";
+import { useViewStore } from "../../../application/stores/viewStore";
+import { buildSnippetPrompt } from "../ide/cookiaPromptBuilders";
 const BENCHABLE_LANGS = new Set(["javascript", "typescript"]);
 
 const LANGUAGES = [
@@ -16,6 +20,15 @@ const LANGUAGES = [
 export function SnippetView() {
   const { t } = useT();
   const store = useSnippetStore();
+  const { setViewMode } = useViewStore();
+
+  function askCookia(snippet: Snippet) {
+    setCookiaContext({
+      prompt: buildSnippetPrompt({ title: snippet.title, language: snippet.language, content: snippet.content }),
+      source: "snippet",
+    });
+    setViewMode("ide");
+  }
   const {
     snippets, selectedSnippet, setSelectedSnippet,
     createSnippet, updateSnippet, deleteSnippet, toggleFavorite,
@@ -381,6 +394,9 @@ export function SnippetView() {
                 </div>
               </div>
               <div style={{ display: "flex", gap: "6px", "margin-left": "12px", "flex-shrink": "0" }}>
+                <AiButton size="sm" variant="secondary" onClick={() => askCookia(sel()!)}>
+                  Ask Cookia
+                </AiButton>
                 <Show when={BENCHABLE_LANGS.has(sel()!.language)}>
                   <button
                     onClick={() => runSnippetBench(sel()!)}
