@@ -20,6 +20,7 @@ export interface EmailRepository {
   create(input: CreateEmailInput): Promise<Email | null>;
   bulkCreate(inputs: CreateEmailInput[]): Promise<number>;
   updateFlags(id: string, flags: { isRead?: boolean; isStarred?: boolean; isArchived?: boolean }): Promise<Email | null>;
+  updateFolder(id: string, folder: string): Promise<Email | null>;
   delete(id: string): Promise<boolean>;
   countUnread(accountId?: string): Promise<number>;
   countByDateRange(from: Date, to: Date): Promise<{ total: number; unread: number; dailyStats: { date: string; count: number }[] }>;

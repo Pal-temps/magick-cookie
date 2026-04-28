@@ -142,6 +142,24 @@ export class EmailService {
     return updated;
   }
 
+  async moveEmail(id: string, targetFolder: string): Promise<Email | null> {
+    const email = await this.emailRepo.findById(id);
+    if (!email) return null;
+    if (email.folder === targetFolder) return email;
+
+    // IMAP first — if the move fails we don't change the DB so the email stays consistent
+    // with the server. Local-only emails (no imapUid) just update the DB folder field.
+    if (email.imapUid) {
+      const account = await this.accountRepo.findById(email.accountId);
+      const password = account ? await this.accountRepo.getPassword(email.accountId) : null;
+      if (account && password) {
+        await this.imapConnector.moveMessage(account, password, email.imapUid, email.folder, targetFolder);
+      }
+    }
+
+    return this.emailRepo.updateFolder(id, targetFolder);
+  }
+
   async deleteEmail(id: string): Promise<boolean> {
     const email = await this.emailRepo.findById(id);
     if (!email) return false;

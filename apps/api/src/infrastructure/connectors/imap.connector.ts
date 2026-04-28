@@ -420,6 +420,29 @@ export class ImapConnector {
     }
   }
 
+  async moveMessage(account: EmailAccount, password: string, uid: number, fromFolder: string, toFolder: string): Promise<void> {
+    const client = this.createClient({
+      host: account.imapHost,
+      port: account.imapPort,
+      secure: account.imapSecure,
+      username: account.username,
+      password,
+      selfSigned: account.selfSigned,
+    });
+
+    try {
+      await this.connectWithTimeout(client);
+      const lock = await client.getMailboxLock(fromFolder);
+      try {
+        await client.messageMove({ uid }, toFolder, { uid: true });
+      } finally {
+        lock.release();
+      }
+    } finally {
+      await client.logout().catch(() => {});
+    }
+  }
+
   async deleteMessage(account: EmailAccount, password: string, uid: number, folder: string = "INBOX"): Promise<void> {
     const client = this.createClient({
       host: account.imapHost,

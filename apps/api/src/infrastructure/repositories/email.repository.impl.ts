@@ -104,6 +104,14 @@ export class DrizzleEmailRepository implements EmailRepository {
     return rows.length > 0 ? this.toDomain(rows[0]) : null;
   }
 
+  async updateFolder(id: string, folder: string): Promise<Email | null> {
+    const rows = await this.db.update(emails)
+      .set({ folder })
+      .where(eq(emails.id, id))
+      .returning();
+    return rows.length > 0 ? this.toDomain(rows[0]) : null;
+  }
+
   async delete(id: string): Promise<boolean> {
     const rows = await this.db.delete(emails).where(eq(emails.id, id)).returning();
     return rows.length > 0;
