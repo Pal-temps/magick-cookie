@@ -1,10 +1,15 @@
 import type { LlmPort, LlmMessage, ChatOptions } from "../../domain/llm/llm.port";
 
 export class OpenAICompatibleAdapter implements LlmPort {
+  private completionsPath: string;
+
   constructor(
     private baseUrl: string,
     private apiKey?: string | null,
-  ) {}
+    completionsPath = "/v1/chat/completions",
+  ) {
+    this.completionsPath = completionsPath;
+  }
 
   async chat(messages: LlmMessage[], model: string, options?: ChatOptions): Promise<string> {
     const headers: Record<string, string> = { "Content-Type": "application/json" };
@@ -13,7 +18,7 @@ export class OpenAICompatibleAdapter implements LlmPort {
     const body: Record<string, unknown> = { model, messages };
     if (options?.jsonMode) body.response_format = { type: "json_object" };
 
-    const res = await fetch(`${this.baseUrl}/v1/chat/completions`, {
+    const res = await fetch(`${this.baseUrl}${this.completionsPath}`, {
       method: "POST",
       headers,
       body: JSON.stringify(body),
@@ -32,7 +37,7 @@ export class OpenAICompatibleAdapter implements LlmPort {
     const headers: Record<string, string> = { "Content-Type": "application/json" };
     if (this.apiKey) headers["Authorization"] = `Bearer ${this.apiKey}`;
 
-    const res = await fetch(`${this.baseUrl}/v1/chat/completions`, {
+    const res = await fetch(`${this.baseUrl}${this.completionsPath}`, {
       method: "POST",
       headers,
       body: JSON.stringify({ model, messages, stream: true }),

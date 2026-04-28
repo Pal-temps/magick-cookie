@@ -10,21 +10,13 @@ import { PastSessionViewer } from "./PastSessionViewer";
 import { Terminal } from "./Terminal";
 import { TokenStatusBar } from "./TokenStatusBar";
 import type { MonacoEditorApi } from "./MonacoEditor";
+import { getDefaultModels, needsApiKey as providerNeedsApiKey, getProviderBadge } from "./providerConfig";
 
 interface AiTerminalTabsProps {
   editorApi?: MonacoEditorApi;
 }
 
 const SLOT_LABELS = ["a", "b", "c", "d"];
-
-// Default models per provider
-const DEFAULT_MODELS: Record<string, string[]> = {
-  "claude-cli": ["claude-opus-4-6", "claude-sonnet-4-6", "claude-haiku-4-5"],
-  "anthropic-api": ["claude-sonnet-4-6", "claude-opus-4-6", "claude-haiku-4-5"],
-  "openai-api": ["gpt-4o", "gpt-4o-mini", "o3-mini"],
-  "ollama": ["llama3.2", "mistral", "codellama", "deepseek-coder"],
-  "lmstudio": ["default"],
-};
 
 interface ConfigDialogState {
   provider: ProviderInfo;
@@ -150,7 +142,7 @@ export function AiTerminalTabs(props: AiTerminalTabsProps) {
       }
       return;
     }
-    const models = DEFAULT_MODELS[provider.id] ?? ["default"];
+    const models = getDefaultModels(provider.id).length ? getDefaultModels(provider.id) : ["default"];
     const savedKey = await secretsVault.getAppSecret(`ai_apikey_${provider.id}`) ?? "";
     const savedUrl = localStorage.getItem(`ide-baseurl-${provider.id}`) ?? "";
     setConfigDialog({ provider, model: models[0], apiKey: savedKey, baseUrl: savedUrl });
@@ -182,7 +174,7 @@ export function AiTerminalTabs(props: AiTerminalTabsProps) {
 
   const needsApiKey = () => {
     const cfg = configDialog();
-    return cfg && (cfg.provider.id === "anthropic-api" || cfg.provider.id === "openai-api");
+    return cfg && providerNeedsApiKey(cfg.provider.id);
   };
 
   // ─── New session menu ───
@@ -200,11 +192,8 @@ export function AiTerminalTabs(props: AiTerminalTabsProps) {
   // ─── Helpers ───
 
   const providerBadge = (provider: string): string => {
-    const p = provider.toLowerCase();
-    if (p.includes("claude")) return "CC";
-    if (p.includes("openai") || p.includes("gpt")) return "GPT";
-    if (p.includes("ollama")) return "OL";
-    return p.slice(0, 2).toUpperCase();
+    if (provider === "claude-cli") return "CC";
+    return getProviderBadge(provider);
   };
 
   function slotContent(slotIndex: number): { type: "cli"; id: string } | { type: "ai"; id: string } | null {
@@ -397,7 +386,7 @@ export function AiTerminalTabs(props: AiTerminalTabsProps) {
                   value={configDialog()!.model}
                   onChange={(e) => setConfigDialog((prev) => prev ? { ...prev, model: e.currentTarget.value } : null)}
                 >
-                  <For each={DEFAULT_MODELS[configDialog()!.provider.id] ?? []}>
+                  <For each={getDefaultModels(configDialog()!.provider.id)}>
                     {(m) => <option value={m}>{m}</option>}
                   </For>
                 </select>

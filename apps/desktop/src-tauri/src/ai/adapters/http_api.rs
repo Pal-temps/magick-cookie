@@ -10,6 +10,7 @@ use crate::ai::types::*;
 pub enum ApiProvider {
     Anthropic,
     OpenAi,
+    Gemini,
     Ollama,
     LmStudio,
 }
@@ -19,6 +20,7 @@ impl ApiProvider {
         match s {
             "anthropic-api" => Some(Self::Anthropic),
             "openai-api" => Some(Self::OpenAi),
+            "gemini-api" => Some(Self::Gemini),
             "ollama" => Some(Self::Ollama),
             "lmstudio" => Some(Self::LmStudio),
             _ => None,
@@ -29,6 +31,7 @@ impl ApiProvider {
         match self {
             Self::Anthropic => "https://api.anthropic.com",
             Self::OpenAi => "https://api.openai.com",
+            Self::Gemini => "https://generativelanguage.googleapis.com/v1beta/openai",
             Self::Ollama => "http://localhost:11434",
             Self::LmStudio => "http://localhost:1234",
         }
@@ -95,7 +98,7 @@ impl HttpApiAdapter {
                     "messages": messages,
                 })
             }
-            ApiProvider::OpenAi | ApiProvider::LmStudio => {
+            ApiProvider::OpenAi | ApiProvider::Gemini | ApiProvider::LmStudio => {
                 serde_json::json!({
                     "model": self.model,
                     "max_tokens": self.max_tokens,
@@ -123,6 +126,7 @@ impl HttpApiAdapter {
         match self.provider {
             ApiProvider::Anthropic => format!("{}/v1/messages", self.base_url),
             ApiProvider::OpenAi | ApiProvider::LmStudio => format!("{}/v1/chat/completions", self.base_url),
+            ApiProvider::Gemini => format!("{}/chat/completions", self.base_url),
             ApiProvider::Ollama => format!("{}/api/chat", self.base_url),
         }
     }
@@ -262,7 +266,7 @@ impl HttpApiAdapter {
                         req = req.header("anthropic-version", "2023-06-01");
                     }
                 }
-                ApiProvider::OpenAi => {
+                ApiProvider::OpenAi | ApiProvider::Gemini => {
                     if let Some(key) = &api_key {
                         req = req.header("Authorization", format!("Bearer {key}"));
                     }
@@ -307,7 +311,7 @@ impl HttpApiAdapter {
                             vec![]
                         }
                     }
-                    ApiProvider::OpenAi | ApiProvider::LmStudio => {
+                    ApiProvider::OpenAi | ApiProvider::Gemini | ApiProvider::LmStudio => {
                         // SSE format: "data: {...}" or "data: [DONE]"
                         if let Some(data) = line.strip_prefix("data: ") {
                             Self::parse_openai_sse(data)
@@ -383,7 +387,7 @@ impl BackendAdapter for HttpApiAdapter {
                             "data": &img.data,
                         }
                     }),
-                    ApiProvider::OpenAi | ApiProvider::LmStudio => serde_json::json!({
+                    ApiProvider::OpenAi | ApiProvider::Gemini | ApiProvider::LmStudio => serde_json::json!({
                         "type": "image_url",
                         "image_url": {
                             "url": format!("data:{};base64,{}", img.media_type, img.data),
@@ -442,6 +446,7 @@ impl BackendAdapter for HttpApiAdapter {
         match self.provider {
             ApiProvider::Anthropic => "anthropic-api",
             ApiProvider::OpenAi => "openai-api",
+            ApiProvider::Gemini => "gemini-api",
             ApiProvider::Ollama => "ollama",
             ApiProvider::LmStudio => "lmstudio",
         }
@@ -452,9 +457,73 @@ impl BackendAdapter for HttpApiAdapter {
             supports_tools: false,
             supports_permissions: false,
             supports_streaming: true,
-            supports_images: matches!(self.provider, ApiProvider::Anthropic | ApiProvider::OpenAi),
+            supports_images: matches!(self.provider, ApiProvider::Anthropic | ApiProvider::OpenAi | ApiProvider::Gemini),
             supports_file_access: false,
             supports_terminal: false,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::ai::types::SessionConfig;
+
+    fn gemini_config() -> SessionConfig {
+        SessionConfig {
+            provider: "gemini-api".to_string(),
+            model: "gemini-2.0-flash".to_string(),
+            cwd: ".".to_string(),
+            api_key: Some("test-key".to_string()),
+            base_url: None,
+            temperature: None,
+            max_tokens: None,
+            resume_session_id: None,
+        }
+    }
+
+    #[test]
+    fn test_gemini_provider_detected() {
+        let adapter = HttpApiAdapter::new("gemini-api", &gemini_config()).unwrap();
+        let caps = adapter.capabilities();
+        assert!(caps.supports_streaming);
+        assert!(caps.supports_images);
+        assert!(!caps.supports_tools);
+    }
+
+    #[test]
+    fn test_gemini_default_base_url() {
+        let adapter = HttpApiAdapter::new("gemini-api", &gemini_config()).unwrap();
+        assert!(adapter.base_url.contains("generativelanguage.googleapis.com"));
+    }
+
+    #[test]
+    fn test_gemini_endpoint_url() {
+        let adapter = HttpApiAdapter::new("gemini-api", &gemini_config()).unwrap();
+        let url = adapter.endpoint_url();
+        assert!(url.contains("generativelanguage.googleapis.com"));
+        assert!(url.ends_with("/chat/completions"));
+        assert!(!url.contains("/v1/chat/completions"));
+    }
+
+    #[test]
+    fn test_gemini_provider_name() {
+        let adapter = HttpApiAdapter::new("gemini-api", &gemini_config()).unwrap();
+        assert_eq!(adapter.provider_name(), "gemini-api");
+    }
+
+    #[test]
+    fn test_unknown_provider_returns_error() {
+        let cfg = SessionConfig {
+            provider: "unknown".to_string(),
+            model: "m".to_string(),
+            cwd: ".".to_string(),
+            api_key: None,
+            base_url: None,
+            temperature: None,
+            max_tokens: None,
+            resume_session_id: None,
+        };
+        assert!(HttpApiAdapter::new("unknown", &cfg).is_err());
     }
 }

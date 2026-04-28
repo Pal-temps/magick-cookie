@@ -252,6 +252,11 @@ Regles :
       case "anthropic":
         if (!config.apiKey) throw new Error("Anthropic API key required");
         return new AnthropicAdapter(config.apiKey, config.baseUrl, config.maxTokens);
+      case "gemini": {
+        if (!config.apiKey) throw new Error("Gemini API key required");
+        const geminiBase = config.baseUrl || "https://generativelanguage.googleapis.com/v1beta/openai";
+        return new OpenAICompatibleAdapter(geminiBase, config.apiKey, "/chat/completions");
+      }
       case "lmstudio":
       case "openai-compatible":
         return new OpenAICompatibleAdapter(config.baseUrl, config.apiKey);

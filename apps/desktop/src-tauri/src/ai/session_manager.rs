@@ -84,10 +84,10 @@ pub type SharedMcpManager = Arc<Mutex<McpManager>>;
 fn create_adapter(provider: &str, config: &SessionConfig) -> Result<Box<dyn BackendAdapter>, String> {
     match provider {
         "claude-cli" => Ok(Box::new(crate::ai::adapters::claude_cli::ClaudeCliAdapter::new())),
-        "anthropic-api" | "openai-api" | "ollama" | "lmstudio" => {
+        "anthropic-api" | "openai-api" | "gemini-api" | "ollama" | "lmstudio" => {
             Ok(Box::new(crate::ai::adapters::http_api::HttpApiAdapter::new(provider, config)?))
         }
-        _ => Err(format!("Unknown provider: {}. Available: claude-cli, anthropic-api, openai-api, ollama, lmstudio", provider)),
+        _ => Err(format!("Unknown provider: {}. Available: claude-cli, anthropic-api, openai-api, gemini-api, ollama, lmstudio", provider)),
     }
 }
 
@@ -126,6 +126,7 @@ fn detect_providers() -> Vec<ProviderInfo> {
     for (id, name) in [
         ("anthropic-api", "Anthropic API"),
         ("openai-api", "OpenAI API"),
+        ("gemini-api", "Gemini"),
         ("ollama", "Ollama (local)"),
         ("lmstudio", "LM Studio (local)"),
     ] {
@@ -137,7 +138,7 @@ fn detect_providers() -> Vec<ProviderInfo> {
                 supports_tools: false,
                 supports_permissions: false,
                 supports_streaming: true,
-                supports_images: id == "anthropic-api" || id == "openai-api",
+                supports_images: id == "anthropic-api" || id == "openai-api" || id == "gemini-api",
                 supports_file_access: false,
                 supports_terminal: false,
             },
