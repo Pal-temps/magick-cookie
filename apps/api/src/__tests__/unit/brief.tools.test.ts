@@ -2,13 +2,11 @@ import { describe, it, expect, beforeEach, mock } from "bun:test";
 import {
   createBriefTools,
   createEmailTools,
-  createBookmarkTools,
   createProjectTools,
 } from "../../application/agent/tools/brief.tools";
 import type { BriefService } from "../../application/brief/brief.service";
 import type { EmailService } from "../../application/email/email.service";
 import type { LlmService } from "../../application/llm/llm.service";
-import type { BookmarkService } from "../../application/bookmark/bookmark.service";
 import type { ProjectService } from "../../application/project/project.service";
 import type { Email } from "../../domain/email/email.entity";
 import type { AgentTool } from "../../application/agent/tool-registry";
@@ -148,39 +146,6 @@ describe("brief.tools (split factories)", () => {
     it("classify_email errors when LLM is not wired", async () => {
       const result = (await classifyToolNoLlm.execute({ emailId: "e1" })) as { error?: string };
       expect(result.error).toContain("LLM non configure");
-    });
-  });
-
-  describe("createBookmarkTools", () => {
-    let svc: { [K in keyof BookmarkService]: ReturnType<typeof mock> };
-    let listTool: AgentTool;
-    let createTool: AgentTool;
-
-    beforeEach(() => {
-      svc = {
-        getAll: mock(() => Promise.resolve([])),
-        create: mock(() => Promise.resolve({ id: "b1" } as never)),
-      } as unknown as { [K in keyof BookmarkService]: ReturnType<typeof mock> };
-      const tools = createBookmarkTools(svc as unknown as BookmarkService);
-      listTool = tools.find((t) => t.name === "list_bookmarks")!;
-      createTool = tools.find((t) => t.name === "create_bookmark")!;
-    });
-
-    it("list_bookmarks delegates with no args", async () => {
-      await listTool.execute({});
-      expect(svc.getAll).toHaveBeenCalledTimes(1);
-    });
-
-    it("create_bookmark forwards name + url, defaults emoji to null", async () => {
-      await createTool.execute({ name: "Hacker News", url: "https://news.ycombinator.com" });
-      const arg = svc.create.mock.calls[0][0] as { emoji: string | null };
-      expect(arg.emoji).toBeNull();
-    });
-
-    it("create_bookmark rejects empty name via zod", async () => {
-      const result = (await createTool.execute({ name: "", url: "https://x" })) as { error?: string };
-      expect(result.error).toBe("Parametres invalides");
-      expect(svc.create).not.toHaveBeenCalled();
     });
   });
 

@@ -3,7 +3,6 @@ import { defineTool, type AgentTool } from "../tool-registry";
 import type { BriefService } from "../../brief/brief.service";
 import type { EmailService } from "../../email/email.service";
 import type { LlmService } from "../../llm/llm.service";
-import type { BookmarkService } from "../../bookmark/bookmark.service";
 import type { ProjectService } from "../../project/project.service";
 
 const EMAIL_CATEGORIES = ["newsletter", "facture", "action_requise", "personnel", "notification", "autre"];
@@ -66,29 +65,6 @@ export function createEmailTools(emailService: EmailService, llmService?: LlmSer
         );
         await emailService.updateSummary(email.id, email.summary || "", classification);
         return { classification, cached: false };
-      },
-    }),
-  ];
-}
-
-export function createBookmarkTools(bookmarkService: BookmarkService): AgentTool[] {
-  return [
-    defineTool({
-      name: "list_bookmarks",
-      description: "Liste tous les signets/bookmarks sauvegardes",
-      params: z.object({}),
-      execute: async () => bookmarkService.getAll(),
-    }),
-    defineTool({
-      name: "create_bookmark",
-      description: "Cree un nouveau signet/bookmark",
-      params: z.object({
-        name: z.string().min(1).max(255).describe("Nom du bookmark"),
-        url: z.string().min(1).max(1000).describe("URL du bookmark"),
-        emoji: z.string().max(10).optional().describe("Emoji (optionnel)"),
-      }),
-      execute: async ({ name, url, emoji }) => {
-        return bookmarkService.create({ name, url, emoji: emoji ?? null });
       },
     }),
   ];

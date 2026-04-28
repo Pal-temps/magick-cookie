@@ -75,7 +75,8 @@ import { DrizzleAiToolCallRepository } from "./infrastructure/repositories/ai-to
 import { createAnalyticsTools } from "./application/agent/tools/analytics.tools";
 import { createTaskTools } from "./application/agent/tools/task.tools";
 import { createTimerTools } from "./application/agent/tools/timer.tools";
-import { createBriefTools, createEmailTools, createBookmarkTools, createProjectTools } from "./application/agent/tools/brief.tools";
+import { createBriefTools, createEmailTools, createProjectTools } from "./application/agent/tools/brief.tools";
+import { createBookmarkTools } from "./application/agent/tools/bookmark.tools";
 import { createCalendarTools } from "./application/agent/tools/calendar.tools";
 import { createEmailActionTools } from "./application/agent/tools/email-actions.tools";
 import { createRssTools } from "./application/agent/tools/rss.tools";
