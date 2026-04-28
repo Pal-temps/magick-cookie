@@ -2,7 +2,10 @@ import type { LlmService } from "../llm/llm.service";
 import type { ChatRepository } from "../../domain/chat/chat.repository";
 import type { ChatMessage } from "../../domain/chat/chat.entity";
 import type { AgentMemoryRepository } from "../../domain/agent-memory/agent-memory.repository";
-import { ToolRegistry } from "./tool-registry";
+import type { ProviderService } from "../provider/provider.service";
+import type { ConnectorType } from "../../domain/connector-config/connector-config.entity";
+import { ToolRegistry, formatToolsForLlm, type AgentTool } from "./tool-registry";
+import { getModePromptHint, selectToolsForMode, type SessionMode } from "./session-modes";
 
 interface ToolCall {
   tool: string;
@@ -22,12 +25,18 @@ export interface AgentResponse {
 
 const MAX_TOOL_ROUNDS = 5;
 
+export interface SendMessageOptions {
+  /** Defaults to "general" — full tool surface. */
+  mode?: SessionMode;
+}
+
 export class AgentService {
   constructor(
     private chatRepo: ChatRepository,
     private llmService: LlmService | null,
     private toolRegistry: ToolRegistry,
     private memoryRepo?: AgentMemoryRepository,
+    private providerService?: ProviderService,
   ) {}
 
   async listConversations() {
@@ -46,7 +55,7 @@ export class AgentService {
     return this.chatRepo.deleteConversation(id);
   }
 
-  async sendMessage(conversationId: string, content: string): Promise<AgentResponse> {
+  async sendMessage(conversationId: string, content: string, options?: SendMessageOptions): Promise<AgentResponse> {
     if (!this.llmService) throw new Error("No LLM configured");
 
     // Save user message
@@ -56,7 +65,7 @@ export class AgentService {
     const messages = await this.chatRepo.getMessages(conversationId);
 
     // Build the system prompt with tool descriptions + memories
-    const systemPrompt = await this.buildSystemPromptAsync();
+    const systemPrompt = await this.buildSystemPromptAsync(options?.mode ?? "general");
 
     // Tool-calling loop
     const allToolResults: ToolResult[] = [];
@@ -116,12 +125,12 @@ export class AgentService {
     return { message: assistantMsg, toolCalls: allToolResults };
   }
 
-  async *sendMessageStream(conversationId: string, content: string): AsyncGenerator<{ type: "tool" | "chunk" | "done"; data: string }> {
+  async *sendMessageStream(conversationId: string, content: string, options?: SendMessageOptions): AsyncGenerator<{ type: "tool" | "chunk" | "done"; data: string }> {
     if (!this.llmService) throw new Error("No LLM configured");
 
     await this.chatRepo.addMessage(conversationId, "user", content);
     const messages = await this.chatRepo.getMessages(conversationId);
-    const systemPrompt = await this.buildSystemPromptAsync();
+    const systemPrompt = await this.buildSystemPromptAsync(options?.mode ?? "general");
 
     const allToolResults: ToolResult[] = [];
     let currentMessages = [
@@ -193,10 +202,10 @@ export class AgentService {
     yield { type: "done", data: fullText };
   }
 
-  private async buildSystemPromptAsync(): Promise<string> {
+  private async buildSystemPromptAsync(mode: SessionMode = "general"): Promise<string> {
     const today = new Date().toISOString().split("T")[0];
     const dayName = new Date().toLocaleDateString("fr-FR", { weekday: "long" });
-    const toolsDescription = this.toolRegistry.describeForLlm();
+    const toolsDescription = this.describeToolsForMode(mode);
 
     let memorySection = "";
     if (this.memoryRepo) {
@@ -219,8 +228,11 @@ export class AgentService {
       }
     }
 
+    const providersSection = await this.buildProvidersSection();
+    const modeSection = mode === "general" ? "" : `\n\n## Mode de session\n\n${getModePromptHint(mode)}`;
+
     return `Tu es l'assistant Magick Cookie, un assistant de productivite personnel.
-Nous sommes le ${dayName} ${today}.${memorySection}
+Nous sommes le ${dayName} ${today}.${memorySection}${providersSection}${modeSection}
 
 Tu as acces aux outils suivants pour repondre aux questions de l'utilisateur :
 
@@ -255,6 +267,34 @@ Tu peux appeler plusieurs outils dans une meme reponse :
 - Tu peux executer des actions (creer tache, trier, etc.) quand l'utilisateur le demande
 - Confirme toujours apres avoir execute une action
 - Tu peux sauvegarder des informations sur l'utilisateur avec save_memory. Utilise-le quand l'utilisateur te dit quelque chose sur lui-meme ou ses preferences.`;
+  }
+
+  /** Renders the tool description block, filtered to the current session mode. */
+  private describeToolsForMode(mode: SessionMode): string {
+    if (mode === "general") return this.toolRegistry.describeForLlm();
+    const filtered = selectToolsForMode(mode, this.toolRegistry.all());
+    return formatToolsForLlm(filtered);
+  }
+
+  /**
+   * Optional <providers> block listing the configured connector identities.
+   * Returns an empty string when ProviderService is not wired or nothing is set up,
+   * so the prompt stays clean for users who don't use the provider tools.
+   */
+  private async buildProvidersSection(): Promise<string> {
+    if (!this.providerService) return "";
+    try {
+      const types: ConnectorType[] = ["github", "gitlab", "clickup"];
+      const statuses = await Promise.all(types.map((t) => this.providerService!.getStatus(t)));
+      const configured = statuses.filter((s) => s.configured);
+      if (configured.length === 0) return "";
+      const lines = configured.map((s) =>
+        s.username ? `- ${s.type} (compte: ${s.username})` : `- ${s.type}`,
+      );
+      return `\n\n## Providers configures\n\nL'utilisateur a connecte les providers suivants — utilise les tools associes sans demander le token :\n${lines.join("\n")}`;
+    } catch {
+      return "";
+    }
   }
 
   private buildSystemPrompt(): string {

@@ -152,6 +152,25 @@ class RateLimiter {
 
 // ─── Registry ───
 
+/**
+ * Render an arbitrary list of tools to the markdown block consumed by the LLM
+ * system prompt. Extracted from {@link ToolRegistry.describeForLlm} so callers
+ * (e.g. session-mode-filtered prompts) can format a sub-set of tools without
+ * round-tripping through the registry.
+ */
+export function formatToolsForLlm(tools: AgentTool[]): string {
+  if (tools.length === 0) return "";
+  const lines = tools.map((t) => {
+    const params = Object.entries(t.parameters);
+    const paramStr = params.length > 0
+      ? params.map(([k, v]) => `    - ${k} (${v.type}${v.required === false ? ", optionnel" : ""}): ${v.description}`).join("\n")
+      : "    (aucun parametre)";
+    const permissionNote = t.permissionLevel === "auto" ? "" : ` [permission: ${t.permissionLevel}]`;
+    return `- **${t.name}**${permissionNote}: ${t.description}\n  Parametres:\n${paramStr}`;
+  });
+  return lines.join("\n\n");
+}
+
 export class ToolRegistry {
   private tools = new Map<string, AgentTool>();
   private limiter = new RateLimiter();

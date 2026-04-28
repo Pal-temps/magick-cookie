@@ -281,7 +281,7 @@ toolRegistry.registerAll(createSkillTools(skillService));
 const vaultNoteRepo = new FsVaultNoteRepository(vaultService);
 const vaultNoteService = new VaultNoteService(vaultNoteRepo);
 toolRegistry.registerAll(createNotesTools(vaultNoteService));
-const agentService = new AgentService(chatRepo, llmService, toolRegistry, agentMemoryRepo);
+const agentService = new AgentService(chatRepo, llmService, toolRegistry, agentMemoryRepo, providerService);
 
 const clickUpSyncService = new ClickUpSyncService(connectorConfigRepo, calendarService, eventRepo, taskRepo);
 const connectorConfigService = new ConnectorConfigService(connectorConfigRepo);
