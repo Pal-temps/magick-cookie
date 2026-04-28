@@ -298,7 +298,7 @@ Démo : "Cookia, écris-moi une note sur la refonte Flux" → fichier apparaît 
 
 ## Phase 4 — Domaines user-facing CRUD
 
-**Statut** : 🟡 En cours (4.1 Calendar shippée 2026-04-28)
+**Statut** : 🟡 En cours (4.1 Calendar + 4.2 Email actions shippées 2026-04-28)
 **Durée estimée** : 2-3 sessions (2-3 domaines par session)
 **Dépend de** : P2
 **Débloque** : Phase 6
@@ -317,14 +317,14 @@ Tous les domaines user-facing sont CRUD-able par l'AI.
 - [x] `calendar_generate_events_from_prompt` (wrapper `llmService.generateEvents`) (2026-04-28)
 
 #### 4.2 — Email actions
-- [ ] `email_compose`
-- [ ] `email_send` (user-confirm)
-- [ ] `email_reply`
-- [ ] `email_mark_read`
-- [ ] `email_star`
-- [ ] `email_move`
-- [ ] `email_delete` (user-confirm)
-- [ ] `email_bulk_delete` (admin)
+- [x] `email_compose` (2026-04-28)
+- [x] `email_send` (user-confirm) (2026-04-28)
+- [x] `email_reply` (user-confirm — flipped from auto, per inversibilite) (2026-04-28)
+- [x] `email_mark_read` (2026-04-28)
+- [x] `email_star` (2026-04-28)
+- [x] `email_move` (+IMAP `moveMessage` + repo `updateFolder` + service `moveEmail`) (2026-04-28)
+- [x] `email_delete` (user-confirm) (2026-04-28)
+- [x] `email_bulk_delete` (admin) (2026-04-28)
 
 #### 4.3 — RSS management
 - [ ] `rss_add_feed`
@@ -511,6 +511,11 @@ L'AI enchaîne intelligemment plusieurs features. Observability complète.
 ## Journal de session
 
 ### 2026-04-28
+- **P4.2 Email actions shippées** : nouveau fichier `email-actions.tools.ts` avec les 8 tools du plan (compose / send [user-confirm] / reply [user-confirm] / mark_read / star / move / delete [user-confirm] / bulk_delete [admin]).
+- Pour rendre `email_move` fonctionnel end-to-end : ajout de `ImapConnector.moveMessage`, `EmailRepository.updateFolder`, `EmailService.moveEmail` (pattern IMAP-first puis DB).
+- Tests : +25 tests unit `email-actions.tools.test.ts` (regex email, cap 100 IDs, permission tiers, no-double-Re:, replyAll cc inclusion, guard email-not-found pour reply).
+- Note : 1 fail ambient `BriefService > collects overdue events as blockers` détecté — pré-existait, ordre-dépendant des tests, pas lié à P4.2. À investiguer en hygiène.
+- **Hygiène DoD** : 9 fichiers `*.tools.test.ts` ajoutés (analytics, brief, task, timer, skill, dns, ssh, deploy, git-remote) pour combler la DoD P2 ("1 unit test minimum par tool"). +80 tests.
 - **P4.1 Calendar tools shippées** : `apps/api/src/application/agent/tools/calendar.tools.ts` créé avec les 6 tools (list, create [user-confirm], update, delete [user-confirm], find_conflict, generate_events_from_prompt). L'ancien `createCalendarTools` 2-tools de `brief.tools.ts` est dégagé.
 - Wiring : `calendarService` + `llmService` ajoutés au call site de `createCalendarTools` dans `apps/api/src/index.ts`.
 - Tests : +23 unit tests `calendar.tools.test.ts` (couvre permission level, validation zod, half-open conflict semantics, calendarName lookup case-insensitive, fallback "LLM non configure").
