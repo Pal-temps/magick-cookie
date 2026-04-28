@@ -298,7 +298,7 @@ Démo : "Cookia, écris-moi une note sur la refonte Flux" → fichier apparaît 
 
 ## Phase 4 — Domaines user-facing CRUD
 
-**Statut** : 🟡 En cours (4.1 Calendar + 4.2 Email + 4.3 RSS shippées 2026-04-28)
+**Statut** : 🟡 En cours (4.1 Calendar + 4.2 Email + 4.3 RSS + 4.4 Bookmarks shippées 2026-04-28)
 **Durée estimée** : 2-3 sessions (2-3 domaines par session)
 **Dépend de** : P2
 **Débloque** : Phase 6
@@ -335,11 +335,11 @@ Tous les domaines user-facing sont CRUD-able par l'AI.
 - [x] `rss_generate_digest` (2026-04-28)
 
 #### 4.4 — Bookmarks
-- [ ] `bookmark_list`
-- [ ] `bookmark_create`
-- [ ] `bookmark_update`
-- [ ] `bookmark_delete`
-- [ ] `bookmark_categorize`
+- [x] `bookmark_list` (2026-04-28)
+- [x] `bookmark_create` (2026-04-28)
+- [x] `bookmark_update` (2026-04-28)
+- [x] `bookmark_delete` (user-confirm — flipped) (2026-04-28)
+- [x] `bookmark_categorize` (2026-04-28)
 
 #### 4.5 — Snippets
 - [ ] Full CRUD
@@ -511,6 +511,7 @@ L'AI enchaîne intelligemment plusieurs features. Observability complète.
 ## Journal de session
 
 ### 2026-04-28
+- **P4.4 Bookmarks shippée** : nouveau fichier `bookmark.tools.ts` avec les 5 tools (list, create, update, delete [user-confirm], categorize). Sort de `brief.tools.ts` (one-file-per-domain). +18 tests unit, -5 tests brief.tools obsoletes.
 - **P4.3 RSS management shippée** : 6 tools dans `rss.tools.ts` (add_feed, remove_feed [user-confirm], star, mark_read, mark_all_read, generate_digest). Wraps `RssService` 1:1, +16 tests unit.
 - **Flake `BriefService > overdue events` corrigé** : remplacement de `new Date()` (capture wall-clock) par une date fixe 2026-03-18. Le test échouait dans la première heure UTC du jour parce que `pastTime = now - 1h` retombait sur la veille, exclu par le filtre `endAt >= todayStart`. Suite passe de 1213 + 1 fail ambient à 1214 + 0 fail.
 - **P4.2 Email actions shippées** : nouveau fichier `email-actions.tools.ts` avec les 8 tools du plan (compose / send [user-confirm] / reply [user-confirm] / mark_read / star / move / delete [user-confirm] / bulk_delete [admin]).
