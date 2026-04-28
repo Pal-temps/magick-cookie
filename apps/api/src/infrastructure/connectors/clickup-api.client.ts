@@ -173,4 +173,66 @@ export class ClickUpApiClient {
       assignees: raw.assignees.map((a) => a.username),
     };
   }
+
+  // ─── Write operations (Phase 5 of the AI plan) ───
+
+  async createTask(listId: string, input: { name: string; description?: string; assigneeIds?: number[]; priority?: number; dueDate?: Date }): Promise<{ id: string; url: string }> {
+    const res = await fetch(`${this.baseUrl}/list/${listId}/task`, {
+      method: "POST",
+      headers: { Authorization: this.token, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: input.name,
+        description: input.description,
+        assignees: input.assigneeIds,
+        priority: input.priority,
+        due_date: input.dueDate ? input.dueDate.getTime() : undefined,
+      }),
+    });
+    if (!res.ok) {
+      const body = await res.text();
+      throw new Error(`ClickUp API error (POST /list/${listId}/task): ${res.status} ${body.slice(0, 200)}`);
+    }
+    const data = (await res.json()) as { id: string; url: string };
+    return { id: data.id, url: data.url };
+  }
+
+  async assignTask(taskId: string, assigneeIds: number[], unassignIds: number[] = []): Promise<void> {
+    const res = await fetch(`${this.baseUrl}/task/${taskId}`, {
+      method: "PUT",
+      headers: { Authorization: this.token, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        assignees: { add: assigneeIds, rem: unassignIds },
+      }),
+    });
+    if (!res.ok) {
+      throw new Error(`ClickUp API error (PUT /task/${taskId} assignees): ${res.status}`);
+    }
+  }
+
+  async changeTaskStatus(taskId: string, status: string): Promise<void> {
+    const res = await fetch(`${this.baseUrl}/task/${taskId}`, {
+      method: "PUT",
+      headers: { Authorization: this.token, "Content-Type": "application/json" },
+      body: JSON.stringify({ status }),
+    });
+    if (!res.ok) {
+      throw new Error(`ClickUp API error (PUT /task/${taskId} status): ${res.status}`);
+    }
+  }
+
+  async addTaskComment(taskId: string, body: string, notifyAll: boolean = false): Promise<{ id: string }> {
+    const res = await fetch(`${this.baseUrl}/task/${taskId}/comment`, {
+      method: "POST",
+      headers: { Authorization: this.token, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        comment_text: body,
+        notify_all: notifyAll,
+      }),
+    });
+    if (!res.ok) {
+      throw new Error(`ClickUp API error (POST task comment): ${res.status}`);
+    }
+    const data = (await res.json()) as { id: string };
+    return { id: data.id };
+  }
 }
