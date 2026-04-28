@@ -298,7 +298,7 @@ Démo : "Cookia, écris-moi une note sur la refonte Flux" → fichier apparaît 
 
 ## Phase 4 — Domaines user-facing CRUD
 
-**Statut** : 🟡 En cours (4.1 Calendar + 4.2 Email + 4.3 RSS + 4.4 Bookmarks shippées 2026-04-28)
+**Statut** : ✅ Terminé (4.1-4.7 shippées 2026-04-28)
 **Durée estimée** : 2-3 sessions (2-3 domaines par session)
 **Dépend de** : P2
 **Débloque** : Phase 6
@@ -342,17 +342,17 @@ Tous les domaines user-facing sont CRUD-able par l'AI.
 - [x] `bookmark_categorize` (2026-04-28)
 
 #### 4.5 — Snippets
-- [ ] Full CRUD
-- [ ] `snippet_search_by_tag`
+- [x] Full CRUD (snippet_list / create / update / delete[user-confirm]) (2026-04-28)
+- [x] `snippet_search_by_tag` (2026-04-28)
 
 #### 4.6 — Contacts
-- [ ] Full CRUD
-- [ ] `contact_find_by_email`
+- [x] Full CRUD (contact_list / create / update / delete[user-confirm]) (2026-04-28)
+- [x] `contact_find_by_email` (2026-04-28)
 
 #### 4.7 — Alarms + Routines
-- [ ] Full CRUD sur alarms
-- [ ] Full CRUD sur routines
-- [ ] Delete = `user-confirm`
+- [x] Full CRUD sur alarms (2026-04-28)
+- [x] Full CRUD sur routines (2026-04-28)
+- [x] Delete = `user-confirm` (alarm_delete + routine_delete) (2026-04-28)
 
 ### Tool selection heuristique
 - [ ] L'`agent.service` injecte seulement les tools pertinents selon le mode de session (ide / chat / brief / triage)
@@ -494,7 +494,7 @@ L'AI enchaîne intelligemment plusieurs features. Observability complète.
 | P1 GitHub unification | ✅ | 1 dense | — |
 | P2 Tool convention | ✅ | 1 | — |
 | P3 Notes bridge | ✅ | 1-2 | P2 |
-| P4 Domaines CRUD | ⬜ | 2-3 | P2 |
+| P4 Domaines CRUD | ✅ | 1 | P2 |
 | P5 Providers tools | ⬜ | 1 | P1, P2 |
 | P6 Orchestration | ⬜ | 1-2 | P3, P4, P5 |
 
@@ -511,6 +511,9 @@ L'AI enchaîne intelligemment plusieurs features. Observability complète.
 ## Journal de session
 
 ### 2026-04-28
+- **P4.7 Alarms + Routines shippée — clôture P4** : nouveaux fichiers `alarm.tools.ts` (4 tools) et `routine.tools.ts` (4 tools, zod discriminated union sur les 4 shapes de RoutineStep). +25 tests unit.
+- **P4.6 Contacts shippée** : `contact.tools.ts` avec 5 tools (CRUD + find_by_email). find_by_email = filtre client-side over getAll() (carnet de contacts trop petit pour mériter un repo lookup dédié). +15 tests.
+- **P4.5 Snippets shippée** : `snippet.tools.ts` avec 5 tools (CRUD + search_by_tag). +16 tests.
 - **P4.4 Bookmarks shippée** : nouveau fichier `bookmark.tools.ts` avec les 5 tools (list, create, update, delete [user-confirm], categorize). Sort de `brief.tools.ts` (one-file-per-domain). +18 tests unit, -5 tests brief.tools obsoletes.
 - **P4.3 RSS management shippée** : 6 tools dans `rss.tools.ts` (add_feed, remove_feed [user-confirm], star, mark_read, mark_all_read, generate_digest). Wraps `RssService` 1:1, +16 tests unit.
 - **Flake `BriefService > overdue events` corrigé** : remplacement de `new Date()` (capture wall-clock) par une date fixe 2026-03-18. Le test échouait dans la première heure UTC du jour parce que `pastTime = now - 1h` retombait sur la veille, exclu par le filtre `endAt >= todayStart`. Suite passe de 1213 + 1 fail ambient à 1214 + 0 fail.
