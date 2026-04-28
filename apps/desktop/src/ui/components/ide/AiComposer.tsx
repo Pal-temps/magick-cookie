@@ -1,4 +1,5 @@
 import { createSignal, createEffect, Show, For, onCleanup } from "solid-js";
+import { filterCommands, isSlashTrigger, type SlashCommand } from "./slashCommands";
 import { invoke } from "@tauri-apps/api/core";
 import { useIdeStore } from "../../../application/stores/ideStore";
 import { useBrowserTabStore } from "../../../application/stores/browserTabStore";
@@ -66,6 +67,11 @@ export function AiComposer(props: AiComposerProps) {
   const [mentionQuery, setMentionQuery] = createSignal("");
   const [mentionResults, setMentionResults] = createSignal<MentionOption[]>([]);
   const [mentionIndex, setMentionIndex] = createSignal(0);
+
+  // Slash command picker state
+  const [showSlashPicker, setShowSlashPicker] = createSignal(false);
+  const [slashResults, setSlashResults] = createSignal<SlashCommand[]>([]);
+  const [slashIndex, setSlashIndex] = createSignal(0);
 
   let textareaRef: HTMLTextAreaElement | undefined;
   let mentionAnchor = 0; // cursor position where @ was typed
@@ -269,10 +275,43 @@ export function AiComposer(props: AiComposerProps) {
       }
     }
 
+    // Slash command picker navigation
+    if (showSlashPicker()) {
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setSlashIndex((i) => Math.min(i + 1, slashResults().length - 1));
+        return;
+      }
+      if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setSlashIndex((i) => Math.max(i - 1, 0));
+        return;
+      }
+      if (e.key === "Enter" || e.key === "Tab") {
+        e.preventDefault();
+        const results = slashResults();
+        if (results.length > 0) {
+          selectSlashCommand(results[slashIndex()]);
+        }
+        return;
+      }
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setShowSlashPicker(false);
+        return;
+      }
+    }
+
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSend();
     }
+  }
+
+  function selectSlashCommand(cmd: SlashCommand) {
+    setText(`/${cmd.name} `);
+    setShowSlashPicker(false);
+    textareaRef?.focus();
   }
 
   function handleInput(e: InputEvent & { currentTarget: HTMLTextAreaElement }) {
@@ -283,9 +322,23 @@ export function AiComposer(props: AiComposerProps) {
     e.currentTarget.style.height = "auto";
     e.currentTarget.style.height = Math.min(e.currentTarget.scrollHeight, 200) + "px";
 
-    // Detect @ trigger for mention picker
     const cursor = e.currentTarget.selectionStart ?? value.length;
     const textBeforeCursor = value.slice(0, cursor);
+
+    // Detect / trigger for slash picker (only when / is first char)
+    if (isSlashTrigger(value, cursor)) {
+      const query = textBeforeCursor.slice(1); // strip leading /
+      const results = filterCommands(query);
+      setSlashResults(results);
+      setSlashIndex(0);
+      setShowSlashPicker(true);
+      if (showMentions()) closeMentionPicker();
+      return;
+    } else if (showSlashPicker()) {
+      setShowSlashPicker(false);
+    }
+
+    // Detect @ trigger for mention picker
     const atMatch = textBeforeCursor.match(/@([^\s]*)$/);
 
     if (atMatch) {
@@ -299,9 +352,10 @@ export function AiComposer(props: AiComposerProps) {
     }
   }
 
-  // Close mention picker on outside click
+  // Close pickers on outside click
   function handleDocClick() {
     if (showMentions()) closeMentionPicker();
+    if (showSlashPicker()) setShowSlashPicker(false);
   }
   document.addEventListener("mousedown", handleDocClick);
   onCleanup(() => document.removeEventListener("mousedown", handleDocClick));
@@ -398,6 +452,27 @@ export function AiComposer(props: AiComposerProps) {
             <span class="cc-composer__stop">&#x25A0;</span>
           </Show>
         </button>
+
+        {/* Slash command picker dropdown */}
+        <Show when={showSlashPicker() && slashResults().length > 0}>
+          <div class="cc-slash-picker" onMouseDown={(e) => e.stopPropagation()}>
+            <For each={slashResults()}>
+              {(cmd, idx) => (
+                <div
+                  class={`cc-slash-picker__item ${idx() === slashIndex() ? "cc-slash-picker__item--active" : ""}`}
+                  onClick={() => selectSlashCommand(cmd)}
+                  onMouseEnter={() => setSlashIndex(idx())}
+                >
+                  <span class="cc-slash-picker__name">/{cmd.name}</span>
+                  <span class="cc-slash-picker__desc">{cmd.description}</span>
+                  <span class={`cc-slash-picker__level cc-slash-picker__level--${cmd.level}`}>
+                    {cmd.level === "local" ? "local" : "LLM"}
+                  </span>
+                </div>
+              )}
+            </For>
+          </div>
+        </Show>
 
         {/* Mention picker dropdown */}
         <Show when={showMentions()}>

@@ -1726,6 +1726,71 @@
   flex-shrink: 0;
 }
 
+/* ─── Slash Command Picker ─── */
+
+.cc-slash-picker {
+  position: absolute;
+  bottom: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  overflow: hidden;
+  z-index: 200;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.cc-slash-picker__item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 12px;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+
+.cc-slash-picker__item:hover,
+.cc-slash-picker__item--active {
+  background: var(--bg-hover, color-mix(in srgb, var(--accent-primary) 8%, transparent));
+}
+
+.cc-slash-picker__name {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent-primary);
+  flex-shrink: 0;
+  min-width: 110px;
+}
+
+.cc-slash-picker__desc {
+  font-size: 11px;
+  color: var(--text-secondary);
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cc-slash-picker__level {
+  font-size: 9px;
+  padding: 1px 5px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.cc-slash-picker__level--local {
+  background: color-mix(in srgb, var(--success, #2ecc71) 15%, transparent);
+  color: var(--success, #2ecc71);
+}
+
+.cc-slash-picker__level--llm-assisted {
+  background: color-mix(in srgb, var(--accent-primary) 15%, transparent);
+  color: var(--accent-primary);
+}
+
 .cc-composer__input-wrap {
   display: flex;
   align-items: flex-end;

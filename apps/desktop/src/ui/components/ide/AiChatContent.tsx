@@ -12,6 +12,8 @@ import type { MonacoEditorApi } from "./MonacoEditor";
 import { ALL_MODES, type SessionModeId } from "./sessionModes";
 import { buildContextParts } from "./contextInjection";
 import { getCookiaContext, clearCookiaContext } from "../../../application/stores/cookiaContextStore";
+import { SLASH_COMMANDS, parseSlashCommand } from "./slashCommands";
+import { buildCompactPrompt, buildHelpMessage, isClaudeCliProvider } from "./slashHandlers";
 
 type AiTab = "session" | "diffs" | "processes" | "files" | "validation";
 
@@ -92,6 +94,39 @@ export function AiChatContent(props: AiChatContentProps) {
     // Ensure this session is active
     if (ai.activeSessionId() !== props.sessionId) {
       ai.switchSession(props.sessionId);
+    }
+
+    // ─── Slash command interceptor ───
+    const sessionProvider = session()?.provider ?? "";
+    const parsed = content.trim().startsWith("/") ? parseSlashCommand(content) : null;
+    if (parsed && !isClaudeCliProvider(sessionProvider)) {
+      const cmd = SLASH_COMMANDS.find((c) => c.name === parsed.command);
+      if (!cmd) {
+        ai.injectSystemMessage(`Commande inconnue : /${parsed.command}. Tapez /help pour voir les commandes disponibles.`, props.sessionId);
+        return;
+      }
+      if (cmd.level === "local") {
+        if (parsed.command === "help") {
+          ai.injectSystemMessage(buildHelpMessage(SLASH_COMMANDS), props.sessionId);
+        } else if (parsed.command === "clear") {
+          ai.clearMessages(props.sessionId);
+          setContextInjected(false);
+        } else {
+          ai.injectSystemMessage(`/${parsed.command} : fonctionnalité à venir.`, props.sessionId);
+        }
+        return;
+      }
+      // LLM-assisted: build the appropriate prompt
+      if (parsed.command === "compact") {
+        const msgs = session()?.messages ?? [];
+        const prompt = buildCompactPrompt(msgs);
+        if (!prompt) {
+          ai.injectSystemMessage("Rien à compacter (aucun message assistant dans la session).", props.sessionId);
+          return;
+        }
+        content = prompt;
+      }
+      // Other LLM-assisted commands: pass through with command hint
     }
 
     // Inject context on first message of the session

@@ -433,6 +433,19 @@ export function useAiSessionStore() {
     updateSession(id, (s) => ({ ...s, messages: [] }));
   }
 
+  function injectSystemMessage(content: string, sessionId?: string) {
+    const id = sessionId ?? activeSessionId();
+    if (!id) return;
+    const seq = (sessions().find((s) => s.id === id)?.messages.length ?? 0);
+    addMessage(id, {
+      id: `sys-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      seq,
+      type: "system",
+      content,
+      timestamp: Date.now(),
+    });
+  }
+
   async function renameSession(sessionId: string, label: string) {
     const previousLabel = sessions().find((s) => s.id === sessionId)?.label;
     updateSession(sessionId, (s) => ({ ...s, label }));
@@ -491,6 +504,7 @@ export function useAiSessionStore() {
     stopSession,
     switchSession,
     clearMessages,
+    injectSystemMessage,
     renameSession,
     fetchPastSessions,
     loadPastSession,
