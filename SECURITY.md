@@ -20,7 +20,7 @@
 Envoie un rapport privé via l'une de ces méthodes :
 
 - **GitHub** : [Security Advisories](https://github.com/Pal-temps/magick-cookie/security/advisories/new) (recommandé)
-- **Email** : nicolas@paltemps.fr — objet `[SECURITY] magick-cookie`
+- **Email** : contact@paltemps.fr — objet `[SECURITY] magick-cookie`
 
 Inclure dans le rapport :
 - Description de la vulnérabilité
@@ -68,7 +68,7 @@ Hors périmètre :
 Send a private report via one of these methods:
 
 - **GitHub**: [Security Advisories](https://github.com/Pal-temps/magick-cookie/security/advisories/new) (recommended)
-- **Email**: nicolas@paltemps.fr — subject `[SECURITY] magick-cookie`
+- **Email**: contact@paltemps.fr — subject `[SECURITY] magick-cookie`
 
 Include in the report:
 - Description of the vulnerability

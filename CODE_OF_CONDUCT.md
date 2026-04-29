@@ -34,7 +34,7 @@ Les mainteneurs du projet sont responsables de clarifier les standards de compor
 
 ### Application
 
-Les cas de comportement abusif, harcelant ou autrement inacceptable peuvent être signalés en contactant l'équipe du projet à **nicolas@paltemps.fr**. Toutes les plaintes seront examinées et feront l'objet d'une enquête, aboutissant à une réponse jugée nécessaire et appropriée aux circonstances.
+Les cas de comportement abusif, harcelant ou autrement inacceptable peuvent être signalés en contactant l'équipe du projet à **contact@paltemps.fr**. Toutes les plaintes seront examinées et feront l'objet d'une enquête, aboutissant à une réponse jugée nécessaire et appropriée aux circonstances.
 
 ### Attribution
 
@@ -72,7 +72,7 @@ Project maintainers are responsible for clarifying the standards of acceptable b
 
 ### Enforcement
 
-Instances of abusive, harassing, or otherwise unacceptable behavior may be reported by contacting the project team at **nicolas@paltemps.fr**. All complaints will be reviewed and investigated and will result in a response that is deemed necessary and appropriate to the circumstances.
+Instances of abusive, harassing, or otherwise unacceptable behavior may be reported by contacting the project team at **contact@paltemps.fr**. All complaints will be reviewed and investigated and will result in a response that is deemed necessary and appropriate to the circumstances.
 
 ### Attribution
 
