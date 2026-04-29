@@ -42,7 +42,7 @@ pub fn new_state() -> SharedBinaryManager {
     Mutex::new(None)
 }
 
-fn ensure_manager(
+pub(crate) fn ensure_manager(
     app: &AppHandle,
     state: &State<'_, SharedBinaryManager>,
 ) -> Result<Arc<BinaryManager>, String> {

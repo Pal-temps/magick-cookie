@@ -234,6 +234,15 @@ export interface Dictionary {
     devopsCliPhaseDone: string;
     devopsCliPhaseFailed: string;
     devopsCliEmpty: string;
+    devopsCliLogin: string;
+    devopsCliLogout: string;
+    devopsCliLoggedIn: string;
+    devopsCliNotLoggedIn: string;
+    devopsCliAuthCode: string;
+    devopsCliAuthWaiting: string;
+    devopsCliAuthSuccess: string;
+    devopsCliAuthFailed: string;
+    devopsCliAuthVaultLocked: string;
     vaultNotUnlocked: string;
     ovhApiKeys: string;
     sshServers: string;

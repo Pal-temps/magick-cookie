@@ -1,3 +1,4 @@
+pub mod auth;
 pub mod binary_manager;
 pub mod commands;
 pub mod manifest;

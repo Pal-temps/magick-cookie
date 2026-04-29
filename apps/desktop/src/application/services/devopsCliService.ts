@@ -1,6 +1,6 @@
-// Thin facade over the cli_* Tauri commands (apps/desktop/src-tauri/src/devops/commands.rs).
-// UI components import from here rather than calling invoke()/listen() directly — same
-// pattern as gitService / ptyService / vaultService.
+// Thin facade over the cli_* Tauri commands (apps/desktop/src-tauri/src/devops/commands.rs
+// and devops/auth.rs).  UI components import from here rather than calling invoke()/listen()
+// directly — same pattern as gitService / ptyService / vaultService.
 
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
@@ -32,6 +32,27 @@ export type InstallProgress =
 // Must match INSTALL_PROGRESS_EVENT in commands.rs. Changing one without the other silently
 // breaks the bridge — there's a Rust unit test that pins the constant on that side.
 export const INSTALL_PROGRESS_EVENT = "cli://install/progress";
+
+// ─── Auth types (mirrors auth.rs) ───────────────────────────────────────────
+
+export interface AuthCodeEvent {
+  name: string;
+  user_code: string;
+  verification_uri: string;
+}
+
+export interface AuthDoneEvent {
+  name: string;
+  success: boolean;
+  username: string;
+  /** Raw OAuth token — use immediately to sync to the API, do not persist in JS state. */
+  token: string;
+  error: string;
+}
+
+// Must match AUTH_CODE_EVENT / AUTH_DONE_EVENT constants in auth.rs.
+export const AUTH_CODE_EVENT = "cli://auth/code";
+export const AUTH_DONE_EVENT = "cli://auth/done";
 
 export const devopsCliService = {
   listAvailable: () => invoke<AvailableCli[]>("cli_list_available"),
@@ -65,4 +86,27 @@ export const devopsCliService = {
       }
     });
   },
+
+  // ─── Auth ──────────────────────────────────────────────────────────────────
+
+  /** Start OAuth device flow via the installed gh binary.  Vault must be unlocked. */
+  authLogin: (name: string) => invoke<AuthDoneEvent>("cli_auth_login", { name }),
+
+  /** Returns true if the CLI binary reports an active authenticated session. */
+  authStatus: (name: string) => invoke<boolean>("cli_auth_status", { name }),
+
+  /** Log out and remove the token from KDBX. */
+  authLogout: (name: string) => invoke<void>("cli_auth_logout", { name }),
+
+  /** Subscribe to the device-code event for a specific CLI (filtered by name). */
+  onAuthCode: (name: string, cb: (e: AuthCodeEvent) => void): Promise<UnlistenFn> =>
+    listen<AuthCodeEvent>(AUTH_CODE_EVENT, (event) => {
+      if (event.payload.name === name) cb(event.payload);
+    }),
+
+  /** Subscribe to the auth-done event for a specific CLI (filtered by name). */
+  onAuthDone: (name: string, cb: (e: AuthDoneEvent) => void): Promise<UnlistenFn> =>
+    listen<AuthDoneEvent>(AUTH_DONE_EVENT, (event) => {
+      if (event.payload.name === name) cb(event.payload);
+    }),
 };
