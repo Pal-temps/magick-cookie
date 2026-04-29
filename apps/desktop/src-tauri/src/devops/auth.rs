@@ -256,15 +256,8 @@ pub async fn cli_auth_logout(
         .await;
     }
 
-    // Best-effort: remove token from KDBX (skip silently if vault is locked).
-    let key = format!("{name}_oauth_token");
-    if let Ok(mut s) = secrets.lock() {
-        if let Some(db) = s.db.as_mut() {
-            if let Some(group) = db.root.groups.iter_mut().find(|g| g.name == "App Secrets") {
-                group.entries.retain(|e| e.get("Title") != Some(&key));
-            }
-        }
-    }
+    // Best-effort: remove token from KDBX and persist (skip silently if vault is locked).
+    let _ = crate::secrets::remove_app_secret(&*secrets, &format!("{name}_oauth_token"));
 
     Ok(())
 }

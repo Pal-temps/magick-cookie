@@ -419,6 +419,18 @@ pub fn secrets_set_app_secret(state: tauri::State<'_, SharedSecrets>, key: Strin
     })
 }
 
+/// Remove an app secret by its key (title) from the "App Secrets" group.
+/// No-op (Ok) if the vault is locked or the key is not found.
+pub(crate) fn remove_app_secret(state: &SharedSecrets, key: &str) -> Result<(), String> {
+    let mut s = state.lock().map_err(|e| e.to_string())?;
+    let Some(db) = s.db.as_mut() else { return Ok(()); };
+    let key_owned = key.to_string();
+    if let Some(group) = db.root.groups.iter_mut().find(|g| g.name == "App Secrets") {
+        group.entries.retain(|e| e.get("Title") != Some(&key_owned));
+    }
+    save_db(&s)
+}
+
 // ═══════════════════════════════════════════
 // SSH KEY GENERATOR
 // ═══════════════════════════════════════════
