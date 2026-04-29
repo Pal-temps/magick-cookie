@@ -1,0 +1,22 @@
+name: Stale issues
+
+on:
+  schedule:
+    - cron: "0 0 * * *"
+
+jobs:
+  stale:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/stale@v9
+        with:
+          stale-issue-message: |
+            🇫🇷 Cette issue est inactive depuis 90 jours. Elle sera fermée dans 7 jours sans activité.
+            🇬🇧 This issue has been inactive for 90 days. It will be closed in 7 days without activity.
+          close-issue-message: |
+            🇫🇷 Issue fermée automatiquement après 97 jours d'inactivité.
+            🇬🇧 Issue automatically closed after 97 days of inactivity.
+          stale-issue-label: stale
+          days-before-stale: 90
+          days-before-close: 7
+          exempt-issue-labels: "help wanted,good first issue"
