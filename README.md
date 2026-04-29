@@ -8,8 +8,6 @@
 [![CI](https://github.com/Pal-temps/magick-cookie/actions/workflows/ci.yml/badge.svg)](https://github.com/Pal-temps/magick-cookie/actions/workflows/ci.yml)
 [![License: PolyForm NC](https://img.shields.io/badge/license-PolyForm%20NC-blue)](LICENSE)
 
-![Magick Cookie home](companion-home.png)
-
 </div>
 
 ---
@@ -23,10 +21,6 @@
 ### Qu'est-ce que c'est ?
 
 Magick Cookie est un IDE de bureau intégrant des agents IA, un terminal, un gestionnaire de secrets (KDBX), et des outils de développement — le tout dans une interface unifiée construite avec Tauri et SolidJS.
-
-| Interface | Agents | Terminal |
-|-----------|--------|----------|
-| ![Home](companion-home.png) | ![Agents](companion-agents.png) | ![Terminal](companion-terminal.png) |
 
 ### Stack technique
 
