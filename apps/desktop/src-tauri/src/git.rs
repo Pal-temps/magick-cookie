@@ -233,6 +233,9 @@ pub fn git_checkout(project_path: String, branch: String) -> Result<String, Stri
     if !is_git_repo(&project_path) {
         return Err("Not a git repository".into());
     }
+    if branch.is_empty() || branch.starts_with('-') || branch.contains('\0') || branch.contains('\n') {
+        return Err(format!("Invalid branch name: {branch}"));
+    }
     run_git(&project_path, &["checkout", &branch])
 }
 

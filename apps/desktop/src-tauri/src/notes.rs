@@ -122,8 +122,11 @@ pub async fn notes_set_config(
 
     // If directory doesn't exist and remote is provided, clone it
     if !notes_dir.exists() && !remote.is_empty() {
+        if !remote.starts_with("https://") && !remote.starts_with("git@") && !remote.starts_with("ssh://") {
+            return Err(format!("Remote URL must use https:// or SSH (git@): {remote}"));
+        }
         let mut cmd = Command::new("git");
-        cmd.arg("clone").arg(&remote).arg(&path);
+        cmd.arg("clone").arg("--config").arg("core.hooksPath=/dev/null").arg(&remote).arg(&path);
 
         let mut tmp_dir = None;
         if let Some(ref key_name) = ssh_key_name {

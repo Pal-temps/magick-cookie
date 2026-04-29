@@ -1,4 +1,5 @@
 import { For, Show, onMount, createEffect, on } from "solid-js";
+import DOMPurify from "dompurify";
 import type { AiMessage, AiSession } from "../../../application/stores/aiSessionStore";
 import { AiMessageBubble } from "./AiMessageBubble";
 import { ToolBlock } from "./ToolBlock";
@@ -81,7 +82,7 @@ export function AiMessageFeed(props: AiMessageFeedProps) {
       {/* Streaming indicator */}
       <Show when={props.session.isStreaming && props.session.streamingContent}>
         <div class="ide-ai-bubble ide-ai-bubble--assistant ide-ai-bubble--streaming">
-          <div innerHTML={props.session.streamingContent} />
+          <div innerHTML={DOMPurify.sanitize(props.session.streamingContent ?? "")} />
         </div>
       </Show>
 

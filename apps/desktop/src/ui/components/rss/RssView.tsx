@@ -1,4 +1,5 @@
 import { createSignal, createEffect, onMount, onCleanup, For, Show } from "solid-js";
+import DOMPurify from "dompurify";
 import { useRssStore } from "../../../application/stores/rssStore";
 import { useT } from "../../../i18n/context";
 import { formatDate as formatIntlDate } from "../../../i18n/format";
@@ -283,9 +284,9 @@ export function RssView() {
 
               <div class="rss-drawer__body">
                 <Show when={selectedArticle()?.content && selectedArticle()!.content!.length > 500} fallback={
-                  <div innerHTML={selectedArticle()?.description ?? ""} />
+                  <div innerHTML={DOMPurify.sanitize(selectedArticle()?.description ?? "")} />
                 }>
-                  <div innerHTML={selectedArticle()!.content!} />
+                  <div innerHTML={DOMPurify.sanitize(selectedArticle()!.content!)} />
                 </Show>
               </div>
             </div>

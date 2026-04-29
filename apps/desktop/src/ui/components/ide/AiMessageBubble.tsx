@@ -1,5 +1,6 @@
 import { Show, For, createSignal } from "solid-js";
 import { marked } from "marked";
+import DOMPurify from "dompurify";
 import type { AiMessage } from "../../../application/stores/aiSessionStore";
 
 interface AiMessageBubbleProps {
@@ -55,7 +56,7 @@ export function AiMessageBubble(props: AiMessageBubbleProps) {
               </Show>
             </Show>
             <Show when={!isThinking()}>
-              <div class="cc-bubble__markdown" innerHTML={marked.parse(msg().content) as string} />
+              <div class="cc-bubble__markdown" innerHTML={DOMPurify.sanitize(marked.parse(msg().content) as string)} />
             </Show>
           </div>
         </Show>
@@ -69,7 +70,7 @@ export function AiMessageBubble(props: AiMessageBubbleProps) {
         <Show when={msg().type === "error"}>
           <div class="cc-bubble__error">
             <span class="cc-bubble__error-icon">&#x26A0;</span>
-            <div innerHTML={marked.parse(msg().content) as string} />
+            <div innerHTML={DOMPurify.sanitize(marked.parse(msg().content) as string)} />
           </div>
         </Show>
       </div>
