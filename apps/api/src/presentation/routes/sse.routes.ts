@@ -25,6 +25,7 @@ export function createSSERoutes(emitter: ReminderEmitter) {
           await stream.writeSSE({ event: "heartbeat", data: "" });
         } catch {
           clearInterval(heartbeat);
+          unsubscribe();
         }
       }, 15_000);
 

@@ -110,6 +110,21 @@ pub async fn notes_get_config(app: AppHandle) -> Result<Option<NotesConfig>, Str
     }
 }
 
+fn validate_remote_url(url: &str) -> Result<(), String> {
+    if !url.starts_with("https://") && !url.starts_with("git@") && !url.starts_with("ssh://") {
+        return Err(format!("Remote URL must use https:// or git@ (SSH): {url}"));
+    }
+    // Reject shell metacharacters that could escape argument quoting
+    if url.chars().any(|c| matches!(c, ';' | '|' | '&' | '`' | '\0' | '\n')) {
+        return Err("Remote URL contains invalid characters".into());
+    }
+    // file:// and git:// are not allowed (could read local paths or use unencrypted protocol)
+    if url.starts_with("file://") || url.starts_with("git://") {
+        return Err("Remote URL protocol not allowed".into());
+    }
+    Ok(())
+}
+
 #[tauri::command]
 pub async fn notes_set_config(
     app: AppHandle,
@@ -122,9 +137,7 @@ pub async fn notes_set_config(
 
     // If directory doesn't exist and remote is provided, clone it
     if !notes_dir.exists() && !remote.is_empty() {
-        if !remote.starts_with("https://") && !remote.starts_with("git@") && !remote.starts_with("ssh://") {
-            return Err(format!("Remote URL must use https:// or SSH (git@): {remote}"));
-        }
+        validate_remote_url(&remote)?;
         let mut cmd = Command::new("git");
         cmd.arg("clone").arg("--config").arg("core.hooksPath=/dev/null").arg(&remote).arg(&path);
 
@@ -647,4 +660,47 @@ pub async fn vault_delete_file(app: AppHandle, rel_path: String) -> Result<(), S
 
     std::fs::remove_file(&file_path).map_err(|e| format!("Delete error: {e}"))?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn remote_url_valid_https() {
+        assert!(validate_remote_url("https://github.com/user/repo.git").is_ok());
+        assert!(validate_remote_url("https://gitlab.com/org/project").is_ok());
+    }
+
+    #[test]
+    fn remote_url_valid_ssh() {
+        assert!(validate_remote_url("git@github.com:user/repo.git").is_ok());
+        assert!(validate_remote_url("ssh://git@gitlab.com/user/repo.git").is_ok());
+    }
+
+    #[test]
+    fn remote_url_rejects_file_protocol() {
+        assert!(validate_remote_url("file:///etc/passwd").is_err());
+        assert!(validate_remote_url("file:///home/user/repo").is_err());
+    }
+
+    #[test]
+    fn remote_url_rejects_git_protocol() {
+        assert!(validate_remote_url("git://github.com/user/repo.git").is_err());
+    }
+
+    #[test]
+    fn remote_url_rejects_unknown_protocol() {
+        assert!(validate_remote_url("ftp://example.com/repo").is_err());
+        assert!(validate_remote_url("/absolute/path").is_err());
+        assert!(validate_remote_url("relative/path").is_err());
+    }
+
+    #[test]
+    fn remote_url_rejects_metacharacters() {
+        assert!(validate_remote_url("git@github.com:user/repo;rm -rf /").is_err());
+        assert!(validate_remote_url("git@host:repo|evil").is_err());
+        assert!(validate_remote_url("ssh://host/repo&evil").is_err());
+        assert!(validate_remote_url("https://host/repo\0evil").is_err());
+    }
 }

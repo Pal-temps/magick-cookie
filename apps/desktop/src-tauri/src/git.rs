@@ -228,15 +228,51 @@ pub fn git_branches(project_path: String) -> Result<Vec<GitBranch>, String> {
     Ok(branches)
 }
 
+fn validate_branch_name(branch: &str) -> Result<(), String> {
+    if branch.is_empty() || branch.starts_with('-') || branch.contains('\0') || branch.contains('\n') {
+        return Err(format!("Invalid branch name: {branch}"));
+    }
+    Ok(())
+}
+
 #[tauri::command]
 pub fn git_checkout(project_path: String, branch: String) -> Result<String, String> {
     if !is_git_repo(&project_path) {
         return Err("Not a git repository".into());
     }
-    if branch.is_empty() || branch.starts_with('-') || branch.contains('\0') || branch.contains('\n') {
-        return Err(format!("Invalid branch name: {branch}"));
-    }
+    validate_branch_name(&branch)?;
     run_git(&project_path, &["checkout", &branch])
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn branch_name_valid() {
+        assert!(validate_branch_name("main").is_ok());
+        assert!(validate_branch_name("feat/my-feature").is_ok());
+        assert!(validate_branch_name("fix_123").is_ok());
+        assert!(validate_branch_name("release/v1.2.3").is_ok());
+    }
+
+    #[test]
+    fn branch_name_rejects_empty() {
+        assert!(validate_branch_name("").is_err());
+    }
+
+    #[test]
+    fn branch_name_rejects_flag_like() {
+        assert!(validate_branch_name("-R").is_err());
+        assert!(validate_branch_name("--force").is_err());
+        assert!(validate_branch_name("-b").is_err());
+    }
+
+    #[test]
+    fn branch_name_rejects_control_chars() {
+        assert!(validate_branch_name("foo\0bar").is_err());
+        assert!(validate_branch_name("foo\nbar").is_err());
+    }
 }
 
 #[tauri::command]

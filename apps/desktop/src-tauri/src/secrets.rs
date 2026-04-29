@@ -225,6 +225,9 @@ pub fn secrets_init(
         s.db = Some(db);
     }
 
+    if let Some(ref mut old_key) = s.master_key {
+        old_key.zeroize();
+    }
     s.master_key = Some(master_password);
     Ok(())
 }

@@ -1,4 +1,4 @@
-import { describe, it, expect, mock } from "bun:test";
+import { describe, it, expect } from "bun:test";
 import { Hono } from "hono";
 import { createSSERoutes } from "../../presentation/routes/sse.routes";
 import { InMemoryReminderEmitter } from "../../infrastructure/sse/reminder-emitter.impl";
@@ -15,6 +15,58 @@ const fakeReminder: ReminderWithEvent = {
   eventTitle: "Team meeting",
   eventStartAt: new Date("2026-03-13T14:00:00Z"),
 };
+
+describe("InMemoryReminderEmitter — subscription lifecycle", () => {
+  it("subscriber receives emitted reminders", () => {
+    const emitter = new InMemoryReminderEmitter();
+    const received: string[] = [];
+    emitter.subscribe((r) => received.push(r.id));
+    emitter.emit(fakeReminder);
+    expect(received).toEqual(["r1"]);
+  });
+
+  it("unsubscribe stops further deliveries", () => {
+    const emitter = new InMemoryReminderEmitter();
+    const received: string[] = [];
+    const unsub = emitter.subscribe((r) => received.push(r.id));
+
+    emitter.emit(fakeReminder);
+    expect(received).toHaveLength(1);
+
+    unsub();
+    emitter.emit(fakeReminder);
+    // No new delivery after unsubscribe
+    expect(received).toHaveLength(1);
+  });
+
+  it("calling unsubscribe twice is a no-op", () => {
+    const emitter = new InMemoryReminderEmitter();
+    const received: string[] = [];
+    const unsub = emitter.subscribe((r) => received.push(r.id));
+    unsub();
+    unsub(); // second call must not throw
+    emitter.emit(fakeReminder);
+    expect(received).toHaveLength(0);
+  });
+
+  it("multiple subscribers are independent", () => {
+    const emitter = new InMemoryReminderEmitter();
+    const a: string[] = [];
+    const b: string[] = [];
+    const unsubA = emitter.subscribe((r) => a.push(r.id));
+    emitter.subscribe((r) => b.push(r.id));
+
+    emitter.emit(fakeReminder);
+    expect(a).toHaveLength(1);
+    expect(b).toHaveLength(1);
+
+    unsubA();
+    emitter.emit(fakeReminder);
+    // Only A was unsubscribed — B still receives
+    expect(a).toHaveLength(1);
+    expect(b).toHaveLength(2);
+  });
+});
 
 describe("SSE routes", () => {
   it("should return correct SSE headers (Content-Type and Cache-Control)", async () => {
