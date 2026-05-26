@@ -7,42 +7,56 @@ use std::thread;
 use crate::ai::adapter::BackendAdapter;
 use crate::ai::types::*;
 
-/// MCP permission server script — embedded at compile time, extracted to a temp file on first use.
-const PERMISSION_MCP_SCRIPT: &str =
-    include_str!("../../../../../api/src/mcp/permission-server.ts");
+/// Combined Magick MCP server — permissions + all ToolRegistry tools.
+/// Embedded at compile time, extracted to a temp file on first use.
+const MAGICK_MCP_SCRIPT: &str =
+    include_str!("../../../../../api/src/mcp/magick-mcp-server.ts");
 
-/// Default API URL for the permission MCP server.
-const DEFAULT_API_URL: &str = "http://localhost:3000";
+/// Default API URL (must match the Bun API server port).
+const DEFAULT_API_URL: &str = "http://localhost:47300";
+
+/// Magick Cookie project root — derived from Cargo.toml location at compile time.
+/// Used to auto-deny writes to the app's own source code.
+const CARGO_MANIFEST_DIR: &str = env!("CARGO_MANIFEST_DIR"); // = apps/desktop/src-tauri
+
+fn magick_app_root() -> std::path::PathBuf {
+    // apps/desktop/src-tauri → ../../ → project root
+    std::path::Path::new(CARGO_MANIFEST_DIR)
+        .parent().unwrap_or(std::path::Path::new("."))
+        .parent().unwrap_or(std::path::Path::new("."))
+        .to_path_buf()
+}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-/// Write the MCP permission server script to a temp file (idempotent — reuses existing).
-/// Returns the path to the script.
-fn ensure_permission_script() -> Result<PathBuf, String> {
-    let path = std::env::temp_dir().join("magick-permission-mcp-server.ts");
-    if !path.exists() {
-        std::fs::write(&path, PERMISSION_MCP_SCRIPT)
-            .map_err(|e| format!("Failed to write MCP permission script: {e}"))?;
-    }
+/// Write the combined Magick MCP server script to a temp file (idempotent).
+fn ensure_magick_mcp_script() -> Result<PathBuf, String> {
+    let path = std::env::temp_dir().join("magick-mcp-server.ts");
+    // Always overwrite — the script may have changed between builds
+    std::fs::write(&path, MAGICK_MCP_SCRIPT)
+        .map_err(|e| format!("Failed to write Magick MCP script: {e}"))?;
     Ok(path)
 }
 
-/// Write an mcp-config.json for the permission server and return its path.
+/// Write an mcp-config.json pointing at the combined server and return its path.
 fn write_mcp_config(script_path: &PathBuf, api_url: &str, session_id: &str) -> Result<PathBuf, String> {
+    let app_root = magick_app_root();
+    let app_root_str = app_root.to_str().unwrap_or("").replace('\\', "/");
+
     let config = serde_json::json!({
         "mcpServers": {
-            "magick_perm": {
+            "magick": {
                 "command": "bun",
                 "args": ["run", script_path.to_str().unwrap_or("")],
                 "env": {
                     "MAGICK_API_URL": api_url,
-                    "MAGICK_SESSION_ID": session_id
+                    "MAGICK_SESSION_ID": session_id,
+                    "MAGICK_APP_ROOT": app_root_str
                 }
             }
         }
     });
 
-    // Use session_id in filename to avoid collisions between sessions
     let config_path = std::env::temp_dir()
         .join(format!("magick-mcp-config-{}.json", &session_id[..8.min(session_id.len())]));
 
@@ -127,18 +141,34 @@ impl ClaudeCliAdapter {
             "stream-json".to_string(),
         ];
 
-        // ── Permission control ────────────────────────────────────────────────
-        // Route all permission decisions through our MCP permission server.
-        // Nothing is blocked outright — every sensitive action surfaces as a
-        // dialog in the Magick Cookie UI for the user to allow or deny.
+        // ── MCP server (permissions + ToolRegistry tools) ────────────────────
+        // The combined "magick" MCP server exposes:
+        //   - `ask` tool: intercepts permission requests → dialog in UI
+        //   - All 23 ToolRegistry tools: notes, tasks, calendar, etc.
+        // Writes to the app's own source files are auto-denied in the server.
         if let Some(config_path) = mcp_config_path {
             if let Some(path_str) = config_path.to_str() {
                 args.push("--permission-prompt-tool".to_string());
-                args.push("mcp__magick_perm__ask".to_string());
+                args.push("mcp__magick__ask".to_string());
                 args.push("--mcp-config".to_string());
                 args.push(path_str.to_string());
             }
         }
+
+        // ── System prompt ────────────────────────────────────────────────────
+        // Instructs Claude to use MCP tools for all data operations.
+        args.push("--system-prompt".to_string());
+        args.push(
+            "Tu es Cookia, l'assistant IA de Magick Cookie. \
+            Règles importantes : \
+            1. Pour toutes les données (notes, tâches, calendrier, emails, snippets, contacts, \
+            bookmarks, flux), utilise TOUJOURS les outils MCP disponibles \
+            (ex: mcp__magick__notes_create, mcp__magick__task_create, etc.) — \
+            ne lis ni n'écris jamais ces données via des fichiers directement. \
+            2. Ne modifie JAMAIS les fichiers du code source de l'application Magick Cookie. \
+            3. Tu peux lire et écrire les fichiers du projet de l'utilisateur ouvert dans l'IDE."
+            .to_string()
+        );
 
         // ── Prompt & session ──────────────────────────────────────────────────
         args.push("-p".to_string());
@@ -230,11 +260,11 @@ impl BackendAdapter for ClaudeCliAdapter {
             *self.cli_session_id.lock().unwrap() = Some(resume_id.clone());
         }
 
-        // ── Set up MCP permission server ──────────────────────────────────────
+        // ── Set up combined Magick MCP server ─────────────────────────────────
         let session_id = config.session_id.clone().unwrap_or_else(|| "unknown".to_string());
-        let mcp_config_path = ensure_permission_script()
+        let mcp_config_path = ensure_magick_mcp_script()
             .and_then(|script| write_mcp_config(&script, DEFAULT_API_URL, &session_id))
-            .ok(); // Non-fatal: if MCP setup fails, Claude runs without permission interception
+            .ok(); // Non-fatal: if MCP setup fails, Claude runs without MCP integration
 
         self.mcp_config_path = mcp_config_path.clone();
 
