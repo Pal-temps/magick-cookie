@@ -228,7 +228,7 @@ export function IdeSidebarContent() {
     const label = () => {
       if (assigned()) return assigned()!.name;
       if (inherited()) return inherited()!.name;
-      return "Aucun workflow";
+      return t("ide.noWorkflowAssigned");
     };
 
     function openEditor(e: MouseEvent) {
@@ -258,10 +258,10 @@ export function IdeSidebarContent() {
           class="ide-swf__trigger"
           onClick={toggle}
           title={assigned()
-            ? `Workflow : ${assigned()!.name}`
+            ? `${t("ide.workflow")} : ${assigned()!.name}`
             : inherited()
-              ? `Hérité du défaut : ${inherited()!.name}`
-              : "Aucun workflow assigné"}
+              ? `${t("ide.workflow")} (${t("ide.defaultWorkflow")}) : ${inherited()!.name}`
+              : t("ide.noWorkflowAssigned")}
         >
           {/* ⚡ icon */}
           <svg class={`ide-swf__bolt ${assigned() ? "ide-swf__bolt--set" : ""}`} width="10" height="10" viewBox="0 0 10 10" fill="none">
@@ -283,7 +283,7 @@ export function IdeSidebarContent() {
 
         {/* Edit button — shows only when a workflow is effective */}
         <Show when={effective()}>
-          <button class="ide-swf__edit" onClick={openEditor} title="Ouvrir l'éditeur de workflow">
+          <button class="ide-swf__edit" onClick={openEditor} title={t("ide.workflow")}>
             <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
               <path d="M8.5 1.5l2 2-7 7H1.5V8.5l7-7z" stroke="currentColor" stroke-width="1.2"/>
             </svg>
@@ -297,14 +297,14 @@ export function IdeSidebarContent() {
             onClick={(e) => { e.stopPropagation(); setOpen(false); }}
           />
           <div class="ide-swf__dropdown">
-            <div class="ide-swf__dropdown-header">Workflow de la session</div>
+            <div class="ide-swf__dropdown-header">{t("ide.workflowForSession")}</div>
 
             <button
               class={`ide-swf__opt ${!assigned() ? "ide-swf__opt--active" : ""}`}
               onClick={(e) => pick(null, e)}
             >
               <span class="ide-swf__opt-name ide-swf__opt-name--dim">
-                {inherited() ? `Hérité — ${inherited()!.name}` : "Aucun"}
+                {inherited() ? `${inherited()!.name} (${t("ide.defaultWorkflow")})` : t("ide.noWorkflowAssigned")}
               </span>
             </button>
 
@@ -334,7 +334,7 @@ export function IdeSidebarContent() {
             </For>
 
             <Show when={wfStore.workflows().length === 0}>
-              <div class="ide-swf__empty">Aucun workflow — créez-en un dans la section Workflows</div>
+              <div class="ide-swf__empty">{t("ide.noWorkflow")} — {t("ide.noWorkflowHint")}</div>
             </Show>
           </div>
         </Show>
@@ -584,7 +584,7 @@ export function IdeSidebarContent() {
             <input
               class="ide-vault-create__input"
               type="text"
-              placeholder="Nom du workflow..."
+              placeholder={t("ide.workflowName")}
               value={newName()}
               onInput={(e) => setNewName(e.currentTarget.value)}
               onKeyDown={(e) => {
