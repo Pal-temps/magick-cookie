@@ -157,6 +157,7 @@ import { createSmartReminderRoutes } from "./presentation/routes/smart-reminder.
 import { createAgentRoutes } from "./presentation/routes/agent.routes";
 import { createAiToolCallRoutes } from "./presentation/routes/ai-tool-call.routes";
 import { createAiPermissionsRoutes } from "./presentation/routes/ai-permissions.routes";
+import { createAiToolsRoutes } from "./presentation/routes/ai-tools.routes";
 import { createPushRoutes } from "./presentation/routes/push.routes";
 import { createAlarmRoutes } from "./presentation/routes/alarm.routes";
 import { createRssFeedRoutes, createRssArticleRoutes } from "./presentation/routes/rss.routes";
@@ -352,42 +353,8 @@ app.route("/api/smart-reminders", createSmartReminderRoutes(smartReminderService
 app.route("/api/agent", createAgentRoutes(agentService));
 app.route("/api/ai/tool-calls", createAiToolCallRoutes(aiToolCallService));
 app.route("/api/ai/permissions", createAiPermissionsRoutes());
+app.route("/api/ai/tools", createAiToolsRoutes(toolRegistry));
 app.get("/api/ai/budget", async (c) => c.json({ data: await llmBudgetService.getUsage() }));
-
-// ── MCP tool bridge — used by the Cookia MCP server ──────────────────────────
-
-// GET /api/ai/tools — list all registered tools in MCP inputSchema format
-app.get("/api/ai/tools", (c) => {
-  const tools = toolRegistry.all().map((t) => {
-    const properties: Record<string, unknown> = {};
-    const required: string[] = [];
-    for (const [key, param] of Object.entries(t.parameters)) {
-      properties[key] = { type: param.type, description: param.description };
-      if (param.required !== false) required.push(key);
-    }
-    return {
-      name: t.name,
-      description: t.description,
-      permissionLevel: t.permissionLevel ?? "auto",
-      inputSchema: { type: "object", properties, required },
-    };
-  });
-  return c.json({ data: tools });
-});
-
-// POST /api/ai/tools/call — dispatch a tool and return its result
-app.post("/api/ai/tools/call", async (c) => {
-  const body = await c.req.json().catch(() => null);
-  if (!body?.name || typeof body.name !== "string") {
-    return c.json({ error: "Missing tool name" }, 400);
-  }
-  const result = await toolRegistry.dispatch(
-    body.name,
-    (body.arguments ?? {}) as Record<string, unknown>,
-    { sessionId: (body.session_id as string | undefined) ?? "cookia" },
-  );
-  return c.json(result);
-});
 app.route("/api/push", createPushRoutes(pushRepo));
 app.route("/api/alarms", createAlarmRoutes(alarmService));
 app.route("/api/rss-feeds", createRssFeedRoutes(rssService));

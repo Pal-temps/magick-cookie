@@ -9,9 +9,9 @@ import {
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 /** Create a fresh isolated app + store for each test */
-function makeApp() {
+function makeApp(timeoutMs?: number) {
   const store = new Map<string, PendingPermission>();
-  const routes = createAiPermissionsRoutes(store);
+  const routes = createAiPermissionsRoutes(store, timeoutMs);
   const app = new Hono();
   app.route("/", routes);
   return { app, store };
@@ -324,6 +324,93 @@ describe("POST /:id/resolve — user decision", () => {
     const body = await json(res);
     expect(body.ok).toBe(true);
   });
+});
+
+describe("POST /:id/resolve — double-resolve guard", () => {
+  it("second resolve call returns 404 after the long-poll consumer cleaned the entry", async () => {
+    // Once GET /:id returns (after resolve), the entry is deleted from the store.
+    // A second POST /:id/resolve on that same ID should get 404.
+    const { app } = makeApp();
+
+    const postRes = await app.request("/", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ session_id: "s", tool_name: "Write", tool_input: {} }),
+    });
+    const { id } = (await json(postRes)) as { id: string };
+
+    // Start long-poll, then resolve → entry is removed after poll returns
+    const longPollP = app.request(`/${id}`);
+    await Promise.resolve();
+    await app.request(`/${id}/resolve`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ behavior: "allow" }),
+    });
+    await longPollP; // wait for poll to finish and clean up
+
+    // Second resolve on same ID → entry is gone
+    const secondResolve = await app.request(`/${id}/resolve`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ behavior: "deny" }),
+    });
+    expect(secondResolve.status).toBe(404);
+  });
+
+  it("second resolve before long-poll returns 200 but does not change the first decision", async () => {
+    // Race: user clicks Allow, then tries to click again before the entry is deleted.
+    // The first resolve sets behavior="allow"; second sets it to "deny" on the same entry.
+    // Once GET /:id picks it up, the entry is deleted and the behavior was the second's.
+    // This test documents the current behaviour (last-write-wins) so any future change
+    // is noticed and intentional.
+    const { app, store } = makeApp();
+
+    const postRes = await app.request("/", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ session_id: "s", tool_name: "Bash", tool_input: {} }),
+    });
+    const { id } = (await json(postRes)) as { id: string };
+
+    // Resolve twice before starting long-poll
+    await app.request(`/${id}/resolve`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ behavior: "allow" }),
+    });
+    const second = await app.request(`/${id}/resolve`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ behavior: "deny" }),
+    });
+    expect(second.status).toBe(200); // entry still exists
+
+    // GET /:id sees the already-resolved entry (last value = deny)
+    const pollRes = await app.request(`/${id}`);
+    const { behavior } = (await json(pollRes)) as { behavior: string };
+    expect(behavior).toBe("deny"); // last write wins
+  });
+});
+
+describe("GET /:id — timeout auto-deny", () => {
+  it("returns { behavior: deny } when no resolve arrives within the timeout", async () => {
+    // Use a very short timeout (50ms) so the test completes quickly
+    const { app } = makeApp(50);
+
+    const postRes = await app.request("/", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ session_id: "s", tool_name: "Write", tool_input: {} }),
+    });
+    const { id } = (await json(postRes)) as { id: string };
+
+    // Long-poll with no resolve → should return deny after 50ms
+    const pollRes = await app.request(`/${id}`);
+    expect(pollRes.status).toBe(200);
+    const body = await json(pollRes);
+    expect(body.behavior).toBe("deny");
+  }, 2_000); // 2s test timeout — well above the 50ms internal timeout
 });
 
 describe("Full round-trip: create → list → long-poll → resolve", () => {

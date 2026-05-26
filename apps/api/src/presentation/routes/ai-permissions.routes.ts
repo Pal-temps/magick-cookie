@@ -31,11 +31,13 @@ const resolveSchema = z.object({
 
 /**
  * Create the AI permissions routes.
- * @param store  Injectable store for unit tests. Defaults to a fresh Map.
- *               A cleanup interval (30s) is started to evict stale entries.
+ * @param store       Injectable store for unit tests. Defaults to a fresh Map.
+ * @param timeoutMs   Long-poll timeout in ms before auto-deny. Default: 29 000.
+ *                    Override in tests to avoid 29 s waits.
  */
 export function createAiPermissionsRoutes(
   store?: Map<string, PendingPermission>,
+  timeoutMs = 29_000,
 ) {
   const pending: Map<string, PendingPermission> =
     store ?? new Map<string, PendingPermission>();
@@ -112,9 +114,9 @@ export function createAiPermissionsRoutes(
       return c.json({ behavior: entry.behavior });
     }
 
-    // Block until resolved or 29s timeout
+    // Block until resolved or timeout (default 29s)
     const behavior = await new Promise<PermissionBehavior>((resolve) => {
-      const timeout = setTimeout(() => resolve("deny"), 29_000);
+      const timeout = setTimeout(() => resolve("deny"), timeoutMs);
       entry._resolve = (b) => {
         clearTimeout(timeout);
         resolve(b);
