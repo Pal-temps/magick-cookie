@@ -5,7 +5,7 @@ import { z } from "zod";
 
 export type PermissionBehavior = "allow" | "deny";
 
-interface PendingPermission {
+export interface PendingPermission {
   id: string;
   session_id: string;
   tool_name: string;
@@ -16,19 +16,6 @@ interface PendingPermission {
   /** Internal resolver for long-polling */
   _resolve?: (b: PermissionBehavior) => void;
 }
-
-const pending = new Map<string, PendingPermission>();
-
-// Cleanup entries older than 2 minutes every 30s
-setInterval(() => {
-  const cutoff = Date.now() - 120_000;
-  for (const [id, entry] of pending) {
-    if (entry.created_at < cutoff) {
-      entry._resolve?.("deny"); // unblock any waiting GET
-      pending.delete(id);
-    }
-  }
-}, 30_000);
 
 // ─── Routes ───
 
@@ -42,7 +29,28 @@ const resolveSchema = z.object({
   behavior: z.enum(["allow", "deny"]),
 });
 
-export function createAiPermissionsRoutes() {
+/**
+ * Create the AI permissions routes.
+ * @param store  Injectable store for unit tests. Defaults to a fresh Map.
+ *               A cleanup interval (30s) is started to evict stale entries.
+ */
+export function createAiPermissionsRoutes(
+  store?: Map<string, PendingPermission>,
+) {
+  const pending: Map<string, PendingPermission> =
+    store ?? new Map<string, PendingPermission>();
+
+  // Cleanup entries older than 2 minutes every 30s
+  setInterval(() => {
+    const cutoff = Date.now() - 120_000;
+    for (const [id, entry] of pending) {
+      if (entry.created_at < cutoff) {
+        entry._resolve?.("deny"); // unblock any waiting GET
+        pending.delete(id);
+      }
+    }
+  }, 30_000).unref(); // unref so it doesn't keep the process alive in tests
+
   const app = new Hono();
 
   /**

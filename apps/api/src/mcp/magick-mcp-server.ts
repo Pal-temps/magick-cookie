@@ -21,7 +21,7 @@
  */
 
 import { createInterface } from "readline";
-import path from "path";
+import { isProtectedSourcePath } from "./source-protection";
 
 const API_URL = process.env.MAGICK_API_URL ?? "http://localhost:47300";
 const SESSION_ID = process.env.MAGICK_SESSION_ID ?? "unknown";
@@ -51,36 +51,6 @@ async function fetchApiTools(): Promise<McpTool[]> {
   }
 }
 
-// ─── Source code protection ───────────────────────────────────────────────────
-
-/**
- * Returns true if a file path is within the Magick Cookie app source code
- * and should never be written by the AI.
- *
- * Protects:
- *   <APP_ROOT>/apps/desktop/src/
- *   <APP_ROOT>/apps/api/src/
- *   <APP_ROOT>/apps/desktop/src-tauri/src/
- *   <APP_ROOT>/tools/
- */
-function isProtectedSourcePath(filePath: string): boolean {
-  if (!APP_ROOT || !filePath) return false;
-  const abs = path.isAbsolute(filePath)
-    ? filePath
-    : path.resolve(process.cwd(), filePath);
-  const norm = abs.replace(/\\/g, "/");
-  const root = APP_ROOT.replace(/\\/g, "/");
-
-  const protectedDirs = [
-    `${root}/apps/desktop/src`,
-    `${root}/apps/api/src`,
-    `${root}/apps/desktop/src-tauri/src`,
-    `${root}/tools`,
-  ];
-
-  return protectedDirs.some((dir) => norm.startsWith(dir));
-}
-
 // ─── Permission logic ─────────────────────────────────────────────────────────
 
 async function handlePermissionAsk(args: {
@@ -94,7 +64,7 @@ async function handlePermissionAsk(args: {
   // ── Auto-deny writes to app source files ──────────────────────────────────
   if (toolName === "Write" || toolName === "Edit") {
     const filePath = (toolInput.file_path ?? toolInput.path ?? "") as string;
-    if (filePath && isProtectedSourcePath(filePath)) {
+    if (filePath && isProtectedSourcePath(filePath, APP_ROOT)) {
       return {
         behavior: "deny",
         message:
