@@ -499,23 +499,179 @@
   gap: 0;
 }
 
-.ide-session-wf-select {
-  margin-left: 20px;
-  margin-bottom: 4px;
-  padding: 2px 6px;
-  font-size: 10px;
-  background: var(--bg-base);
-  border: 1px solid var(--border-color);
-  border-radius: 4px;
-  color: var(--text-muted);
-  outline: none;
-  cursor: pointer;
-  max-width: 180px;
+/* ─── Session workflow picker ─── */
+
+.ide-swf {
+  position: relative;
+  padding: 0 6px 5px 20px;
 }
 
-.ide-session-wf-select:focus {
+.ide-swf__row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.ide-swf__icon {
+  color: var(--text-muted);
+  flex-shrink: 0;
+  opacity: 0.6;
+}
+
+/* pill button */
+.ide-swf__pill {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px 2px 6px;
+  border-radius: 999px;
+  font-size: 10px;
+  cursor: pointer;
+  transition: all 0.12s;
+  text-align: left;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.ide-swf__pill--set {
+  background: color-mix(in srgb, var(--accent-primary) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent-primary) 35%, transparent);
+  color: var(--accent-primary);
+}
+
+.ide-swf__pill--inherited {
+  background: transparent;
+  border: 1px dashed var(--border-color);
+  color: var(--text-muted);
+}
+
+.ide-swf__pill:hover {
   border-color: var(--accent-primary);
-  color: var(--text-secondary);
+  color: var(--accent-primary);
+}
+
+.ide-swf__pill-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ide-swf__pill-none {
+  flex: 1;
+  font-style: italic;
+  opacity: 0.6;
+}
+
+.ide-swf__pill-tag {
+  font-size: 9px;
+  opacity: 0.5;
+  flex-shrink: 0;
+}
+
+.ide-swf__chevron {
+  flex-shrink: 0;
+  opacity: 0.5;
+  transition: transform 0.1s;
+}
+
+/* edit pencil button */
+.ide-swf__edit {
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity 0.1s, background 0.1s;
+}
+
+.ide-swf:hover .ide-swf__edit {
+  opacity: 1;
+}
+
+.ide-swf__edit:hover {
+  background: var(--bg-elevated);
+  color: var(--accent-primary);
+}
+
+/* dropdown */
+.ide-swf__dropdown {
+  position: absolute;
+  left: 16px;
+  right: 0;
+  top: calc(100% + 2px);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+  z-index: 201;
+  overflow: hidden;
+  padding: 3px 0;
+  animation: fadeIn 0.08s ease;
+}
+
+.ide-swf__sep {
+  height: 1px;
+  background: var(--border-color);
+  margin: 3px 0;
+}
+
+.ide-swf__opt {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  width: 100%;
+  padding: 5px 10px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.08s;
+}
+
+.ide-swf__opt:hover {
+  background: var(--bg-elevated);
+}
+
+.ide-swf__opt--active {
+  background: color-mix(in srgb, var(--accent-primary) 10%, transparent);
+}
+
+.ide-swf__opt--active .ide-swf__opt-name {
+  color: var(--accent-primary);
+}
+
+.ide-swf__opt-name {
+  font-size: 11px;
+  color: var(--text-primary);
+  line-height: 1.3;
+}
+
+.ide-swf__opt-name--dim {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.ide-swf__opt-desc {
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-top: 1px;
+  line-height: 1.3;
+}
+
+.ide-swf__empty {
+  padding: 8px 10px;
+  font-size: 10px;
+  color: var(--text-muted);
+  font-style: italic;
 }
 
 .ide-session-item__rename {

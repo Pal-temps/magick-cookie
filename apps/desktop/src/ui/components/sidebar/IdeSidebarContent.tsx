@@ -1,4 +1,5 @@
 import { Show, For, createSignal, onMount } from "solid-js";
+import { invoke } from "@tauri-apps/api/core";
 import { vaultService } from "../../../application/services/vaultService";
 import { useIdeStore } from "../../../application/stores/ideStore";
 import { useSnippetStore } from "../../../application/stores/snippetStore";
@@ -206,6 +207,120 @@ export function IdeSidebarContent() {
     );
   }
 
+  // ─── Session Workflow Picker ───
+  function SessionWorkflowPicker(props: { sessionId: string }) {
+    const wfStore = useWorkflowStore();
+    const [open, setOpen] = createSignal(false);
+
+    const assigned  = () => wfStore.getWorkflowForSession(props.sessionId);
+    const inherited = () => wfStore.activeWorkflow();
+    const effective = () => assigned() ?? inherited();
+
+    function openEditor(e: MouseEvent) {
+      e.stopPropagation();
+      const wf = effective();
+      if (wf) {
+        wfStore.setEditingWorkflowId(wf.id);
+        if (!ide.codeDrawerOpen()) ide.toggleCodeDrawer();
+      }
+    }
+
+    function toggle(e: MouseEvent) {
+      e.stopPropagation();
+      setOpen((v) => !v);
+    }
+
+    function pick(id: string | null, e: MouseEvent) {
+      e.stopPropagation();
+      wfStore.assignWorkflowToSession(props.sessionId, id);
+      setOpen(false);
+    }
+
+    return (
+      <div class="ide-swf" onClick={(e) => e.stopPropagation()}>
+        <div class="ide-swf__row">
+          {/* small lightning bolt icon */}
+          <svg class="ide-swf__icon" width="9" height="9" viewBox="0 0 9 9" fill="none">
+            <path d="M5.5 1L2 5h3L3.5 8.5 7 4H4L5.5 1Z" fill="currentColor" />
+          </svg>
+
+          <button
+            class={`ide-swf__pill ${assigned() ? "ide-swf__pill--set" : "ide-swf__pill--inherited"}`}
+            onClick={toggle}
+            title={assigned()
+              ? `Workflow: ${assigned()!.name} — cliquer pour changer`
+              : inherited()
+                ? `Hérité: ${inherited()!.name} — cliquer pour surcharger`
+                : "Aucun workflow — cliquer pour assigner"}
+          >
+            <Show when={assigned()} fallback={
+              <Show when={inherited()} fallback={
+                <span class="ide-swf__pill-none">aucun workflow</span>
+              }>
+                <span class="ide-swf__pill-name">{inherited()!.name}</span>
+                <span class="ide-swf__pill-tag">↑</span>
+              </Show>
+            }>
+              <span class="ide-swf__pill-name">{assigned()!.name}</span>
+            </Show>
+            <svg class="ide-swf__chevron" width="7" height="7" viewBox="0 0 8 8" fill="none">
+              <path d="M1.5 2.5L4 5.5L6.5 2.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+            </svg>
+          </button>
+
+          <Show when={effective()}>
+            <button class="ide-swf__edit" onClick={openEditor} title="Modifier le workflow">
+              <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
+                <path d="M8.5 1.5l2 2-7 7H1.5V8.5l7-7z" stroke="currentColor" stroke-width="1.2" />
+              </svg>
+            </button>
+          </Show>
+        </div>
+
+        <Show when={open()}>
+          {/* backdrop */}
+          <div
+            style={{ position: "fixed", inset: "0", "z-index": "200" }}
+            onClick={(e) => { e.stopPropagation(); setOpen(false); }}
+          />
+          <div class="ide-swf__dropdown">
+            {/* Inherited / none option */}
+            <button
+              class={`ide-swf__opt ${!assigned() ? "ide-swf__opt--active" : ""}`}
+              onClick={(e) => pick(null, e)}
+            >
+              <span class="ide-swf__opt-name ide-swf__opt-name--dim">
+                {inherited() ? `↑ Hérité — ${inherited()!.name}` : "— Aucun workflow —"}
+              </span>
+            </button>
+
+            <Show when={wfStore.workflows().length > 0}>
+              <div class="ide-swf__sep" />
+            </Show>
+
+            <For each={wfStore.workflows()}>
+              {(wf) => (
+                <button
+                  class={`ide-swf__opt ${assigned()?.id === wf.id ? "ide-swf__opt--active" : ""}`}
+                  onClick={(e) => pick(wf.id, e)}
+                >
+                  <span class="ide-swf__opt-name">{wf.name}</span>
+                  <Show when={wf.description}>
+                    <span class="ide-swf__opt-desc">{wf.description}</span>
+                  </Show>
+                </button>
+              )}
+            </For>
+
+            <Show when={wfStore.workflows().length === 0}>
+              <div class="ide-swf__empty">Aucun workflow créé</div>
+            </Show>
+          </div>
+        </Show>
+      </div>
+    );
+  }
+
   // ─── Sessions List ───
   function SessionsList() {
     const cliStore = useCliTabStore();
@@ -260,60 +375,46 @@ export function IdeSidebarContent() {
         </For>
         {/* AI sessions */}
         <For each={sessionList()}>
-          {(session) => {
-            const wfStore = useWorkflowStore();
-            const sessionWf = () => wfStore.getWorkflowForSession(session.id);
-            return (
-              <div class="ide-session-wrap">
-                <div
-                  class={`ide-session-item ${ai.activeSessionId() === session.id ? "ide-session-item--active" : ""}`}
-                  onClick={() => ai.switchSession(session.id)}
-                  onDblClick={(e) => { e.stopPropagation(); startRename(session.id, sessionDisplayName(session)); }}
-                >
-                  <span class={`cc-status-dot ${session.phase === "ready" ? "cc-status-dot--ready" : session.isStreaming ? "cc-status-dot--active" : ""}`} />
-                  <Show when={editingId() === session.id} fallback={
-                    <span class="ide-session-item__name" title={t("ide.dblClickRename")}>{sessionDisplayName(session)}</span>
-                  }>
-                    <input
-                      class="ide-session-item__rename"
-                      type="text"
-                      value={editValue()}
-                      onInput={(e) => setEditValue(e.currentTarget.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") commitRename(session.id);
-                        if (e.key === "Escape") setEditingId(null);
-                      }}
-                      onBlur={() => commitRename(session.id)}
-                      onClick={(e) => e.stopPropagation()}
-                      ref={(el) => requestAnimationFrame(() => el.focus())}
-                    />
-                  </Show>
-                  <span class="ide-session-item__badge">
-                    {session.provider.toLowerCase().includes("claude") ? "CC" :
-                     session.provider.toLowerCase().includes("openai") ? "GPT" :
-                     session.provider.toLowerCase().includes("ollama") ? "OL" :
-                     session.provider.slice(0, 2).toUpperCase()}
-                  </span>
-                </div>
-                {/* Workflow selector per session */}
-                <select
-                  class="ide-session-wf-select"
-                  value={sessionWf()?.id ?? ""}
-                  onChange={(e) => {
-                    e.stopPropagation();
-                    wfStore.assignWorkflowToSession(session.id, e.currentTarget.value || null);
-                  }}
-                  onClick={(e) => e.stopPropagation()}
-                  title="Workflow pour cette session"
-                >
-                  <option value="">— {wfStore.activeWorkflow() ? `defaut: ${wfStore.activeWorkflow()!.name}` : "aucun workflow"} —</option>
-                  <For each={wfStore.workflows()}>
-                    {(w) => <option value={w.id}>{w.name}</option>}
-                  </For>
-                </select>
+          {(session) => (
+            <div class="ide-session-wrap">
+              <div
+                class={`ide-session-item ${ai.activeSessionId() === session.id ? "ide-session-item--active" : ""}`}
+                onClick={() => ai.switchSession(session.id)}
+                onDblClick={(e) => { e.stopPropagation(); startRename(session.id, sessionDisplayName(session)); }}
+              >
+                <span class={`cc-status-dot ${
+                  session.isStreaming ? "cc-status-dot--active" :
+                  session.phase === "terminated" ? "cc-status-dot--terminated" :
+                  session.phase === "ready" ? "cc-status-dot--ready" : ""
+                }`} />
+                <Show when={editingId() === session.id} fallback={
+                  <span class="ide-session-item__name" title={t("ide.dblClickRename")}>{sessionDisplayName(session)}</span>
+                }>
+                  <input
+                    class="ide-session-item__rename"
+                    type="text"
+                    value={editValue()}
+                    onInput={(e) => setEditValue(e.currentTarget.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") commitRename(session.id);
+                      if (e.key === "Escape") setEditingId(null);
+                    }}
+                    onBlur={() => commitRename(session.id)}
+                    onClick={(e) => e.stopPropagation()}
+                    ref={(el) => requestAnimationFrame(() => el.focus())}
+                  />
+                </Show>
+                <span class="ide-session-item__badge">
+                  {session.provider.toLowerCase().includes("claude") ? "CC" :
+                   session.provider.toLowerCase().includes("openai") ? "GPT" :
+                   session.provider.toLowerCase().includes("ollama") ? "OL" :
+                   session.provider.slice(0, 2).toUpperCase()}
+                </span>
               </div>
-            );
-          }}
+              {/* Modern workflow picker */}
+              <SessionWorkflowPicker sessionId={session.id} />
+            </div>
+          )}
         </For>
         <Show when={cliStore.cliTabs().length === 0 && sessionList().length === 0}>
           <div style={{ padding: "8px 0", "font-size": "11px", color: "var(--text-muted)" }}>
