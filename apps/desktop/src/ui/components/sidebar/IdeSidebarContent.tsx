@@ -215,7 +215,12 @@ export function IdeSidebarContent() {
 
     async function newSession() {
       await ai.fetchProviders();
-      const cwd = ide.projectPath() ?? ".";
+      const cwd = ide.projectPath();
+      if (!cwd) {
+        // No project open — fall back to terminal so the user can set one
+        cliStore.launchCliTerminal();
+        return;
+      }
       try {
         await ai.startSession({ provider: "claude-cli", model: "", cwd });
       } catch (e) {

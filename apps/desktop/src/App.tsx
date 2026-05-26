@@ -40,6 +40,7 @@ import { CommandPalette } from "./ui/components/common/CommandPalette";
 import { FocusOverlay } from "./ui/components/common/FocusOverlay";
 import { ConfirmDialog } from "./ui/components/common/ConfirmDialog";
 import { AiActivityIndicator } from "./ui/components/common/AiActivityIndicator";
+import { PermissionDialog } from "./ui/components/ide/PermissionDialog";
 import { QuickCapture } from "./ui/components/capture/QuickCapture";
 import { initNotifications, notify } from "./infrastructure/tauri/notifications";
 import { ensureVaultStructure, syncConfigsToVault } from "./application/services/vaultSyncService";
@@ -311,6 +312,7 @@ export function App() {
     <QuickCapture />
     <ConfirmDialog />
     <AiActivityIndicator />
+    <PermissionDialog />
     <Show when={!isDesktopMode()} fallback={<DesktopWidgets />}>
       <AppLayout>
         <Suspense fallback={<div class="view-loading" />}>

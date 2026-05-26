@@ -149,7 +149,8 @@ export function AiTerminalTabs(props: AiTerminalTabsProps) {
   }
 
   async function launchSession(providerId: string, model: string, apiKey?: string, baseUrl?: string): Promise<string> {
-    const cwd = ide.projectPath() ?? ".";
+    const cwd = ide.projectPath();
+    if (!cwd) throw new Error("Ouvre un projet avant de démarrer une session IA.");
     const sessionId = await ai.startSession({
       provider: providerId, model, cwd,
       api_key: apiKey || null, base_url: baseUrl || null,

@@ -196,7 +196,8 @@ function SessionHistorySection() {
   }
 
   async function handleResume(sessionId: string, provider: string, model: string) {
-    const cwd = ide.projectPath() ?? ".";
+    const cwd = ide.projectPath();
+    if (!cwd) return;
     await ai.startSession({
       provider,
       model,

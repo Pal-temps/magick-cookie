@@ -33,6 +33,10 @@ pub struct SessionConfig {
     pub temperature: Option<f32>,
     pub max_tokens: Option<u32>,
     pub resume_session_id: Option<String>,
+    /// Tauri session id — injected by ai_start_session, not sent from frontend.
+    /// Used by the MCP permission server to identify the session in the API.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<String>,
 }
 
 // ─── Image data ───

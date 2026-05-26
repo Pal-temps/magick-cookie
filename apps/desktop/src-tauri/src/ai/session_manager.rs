@@ -172,6 +172,11 @@ pub fn ai_start_session(
     config: SessionConfig,
 ) -> Result<String, String> {
     let session_id = uuid::Uuid::new_v4().to_string();
+
+    // Inject session_id into config so adapters (e.g. claude-cli MCP server) can use it
+    let mut config = config;
+    config.session_id = Some(session_id.clone());
+
     let mut adapter = create_adapter(&provider, &config)?;
 
     // Create channel for adapter → session manager

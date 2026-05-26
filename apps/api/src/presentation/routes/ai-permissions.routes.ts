@@ -1,0 +1,138 @@
+import { Hono } from "hono";
+import { z } from "zod";
+
+// ─── In-memory store (no DB needed — permissions are ephemeral) ───
+
+export type PermissionBehavior = "allow" | "deny";
+
+interface PendingPermission {
+  id: string;
+  session_id: string;
+  tool_name: string;
+  tool_input: unknown;
+  created_at: number;
+  /** Set when resolved; null while waiting */
+  behavior: PermissionBehavior | null;
+  /** Internal resolver for long-polling */
+  _resolve?: (b: PermissionBehavior) => void;
+}
+
+const pending = new Map<string, PendingPermission>();
+
+// Cleanup entries older than 2 minutes every 30s
+setInterval(() => {
+  const cutoff = Date.now() - 120_000;
+  for (const [id, entry] of pending) {
+    if (entry.created_at < cutoff) {
+      entry._resolve?.("deny"); // unblock any waiting GET
+      pending.delete(id);
+    }
+  }
+}, 30_000);
+
+// ─── Routes ───
+
+const createSchema = z.object({
+  session_id: z.string().min(1).max(200),
+  tool_name: z.string().min(1).max(100),
+  tool_input: z.unknown(),
+});
+
+const resolveSchema = z.object({
+  behavior: z.enum(["allow", "deny"]),
+});
+
+export function createAiPermissionsRoutes() {
+  const app = new Hono();
+
+  /**
+   * POST /api/ai/permissions
+   * Called by the MCP permission server when Claude CLI needs a decision.
+   * Returns { id } immediately.
+   */
+  app.post("/", async (c) => {
+    const body = await c.req.json().catch(() => null);
+    const parsed = createSchema.safeParse(body);
+    if (!parsed.success) {
+      return c.json({ error: "Invalid body", details: parsed.error.issues }, 400);
+    }
+    const { session_id, tool_name, tool_input } = parsed.data;
+    const id = crypto.randomUUID();
+
+    pending.set(id, {
+      id,
+      session_id,
+      tool_name,
+      tool_input,
+      created_at: Date.now(),
+      behavior: null,
+    });
+
+    return c.json({ id }, 201);
+  });
+
+  /**
+   * GET /api/ai/permissions
+   * Returns all pending (unresolved) permission requests — for frontend polling.
+   */
+  app.get("/", (c) => {
+    const items = Array.from(pending.values())
+      .filter((p) => p.behavior === null)
+      .map(({ id, session_id, tool_name, tool_input, created_at }) => ({
+        id, session_id, tool_name, tool_input, created_at,
+      }));
+    return c.json({ data: items });
+  });
+
+  /**
+   * GET /api/ai/permissions/:id
+   * Long-polls until the request is resolved or times out (29s → deny).
+   * Called by the MCP permission server while waiting for the user.
+   */
+  app.get("/:id", async (c) => {
+    const { id } = c.req.param();
+    const entry = pending.get(id);
+    if (!entry) return c.json({ error: "Not found" }, 404);
+
+    // Already resolved (race: frontend was fast)
+    if (entry.behavior !== null) {
+      pending.delete(id);
+      return c.json({ behavior: entry.behavior });
+    }
+
+    // Block until resolved or 29s timeout
+    const behavior = await new Promise<PermissionBehavior>((resolve) => {
+      const timeout = setTimeout(() => resolve("deny"), 29_000);
+      entry._resolve = (b) => {
+        clearTimeout(timeout);
+        resolve(b);
+      };
+    });
+
+    pending.delete(id);
+    return c.json({ behavior });
+  });
+
+  /**
+   * POST /api/ai/permissions/:id/resolve
+   * Called by the frontend when the user clicks Allow or Deny.
+   */
+  app.post("/:id/resolve", async (c) => {
+    const { id } = c.req.param();
+    const entry = pending.get(id);
+    if (!entry) return c.json({ error: "Not found" }, 404);
+
+    const body = await c.req.json().catch(() => null);
+    const parsed = resolveSchema.safeParse(body);
+    if (!parsed.success) {
+      return c.json({ error: "Invalid body" }, 400);
+    }
+
+    entry.behavior = parsed.data.behavior;
+    entry._resolve?.(parsed.data.behavior);
+
+    return c.json({ ok: true });
+  });
+
+  return app;
+}

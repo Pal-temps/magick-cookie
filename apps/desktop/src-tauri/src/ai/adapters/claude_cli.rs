@@ -1,4 +1,5 @@
 use std::io::{BufRead, BufReader};
+use std::path::PathBuf;
 use std::process::{Child, Command, Stdio};
 use std::sync::{mpsc, Arc, Mutex};
 use std::thread;
@@ -6,10 +7,61 @@ use std::thread;
 use crate::ai::adapter::BackendAdapter;
 use crate::ai::types::*;
 
+/// MCP permission server script — embedded at compile time, extracted to a temp file on first use.
+const PERMISSION_MCP_SCRIPT: &str =
+    include_str!("../../../../../api/src/mcp/permission-server.ts");
+
+/// Default API URL for the permission MCP server.
+const DEFAULT_API_URL: &str = "http://localhost:3000";
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+/// Write the MCP permission server script to a temp file (idempotent — reuses existing).
+/// Returns the path to the script.
+fn ensure_permission_script() -> Result<PathBuf, String> {
+    let path = std::env::temp_dir().join("magick-permission-mcp-server.ts");
+    if !path.exists() {
+        std::fs::write(&path, PERMISSION_MCP_SCRIPT)
+            .map_err(|e| format!("Failed to write MCP permission script: {e}"))?;
+    }
+    Ok(path)
+}
+
+/// Write an mcp-config.json for the permission server and return its path.
+fn write_mcp_config(script_path: &PathBuf, api_url: &str, session_id: &str) -> Result<PathBuf, String> {
+    let config = serde_json::json!({
+        "mcpServers": {
+            "magick_perm": {
+                "command": "bun",
+                "args": ["run", script_path.to_str().unwrap_or("")],
+                "env": {
+                    "MAGICK_API_URL": api_url,
+                    "MAGICK_SESSION_ID": session_id
+                }
+            }
+        }
+    });
+
+    // Use session_id in filename to avoid collisions between sessions
+    let config_path = std::env::temp_dir()
+        .join(format!("magick-mcp-config-{}.json", &session_id[..8.min(session_id.len())]));
+
+    std::fs::write(&config_path, config.to_string())
+        .map_err(|e| format!("Failed to write MCP config: {e}"))?;
+
+    Ok(config_path)
+}
+
+// ─── Adapter ──────────────────────────────────────────────────────────────────
+
 /// Claude Code CLI adapter using `--resume` for multi-turn conversations.
 ///
-/// Each message spawns a new `claude --print --verbose --output-format stream-json --resume <id>`
+/// Each message spawns a new `claude --print --output-format stream-json --resume <id>`
 /// process. Claude CLI handles session persistence internally.
+///
+/// The `--permission-prompt-tool mcp__magick_perm__ask` flag delegates all
+/// permission decisions to a local MCP server, which in turn calls the Magick
+/// Cookie API so the user can approve/deny in the UI.
 pub struct ClaudeCliAdapter {
     binary: String,
     cwd: String,
@@ -21,6 +73,8 @@ pub struct ClaudeCliAdapter {
     /// Channel to forward events to the session manager
     event_tx: Option<mpsc::Sender<AdapterEvent>>,
     alive: bool,
+    /// Path to the temp mcp-config.json (cleaned up on stop)
+    mcp_config_path: Option<PathBuf>,
 }
 
 impl ClaudeCliAdapter {
@@ -33,6 +87,7 @@ impl ClaudeCliAdapter {
             current_process: None,
             event_tx: None,
             alive: false,
+            mcp_config_path: None,
         }
     }
 
@@ -61,6 +116,7 @@ impl ClaudeCliAdapter {
         model: &str,
         prompt: &str,
         session_id: Option<&str>,
+        mcp_config_path: Option<&PathBuf>,
         event_tx: mpsc::Sender<AdapterEvent>,
         cli_session_id: Arc<Mutex<Option<String>>>,
     ) -> Result<Child, String> {
@@ -69,9 +125,24 @@ impl ClaudeCliAdapter {
             "--verbose".to_string(),
             "--output-format".to_string(),
             "stream-json".to_string(),
-            "-p".to_string(),
-            prompt.to_string(),
         ];
+
+        // ── Permission control ────────────────────────────────────────────────
+        // Route all permission decisions through our MCP permission server.
+        // Nothing is blocked outright — every sensitive action surfaces as a
+        // dialog in the Magick Cookie UI for the user to allow or deny.
+        if let Some(config_path) = mcp_config_path {
+            if let Some(path_str) = config_path.to_str() {
+                args.push("--permission-prompt-tool".to_string());
+                args.push("mcp__magick_perm__ask".to_string());
+                args.push("--mcp-config".to_string());
+                args.push(path_str.to_string());
+            }
+        }
+
+        // ── Prompt & session ──────────────────────────────────────────────────
+        args.push("-p".to_string());
+        args.push(prompt.to_string());
 
         if !model.is_empty() {
             args.push("--model".to_string());
@@ -159,6 +230,14 @@ impl BackendAdapter for ClaudeCliAdapter {
             *self.cli_session_id.lock().unwrap() = Some(resume_id.clone());
         }
 
+        // ── Set up MCP permission server ──────────────────────────────────────
+        let session_id = config.session_id.clone().unwrap_or_else(|| "unknown".to_string());
+        let mcp_config_path = ensure_permission_script()
+            .and_then(|script| write_mcp_config(&script, DEFAULT_API_URL, &session_id))
+            .ok(); // Non-fatal: if MCP setup fails, Claude runs without permission interception
+
+        self.mcp_config_path = mcp_config_path.clone();
+
         // Spawn an initial turn to get the session_id and init event
         let child = Self::spawn_turn(
             &binary,
@@ -166,6 +245,7 @@ impl BackendAdapter for ClaudeCliAdapter {
             &config.model,
             "Reponds en une phrase: tu es pret.",
             config.resume_session_id.as_deref(),
+            mcp_config_path.as_ref(),
             event_tx,
             self.cli_session_id.clone(),
         )?;
@@ -187,7 +267,6 @@ impl BackendAdapter for ClaudeCliAdapter {
 
         // Kill any previous process that's still running
         if let Some(mut prev) = self.current_process.take() {
-            // Try to wait, kill if still running
             match prev.try_wait() {
                 Ok(Some(_)) => {} // already exited
                 _ => { let _ = prev.kill(); let _ = prev.wait(); }
@@ -203,6 +282,7 @@ impl BackendAdapter for ClaudeCliAdapter {
             &self.model,
             &content,
             session_id.as_deref(),
+            self.mcp_config_path.as_ref(),
             tx,
             self.cli_session_id.clone(),
         )?;
@@ -216,8 +296,9 @@ impl BackendAdapter for ClaudeCliAdapter {
         _request_id: String,
         _allowed: bool,
     ) -> Result<(), String> {
-        // Permission handling is not supported in --print/--resume mode
-        // Claude CLI handles permissions based on --permission-mode flag
+        // Permission flow is now handled via the MCP permission server:
+        // Claude CLI → MCP server → API → frontend dialog → API resolve → MCP server → Claude CLI
+        // The ai_respond_permission Tauri command is no longer needed for claude-cli.
         Ok(())
     }
 
@@ -243,6 +324,10 @@ impl BackendAdapter for ClaudeCliAdapter {
             let _ = child.kill();
             let _ = child.wait();
         }
+        // Clean up temp mcp-config file
+        if let Some(ref path) = self.mcp_config_path {
+            let _ = std::fs::remove_file(path);
+        }
         self.alive = false;
         Ok(())
     }
@@ -258,7 +343,7 @@ impl BackendAdapter for ClaudeCliAdapter {
     fn capabilities(&self) -> AdapterCapabilities {
         AdapterCapabilities {
             supports_tools: true,
-            supports_permissions: false, // not in --print mode
+            supports_permissions: true, // now handled via MCP permission server
             supports_streaming: true,
             supports_images: false, // TODO: could pass via file
             supports_file_access: true,
@@ -284,7 +369,6 @@ fn parse_ndjson_line(line: &str) -> Vec<AdapterEvent> {
                 let tools = json.get("tools")
                     .and_then(|v| v.as_array())
                     .map(|arr| arr.iter().filter_map(|t| {
-                        // tools can be strings or objects with "name" field
                         t.as_str().map(|s| s.to_string())
                             .or_else(|| t.get("name").and_then(|n| n.as_str()).map(|s| s.to_string()))
                     }).collect())
@@ -303,7 +387,6 @@ fn parse_ndjson_line(line: &str) -> Vec<AdapterEvent> {
 
             let mut events = vec![];
 
-            // Extract tool_use blocks
             if let Some(blocks) = json.get("message")
                 .and_then(|m| m.get("content"))
                 .and_then(|c| c.as_array())
@@ -331,18 +414,7 @@ fn parse_ndjson_line(line: &str) -> Vec<AdapterEvent> {
                 .and_then(|v| v.as_str())
                 .map(|s| s.to_string());
 
-            let mut events = vec![];
-
-            // Extract final result text if present
-            if let Some(result_text) = json.get("result").and_then(|v| v.as_str()) {
-                if !result_text.is_empty() {
-                    // Only emit if we haven't already from an "assistant" message
-                    // The result field is a summary; the assistant message has the full content
-                }
-            }
-
-            events.push(AdapterEvent::TurnComplete { stop_reason });
-            events
+            vec![AdapterEvent::TurnComplete { stop_reason }]
         }
 
         "tool_use" => {

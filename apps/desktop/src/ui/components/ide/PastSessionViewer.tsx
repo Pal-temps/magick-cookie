@@ -148,7 +148,8 @@ export function PastSessionViewer() {
     const data = loaded();
     if (!data) return;
     const m = meta();
-    const cwd = ide.projectPath() ?? ".";
+    const cwd = ide.projectPath();
+    if (!cwd) return;
     ai.closePastSession();
     await ai.startSession({
       provider: m?.provider ?? "claude-cli",
