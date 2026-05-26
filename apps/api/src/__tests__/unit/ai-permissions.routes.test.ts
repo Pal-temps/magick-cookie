@@ -102,6 +102,40 @@ describe("GET / — list pending permissions", () => {
     expect(body.data).toEqual([]);
   });
 
+  it("filters by session_id query param", async () => {
+    const { app } = makeApp();
+
+    // Create two requests for different sessions
+    const postA = await app.request("/", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ session_id: "session-A", tool_name: "Write", tool_input: {} }),
+    });
+    await app.request("/", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ session_id: "session-B", tool_name: "Bash", tool_input: {} }),
+    });
+    const { id: idA } = (await json(postA)) as { id: string };
+
+    // ?session_id=session-A should only return that session's request
+    const resA = await app.request("/?session_id=session-A");
+    const { data: dataA } = (await resA.json()) as { data: { id: string; session_id: string }[] };
+    expect(dataA).toHaveLength(1);
+    expect(dataA[0].id).toBe(idA);
+    expect(dataA[0].session_id).toBe("session-A");
+
+    // ?session_id=session-C (no match) → empty
+    const resC = await app.request("/?session_id=session-C");
+    const { data: dataC } = (await resC.json()) as { data: unknown[] };
+    expect(dataC).toHaveLength(0);
+
+    // No filter → both
+    const resAll = await app.request("/");
+    const { data: dataAll } = (await resAll.json()) as { data: unknown[] };
+    expect(dataAll).toHaveLength(2);
+  });
+
   it("returns pending items without resolved ones", async () => {
     const { app, store } = makeApp();
 

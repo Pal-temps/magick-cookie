@@ -15,16 +15,32 @@ const MAGICK_MCP_SCRIPT: &str =
 /// Default API URL (must match the Bun API server port).
 const DEFAULT_API_URL: &str = "http://localhost:47300";
 
-/// Magick Cookie project root — derived from Cargo.toml location at compile time.
-/// Used to auto-deny writes to the app's own source code.
-const CARGO_MANIFEST_DIR: &str = env!("CARGO_MANIFEST_DIR"); // = apps/desktop/src-tauri
-
+/// Magick Cookie project root, resolved at runtime from the executable's location.
+///
+/// In development:   <project>/apps/desktop/src-tauri/target/debug/magick-cookie.exe
+///                   → 4 levels up → <project>/
+/// In production:    <install>/magick-cookie.exe  (flat, no source tree)
+///                   → returns the install dir (source protection becomes a no-op,
+///                     which is safe — the permission dialog still fires for all writes).
 fn magick_app_root() -> std::path::PathBuf {
-    // apps/desktop/src-tauri → ../../ → project root
-    std::path::Path::new(CARGO_MANIFEST_DIR)
-        .parent().unwrap_or(std::path::Path::new("."))
-        .parent().unwrap_or(std::path::Path::new("."))
-        .to_path_buf()
+    // Prefer the compile-time path in dev builds (accurate), fall back to exe dir.
+    #[cfg(debug_assertions)]
+    {
+        // apps/desktop/src-tauri → ../../ → project root
+        const CARGO_MANIFEST_DIR: &str = env!("CARGO_MANIFEST_DIR");
+        let dev_root = std::path::Path::new(CARGO_MANIFEST_DIR)
+            .parent().unwrap_or(std::path::Path::new("."))
+            .parent().unwrap_or(std::path::Path::new("."))
+            .to_path_buf();
+        if dev_root.exists() {
+            return dev_root;
+        }
+    }
+    // Runtime fallback: exe location (production, or dev if compile-time path is wrong)
+    std::env::current_exe()
+        .ok()
+        .and_then(|p| p.parent().map(|d| d.to_path_buf()))
+        .unwrap_or_else(|| std::path::PathBuf::from("."))
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -57,8 +73,10 @@ fn write_mcp_config(script_path: &PathBuf, api_url: &str, session_id: &str) -> R
         }
     });
 
+    // Use char-safe truncation to avoid panicking on multi-byte UTF-8 session IDs
+    let prefix: String = session_id.chars().take(8).collect();
     let config_path = std::env::temp_dir()
-        .join(format!("magick-mcp-config-{}.json", &session_id[..8.min(session_id.len())]));
+        .join(format!("magick-mcp-config-{}.json", prefix));
 
     std::fs::write(&config_path, config.to_string())
         .map_err(|e| format!("Failed to write MCP config: {e}"))?;
@@ -73,9 +91,9 @@ fn write_mcp_config(script_path: &PathBuf, api_url: &str, session_id: &str) -> R
 /// Each message spawns a new `claude --print --output-format stream-json --resume <id>`
 /// process. Claude CLI handles session persistence internally.
 ///
-/// The `--permission-prompt-tool mcp__magick_perm__ask` flag delegates all
-/// permission decisions to a local MCP server, which in turn calls the Magick
-/// Cookie API so the user can approve/deny in the UI.
+/// The `--permission-prompt-tool mcp__magick__ask` flag delegates all
+/// permission decisions to the combined Magick MCP server, which in turn
+/// calls the Magick Cookie API so the user can approve/deny in the UI.
 pub struct ClaudeCliAdapter {
     binary: String,
     cwd: String,

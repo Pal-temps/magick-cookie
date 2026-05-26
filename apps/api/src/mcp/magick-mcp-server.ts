@@ -157,6 +157,13 @@ rl.on("line", async (raw) => {
 
     // ── Tool list ──────────────────────────────────────────────────────────────
     case "tools/list": {
+      // Lazy-fetch on first call to handle the initialize → tools/list race:
+      // Claude CLI sends tools/list almost immediately after initialize, before
+      // the async fetchApiTools() from the initialize handler can complete.
+      if (apiTools.length === 0) {
+        apiTools = await fetchApiTools();
+      }
+
       // Permission tool (always present)
       const permTool = {
         name: "ask",

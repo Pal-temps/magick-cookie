@@ -15,6 +15,7 @@
 
 import { createSignal, onCleanup, Show } from "solid-js";
 import { API_BASE } from "../../../infrastructure/config";
+import { useAiSessionStore } from "../../../application/stores/aiSessionStore";
 
 interface PendingPermission {
   id: string;
@@ -26,9 +27,17 @@ interface PendingPermission {
 
 // ─── Polling ──────────────────────────────────────────────────────────────────
 
-async function fetchPending(): Promise<PendingPermission[]> {
+/**
+ * Fetch pending permissions for a specific session.
+ * Passing the session_id prevents cross-contamination when multiple
+ * Cookia windows are open at the same time.
+ */
+async function fetchPending(sessionId: string | null): Promise<PendingPermission[]> {
   try {
-    const res = await fetch(`${API_BASE}/ai/permissions`);
+    const url = sessionId
+      ? `${API_BASE}/ai/permissions?session_id=${encodeURIComponent(sessionId)}`
+      : `${API_BASE}/ai/permissions`;
+    const res = await fetch(url);
     if (!res.ok) return [];
     const data = (await res.json()) as { data: PendingPermission[] };
     return data.data ?? [];
@@ -91,13 +100,15 @@ function inputSummary(tool_name: string, tool_input: unknown): string | null {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function PermissionDialog() {
+  const { activeSessionId } = useAiSessionStore();
   const [current, setCurrent] = createSignal<PendingPermission | null>(null);
   const [resolving, setResolving] = createSignal(false);
 
-  // Poll every 600ms — lightweight since it's just a list endpoint
+  // Poll every 600ms — lightweight since it's just a list endpoint.
+  // Filter by activeSessionId to avoid showing another window's permissions.
   const interval = setInterval(async () => {
     if (current() !== null) return; // already showing a dialog
-    const items = await fetchPending();
+    const items = await fetchPending(activeSessionId());
     if (items.length > 0) {
       setCurrent(items[0]);
     }

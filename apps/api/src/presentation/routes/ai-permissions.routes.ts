@@ -80,12 +80,16 @@ export function createAiPermissionsRoutes(
   });
 
   /**
-   * GET /api/ai/permissions
-   * Returns all pending (unresolved) permission requests — for frontend polling.
+   * GET /api/ai/permissions[?session_id=<id>]
+   * Returns pending (unresolved) permission requests.
+   * Optional ?session_id query param filters to a single session —
+   * prevents cross-session contamination when multiple Cookia windows are open.
    */
   app.get("/", (c) => {
+    const filterSession = c.req.query("session_id");
     const items = Array.from(pending.values())
       .filter((p) => p.behavior === null)
+      .filter((p) => !filterSession || p.session_id === filterSession)
       .map(({ id, session_id, tool_name, tool_input, created_at }) => ({
         id, session_id, tool_name, tool_input, created_at,
       }));
