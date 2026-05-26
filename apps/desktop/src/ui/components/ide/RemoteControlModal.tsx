@@ -1,20 +1,15 @@
 import { createSignal, createEffect, onCleanup, Show } from "solid-js";
-import { invoke } from "@tauri-apps/api/core";
 import { API_BASE } from "../../../infrastructure/config";
+import { useAiSessionStore } from "../../../application/stores/aiSessionStore";
+import type { RemoteSession } from "../../../application/stores/aiSessionStore";
 import { formatSessionInfo } from "./remoteControl";
 
 interface RemoteControlModalProps {
   onClose: () => void;
 }
 
-interface RemoteSession {
-  token: string;
-  relayUrl: string;
-  ttlSeconds: number;
-  expiresAt: number;
-}
-
 export function RemoteControlModal(props: RemoteControlModalProps) {
+  const { startRemoteSession, stopRemoteSession } = useAiSessionStore();
   const [session, setSession] = createSignal<RemoteSession | null>(null);
   const [error, setError] = createSignal<string | null>(null);
   const [copied, setCopied] = createSignal(false);
@@ -24,10 +19,7 @@ export function RemoteControlModal(props: RemoteControlModalProps) {
 
   async function start() {
     try {
-      const result = await invoke<RemoteSession>("ai_start_remote_session", {
-        vpsHost,
-        ttlMinutes: 30,
-      });
+      const result = await startRemoteSession(vpsHost, 30);
       setSession(result);
       setRemainingSecs(result.ttlSeconds);
     } catch (e) {
@@ -61,7 +53,7 @@ export function RemoteControlModal(props: RemoteControlModalProps) {
   async function stop() {
     const s = session();
     if (s) {
-      await invoke("ai_stop_remote_session", { token: s.token }).catch(() => {});
+      await stopRemoteSession(s.token);
     }
     props.onClose();
   }

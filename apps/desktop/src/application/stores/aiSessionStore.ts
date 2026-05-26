@@ -105,6 +105,15 @@ export interface PastSessionInfo {
   event_count: number;
 }
 
+// ─── Remote session type ───
+
+export interface RemoteSession {
+  token: string;
+  relayUrl: string;
+  ttlSeconds: number;
+  expiresAt: number;
+}
+
 // ─── State ───
 
 const [sessions, setSessions] = createSignal<Map<string, AiSession>>(new Map());
@@ -518,6 +527,26 @@ export function useAiSessionStore() {
     sessionCleanupCallbacks.push(cb);
   }
 
+  // ─── Remote session (mobile relay) ───────────────────────────────────────
+
+  /**
+   * Start a remote mobile relay session.
+   * Centralizes the `ai_start_remote_session` invoke call
+   * (previously scattered in RemoteControlModal.tsx).
+   */
+  async function startRemoteSession(vpsHost: string, ttlMinutes = 30): Promise<RemoteSession> {
+    return invoke<RemoteSession>("ai_start_remote_session", { vpsHost, ttlMinutes });
+  }
+
+  /**
+   * Stop an active remote mobile relay session.
+   * Centralizes the `ai_stop_remote_session` invoke call
+   * (previously scattered in RemoteControlModal.tsx).
+   */
+  async function stopRemoteSession(token: string): Promise<void> {
+    await invoke("ai_stop_remote_session", { token }).catch(() => {});
+  }
+
   return {
     // State
     sessions,
@@ -542,5 +571,7 @@ export function useAiSessionStore() {
     loadPastSession,
     closePastSession,
     onSessionCleanup,
+    startRemoteSession,
+    stopRemoteSession,
   };
 }

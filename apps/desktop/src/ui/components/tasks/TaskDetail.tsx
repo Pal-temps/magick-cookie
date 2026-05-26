@@ -5,7 +5,6 @@ import type { Task } from "../../../domain/models/Task";
 import { useTaskStore } from "../../../application/stores/taskStore";
 import { useSnippetStore } from "../../../application/stores/snippetStore";
 import { useViewStore } from "../../../application/stores/viewStore";
-import { api } from "../../../infrastructure/api/apiClient";
 import { Modal } from "../common/Modal";
 import { Button } from "../common/Button";
 import { AiButton } from "../common/AiButton";
@@ -32,7 +31,7 @@ function formatCommentDate(timestamp: string): string {
 }
 
 export function TaskDetail() {
-  const { selectedTask, closeTaskDetail, taskDetail, isLoadingTaskDetail } = useTaskStore();
+  const { selectedTask, closeTaskDetail, taskDetail, isLoadingTaskDetail, generateCode } = useTaskStore();
   const { createSnippet } = useSnippetStore();
   const { setViewMode } = useViewStore();
   const [generating, setGenerating] = createSignal(false);
@@ -143,17 +142,9 @@ export function TaskDetail() {
               variant="primary"
               disabled={generating() || isLoadingTaskDetail()}
               onClick={async () => {
-                const { trackAiActivity } = await import("../../../application/stores/aiActivityStore");
                 setGenerating(true);
                 try {
-                  const detail = taskDetail();
-                  const comments = detail?.comments?.map((c) => c.commentText) ?? [];
-                  const result = await trackAiActivity("Generation code IA", () =>
-                    api.post<{ title: string; code: string; language: string; explanation: string }>(
-                      "/llm/generate-code",
-                      { title: task().title, description: detail?.description ?? task().description, comments },
-                    )
-                  );
+                  const result = await generateCode(task().id);
                   if (result.code) {
                     await createSnippet({
                       title: result.title,

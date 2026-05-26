@@ -183,6 +183,26 @@ export function useTaskStore() {
     return configuredConnectors().has(source);
   }
 
+  // ─── AI ────────────────────────────────────────────────────────────────────
+
+  /**
+   * Generate code for the given task using the LLM.
+   * Centralizes the `POST /llm/generate-code` call (previously scattered in TaskDetail.tsx).
+   */
+  async function generateCode(taskId: string): Promise<{ title: string; code: string; language: string; explanation: string }> {
+    const { trackAiActivity } = await import("../stores/aiActivityStore");
+    const task = tasks().find((t) => t.id === taskId);
+    if (!task) throw new Error(`Task ${taskId} not found`);
+    const detail = taskDetail();
+    const comments = detail?.comments?.map((c) => c.commentText) ?? [];
+    return trackAiActivity("Generation code IA", () =>
+      api.post<{ title: string; code: string; language: string; explanation: string }>(
+        "/llm/generate-code",
+        { title: task.title, description: detail?.description ?? task.description, comments },
+      )
+    );
+  }
+
   return {
     tasks, totalTasks, hasMoreTasks, isLoadingMore,
     selectedTask, taskDetail, isLoadingTaskDetail, isSyncing,
@@ -191,5 +211,6 @@ export function useTaskStore() {
     setSelectedTask,
     fetchTasks, fetchUnscheduledTasks, loadMoreTasks, fetchConnectorConfigs, syncConnector,
     createTask, updateTask, openTaskDetail, closeTaskDetail, isConnectorConfigured,
+    generateCode,
   };
 }

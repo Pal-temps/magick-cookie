@@ -1,12 +1,7 @@
 import { createSignal, Show } from "solid-js";
-import { api } from "../../../infrastructure/api/apiClient";
+import { generateChangelog, type ChangelogResult } from "../../../application/services/changelogService";
 import { Button } from "../common/Button";
 import { AiButton } from "../common/AiButton";
-
-interface ChangelogResult {
-  commits: { hash: string; message: string; repo: string }[];
-  changelog: string;
-}
 
 export function ChangelogGenerator() {
   const defaultDate = (() => {
@@ -22,17 +17,11 @@ export function ChangelogGenerator() {
   const [copied, setCopied] = createSignal(false);
 
   async function handleGenerate() {
-    const { trackAiActivity } = await import("../../../application/stores/aiActivityStore");
     setLoading(true);
     setError("");
     setResult(null);
     try {
-      const body: { since: string; repo?: string } = { since: sinceDate() };
-      const r = repo().trim();
-      if (r) body.repo = r;
-      const data = await trackAiActivity("Changelog IA", () =>
-        api.post<ChangelogResult>("/changelog/generate", body)
-      );
+      const data = await generateChangelog({ since: sinceDate(), repo: repo() });
       setResult(data);
     } catch (err: any) {
       setError(err.message || "Erreur lors de la generation");
