@@ -117,6 +117,25 @@ export function AiTerminalTabs(props: AiTerminalTabsProps) {
     });
   }
 
+  async function restartSession(sessionId: string) {
+    setContextMenu(null);
+    const session = ai.sessions().get(sessionId);
+    if (!session) return;
+    const { provider, model } = session;
+    // Remove the old terminated session first
+    await ai.stopSession(sessionId);
+    // Launch a fresh one with the same provider+model
+    setLaunchError(null);
+    setLaunching(true);
+    try {
+      await launchSession(provider, model);
+    } catch (e) {
+      setLaunchError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setLaunching(false);
+    }
+  }
+
   function closeTab(tabId: string) {
     // CLI terminal?
     const isCliTab = cli.cliTabs().find((t) => t.id === tabId);
@@ -250,7 +269,11 @@ export function AiTerminalTabs(props: AiTerminalTabsProps) {
                 onClick={() => switchToTab(tab.id)}
                 onContextMenu={(e) => handleTabContextMenu(e, tab.id)}
               >
-                <span class={`cc-status-dot ${tab.isStreaming ? "cc-status-dot--active" : tab.phase === "ready" ? "cc-status-dot--ready" : ""}`} />
+                <span class={`cc-status-dot ${
+                  tab.isStreaming ? "cc-status-dot--active" :
+                  tab.phase === "terminated" ? "cc-status-dot--terminated" :
+                  tab.phase === "ready" ? "cc-status-dot--ready" : ""
+                }`} />
                 <span class="cc-terminal-tab__name">{tab.label}</span>
                 <span class="cc-terminal-tab__badge">{tab.badge}</span>
                 <button
@@ -495,8 +518,16 @@ export function AiTerminalTabs(props: AiTerminalTabsProps) {
       <Show when={contextMenu()}>
         <div class="ide-context-menu" style={{ left: `${contextMenu()!.x}px`, top: `${contextMenu()!.y}px` }} onMouseDown={(e) => e.stopPropagation()}>
           <Show when={ai.sessions().has(contextMenu()!.sessionId)}>
-            <div class="ide-context-item" onClick={() => detachSession(contextMenu()!.sessionId)}>{t("ide.detachWindow")}</div>
-            <div class="ide-context-sep" />
+            <Show when={ai.sessions().get(contextMenu()!.sessionId)?.phase === "terminated"}>
+              <div class="ide-context-item" onClick={() => restartSession(contextMenu()!.sessionId)}>
+                ↩ {t("ide.restart")}
+              </div>
+              <div class="ide-context-sep" />
+            </Show>
+            <Show when={ai.sessions().get(contextMenu()!.sessionId)?.phase !== "terminated"}>
+              <div class="ide-context-item" onClick={() => detachSession(contextMenu()!.sessionId)}>{t("ide.detachWindow")}</div>
+              <div class="ide-context-sep" />
+            </Show>
           </Show>
           <div class="ide-context-item ide-context-item--danger" onClick={() => { closeTab(contextMenu()!.sessionId); setContextMenu(null); }}>{t("common.close")}</div>
         </div>

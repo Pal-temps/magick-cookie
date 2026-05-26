@@ -516,6 +516,7 @@ export interface Dictionary {
     optional: string;
     start: string;
     detachWindow: string;
+    restart: string;
     code: string;
     backToCode: string;
     selectProjectSidebar: string;

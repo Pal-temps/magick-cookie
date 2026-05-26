@@ -516,6 +516,7 @@ export const dict: Dictionary = {
     optional: "optional",
     start: "Start",
     detachWindow: "Detach to window",
+    restart: "Restart session",
     code: "Code",
     backToCode: "Back to code",
     selectProjectSidebar: "Select a project in the sidebar",

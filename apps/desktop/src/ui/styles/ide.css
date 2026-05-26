@@ -2387,6 +2387,7 @@
 .cc-terminal-tab__close:hover { background: var(--bg-overlay); color: var(--text-primary); }
 
 .cc-status-dot--ready { background: var(--success, #2ecc71); }
+.cc-status-dot--terminated { background: var(--danger, #c53030); opacity: 0.6; }
 
 /* ─── Grid Layout ─── */
 
