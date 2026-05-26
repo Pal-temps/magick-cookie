@@ -39,7 +39,7 @@ export function AppLayout(props: AppLayoutProps) {
   const emailStore = useEmailStore();
   const rssStore = useRssStore();
   const { syncConnector, isSyncing } = useTaskStore();
-  const { enterDesktop } = useDesktopModeStore();
+  const { isDesktopMode, toggle: toggleDesktop } = useDesktopModeStore();
   const { startSpeechRecording } = useSpeechStore();
   const { startWalk, stopWalk, activeWalk } = useDogWalkStore();
   const { favorites } = useBookmarkStore();
@@ -58,7 +58,7 @@ export function AppLayout(props: AppLayoutProps) {
         { separator: true, label: "" },
         { label: "Sync ClickUp", action: () => syncConnector("clickup"), disabled: isSyncing() },
         { separator: true, label: "" },
-        { label: "Mode bureau", action: enterDesktop },
+        { label: "Mode bureau", action: toggleDesktop },
         { separator: true, label: "" },
         { label: "Quitter", shortcut: "Alt+F4", action: () => { /* handled by window close */ } },
       ],
@@ -298,6 +298,18 @@ export function AppLayout(props: AppLayoutProps) {
                 )}
               </For>
             </div>
+
+            {/* Desktop mode toggle — pinned right */}
+            <button
+              onClick={toggleDesktop}
+              class={`vault-tab-btn ${isDesktopMode() ? "vault-tab-btn--active" : ""}`}
+              title={isDesktopMode() ? "Quitter le mode bureau" : "Mode bureau (fond d'écran)"}
+            >
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                <rect x="1" y="1" width="12" height="9" rx="1.5" stroke="currentColor" stroke-width="1.3" />
+                <path d="M5 10v2.5M9 10v2.5M3.5 12.5h7" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" />
+              </svg>
+            </button>
 
             {/* Vault lock button — always pinned right, separated */}
             <button

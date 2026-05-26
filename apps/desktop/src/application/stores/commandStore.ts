@@ -53,7 +53,7 @@ export function useCommandStore() {
   const { openCreateForm, contacts } = useCalendarStore();
   const { tasks } = useTaskStore();
   const { emails } = useEmailStore();
-  const { enterDesktop } = useDesktopModeStore();
+  const { toggle: toggleDesktop } = useDesktopModeStore();
   const { clipboardHistory, copyToClipboard } = useClipboardStore();
   const { bookmarks } = useBookmarkStore();
 
@@ -71,7 +71,7 @@ export function useCommandStore() {
 
   const staticActions: CommandResult[] = [
     { id: "act-new-event", label: "Nouvel événement", sublabel: "Créer un événement", category: "Actions", icon: "⚡", action: () => openCreateForm() },
-    { id: "act-desktop-mode", label: "Mode bureau", sublabel: "Passer en mode bureau", category: "Actions", icon: "⚡", action: () => enterDesktop() },
+    { id: "act-desktop-mode", label: "Mode bureau", sublabel: "Basculer le mode bureau", category: "Actions", icon: "⚡", action: () => toggleDesktop() },
   ];
 
   const allStatic = [...staticNavigation, ...staticActions];
