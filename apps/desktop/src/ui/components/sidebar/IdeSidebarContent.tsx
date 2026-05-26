@@ -786,9 +786,9 @@ export function IdeSidebarContent() {
           </Show>
 
           {/* Vault sections */}
-          <VaultSectionLink icon="S" label="Skills" section="_ide/skills" />
-          <VaultSectionLink icon="H" label="Hooks" section="_ide/hooks" />
-          <VaultSectionLink icon="P" label="Prompts" section="_ide/prompts" />
+          <VaultSectionLink icon="S" label={t("ide.skills")} section="_ide/skills" />
+          <VaultSectionLink icon="H" label={t("ide.hooks")} section="_ide/hooks" />
+          <VaultSectionLink icon="P" label={t("ide.prompts")} section="_ide/prompts" />
 
           {/* Terminal */}
           <button class="ide-sidebar-link" onClick={() => { const cliStore = useCliTabStore(); cliStore.launchShellTerminal(); }}>
@@ -798,7 +798,7 @@ export function IdeSidebarContent() {
                 <path d="M5 7h3.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
               </svg>
             </span>
-            Terminal
+            {t("ide.terminal")}
           </button>
         </SidebarSection>
 
