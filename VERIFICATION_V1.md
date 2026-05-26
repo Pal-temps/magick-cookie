@@ -22,20 +22,27 @@ rtk tsc --noEmit
 
 ## 🏠 Accueil / Dashboard
 
+> **Script** : `bun tools/verify-v1/index.ts --base http://localhost:47300 --only dashboard` → ✓ 3/3
+
 ### Endpoints
-- [ ] `GET /api/brief/generate` → 200 ou 401 (protégé)
-- [ ] `GET /api/analytics` → 200
-- [ ] `GET /api/analytics/streak` → 200
+- [x] `GET /api/brief/generate` → 200 ✓ (vérifié script)
+- [x] `GET /api/analytics?from=…&to=…` → 200 ✓ (vérifié script)
+- [x] `GET /api/analytics/streak` → 200 ✓ (vérifié script)
 
 ### IA
 - [ ] **Brief journalier** : le bouton "Générer" produit un brief lisible
 - [ ] **Prévision** : si configurée, la prévision analytique s'affiche
 
 ### UI
-- [ ] État chargement visible (spinner/skeleton)
+- [x] État chargement visible — `CookieLoader` dans `AnalyticsWidget` ✓
 - [ ] État vide géré (pas de crash si aucune donnée)
-- [ ] État erreur (déconnecter l'API → message d'erreur propre)
+- [x] État erreur — ajouté `analyticsError` signal + panel ⚠️ + bouton "Réessayer" dans `AnalyticsWidget` ✓
 - [ ] Données se rechargent après retour sur l'onglet
+
+### Notes audit
+- ❗ `BriefView` : quelques strings hardcodées FR ("Brief quotidien", "Regenerer") — acceptable v1 (app FR par défaut)
+- ❗ Widgets sans état d'erreur visible : `StreakWidget`, `WeeklyReview` — silencieux sur erreur réseau
+- ✅ `briefError` signal ajouté dans store (prêt pour utilisation future dans `BriefView`)
 
 ---
 
