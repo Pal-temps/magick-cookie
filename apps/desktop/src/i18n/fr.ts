@@ -535,6 +535,7 @@ export const dict: Dictionary = {
     addContextHeader: "Ajouter du contexte",
     noResultFor: "Aucun resultat pour",
     screenshotFallback: "Voici une capture d'ecran de l'application.",
+    captureError: "Echec de la capture d'ecran. Veuillez reessayer.",
     sourceControl: "SOURCE CONTROL",
     noProjectOpen: "Aucun projet ouvert",
     notGitRepo: "Ce dossier n'est pas un depot git",

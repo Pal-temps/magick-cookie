@@ -1524,6 +1524,13 @@
   animation: spin 0.8s linear infinite;
 }
 
+.cc-tool__elapsed {
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-left: 2px;
+  font-variant-numeric: tabular-nums;
+}
+
 .cc-tool__chevron {
   color: var(--text-muted);
   font-size: 10px;
@@ -1950,6 +1957,13 @@
   background: var(--danger);
   color: #fff;
   border-color: var(--danger);
+}
+
+.cc-composer__capture-error {
+  font-size: 11px;
+  color: var(--danger, #c53030);
+  padding: 3px 8px 0;
+  animation: fadeIn 0.15s ease;
 }
 
 /* ─── Image thumbnails in bubbles ─── */

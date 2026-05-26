@@ -60,6 +60,7 @@ export function AiComposer(props: AiComposerProps) {
 
   const [pendingScreenshot, setPendingScreenshot] = createSignal<{ media_type: string; data: string } | null>(null);
   const [isCapturing, setIsCapturing] = createSignal(false);
+  const [captureError, setCaptureError] = createSignal<string | null>(null);
   const [attachments, setAttachments] = createSignal<ContextAttachment[]>([]);
 
   // Mention picker state
@@ -83,6 +84,7 @@ export function AiComposer(props: AiComposerProps) {
   async function handleCapture() {
     if (isCapturing()) return;
     setIsCapturing(true);
+    setCaptureError(null);
     try {
       // If a browser tab is active, capture it; otherwise capture the app
       const activeBrowser = browserStore.browserTabs()[0]; // first browser tab
@@ -91,12 +93,17 @@ export function AiComposer(props: AiComposerProps) {
         : await invoke<{ media_type: string; data: string }>("capture_app_screenshot");
       setPendingScreenshot(img);
     } catch (err) {
-      console.error("Screenshot failed:", err);
-      // Fallback to app screenshot
+      console.error("[AiComposer] Primary capture failed:", err);
+      // Fallback: try app screenshot when browser capture fails
       try {
         const img = await invoke<{ media_type: string; data: string }>("capture_app_screenshot");
         setPendingScreenshot(img);
-      } catch { /* ignore */ }
+      } catch (err2) {
+        console.error("[AiComposer] Fallback capture failed:", err2);
+        setCaptureError(t("ide.captureError"));
+        // Auto-clear error after 4 s
+        setTimeout(() => setCaptureError(null), 4000);
+      }
     } finally {
       setIsCapturing(false);
     }
@@ -381,6 +388,11 @@ export function AiComposer(props: AiComposerProps) {
             title={t("ide.removeScreenshot")}
           >&times;</button>
         </div>
+      </Show>
+
+      {/* Screenshot capture error */}
+      <Show when={captureError()}>
+        <div class="cc-composer__capture-error">{captureError()}</div>
       </Show>
 
       {/* Context chips — active file + manual attachments */}

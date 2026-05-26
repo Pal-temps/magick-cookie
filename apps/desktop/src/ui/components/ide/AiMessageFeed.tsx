@@ -14,9 +14,24 @@ interface AiMessageFeedProps {
 export function AiMessageFeed(props: AiMessageFeedProps) {
   let feedRef: HTMLDivElement | undefined;
   let bottomRef: HTMLDivElement | undefined;
+  let scrollRafId: number | undefined;
+  let streamScrollThrottleId: ReturnType<typeof setTimeout> | undefined;
 
   function scrollToBottom() {
-    requestAnimationFrame(() => bottomRef?.scrollIntoView({ behavior: "smooth" }));
+    if (scrollRafId !== undefined) cancelAnimationFrame(scrollRafId);
+    scrollRafId = requestAnimationFrame(() => {
+      bottomRef?.scrollIntoView({ behavior: "smooth" });
+      scrollRafId = undefined;
+    });
+  }
+
+  // Throttled scroll for streaming — at most once per 150ms to avoid jank
+  function scrollToBottomThrottled() {
+    if (streamScrollThrottleId !== undefined) return;
+    streamScrollThrottleId = setTimeout(() => {
+      streamScrollThrottleId = undefined;
+      scrollToBottom();
+    }, 150);
   }
 
   // Auto-scroll on new messages or streaming
@@ -28,7 +43,7 @@ export function AiMessageFeed(props: AiMessageFeedProps) {
   createEffect(on(
     () => props.session.streamingContent,
     () => {
-      if (props.session.isStreaming) scrollToBottom();
+      if (props.session.isStreaming) scrollToBottomThrottled();
     },
   ));
 

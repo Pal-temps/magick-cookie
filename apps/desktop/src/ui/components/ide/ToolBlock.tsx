@@ -79,6 +79,9 @@ export function ToolBlock(props: ToolBlockProps) {
         </Show>
         <Show when={!result()}>
           <span class="cc-tool__spinner" />
+          <Show when={(props.message.toolElapsed ?? 0) > 0}>
+            <span class="cc-tool__elapsed">{props.message.toolElapsed}s</span>
+          </Show>
         </Show>
         <span class={`cc-tool__chevron ${expanded() ? "cc-tool__chevron--open" : ""}`}>&#x25B8;</span>
       </div>

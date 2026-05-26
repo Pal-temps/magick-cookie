@@ -535,6 +535,7 @@ export interface Dictionary {
     addContextHeader: string;
     noResultFor: string;
     screenshotFallback: string;
+    captureError: string;
     sourceControl: string;
     noProjectOpen: string;
     notGitRepo: string;

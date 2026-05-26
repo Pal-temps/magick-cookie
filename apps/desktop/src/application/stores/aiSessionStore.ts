@@ -51,6 +51,8 @@ export interface AiMessage {
   toolInput?: unknown;
   toolResult?: string;
   toolIsError?: boolean;
+  /** Seconds elapsed since the tool started (updated by tool_progress events) */
+  toolElapsed?: number;
   permissionRequest?: PermissionRequest;
   isStreaming?: boolean;
   streamPhase?: StreamPhase;
@@ -177,9 +179,13 @@ function handleAiEvent(payload: AiEventPayload) {
 
     case "assistant_message":
       batch(() => {
-        // Finalize streaming content into a message
+        // Finalize streaming content into a message.
+        // Prefer event.content when explicitly provided (even if empty string),
+        // fall back to accumulated streamingContent for streaming-mode adapters.
         const s = getSession(session_id);
-        const content = event.content || s?.streamingContent || "";
+        const content = event.content != null && event.content !== ""
+          ? event.content
+          : (s?.streamingContent ?? "");
         addMessage(session_id, {
           id: nextMsgId(), seq, type: "assistant",
           content,
@@ -247,7 +253,24 @@ function handleAiEvent(payload: AiEventPayload) {
       break;
 
     case "tool_progress":
-      // Could update a progress indicator on the latest tool_use message
+      // Update the most recent tool_use message that hasn't received a result yet
+      updateSession(session_id, (s) => {
+        const messages = [...s.messages];
+        // Walk backwards to find the last tool_use without a following tool_result
+        for (let i = messages.length - 1; i >= 0; i--) {
+          const msg = messages[i];
+          if (msg.type === "tool_use") {
+            // Check if there's already a tool_result after it
+            const hasResult = messages.slice(i + 1).some((m) => m.type === "tool_result");
+            if (!hasResult) {
+              messages[i] = { ...msg, toolElapsed: event.elapsed_seconds };
+              return { ...s, messages };
+            }
+            break; // the last tool_use already has a result — nothing to update
+          }
+        }
+        return s;
+      });
       break;
 
     case "turn_complete":
