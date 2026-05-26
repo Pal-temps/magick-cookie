@@ -133,7 +133,7 @@ function updateSession(id: string, updater: (session: AiSession) => AiSession) {
   });
 }
 
-const MAX_MESSAGES = 200;
+export const MAX_MESSAGES = 200;
 
 function addMessage(sessionId: string, msg: AiMessage) {
   updateSession(sessionId, (s) => {

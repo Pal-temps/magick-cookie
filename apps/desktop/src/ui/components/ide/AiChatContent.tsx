@@ -66,7 +66,7 @@ export function AiChatContent(props: AiChatContentProps) {
 
     // Check if a system message indicates turn complete (streaming just stopped)
     const wasTurnComplete = !s.isStreaming && newMsgs.some((m) =>
-      m.type === "assistant" || (m.type === "system" && m.content.includes("terminee"))
+      m.type === "assistant" || (m.type === "system" && m.content.includes("terminée"))
     );
     if (!wasTurnComplete) return;
 
@@ -206,6 +206,17 @@ export function AiChatContent(props: AiChatContentProps) {
       const contextParts = buildContextParts({ mode: sessionMode(), claudeMd, workflowPart });
       if (contextParts.length > 0) {
         content = contextParts.join("\n\n---\n\n") + "\n\n---\n\n" + content;
+      }
+    }
+
+    // Auto-label the session from the first user message (if not already named)
+    const currentSession = session();
+    if (currentSession && !currentSession.label) {
+      const rawText = content.replace(/\[.*?\]\n```[\s\S]*?```\n\n---\n\n/g, "").trim();
+      if (rawText) {
+        const words = rawText.split(/\s+/).slice(0, 6).join(" ");
+        const label = words.length > 40 ? words.slice(0, 40) + "…" : words;
+        ai.renameSession(props.sessionId, label).catch(() => { /* non-critical */ });
       }
     }
 

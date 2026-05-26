@@ -1,6 +1,7 @@
 import { For, Show, onMount, createEffect, on } from "solid-js";
 import DOMPurify from "dompurify";
 import type { AiMessage, AiSession } from "../../../application/stores/aiSessionStore";
+import { MAX_MESSAGES } from "../../../application/stores/aiSessionStore";
 import { AiMessageBubble } from "./AiMessageBubble";
 import { ToolBlock } from "./ToolBlock";
 import { PermissionBanner } from "./PermissionBanner";
@@ -66,6 +67,14 @@ export function AiMessageFeed(props: AiMessageFeedProps) {
       <Show when={props.session.messages.length === 0 && !props.session.isStreaming}>
         <div style={{ color: "var(--text-muted)", "font-size": "12px", "text-align": "center", padding: "40px 10px" }}>
           Posez une question ou utilisez les boutons ci-dessous.
+        </div>
+      </Show>
+
+      {/* History overflow notice — shown when the in-memory cap has been reached */}
+      <Show when={props.session.messages.length >= MAX_MESSAGES}>
+        <div class="cc-feed__history-notice">
+          Les messages les plus anciens ne sont plus affichés (limite {MAX_MESSAGES} atteinte).
+          L'historique complet est conservé sur disque.
         </div>
       </Show>
 
