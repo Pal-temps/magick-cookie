@@ -415,6 +415,32 @@ pub fn ai_start_session(
 
             let _ = app_handle.emit("ai-event", &payload);
         }
+
+        // ── Channel exhausted (sender dropped = Claude CLI process exited) ──────
+        // If the session phase is still Connecting or Ready, the process exited
+        // without sending a proper SessionTerminated event (crash, kill signal, etc.).
+        // Emit a synthetic one so the frontend exits the streaming state instead of
+        // hanging indefinitely.
+        if let Ok(mut mgr) = state_clone.lock() {
+            if let Some(session) = mgr.get_session_mut(&sid) {
+                if session.phase != SessionPhase::Terminated {
+                    session.phase = SessionPhase::Terminated;
+                    let event = AdapterEvent::SessionTerminated {
+                        reason: "process_exited".to_string(),
+                    };
+                    let event_json = serde_json::to_string(&event).unwrap_or_default();
+                    let seq = session.event_buffer.push(event_json);
+                    if let Some(ref mut rec) = session.recorder {
+                        rec.record(seq, &event);
+                    }
+                    let _ = app_handle.emit("ai-event", &AiEventPayload {
+                        session_id: sid.clone(),
+                        seq,
+                        event,
+                    });
+                }
+            }
+        }
     });
 
     Ok(session_id)

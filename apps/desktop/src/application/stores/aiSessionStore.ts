@@ -278,18 +278,27 @@ function handleAiEvent(payload: AiEventPayload) {
       });
       break;
 
-    case "session_terminated":
+    case "session_terminated": {
       updateSession(session_id, (s) => ({
         ...s,
         phase: "terminated",
         isStreaming: false,
+        streamingContent: "",
       }));
+      // Map technical reasons to user-readable messages
+      const terminationMessages: Record<string, string> = {
+        process_exited: "Session terminée — le processus s'est arrêté.",
+        user_stopped:   "Session arrêtée.",
+        timeout:        "Session terminée — délai d'attente dépassé.",
+      };
+      const msg = terminationMessages[event.reason] ?? `Session terminée (${event.reason}).`;
       addMessage(session_id, {
         id: nextMsgId(), seq, type: "system",
-        content: `Session terminee: ${event.reason}`,
+        content: msg,
         timestamp: Date.now(),
       });
       break;
+    }
   }
 }
 

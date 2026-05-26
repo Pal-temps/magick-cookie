@@ -48,6 +48,10 @@ export function AiTerminalTabs(props: AiTerminalTabsProps) {
   const [contextMenu, setContextMenu] = createSignal<{ x: number; y: number; sessionId: string } | null>(null);
   const [configDialog, setConfigDialog] = createSignal<ConfigDialogState | null>(null);
   const [pendingAssignSlot, setPendingAssignSlot] = createSignal<number | null>(null);
+  /** Prevents double-launching while an async session start is in progress */
+  const [launching, setLaunching] = createSignal(false);
+  /** Transient error shown to the user when a session fails to start */
+  const [launchError, setLaunchError] = createSignal<string | null>(null);
 
   // CLI PTY terminals (shared store so sidebar can also create them)
   const cli = useCliTabStore();
@@ -133,12 +137,19 @@ export function AiTerminalTabs(props: AiTerminalTabsProps) {
 
   async function selectProvider(provider: ProviderInfo) {
     setShowNewMenu(false);
+    setLaunchError(null);
     // Claude CLI → launch directly (no config dialog needed)
     if (provider.id === "claude-cli") {
+      if (launching()) return; // double-click guard
+      setLaunching(true);
       try {
         await launchSession(provider.id, "");
       } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        setLaunchError(msg);
         console.error("Failed to start Claude CLI session:", e);
+      } finally {
+        setLaunching(false);
       }
       return;
     }
@@ -161,16 +172,26 @@ export function AiTerminalTabs(props: AiTerminalTabsProps) {
 
   async function confirmConfig() {
     const cfg = configDialog();
-    if (!cfg) return;
-    if (cfg.apiKey) secretsVault.setAppSecret(`ai_apikey_${cfg.provider.id}`, cfg.apiKey);
-    if (cfg.baseUrl) localStorage.setItem(`ide-baseurl-${cfg.provider.id}`, cfg.baseUrl);
-    const sessionId = await launchSession(cfg.provider.id, cfg.model, cfg.apiKey, cfg.baseUrl);
-    const slot = pendingAssignSlot();
-    if (slot !== null && sessionId) {
-      ide.assignSlot(slot, sessionId);
-      setPendingAssignSlot(null);
+    if (!cfg || launching()) return;
+    setLaunchError(null);
+    setLaunching(true);
+    try {
+      if (cfg.apiKey) secretsVault.setAppSecret(`ai_apikey_${cfg.provider.id}`, cfg.apiKey);
+      if (cfg.baseUrl) localStorage.setItem(`ide-baseurl-${cfg.provider.id}`, cfg.baseUrl);
+      const sessionId = await launchSession(cfg.provider.id, cfg.model, cfg.apiKey, cfg.baseUrl);
+      const slot = pendingAssignSlot();
+      if (slot !== null && sessionId) {
+        ide.assignSlot(slot, sessionId);
+        setPendingAssignSlot(null);
+      }
+      setConfigDialog(null);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      setLaunchError(msg);
+      console.error("Failed to start session:", e);
+    } finally {
+      setLaunching(false);
     }
-    setConfigDialog(null);
   }
 
   const needsApiKey = () => {
@@ -304,6 +325,14 @@ export function AiTerminalTabs(props: AiTerminalTabsProps) {
         </div>
       </div>
 
+      {/* Launch error banner — shown when no dialog is open */}
+      <Show when={launchError() && !configDialog()}>
+        <div class="cc-launch-error">
+          <span class="cc-launch-error__msg">{launchError()}</span>
+          <button class="cc-launch-error__close" onClick={() => setLaunchError(null)}>✕</button>
+        </div>
+      </Show>
+
       {/* Grid content */}
       <div
         class="cc-terminal-grid"
@@ -335,15 +364,25 @@ export function AiTerminalTabs(props: AiTerminalTabsProps) {
                         <rect x="4" y="6" width="24" height="20" rx="3" stroke="currentColor" stroke-width="1.5" />
                       </svg>
                     </div>
-                    <button class="cc-slot-empty__assign" onClick={async () => {
-                      try {
-                        const sessionId = await launchSession("claude-cli", "");
-                        ide.assignSlot(i, sessionId);
-                      } catch (e) {
-                        console.error("Failed to start Claude CLI:", e);
-                      }
-                    }}>
-                      Claude Code
+                    <button
+                      class="cc-slot-empty__assign"
+                      disabled={launching()}
+                      onClick={async () => {
+                        if (launching()) return;
+                        setLaunchError(null);
+                        setLaunching(true);
+                        try {
+                          const sessionId = await launchSession("claude-cli", "");
+                          ide.assignSlot(i, sessionId);
+                        } catch (e) {
+                          setLaunchError(e instanceof Error ? e.message : String(e));
+                          console.error("Failed to start Claude CLI:", e);
+                        } finally {
+                          setLaunching(false);
+                        }
+                      }}
+                    >
+                      {launching() ? "…" : "Claude Code"}
                     </button>
                     <button class="cc-slot-empty__assign cc-slot-empty__assign--secondary" onClick={() => {
                       const id = cli.launchCliTerminal();
@@ -428,16 +467,24 @@ export function AiTerminalTabs(props: AiTerminalTabsProps) {
               </label>
             </div>
 
+            <Show when={launchError()}>
+              <div class="cc-config-dialog__error">{launchError()}</div>
+            </Show>
+
             <div class="cc-config-dialog__footer">
-              <button class="cc-config-dialog__btn cc-config-dialog__btn--cancel" onClick={() => setConfigDialog(null)}>
+              <button
+                class="cc-config-dialog__btn cc-config-dialog__btn--cancel"
+                onClick={() => { setConfigDialog(null); setLaunchError(null); }}
+                disabled={launching()}
+              >
                 {t("common.cancel")}
               </button>
               <button
                 class="cc-config-dialog__btn cc-config-dialog__btn--confirm"
                 onClick={confirmConfig}
-                disabled={!!(needsApiKey() && !configDialog()!.apiKey)}
+                disabled={launching() || !!(needsApiKey() && !configDialog()!.apiKey)}
               >
-                {t("ide.start")}
+                {launching() ? "…" : t("ide.start")}
               </button>
             </div>
           </div>

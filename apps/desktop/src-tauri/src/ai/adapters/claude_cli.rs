@@ -280,10 +280,19 @@ impl BackendAdapter for ClaudeCliAdapter {
 
         // ── Set up combined Magick MCP server ─────────────────────────────────
         let session_id = config.session_id.clone().unwrap_or_else(|| "unknown".to_string());
-        let mcp_config_path = ensure_magick_mcp_script()
-            .and_then(|script| write_mcp_config(&script, DEFAULT_API_URL, &session_id))
-            .ok(); // Non-fatal: if MCP setup fails, Claude runs without MCP integration
+        let mcp_result = ensure_magick_mcp_script()
+            .and_then(|script| write_mcp_config(&script, DEFAULT_API_URL, &session_id));
 
+        // Non-fatal: if MCP setup fails, Claude runs without tools — but warn the user
+        // via the event channel so it appears in the chat instead of being silent.
+        if let Err(ref e) = mcp_result {
+            let _ = event_tx.send(AdapterEvent::Error {
+                message: format!(
+                    "⚠️ MCP tools unavailable — notes, tasks and other tools won't work in this session. Cause: {e}"
+                ),
+            });
+        }
+        let mcp_config_path = mcp_result.ok();
         self.mcp_config_path = mcp_config_path.clone();
 
         // Spawn an initial turn to get the session_id and init event
@@ -368,6 +377,15 @@ impl BackendAdapter for ClaudeCliAdapter {
     }
 
     fn stop(&mut self) -> Result<(), String> {
+        // Notify the event forwarder thread that this is a user-initiated stop.
+        // This allows the frontend to show "Session arrêtée" rather than the generic
+        // "process exited" message. We send before killing so the message arrives
+        // before the synthetic SessionTerminated emitted by the forwarder.
+        if let Some(ref tx) = self.event_tx {
+            let _ = tx.send(AdapterEvent::SessionTerminated {
+                reason: "user_stopped".to_string(),
+            });
+        }
         if let Some(mut child) = self.current_process.take() {
             let _ = child.kill();
             let _ = child.wait();
