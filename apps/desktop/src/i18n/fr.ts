@@ -38,6 +38,8 @@ export const dict: Dictionary = {
     syncing: "Synchronisation...",
     actionPending: "action en attente",
     actionsPending: "actions en attente",
+    loadError: "Erreur de chargement",
+    retry: "Réessayer",
   },
   nav: {
     dashboard: "Accueil",

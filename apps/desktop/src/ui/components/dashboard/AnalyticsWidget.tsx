@@ -14,7 +14,7 @@ function formatDuration(seconds: number): string {
 type Period = "7d" | "30d";
 
 export function AnalyticsWidget() {
-  const { overview, analyticsLoading, fetchOverview } = useAnalyticsStore();
+  const { overview, analyticsError, analyticsLoading, fetchOverview } = useAnalyticsStore();
   const { t, locale } = useT();
 
   function dayLabel(dateStr: string): string {
@@ -66,6 +66,21 @@ export function AnalyticsWidget() {
 
       <Show when={analyticsLoading()}>
         <CookieLoader size={32} message={t("common.loading")} />
+      </Show>
+
+      <Show when={!analyticsLoading() && analyticsError()}>
+        <div style={{
+          display: "flex", "flex-direction": "column", "align-items": "center",
+          gap: "8px", padding: "16px 8px", "text-align": "center",
+        }}>
+          <span style={{ "font-size": "20px" }}>⚠️</span>
+          <span style={{ "font-size": "12px", color: "var(--text-muted)" }}>
+            {t("common.loadError")}
+          </span>
+          <Button size="sm" variant="secondary" onClick={load}>
+            {t("common.retry")}
+          </Button>
+        </div>
       </Show>
 
       <Show when={!analyticsLoading() && overview()}>

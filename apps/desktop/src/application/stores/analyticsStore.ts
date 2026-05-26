@@ -92,11 +92,13 @@ const [timesheetLoading, setTimesheetLoading] = createSignal(false);
 const [patterns, setPatterns] = createSignal<ProductivityPatterns | null>(null);
 const [patternsLoading, setPatternsLoading] = createSignal(false);
 const [overview, setOverview] = createSignal<AnalyticsOverview | null>(null);
+const [analyticsError, setAnalyticsError] = createSignal<string | null>(null);
 const [weeklyReview, setWeeklyReview] = createSignal<WeeklyReview | null>(null);
 const [analyticsLoading, setAnalyticsLoading] = createSignal(false);
 const [weeklyLoading, setWeeklyLoading] = createSignal(false);
 const [streak, setStreak] = createSignal<StreakData | null>(null);
 const [brief, setBrief] = createSignal<{ brief: string; rawData: BriefRawData } | null>(null);
+const [briefError, setBriefError] = createSignal<string | null>(null);
 const [briefLoading, setBriefLoading] = createSignal(false);
 const [timeByTask, setTimeByTask] = createSignal<TaskTimeEntry[]>([]);
 
@@ -117,6 +119,7 @@ function formatDate(d: Date): string {
 export function useAnalyticsStore() {
   async function fetchOverview(from: Date, to: Date) {
     setAnalyticsLoading(true);
+    setAnalyticsError(null);
     try {
       const data = await api.get<AnalyticsOverview>(
         `/analytics?from=${formatDate(from)}&to=${formatDate(to)}`,
@@ -124,6 +127,7 @@ export function useAnalyticsStore() {
       setOverview(data);
     } catch (e) {
       console.error("Failed to fetch analytics:", e);
+      setAnalyticsError(e instanceof Error ? e.message : "Erreur de chargement");
     } finally {
       setAnalyticsLoading(false);
     }
@@ -204,6 +208,7 @@ export function useAnalyticsStore() {
 
   async function fetchBrief(date?: string) {
     setBriefLoading(true);
+    setBriefError(null);
     try {
       const template = getActiveTemplate();
       const body: { date?: string; prompt?: string } = { prompt: template.prompt };
@@ -212,6 +217,7 @@ export function useAnalyticsStore() {
       setBrief(data);
     } catch (e) {
       console.error("Failed to fetch brief:", e);
+      setBriefError(e instanceof Error ? e.message : "Erreur lors de la génération du brief");
     } finally {
       setBriefLoading(false);
     }
@@ -219,11 +225,13 @@ export function useAnalyticsStore() {
 
   return {
     overview,
+    analyticsError,
     weeklyReview,
     streak,
     analyticsLoading,
     weeklyLoading,
     brief,
+    briefError,
     briefLoading,
     timeByTask,
     patterns,

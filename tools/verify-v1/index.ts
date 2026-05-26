@@ -42,6 +42,15 @@ interface Endpoint {
   allow404?: boolean;
 }
 
+// ─── Date helpers ─────────────────────────────────────────────────────────────
+
+function isoDate(d: Date): string {
+  return d.toISOString().split("T")[0];
+}
+
+const today = isoDate(new Date());
+const sevenDaysAgo = isoDate(new Date(Date.now() - 7 * 86_400_000));
+
 // ─── Endpoint registry ────────────────────────────────────────────────────────
 
 const ENDPOINTS: Endpoint[] = [
@@ -51,7 +60,7 @@ const ENDPOINTS: Endpoint[] = [
 
   // ── Dashboard ─────────────────────────────────────────────────────────────
   { tab: "dashboard", method: "GET",  path: "/api/brief/generate",     description: "Brief journalier", authRequired: true },
-  { tab: "dashboard", method: "GET",  path: "/api/analytics",          description: "Analytics globales", authRequired: true },
+  { tab: "dashboard", method: "GET",  path: `/api/analytics?from=${sevenDaysAgo}&to=${today}`, description: "Analytics globales", authRequired: true },
   { tab: "dashboard", method: "GET",  path: "/api/analytics/streak",   description: "Streak de productivité", authRequired: true },
 
   // ── Calendar ──────────────────────────────────────────────────────────────
@@ -112,7 +121,7 @@ const ENDPOINTS: Endpoint[] = [
     authRequired: true },
   { tab: "tools",     method: "POST", path: "/api/changelog/generate",
     description: "Génération changelog (IA)",
-    body: { since: new Date(Date.now() - 7 * 86400_000).toISOString().split("T")[0] },
+    body: { since: sevenDaysAgo },
     authRequired: true },
 
   // ── Settings ──────────────────────────────────────────────────────────────

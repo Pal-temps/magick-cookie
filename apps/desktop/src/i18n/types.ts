@@ -38,6 +38,8 @@ export interface Dictionary {
     syncing: string;
     actionPending: string;
     actionsPending: string;
+    loadError: string;
+    retry: string;
   };
   nav: {
     dashboard: string;
@@ -918,7 +920,6 @@ export interface Dictionary {
     inbox: string;
     sent: string;
     archive: string;
-    syncing: string;
     deleting: string;
     loading: string;
     selectFile: string;
