@@ -344,7 +344,6 @@ export function IdeSidebarContent() {
       await ai.fetchProviders();
       const cwd = ide.projectPath();
       if (!cwd) {
-        // No project open — fall back to terminal so the user can set one
         cliStore.launchCliTerminal();
         return;
       }
@@ -362,48 +361,79 @@ export function IdeSidebarContent() {
 
     function commitRename(id: string) {
       const val = editValue().trim();
-      if (val) ai.renameSession(id, val).catch(() => { /* already logged + reverted in store */ });
+      if (val) ai.renameSession(id, val).catch(() => {});
       setEditingId(null);
     }
 
-    function sessionDisplayName(session: { label: string; model: string; provider: string }): string {
-      return session.label || session.model || session.provider;
+    function sessionDisplayName(s: { label: string; model: string; provider: string }): string {
+      return s.label || s.model || s.provider;
+    }
+
+    function providerBadge(provider: string): string {
+      if (provider.toLowerCase().includes("claude")) return "CC";
+      if (provider.toLowerCase().includes("openai")) return "GPT";
+      if (provider.toLowerCase().includes("ollama")) return "OL";
+      return provider.slice(0, 2).toUpperCase();
     }
 
     return (
       <div class="ide-sessions-list">
-        {/* CLI terminals */}
+
+        {/* CLI terminal cards */}
         <For each={cliStore.cliTabs()}>
           {(tab) => (
-            <button
-              class={`ide-session-item ${cliStore.activeCliTabId() === tab.id ? "ide-session-item--active" : ""}`}
+            <div
+              class={`ide-session-card ${cliStore.activeCliTabId() === tab.id ? "ide-session-card--active" : ""}`}
               onClick={() => cliStore.setActiveCliTabId(tab.id)}
             >
-              <span class="cc-status-dot cc-status-dot--ready" />
-              <span class="ide-session-item__name">{tab.label}</span>
-              <span class="ide-session-item__badge">PTY</span>
-            </button>
+              <div class="ide-session-card__row">
+                <span class="cc-status-dot cc-status-dot--ready" />
+                <span class="ide-session-card__name">{tab.label}</span>
+                <span class="ide-session-card__badge">PTY</span>
+                <div class="ide-session-card__actions" onClick={(e) => e.stopPropagation()}>
+                  <button
+                    class="ide-session-card__action-btn ide-session-card__action-btn--danger"
+                    onClick={() => cliStore.closeCliTab(tab.id)}
+                    title="Fermer"
+                  >
+                    <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
+                      <path d="M1 1l6 6M7 1L1 7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            </div>
           )}
         </For>
-        {/* AI sessions */}
+
+        {/* AI session cards */}
         <For each={sessionList()}>
           {(session) => (
-            <div class="ide-session-wrap">
-              <div
-                class={`ide-session-item ${ai.activeSessionId() === session.id ? "ide-session-item--active" : ""}`}
-                onClick={() => ai.switchSession(session.id)}
-                onDblClick={(e) => { e.stopPropagation(); startRename(session.id, sessionDisplayName(session)); }}
-              >
+            <div
+              class={`ide-session-card ${
+                ai.activeSessionId() === session.id ? "ide-session-card--active" : ""
+              } ${session.phase === "terminated" ? "ide-session-card--terminated" : ""}`}
+              onClick={() => ai.switchSession(session.id)}
+            >
+              {/* Top row: dot + name + badge + hover actions */}
+              <div class="ide-session-card__row">
                 <span class={`cc-status-dot ${
                   session.isStreaming ? "cc-status-dot--active" :
                   session.phase === "terminated" ? "cc-status-dot--terminated" :
                   session.phase === "ready" ? "cc-status-dot--ready" : ""
                 }`} />
+
                 <Show when={editingId() === session.id} fallback={
-                  <span class="ide-session-item__name" title={t("ide.dblClickRename")}>{sessionDisplayName(session)}</span>
+                  <span
+                    class="ide-session-card__name"
+                    title={t("ide.dblClickRename")}
+                    onDblClick={(e) => { e.stopPropagation(); startRename(session.id, sessionDisplayName(session)); }}
+                  >
+                    {sessionDisplayName(session)}
+                  </span>
                 }>
                   <input
-                    class="ide-session-item__rename"
+                    class="ide-session-card__rename-input"
                     type="text"
                     value={editValue()}
                     onInput={(e) => setEditValue(e.currentTarget.value)}
@@ -416,25 +446,50 @@ export function IdeSidebarContent() {
                     ref={(el) => requestAnimationFrame(() => el.focus())}
                   />
                 </Show>
-                <span class="ide-session-item__badge">
-                  {session.provider.toLowerCase().includes("claude") ? "CC" :
-                   session.provider.toLowerCase().includes("openai") ? "GPT" :
-                   session.provider.toLowerCase().includes("ollama") ? "OL" :
-                   session.provider.slice(0, 2).toUpperCase()}
-                </span>
+
+                <span class="ide-session-card__badge">{providerBadge(session.provider)}</span>
+
+                {/* Hover actions */}
+                <div class="ide-session-card__actions" onClick={(e) => e.stopPropagation()}>
+                  <button
+                    class="ide-session-card__action-btn"
+                    onClick={() => startRename(session.id, sessionDisplayName(session))}
+                    title="Renommer"
+                  >
+                    <svg width="9" height="9" viewBox="0 0 10 10" fill="none">
+                      <path d="M7 1.5l1.5 1.5-5.5 5.5H1.5V7L7 1.5z" stroke="currentColor" stroke-width="1.2"/>
+                    </svg>
+                  </button>
+                  <button
+                    class="ide-session-card__action-btn ide-session-card__action-btn--danger"
+                    onClick={() => ai.stopSession(session.id)}
+                    title="Fermer la session"
+                  >
+                    <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
+                      <path d="M1 1l6 6M7 1L1 7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                    </svg>
+                  </button>
+                </div>
               </div>
-              {/* Modern workflow picker */}
+
+              {/* Workflow picker — integrated as card footer */}
               <SessionWorkflowPicker sessionId={session.id} />
             </div>
           )}
         </For>
+
         <Show when={cliStore.cliTabs().length === 0 && sessionList().length === 0}>
-          <div style={{ padding: "8px 0", "font-size": "11px", color: "var(--text-muted)" }}>
+          <div class="ide-sessions-list__empty">
+            <span style={{ "font-size": "20px", opacity: "0.3" }}>✦</span>
             {t("ide.noSession")}
           </div>
         </Show>
-        <button class="ide-sidebar-link ide-sidebar-link--accent" onClick={newSession}>
-          <span class="ide-sidebar-link__icon">+</span> {t("ide.newSession")}
+
+        <button class="ide-sessions-list__new-btn" onClick={newSession}>
+          <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+            <path d="M5 1v8M1 5h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+          {t("ide.newSession")}
         </button>
       </div>
     );

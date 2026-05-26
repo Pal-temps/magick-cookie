@@ -375,37 +375,153 @@
 .ide-sessions-list {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 3px;
 }
 
-.ide-session-item {
+.ide-sessions-list__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 14px 8px;
+  font-size: 11px;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.ide-sessions-list__new-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  padding: 6px 8px;
+  margin-top: 1px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--accent-primary);
+  background: transparent;
+  border: 1px dashed color-mix(in srgb, var(--accent-primary) 40%, transparent);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background 0.1s, border-color 0.1s;
+}
+
+.ide-sessions-list__new-btn:hover {
+  background: color-mix(in srgb, var(--accent-primary) 8%, transparent);
+  border-color: var(--accent-primary);
+}
+
+/* ─── Session Card ─── */
+
+.ide-session-card {
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-surface);
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s;
+  overflow: hidden;
+}
+
+.ide-session-card:hover {
+  background: var(--bg-elevated);
+  border-color: color-mix(in srgb, var(--text-muted) 50%, transparent);
+}
+
+.ide-session-card--active {
+  background: color-mix(in srgb, var(--accent-primary) 7%, var(--bg-surface));
+  border-color: color-mix(in srgb, var(--accent-primary) 50%, transparent);
+  border-left-width: 2px;
+}
+
+.ide-session-card--terminated {
+  opacity: 0.55;
+  border-left: 2px solid var(--danger, #c53030);
+}
+
+.ide-session-card__row {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 5px 8px;
-  width: 100%;
-  font-size: 12px;
-  color: var(--text-secondary);
-  background: transparent;
-  border: none;
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  text-align: left;
-  transition: background 0.1s;
+  padding: 7px 8px 6px;
 }
 
-.ide-session-item:hover { background: var(--bg-elevated); }
-
-.ide-session-item--active {
-  background: color-mix(in srgb, var(--accent-primary) 12%, transparent);
-  color: var(--text-primary);
-}
-
-.ide-session-item__name {
+.ide-session-card__name {
   flex: 1;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-primary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  line-height: 1.2;
+}
+
+.ide-session-card__badge {
+  font-size: 9px;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: var(--bg-elevated);
+  color: var(--text-muted);
+  flex-shrink: 0;
+  letter-spacing: 0.03em;
+}
+
+.ide-session-card--active .ide-session-card__badge {
+  background: color-mix(in srgb, var(--accent-primary) 18%, transparent);
+  color: var(--accent-primary);
+}
+
+/* Hover action buttons (rename + close) */
+.ide-session-card__actions {
+  display: flex;
+  gap: 1px;
+  opacity: 0;
+  transition: opacity 0.1s;
+  flex-shrink: 0;
+}
+
+.ide-session-card:hover .ide-session-card__actions {
+  opacity: 1;
+}
+
+.ide-session-card__action-btn {
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  border-radius: 4px;
+  color: var(--text-muted);
+  padding: 0;
+  transition: background 0.1s, color 0.1s;
+}
+
+.ide-session-card__action-btn:hover {
+  background: var(--bg-overlay);
+  color: var(--text-secondary);
+}
+
+.ide-session-card__action-btn--danger:hover {
+  background: rgba(197, 48, 48, 0.12);
+  color: var(--danger, #c53030);
+}
+
+.ide-session-card__rename-input {
+  flex: 1;
+  background: var(--bg-base);
+  border: 1px solid var(--accent-primary);
+  border-radius: 3px;
+  color: var(--text-primary);
+  font-size: 11px;
+  font-weight: 500;
+  padding: 2px 5px;
+  outline: none;
+  min-width: 0;
 }
 
 /* ─── Workflow items ─── */
@@ -493,10 +609,22 @@
   background: var(--bg-elevated);
 }
 
+/* ide-session-wrap kept for compatibility but superseded by ide-session-card */
 .ide-session-wrap {
   display: flex;
   flex-direction: column;
   gap: 0;
+}
+
+/* Workflow picker as card footer */
+.ide-session-card .ide-swf {
+  border-top: 1px solid color-mix(in srgb, var(--border-color) 60%, transparent);
+  background: color-mix(in srgb, var(--bg-base) 40%, transparent);
+  padding: 3px 6px 4px 16px;
+}
+
+.ide-session-card--active .ide-swf {
+  border-top-color: color-mix(in srgb, var(--accent-primary) 20%, transparent);
 }
 
 /* ─── Session workflow picker ─── */
