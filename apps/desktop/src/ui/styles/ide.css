@@ -396,20 +396,24 @@
   gap: 6px;
   width: 100%;
   padding: 6px 8px;
-  margin-top: 1px;
+  margin-top: 2px;
   font-size: 11px;
   font-weight: 500;
   color: var(--accent-primary);
   background: transparent;
-  border: 1px dashed color-mix(in srgb, var(--accent-primary) 40%, transparent);
-  border-radius: var(--radius-sm);
+  border: 1px dashed color-mix(in srgb, var(--accent-primary) 35%, transparent);
+  border-radius: 6px;
   cursor: pointer;
-  transition: background 0.1s, border-color 0.1s;
+  transition: background 0.12s, border-color 0.12s, transform 0.08s;
 }
 
 .ide-sessions-list__new-btn:hover {
   background: color-mix(in srgb, var(--accent-primary) 8%, transparent);
-  border-color: var(--accent-primary);
+  border-color: color-mix(in srgb, var(--accent-primary) 70%, transparent);
+}
+
+.ide-sessions-list__new-btn:active {
+  transform: scale(0.98);
 }
 
 /* ─── Session Card ─── */
@@ -419,19 +423,26 @@
   border: 1px solid var(--border-color);
   background: var(--bg-surface);
   cursor: pointer;
-  transition: background 0.12s, border-color 0.12s;
+  transition: background 0.12s, border-color 0.12s, box-shadow 0.12s, transform 0.08s;
   overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 }
 
 .ide-session-card:hover {
   background: var(--bg-elevated);
-  border-color: color-mix(in srgb, var(--text-muted) 50%, transparent);
+  border-color: color-mix(in srgb, var(--text-muted) 60%, transparent);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+}
+
+.ide-session-card:active {
+  transform: scale(0.99);
 }
 
 .ide-session-card--active {
   background: color-mix(in srgb, var(--accent-primary) 7%, var(--bg-surface));
   border-color: color-mix(in srgb, var(--accent-primary) 50%, transparent);
   border-left-width: 2px;
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--accent-primary) 12%, transparent);
 }
 
 .ide-session-card--terminated {

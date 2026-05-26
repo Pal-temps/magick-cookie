@@ -480,7 +480,12 @@ export function IdeSidebarContent() {
 
         <Show when={cliStore.cliTabs().length === 0 && sessionList().length === 0}>
           <div class="ide-sessions-list__empty">
-            <span style={{ "font-size": "20px", opacity: "0.3" }}>✦</span>
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none" style={{ opacity: "0.25" }}>
+              <rect x="2" y="2" width="6" height="6" rx="1.5" stroke="currentColor" stroke-width="1.3"/>
+              <rect x="10" y="2" width="6" height="6" rx="1.5" stroke="currentColor" stroke-width="1.3"/>
+              <rect x="2" y="10" width="6" height="6" rx="1.5" stroke="currentColor" stroke-width="1.3"/>
+              <rect x="10" y="10" width="6" height="6" rx="1.5" stroke="currentColor" stroke-width="1.3"/>
+            </svg>
             {t("ide.noSession")}
           </div>
         </Show>
