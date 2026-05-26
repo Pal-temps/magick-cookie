@@ -64,13 +64,6 @@ fn restore_main_window(app: &tauri::AppHandle) {
     });
 }
 
-/// Send window to desktop mode (Rainmeter-style background widgets).
-fn send_to_desktop(app: &tauri::AppHandle) {
-    let app = app.clone();
-    tauri::async_runtime::spawn(async move {
-        let _ = desktop_mode::enter_desktop_mode(app).await;
-    });
-}
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -299,13 +292,6 @@ pub fn run() {
             remote_control::ai_get_remote_session,
             open_detached_window,
         ])
-        .on_window_event(|window, event| {
-            // X button → enter desktop mode (Rainmeter-style background widgets)
-            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
-                api.prevent_close();
-                send_to_desktop(window.app_handle());
-            }
-        })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
