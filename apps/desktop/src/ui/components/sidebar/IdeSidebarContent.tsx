@@ -119,59 +119,68 @@ export function IdeSidebarContent() {
       setFiles(entries);
     }
 
+    function dismissCreate() {
+      setCreating(false);
+      setNewName("");
+    }
+
     return (
-      <div>
+      <div class="ide-vault-section">
         <button class="ide-sidebar-link" onClick={toggle}>
           <span class="ide-sidebar-link__icon">{props.icon}</span>
           {props.label}
-          <span style={{ "margin-left": "auto", "font-size": "10px", opacity: "0.5" }}>
-            {expanded() ? "\u25B4" : "\u25BE"}
-          </span>
+          <svg
+            class={`ide-vault-section__chevron ${expanded() ? "ide-vault-section__chevron--open" : ""}`}
+            width="8" height="8" viewBox="0 0 8 8" fill="none"
+            style={{ "margin-left": "auto", "flex-shrink": "0" }}
+          >
+            <path d="M1.5 2.5L4 5.5L6.5 2.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
         </button>
+
         <Show when={expanded()}>
-          <div style={{ "padding-left": "20px" }}>
+          <div class="ide-vault-section__body">
             <For each={files()} fallback={
-              <div style={{ "font-size": "11px", color: "var(--text-muted)", padding: "4px 0" }}>
-                {t("ide.noFile")}
-              </div>
+              <div class="ide-vault-section__empty">{t("ide.noFile")}</div>
             }>
               {(entry) => (
                 <button
-                  class="ide-sidebar-link"
-                  style={{ "font-size": "11px" }}
+                  class="ide-vault-file"
                   onClick={() => ide.openVaultFile(`${props.section}/${entry.path}`)}
                   onContextMenu={(e) => showCtxMenu(e, () => handleDelete(entry.path))}
                 >
-                  {entry.name.replace(/\.md$/, "")}
+                  <span class="ide-vault-file__dot" />
+                  <span class="ide-vault-file__name">{entry.name.replace(/\.md$/, "")}</span>
                 </button>
               )}
             </For>
+
             <Show when={creating()}>
-              <div style={{ display: "flex", gap: "4px", padding: "4px 0" }}>
+              <div class="ide-vault-create">
                 <input
+                  class="ide-vault-create__input"
+                  type="text"
                   autofocus
+                  placeholder="nom.md"
                   value={newName()}
                   onInput={(e) => setNewName(e.currentTarget.value)}
                   onKeyDown={(e) => {
                     if (e.key === "Enter") handleCreate();
-                    if (e.key === "Escape") setCreating(false);
+                    if (e.key === "Escape") dismissCreate();
                   }}
-                  placeholder="nom.md"
-                  style={{
-                    flex: "1", padding: "3px 6px", "font-size": "11px",
-                    background: "var(--bg-base)", border: "1px solid var(--border-color)",
-                    "border-radius": "var(--radius-sm)", color: "var(--text-primary)", outline: "none",
-                  }}
+                  onBlur={() => requestAnimationFrame(dismissCreate)}
                 />
               </div>
             </Show>
-            <button
-              class="ide-sidebar-link ide-sidebar-link--accent"
-              style={{ "font-size": "11px" }}
-              onClick={() => setCreating(true)}
-            >
-              <span class="ide-sidebar-link__icon">+</span> {t("common.new")}
-            </button>
+
+            <Show when={!creating()}>
+              <button class="ide-vault-new-btn" onClick={() => setCreating(true)}>
+                <svg width="9" height="9" viewBox="0 0 9 9" fill="none">
+                  <path d="M4.5 1v7M1 4.5h7" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+                </svg>
+                {t("common.new")}
+              </button>
+            </Show>
           </div>
         </Show>
       </div>
@@ -561,55 +570,79 @@ export function IdeSidebarContent() {
         </For>
 
         <Show when={wf.workflows().length === 0}>
-          <div style={{ padding: "6px 0", "font-size": "11px", color: "var(--text-muted)" }}>
-            {t("ide.noWorkflow")} — {t("ide.noWorkflowHint")}
+          <div class="ide-workflows-list__empty">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style={{ opacity: "0.2" }}>
+              <path d="M3 5h10M3 8h6M3 11h4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+            </svg>
+            {t("ide.noWorkflow")}
           </div>
         </Show>
 
-        {/* Create actions */}
+        {/* Create input */}
         <Show when={creating()}>
-          <div style={{ display: "flex", gap: "4px", padding: "4px 0" }}>
+          <div class="ide-vault-create">
             <input
-              class="ide-session-item__rename"
+              class="ide-vault-create__input"
               type="text"
               placeholder="Nom du workflow..."
               value={newName()}
               onInput={(e) => setNewName(e.currentTarget.value)}
-              onKeyDown={(e) => { if (e.key === "Enter") handleCreate(); if (e.key === "Escape") setCreating(false); }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleCreate();
+                if (e.key === "Escape") { setCreating(false); setNewName(""); }
+              }}
+              onBlur={() => requestAnimationFrame(() => { setCreating(false); setNewName(""); })}
               ref={(el) => requestAnimationFrame(() => el.focus())}
-              style={{ flex: "1" }}
             />
           </div>
         </Show>
 
-        <div style={{ display: "flex", gap: "4px" }}>
-          <button class="ide-sidebar-link ide-sidebar-link--accent" style={{ flex: "1" }} onClick={() => setCreating(true)}>
-            <span class="ide-sidebar-link__icon">+</span> {t("common.new")}
-          </button>
-          <div style={{ position: "relative" }}>
-            <button class="ide-sidebar-link" onClick={() => setShowPresets(!showPresets())}>
-              <span class="ide-sidebar-link__icon">T</span> {t("ide.presets")}
+        {/* Footer actions */}
+        <Show when={!creating()}>
+          <div class="ide-workflows-list__footer">
+            <button class="ide-vault-new-btn" style={{ flex: "1" }} onClick={() => setCreating(true)}>
+              <svg width="9" height="9" viewBox="0 0 9 9" fill="none">
+                <path d="M4.5 1v7M1 4.5h7" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+              </svg>
+              {t("common.new")}
             </button>
-            <Show when={showPresets()}>
-              <div class="ide-context-menu" style={{ position: "absolute", bottom: "100%", right: "0", "min-width": "180px" }} onMouseDown={(e) => e.stopPropagation()}>
-                <div class="ide-context-label">{t("ide.predefinedTemplates")}</div>
-                <For each={wf.presetIds}>
-                  {(presetId) => {
-                    const preset = wf.presets[presetId]();
-                    return (
-                      <div class="ide-context-item" onClick={() => handleCreatePreset(presetId)}>
-                        <span>{preset.name}</span>
-                        <span style={{ "margin-left": "auto", "font-size": "9px", color: "var(--text-muted)" }}>
-                          {preset.preCommit.length > 0 ? `${preset.preCommit.length} hooks` : ""}
-                        </span>
-                      </div>
-                    );
-                  }}
-                </For>
-              </div>
-            </Show>
+            <div style={{ position: "relative" }}>
+              <button class="ide-sidebar-link ide-workflows-list__presets-btn" onClick={() => setShowPresets(!showPresets())}>
+                <span class="ide-sidebar-link__icon">
+                  <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                    <rect x="1" y="1" width="3.2" height="3.2" rx="0.7" stroke="currentColor" stroke-width="1.1"/>
+                    <rect x="5.8" y="1" width="3.2" height="3.2" rx="0.7" stroke="currentColor" stroke-width="1.1"/>
+                    <rect x="1" y="5.8" width="3.2" height="3.2" rx="0.7" stroke="currentColor" stroke-width="1.1"/>
+                    <rect x="5.8" y="5.8" width="3.2" height="3.2" rx="0.7" stroke="currentColor" stroke-width="1.1"/>
+                  </svg>
+                </span>
+              </button>
+              <Show when={showPresets()}>
+                {/* Click-outside backdrop */}
+                <div
+                  style={{ position: "fixed", inset: "0", "z-index": "199" }}
+                  onClick={() => setShowPresets(false)}
+                />
+                <div class="ide-context-menu" style={{ position: "absolute", bottom: "100%", right: "0", "min-width": "180px", "z-index": "200" }}>
+                  <div class="ide-context-label">{t("ide.predefinedTemplates")}</div>
+                  <For each={wf.presetIds}>
+                    {(presetId) => {
+                      const preset = wf.presets[presetId]();
+                      return (
+                        <div class="ide-context-item" onClick={() => handleCreatePreset(presetId)}>
+                          <span>{preset.name}</span>
+                          <span style={{ "margin-left": "auto", "font-size": "9px", color: "var(--text-muted)" }}>
+                            {preset.preCommit.length > 0 ? `${preset.preCommit.length} hooks` : ""}
+                          </span>
+                        </div>
+                      );
+                    }}
+                  </For>
+                </div>
+              </Show>
+            </div>
           </div>
-        </div>
+        </Show>
       </div>
     );
   }
@@ -731,8 +764,9 @@ export function IdeSidebarContent() {
 
         {/* ─── WORKBENCH ─── */}
         <SidebarSection id="workbench" title={t("ide.workbench")}>
+          {/* CLAUDE.md — pinned file card */}
           <Show when={ide.projectPath()}>
-            <button class="ide-sidebar-link ide-sidebar-link--highlight" onClick={() => {
+            <button class="ide-pinned-file" onClick={() => {
               const name = ide.projectName();
               if (name && name !== "Aucun projet") {
                 const entry = { name: "CLAUDE.md", path: `_projects/${name}/CLAUDE.md`, is_dir: false, size: 0, modified: 0 };
@@ -740,14 +774,31 @@ export function IdeSidebarContent() {
                 if (!ide.codeDrawerOpen()) ide.toggleCodeDrawer();
               }
             }}>
-              <span class="ide-sidebar-link__icon" style={{ background: "var(--accent-primary)", color: "#fff" }}>AI</span> CLAUDE.md
+              <span class="ide-pinned-file__icon">
+                <svg width="11" height="11" viewBox="0 0 11 11" fill="none">
+                  <rect x="1" y="1" width="9" height="9" rx="1.5" stroke="currentColor" stroke-width="1.2"/>
+                  <path d="M3 4h5M3 6h3.5" stroke="currentColor" stroke-width="1" stroke-linecap="round"/>
+                </svg>
+              </span>
+              <span class="ide-pinned-file__name">CLAUDE.md</span>
+              <span class="ide-pinned-file__badge">AI</span>
             </button>
           </Show>
+
+          {/* Vault sections */}
           <VaultSectionLink icon="S" label="Skills" section="_ide/skills" />
           <VaultSectionLink icon="H" label="Hooks" section="_ide/hooks" />
           <VaultSectionLink icon="P" label="Prompts" section="_ide/prompts" />
+
+          {/* Terminal */}
           <button class="ide-sidebar-link" onClick={() => { const cliStore = useCliTabStore(); cliStore.launchShellTerminal(); }}>
-            <span class="ide-sidebar-link__icon">$</span> Terminal
+            <span class="ide-sidebar-link__icon">
+              <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                <path d="M1.5 3L4 5 1.5 7" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M5 7h3.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+              </svg>
+            </span>
+            Terminal
           </button>
         </SidebarSection>
 

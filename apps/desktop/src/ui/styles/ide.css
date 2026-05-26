@@ -565,7 +565,18 @@
 .ide-workflows-list {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 3px;
+}
+
+.ide-workflows-list__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  padding: 12px 8px;
+  font-size: 11px;
+  color: var(--text-muted);
+  text-align: center;
 }
 
 .ide-workflow-item {
@@ -654,6 +665,211 @@
 
 .ide-workflow-item__edit:hover {
   background: var(--bg-elevated);
+}
+
+/* ─── Vault Section (Skills / Hooks / Prompts) ─── */
+
+.ide-vault-section {
+  /* container — no extra padding, inherits sidebar body */
+}
+
+.ide-vault-section__chevron {
+  color: var(--text-muted);
+  opacity: 0.45;
+  transition: transform 200ms cubic-bezier(0.16, 1, 0.3, 1), opacity 150ms;
+}
+
+.ide-vault-section__chevron--open {
+  transform: rotate(180deg);
+  opacity: 0.8;
+}
+
+.ide-vault-section__body {
+  padding: 2px 0 4px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.ide-vault-section__empty {
+  font-size: 10px;
+  color: var(--text-muted);
+  padding: 4px 8px;
+  font-style: italic;
+  opacity: 0.7;
+}
+
+/* Individual vault file row */
+.ide-vault-file {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 8px;
+  width: 100%;
+  background: transparent;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 11px;
+  color: var(--text-secondary);
+  text-align: left;
+  transition: background 150ms cubic-bezier(0.16, 1, 0.3, 1), color 150ms, transform 80ms;
+}
+
+.ide-vault-file:hover {
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+}
+
+.ide-vault-file:active {
+  transform: scale(0.98);
+}
+
+.ide-vault-file__dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  flex-shrink: 0;
+  opacity: 0.35;
+  transition: opacity 150ms, background 150ms;
+}
+
+.ide-vault-file:hover .ide-vault-file__dot {
+  background: var(--accent-primary);
+  opacity: 0.7;
+}
+
+.ide-vault-file__name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 400;
+}
+
+/* Inline create input */
+.ide-vault-create {
+  padding: 3px 4px;
+}
+
+.ide-vault-create__input {
+  width: 100%;
+  padding: 5px 8px;
+  font-size: 11px;
+  font-family: inherit;
+  background: var(--bg-base);
+  border: 1px solid var(--accent-primary);
+  border-radius: 5px;
+  color: var(--text-primary);
+  outline: none;
+  box-sizing: border-box;
+  transition: border-color 150ms;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent-primary) 12%, transparent);
+}
+
+/* "New" dashed button — shared by vault sections and workflows */
+.ide-vault-new-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  width: 100%;
+  padding: 5px 8px;
+  margin-top: 2px;
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--accent-primary);
+  background: transparent;
+  border: 1px dashed color-mix(in srgb, var(--accent-primary) 35%, transparent);
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background 150ms cubic-bezier(0.16, 1, 0.3, 1), border-color 150ms, transform 80ms;
+}
+
+.ide-vault-new-btn:hover {
+  background: color-mix(in srgb, var(--accent-primary) 8%, transparent);
+  border-color: color-mix(in srgb, var(--accent-primary) 65%, transparent);
+}
+
+.ide-vault-new-btn:active {
+  transform: scale(0.98);
+}
+
+/* ─── Pinned File Card (CLAUDE.md) ─── */
+
+.ide-pinned-file {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  padding: 6px 8px;
+  margin-bottom: 4px;
+  background: color-mix(in srgb, var(--accent-primary) 6%, var(--bg-surface));
+  border: 1px solid color-mix(in srgb, var(--accent-primary) 30%, transparent);
+  border-radius: 6px;
+  cursor: pointer;
+  text-align: left;
+  transition: background 150ms cubic-bezier(0.16, 1, 0.3, 1), border-color 150ms, box-shadow 150ms, transform 80ms;
+  box-shadow: 0 1px 3px color-mix(in srgb, var(--accent-primary) 8%, transparent);
+}
+
+.ide-pinned-file:hover {
+  background: color-mix(in srgb, var(--accent-primary) 10%, var(--bg-surface));
+  border-color: color-mix(in srgb, var(--accent-primary) 55%, transparent);
+  box-shadow: 0 2px 6px color-mix(in srgb, var(--accent-primary) 14%, transparent);
+}
+
+.ide-pinned-file:active {
+  transform: scale(0.99);
+}
+
+.ide-pinned-file__icon {
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--accent-primary) 15%, transparent);
+  color: var(--accent-primary);
+  flex-shrink: 0;
+}
+
+.ide-pinned-file__name {
+  flex: 1;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ide-pinned-file__badge {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: var(--accent-primary);
+  color: #fff;
+  flex-shrink: 0;
+}
+
+/* ─── Workflows list footer ─── */
+
+.ide-workflows-list__footer {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 2px;
+}
+
+.ide-workflows-list__presets-btn {
+  flex-shrink: 0;
+  padding: 5px 7px;
+  min-width: 0;
 }
 
 /* ide-session-wrap kept for compatibility but superseded by ide-session-card */
