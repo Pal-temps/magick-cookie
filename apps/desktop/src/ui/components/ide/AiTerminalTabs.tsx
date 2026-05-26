@@ -119,15 +119,15 @@ export function AiTerminalTabs(props: AiTerminalTabsProps) {
 
   async function restartSession(sessionId: string) {
     setContextMenu(null);
+    if (launching()) return;
     const session = ai.sessions().get(sessionId);
     if (!session) return;
     const { provider, model } = session;
-    // Remove the old terminated session first
-    await ai.stopSession(sessionId);
-    // Launch a fresh one with the same provider+model
     setLaunchError(null);
     setLaunching(true);
     try {
+      // Remove the old terminated session first, then launch a fresh one
+      await ai.stopSession(sessionId);
       await launchSession(provider, model);
     } catch (e) {
       setLaunchError(e instanceof Error ? e.message : String(e));
