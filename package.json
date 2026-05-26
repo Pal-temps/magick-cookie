@@ -5,6 +5,7 @@
   "scripts": {
     "predev": "node scripts/kill-existing.js",
     "dev": "node scripts/ensure-db.js && bun run db:migrate && node scripts/dev.js",
+    "dev:empty": "node scripts/dev-empty.js",
     "shutdown": "node scripts/shutdown.js",
     "llm:up": "docker compose -f apps/llm/docker-compose.yml up -d",
     "llm:down": "docker compose -f apps/llm/docker-compose.yml down",
