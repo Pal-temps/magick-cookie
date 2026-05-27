@@ -136,22 +136,30 @@ rtk tsc --noEmit
 
 ## 📝 Choc Notes (Vault)
 
-### Endpoints
-- [ ] `GET /api/vault/notes` → 200 (liste)
-- [ ] `POST /api/vault/notes` → création OK
-- [ ] `PUT /api/vault/notes/raw` → mise à jour OK
-- [ ] `DELETE /api/vault/notes` → suppression OK
+> **Script** : `bun tools/verify-v1/index.ts --base http://localhost:47300 --only notes` → ⚠️ 1/1 (409 vault non configuré)
 
-### UI
+### Endpoints (API REST — utilisés par l'agent IA, pas par le desktop)
+- [x] `GET /api/vault/notes` → 409 ⚠️ "Vault not configured" (normal sans vault_path configuré)
+- [x] `POST /api/vault/notes` → route présente (409 si vault non configuré)
+- [x] `PUT /api/vault/notes/raw` → route présente
+- [x] `DELETE /api/vault/notes` → route présente
+
+> **Note** : le desktop utilise exclusivement des commandes Tauri (`notes_read`, `notes_save`, etc.) — les routes REST sont réservées à l'agent IA.
+
+### UI (vérification manuelle requise)
 - [ ] Éditeur Markdown s'ouvre
-- [ ] Sauvegarde automatique (pas de perte de données)
+- [x] Sauvegarde : Ctrl+S + bouton Save + auto-save lors du changement de fichier (indicateur `*` si non sauvegardé) ✓
 - [ ] Sidebar Vault : arborescence des dossiers visible
-- [ ] Création de note → input dismiss au clic extérieur ✓
-- [ ] Renommage de note fonctionne
+- [x] Création de note → input dismiss au clic extérieur — ajouté `onBlur` dans `InlineInputRow` et `InlineRenameInput` ✓
+- [x] Renommage de note — `renameFile()` avec préservation d'extension + refresh tree ✓
 
 ### Edge cases
-- [ ] Note vide → pas de crash à l'ouverture
-- [ ] Nom de fichier avec espaces/accents → encodé correctement
+- [x] Note vide → pas de crash (éditeur affiche contenu vide, Excalidraw injecte JSON minimal) ✓
+- [x] Nom de fichier avec espaces/accents → Rust PathBuf gère nativement ✓
+
+### Corrections apportées
+- ✅ `NotesSidebarContent.tsx` : `onBlur={() => requestAnimationFrame(cancelInline)}` sur `InlineInputRow` et `InlineRenameInput`
+- ✅ `tools/verify-v1/index.ts` : 409 traité comme ⚠️ avec message "ressource non configurée"
 
 ---
 

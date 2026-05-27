@@ -117,6 +117,7 @@ export function NotesSidebarContent() {
         <Show when={!isRename}><span style={{ "font-size": "10px", color: "var(--text-muted)", "font-weight": "600", "flex-shrink": "0" }}>{label}</span></Show>
         <input type="text" value={inlineName()} onInput={(e) => setInlineName(e.currentTarget.value)}
           onKeyDown={(e) => { if (e.key === "Enter") confirmInline(); if (e.key === "Escape") cancelInline(); }}
+          onBlur={() => requestAnimationFrame(cancelInline)}
           placeholder={isRename ? t("notes.newName") : ""} style={{ ...inputStyle(), flex: "1", "font-size": "11px", padding: "3px 6px", "min-width": "0" }}
           ref={(el) => setTimeout(() => el.focus(), 0)} />
         <button onClick={confirmInline} style={{ "font-size": "11px", padding: "2px 8px", "border-radius": "var(--radius-sm)", background: "var(--accent-primary)", color: "#fff", cursor: "pointer", "font-weight": "600", "white-space": "nowrap", "flex-shrink": "0" }}>OK</button>
@@ -130,6 +131,7 @@ export function NotesSidebarContent() {
       <div style={{ display: "flex", "align-items": "center", gap: "4px", flex: "1", "min-width": "0", overflow: "hidden" }} onClick={(e) => e.stopPropagation()}>
         <input type="text" value={inlineName()} onInput={(e) => setInlineName(e.currentTarget.value)}
           onKeyDown={(e) => { if (e.key === "Enter") confirmInline(); if (e.key === "Escape") cancelInline(); }}
+          onBlur={() => requestAnimationFrame(cancelInline)}
           style={{ flex: "1", "min-width": "0", "font-size": "12px", "line-height": "1", padding: "0 4px", height: "18px", background: "var(--bg-base)", color: "var(--text-primary)", border: "1px solid var(--accent-primary)", "border-radius": "var(--radius-sm)", outline: "none" }}
           ref={(el) => setTimeout(() => { el.focus(); el.select(); }, 0)} />
         <button onClick={confirmInline} style={{ "font-size": "10px", padding: "1px 5px", "line-height": "1", "border-radius": "var(--radius-sm)", background: "var(--accent-primary)", color: "#fff", cursor: "pointer", "font-weight": "600", "flex-shrink": "0" }}>OK</button>

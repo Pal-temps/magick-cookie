@@ -214,12 +214,20 @@ async function checkEndpoint(
     if (status === 503) {
       return { result: "auth", status, ms, detail: "LLM non configuré (normal sans clé API)" };
     }
+    if (status === 409) {
+      let body = "";
+      try { body = await res.text(); } catch {}
+      const detail = body.includes("not configured") || body.includes("Vault not configured")
+        ? "ressource non configurée (normal sans setup)"
+        : `conflit : ${body.slice(0, 80)}`;
+      return { result: "auth", status, ms, detail };
+    }
     if (status >= 500) {
       let body = "";
       try { body = await res.text(); } catch {}
       return { result: "error", status, ms, detail: body.slice(0, 100) };
     }
-    // 4xx other than 401/403/404 — likely bad minimal body, treat as auth/soft
+    // 4xx other than 401/403/404/409 — likely bad minimal body, treat as auth/soft
     return { result: "auth", status, ms, detail: "body minimal rejeté (400/422)" };
 
   } catch (err: any) {
