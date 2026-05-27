@@ -242,7 +242,7 @@
   letter-spacing: 0.08em;
   color: var(--accent-primary);
   pointer-events: none;
-  box-shadow: 0 4px 16px var(--shadow-color);
+  box-shadow: var(--shadow-md);
   white-space: nowrap;
 }
 
@@ -267,6 +267,10 @@
 .notes-category__header:hover {
   color: var(--text-primary);
   background: var(--bg-elevated);
+}
+
+.notes-category__header:active {
+  background: var(--bg-overlay);
 }
 
 .notes-category__chevron {
@@ -362,11 +366,17 @@
 }
 
 .notes-file-row--active {
-  background: var(--accent-primary);
+  background: color-mix(in srgb, var(--accent-primary) 18%, var(--bg-elevated));
+  color: var(--text-primary);
 }
 
 .notes-file-row--active:hover {
-  background: var(--accent-primary);
+  background: color-mix(in srgb, var(--accent-primary) 22%, var(--bg-elevated));
+}
+
+/* Active note indicator: left border stripe */
+.notes-file-row--active .notes-file-name {
+  font-weight: 600;
 }
 
 .notes-file-icon {

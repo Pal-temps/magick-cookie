@@ -16,6 +16,10 @@
   --accent-primary-text: #100800;
   --accent-secondary: #e8a54b;
 
+  /* Semantic aliases for missing vars used in CSS */
+  --bg-primary: #0d0d11;         /* alias for bg-base */
+  --bg-hover: #1f1f2c;           /* alias for bg-elevated */
+
   --text-primary: #e6e6f0;
   --text-secondary: #8585a5;
   --text-muted: #505068;
@@ -76,6 +80,10 @@
   --accent-primary-text: #ffffff;
   --accent-secondary: #c47514;
 
+  /* Semantic aliases */
+  --bg-primary: #f8f7f4;
+  --bg-hover: #f2f0ea;
+
   --text-primary: #1a1a2e;
   --text-secondary: #5c5c7a;
   --text-muted: #9090a8;
@@ -131,6 +139,10 @@
   --accent-primary-hover: #f0b85e;
   --accent-primary-text: #2c1e14;
   --accent-secondary: #c46a2c;
+
+  /* Semantic aliases */
+  --bg-primary: #2c1e14;
+  --bg-hover: #4e3828;
 
   --text-primary: #f5e6d3;
   --text-secondary: #c4a882;
