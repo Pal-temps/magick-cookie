@@ -48,9 +48,9 @@ export function FluxView() {
     taskStore.fetchConnectorConfigs();
   });
 
-  // ─── Kanban columns — read from server-side data ───
+  // ─── Kanban columns — read from server-side data (filtered by activeEntityType) ───
   function getKanbanColumn(status: FluxStatus | "undecided") {
-    return flux.kanbanColumns()[status] ?? { items: [], total: 0 };
+    return flux.filteredKanbanColumns()[status] ?? { items: [], total: 0 };
   }
 
   // ─── Swipe mode ───

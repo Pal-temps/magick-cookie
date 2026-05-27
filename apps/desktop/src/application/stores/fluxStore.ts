@@ -1,4 +1,4 @@
-import { createSignal } from "solid-js";
+import { createSignal, createMemo } from "solid-js";
 import { api } from "../../infrastructure/api/apiClient";
 import type { Task } from "../../domain/models/Task";
 import type { Email } from "../../domain/models/Email";
@@ -126,6 +126,7 @@ const [isSaving, setIsSaving] = createSignal(false);
 const [activeEntityType, setActiveEntityType] = createSignal<FluxEntityType | "all">("all");
 const [suggestions, setSuggestions] = createSignal<FluxSuggestion[]>([]);
 const [suggestLoading, setSuggestLoading] = createSignal(false);
+const [suggestError, setSuggestError] = createSignal<string | null>(null);
 
 /** Kanban columns from GET /flux/kanban — paginated per column */
 const [kanbanColumns, setKanbanColumns] = createSignal<Record<string, FluxKanbanColumn>>({});
@@ -133,6 +134,21 @@ const [isKanbanLoading, setIsKanbanLoading] = createSignal(false);
 
 /** Lightweight counts from GET /flux/counts — for sidebar badges */
 const [fluxCounts, setFluxCounts] = createSignal<FluxCountsResult | null>(null);
+
+/** Kanban columns filtered by activeEntityType (client-side) */
+const filteredKanbanColumns = createMemo(() => {
+  const type = activeEntityType();
+  const cols = kanbanColumns();
+  if (type === "all") return cols;
+  const filtered: Record<string, FluxKanbanColumn> = {};
+  for (const [status, col] of Object.entries(cols)) {
+    filtered[status] = {
+      ...col,
+      items: col.items.filter((i) => i.entityType === type),
+    };
+  }
+  return filtered;
+});
 
 const KANBAN_PAGE_SIZE = 50;
 
@@ -354,6 +370,7 @@ export function useFluxStore() {
   async function fetchSuggestions(entityType?: FluxEntityType) {
     const { trackAiActivity } = await import("./aiActivityStore");
     setSuggestLoading(true);
+    setSuggestError(null);
     try {
       const body = entityType ? { entityType } : {};
       const data = await trackAiActivity("Auto-tri IA", () =>
@@ -362,6 +379,7 @@ export function useFluxStore() {
       setSuggestions(data);
     } catch (e) {
       console.error("Failed to fetch suggestions:", e);
+      setSuggestError(e instanceof Error ? e.message : "Erreur lors des suggestions IA");
     } finally {
       setSuggestLoading(false);
     }
@@ -375,8 +393,8 @@ export function useFluxStore() {
     // State
     fluxMap, pendingDecisions, fluxQueue, currentIndex,
     isFluxing, isSaving, activeEntityType, setActiveEntityType,
-    suggestions, suggestLoading,
-    kanbanColumns, isKanbanLoading,
+    suggestions, suggestLoading, suggestError,
+    kanbanColumns, filteredKanbanColumns, isKanbanLoading,
     fluxCounts,
 
     // Actions

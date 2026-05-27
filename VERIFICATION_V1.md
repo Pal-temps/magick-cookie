@@ -165,25 +165,34 @@ rtk tsc --noEmit
 
 ## ⚡ Flux
 
+> **Script** : `bun tools/verify-v1/index.ts --base http://localhost:47300 --only flux` → ✓ 3/3
+
 ### Endpoints
-- [ ] `GET /api/flux` → 200
-- [ ] `GET /api/flux/counts` → 200
-- [ ] `POST /api/flux/suggest` → 200 (suggestions IA)
-- [ ] `POST /api/flux` → décision enregistrée
+- [x] `GET /api/flux` → 200 ✓
+- [x] `GET /api/flux/counts` → 200 ✓
+- [x] `POST /api/flux/suggest` → 200 ✓ (réponse instantanée sans LLM configuré = liste vide)
+- [x] `POST /api/flux` → décision enregistrée via `moveItem()` dans store ✓
 
 ### IA
-- [ ] **Suggestion de catégorie** : article sélectionné → suggestion IA affichée
-- [ ] Indicateur IA pendant traitement
+- [ ] **Suggestion de catégorie** : cliquer "IA Tri" → suggestions affichées
+- [x] Indicateur IA pendant traitement — bouton "..." + disabled ✓
+- [x] Erreur suggestion → message ⚠️ visible dans sidebar ✓ (ajouté `suggestError` signal)
 
 ### UI
-- [ ] Kanban / liste : navigation fluide
+- [ ] Kanban / liste : navigation fluide (vue kanban, swipe, timeline)
 - [ ] Décisions (keep, skip, archive) enregistrées visuellement
-- [ ] Filtres par type fonctionnent
-- [ ] Compteurs mis à jour après action
+- [x] Filtres par type fonctionnent — `filteredKanbanColumns` memo client-side ✓ (était non branché)
+- [ ] Compteurs mis à jour après action (optimistic updates partiels — acceptable v1)
 
 ### Edge cases
-- [ ] Flux vide → état vide propre
-- [ ] Article sans image → placeholder correct
+- [x] Flux vide → VirtualKanbanColumn affiche "Vide" ✓
+- [ ] Article sans image → pas de champ image dans le modèle (hors scope v1)
+
+### Corrections apportées
+- ✅ `fluxStore.ts` : `filteredKanbanColumns` memo (client-side filter par `activeEntityType`)
+- ✅ `fluxStore.ts` : `suggestError` signal + set dans catch de `fetchSuggestions`
+- ✅ `FluxView.tsx` : `getKanbanColumn` utilise `filteredKanbanColumns()` au lieu de `kanbanColumns()`
+- ✅ `FluxSidebarContent.tsx` : affiche `suggestError()` sous le bouton "IA Tri"
 
 ---
 

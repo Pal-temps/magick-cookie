@@ -496,6 +496,11 @@ export function FluxSidebarContent() {
           size="sm"
           style={{ width: "100%" }}
         >{flux.suggestLoading() ? "..." : "IA Tri"}</AiButton>
+        <Show when={flux.suggestError()}>
+          <div style={{ "font-size": "11px", color: "var(--error-text, #e05252)", padding: "2px 4px", "line-height": "1.3" }}>
+            ⚠️ {flux.suggestError()}
+          </div>
+        </Show>
         <AiButton size="sm" variant="secondary" onClick={askCookia} style={{ width: "100%" }}>
           Ask Cookia
         </AiButton>
