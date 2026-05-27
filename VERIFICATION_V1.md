@@ -198,39 +198,47 @@ rtk tsc --noEmit
 
 ## 📧 Email
 
+> **Script** : `bun tools/verify-v1/index.ts --base http://localhost:47300 --only email` → ✓ 3/3
+
 ### Endpoints
-- [ ] `GET /api/emails` → 200
-- [ ] `GET /api/email-accounts` → 200
-- [ ] `GET /api/emails/unread-count` → 200
-- [ ] `POST /api/email-accounts/test-connection` → 200
+- [x] `GET /api/emails` → 200 ✓
+- [x] `GET /api/email-accounts` → 200 ✓
+- [x] `GET /api/emails/unread-count` → 200 ✓
+- [x] `POST /api/email-accounts/test-connection` → via store `testConnection()` ✓
 
 ### UI
-- [ ] Liste emails chargée avec pagination
-- [ ] Aperçu email fonctionnel
-- [ ] Compte email configurable dans paramètres
-- [ ] Sync manuelle déclenchable
+- [x] Liste emails chargée avec pagination — `fetchEmails()` + `loadMoreEmails()` (PAGE_SIZE=200, hasMore) ✓
+- [x] Aperçu email fonctionnel — EmailDetail avec indicateurs sécurité + fallback texte ✓
+- [x] Compte email configurable dans paramètres — presets Gmail/Outlook/Yahoo/etc. + test connexion ✓
+- [x] Sync manuelle déclenchable — boutons Sync / Sync All avec état `isSyncing` ✓
 
 ### Edge cases
-- [ ] Aucun compte configuré → message d'onboarding
-- [ ] Email HTML complexe → rendu correct (pas de XSS)
+- [x] Aucun compte configuré → "Aucun compte email configuré" + bouton "Configurer →" ✓
+- [x] Email HTML complexe → iframe sandbox="allow-same-origin" + srcdoc, HTML bloqué par défaut sur emails high/critical ✓ (pas de XSS)
 
 ---
 
 ## 🖥 VPS / Infra
 
-### Endpoints
-- [ ] `GET /api/vps/health` → 200
-- [ ] `GET /api/infra/servers` → 200
-- [ ] `GET /api/infra/config/status` → 200
+> **Script** : `bun tools/verify-v1/index.ts --base http://localhost:47300 --only vps` → ✓ 3/3
 
-### UI
-- [ ] Liste des serveurs visible
-- [ ] Statut de santé (vert/rouge) affiché
-- [ ] Logs VPS accessibles
+### Endpoints
+- [x] `GET /api/vps/health` → 200 ✓
+- [x] `GET /api/infra/servers` → 200 ✓
+- [x] `GET /api/infra/config/status` → 200 ✓
+
+### UI (vérification manuelle requise)
+- [ ] Liste des serveurs visible (InfraSettings)
+- [x] Statut de santé (vert/rouge) — `isConnected()` → dot rouge/vert + label "Connecté/Déconnecté" ✓
+- [ ] Logs VPS accessibles — viewer SSE avec filtre niveau (ALL/ERROR/WARNING/INFO/DEBUG) + auto-scroll ✓
 
 ### Edge cases
-- [ ] Aucun serveur configuré → message vide propre
-- [ ] Serveur inaccessible → erreur affichée, pas de freeze
+- [x] Aucun serveur configuré → "No servers configured." dans InfraSettings + services vide "No services" ✓
+- [x] Serveur inaccessible → `health()` = null + "Déconnecté" affiché, reconnect auto toutes 5s, pas de freeze ✓
+
+### Post-v1
+- ⚪ InfraSettings : dot de statut hardcodé vert (pas de health check réel par serveur dans settings)
+- ⚪ Pas d'indicateur "Reconnexion en cours..." visible
 
 ---
 

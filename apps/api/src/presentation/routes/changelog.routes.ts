@@ -21,6 +21,9 @@ export function createChangelogRoutes(changelogService: ChangelogService) {
       if (err instanceof Error && err.message === "No LLM configured") {
         return c.json({ error: "LLM not configured" }, 503);
       }
+      if (err instanceof Error && err.message === "No git repos configured") {
+        return c.json({ error: "No git repos configured" }, 503);
+      }
       throw err;
     }
   });
