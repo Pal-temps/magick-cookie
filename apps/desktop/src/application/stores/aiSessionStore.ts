@@ -405,7 +405,7 @@ export function useAiSessionStore() {
       timestamp: Date.now(),
     });
 
-    // Clear previous streaming state
+    // Set streaming state before the invoke
     updateSession(id, (s) => ({
       ...s,
       isStreaming: true,
@@ -413,24 +413,46 @@ export function useAiSessionStore() {
       streamPhase: "text",
     }));
 
-    await invoke("ai_send_message", {
-      sessionId: id,
-      content,
-      images: images ?? null,
-    });
+    try {
+      await invoke("ai_send_message", {
+        sessionId: id,
+        content,
+        images: images ?? null,
+      });
+    } catch (err) {
+      // Clear the stuck streaming state and surface the error in the feed
+      updateSession(id, (s) => ({ ...s, isStreaming: false, streamingContent: "" }));
+      addMessage(id, {
+        id: nextMsgId(), seq: 0, type: "error",
+        content: `Erreur lors de l'envoi : ${err instanceof Error ? err.message : String(err)}`,
+        timestamp: Date.now(),
+      });
+      console.error("[ai-session] sendMessage failed:", err);
+    }
   }
 
   async function respondPermission(requestId: string, allowed: boolean) {
     const id = activeSessionId();
     if (!id) return;
 
-    await invoke("ai_respond_permission", {
-      sessionId: id,
-      requestId,
-      allowed,
-    });
+    try {
+      await invoke("ai_respond_permission", {
+        sessionId: id,
+        requestId,
+        allowed,
+      });
+    } catch (err) {
+      console.error("[ai-session] respondPermission failed:", err);
+      // Permission UI was already dismissed optimistically — don't re-show it,
+      // but surface an error message in the feed.
+      addMessage(id, {
+        id: nextMsgId(), seq: 0, type: "error",
+        content: `Erreur de réponse à la permission : ${err instanceof Error ? err.message : String(err)}`,
+        timestamp: Date.now(),
+      });
+    }
 
-    // Remove from pending
+    // Remove from pending regardless of success (keep UI clean)
     updateSession(id, (s) => {
       const perms = new Map(s.pendingPermissions);
       perms.delete(requestId);
@@ -441,7 +463,12 @@ export function useAiSessionStore() {
   async function interruptSession() {
     const id = activeSessionId();
     if (!id) return;
-    await invoke("ai_interrupt", { sessionId: id });
+    try {
+      await invoke("ai_interrupt", { sessionId: id });
+    } catch (err) {
+      // Interrupt failing is non-fatal — the session may have already finished.
+      console.error("[ai-session] interrupt failed (non-fatal):", err);
+    }
   }
 
   async function stopSession(sessionId?: string) {

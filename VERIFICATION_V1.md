@@ -83,39 +83,54 @@ rtk tsc --noEmit
 
 ## 🤖 Cookia / IDE
 
-### Endpoints (Tauri)
+> **Script** : `bun tools/verify-v1/index.ts --base http://localhost:47300 --only cookia` → ✓ 4/4
+
+### Endpoints HTTP
+- [x] `GET /api/agent` → 200 ✓
+- [x] `GET /api/ai/tools` → 200 ✓
+- [x] `GET /api/ai/tool-calls` → 200 ✓
+- [x] `GET /api/ai/budget` → 200 ✓
+
+### Endpoints Tauri (vérification manuelle requise)
 - [ ] `ai_list_providers` → liste les providers disponibles
 - [ ] `ai_start_session` → démarre une session
-- [ ] `ai_send_message` → envoie un message, réponse reçue
+- [ ] `ai_send_message` → envoie un message, réponse streamée
 - [ ] `ai_interrupt` → interrompt la génération
 - [ ] `ai_stop_session` → arrête proprement
 - [ ] `ai_list_past_sessions` → liste les sessions passées
-- [ ] `ai_start_remote_session` → URL relay générée
-- [ ] `ai_stop_remote_session` → session stoppée
-
-### Endpoints HTTP
-- [ ] `GET /api/agent` → liste conversations
-- [ ] `GET /api/ai/tools` → outils disponibles
-- [ ] `GET /api/ai/budget` → budget LLM
+- [ ] `ai_start_remote_session` → URL relay générée, countdown affiché
+- [ ] `ai_stop_remote_session` → session stoppée proprement
 
 ### IA
 - [ ] **Chat session** : message envoyé → réponse streamée token par token
-- [ ] **Permission outil** : outil demande confirmation → bouton Allow/Deny visible
-- [ ] **Session mobile** : RemoteControlModal → URL valide générée, countdown affiché
-- [ ] **Agent picker** : choisir un agent pour la session → appliqué correctement
+- [ ] **Permission outil** : bouton Allow/Deny visible, réponse correcte
+- [ ] **Session mobile** : RemoteControlModal → URL valide générée
+- [ ] **Agent picker** : choisir un agent pour la session → appliqué
 - [ ] Sessions passées : liste et lecture fonctionnelles
 
 ### UI
 - [ ] Sidebar : sections Skills, Hooks, Prompts, Terminal s'ouvrent
-- [ ] Création de nouveau fichier vault → input dismiss au clic extérieur ✓
-- [ ] Création d'agent → input dismiss au clic extérieur ✓
+- [ ] Création de nouveau fichier vault → input dismiss au clic extérieur
+- [ ] Création d'agent → input dismiss au clic extérieur
 - [ ] Liste des agents vide → message "Aucun agent"
 - [ ] Animation cartes sessions (cubic-bezier spring)
 
 ### Edge cases
-- [ ] LLM non configuré → message d'erreur dans le chat, pas de crash
-- [ ] Session interrompue en plein milieu → état "terminated" correct
-- [ ] Reconnexion après perte réseau
+- [x] `sendMessage` invoke échoue → spinner se débloque + message ⚠️ dans le feed ✓
+- [x] `respondPermission` échoue → message ⚠️ dans le feed, UI reste propre ✓
+- [x] `interruptSession` échoue → non-fatal, log seulement ✓
+- [ ] LLM non configuré → providers vides → message explicatif (à vérifier)
+- [ ] Session interrompue → état "terminated" correct
+
+### Corrections apportées
+- ✅ `aiSessionStore.sendMessage` : try-catch → reset `isStreaming` + message `type:"error"` dans feed (était : spinner bloqué à vie)
+- ✅ `aiSessionStore.respondPermission` : try-catch → message `type:"error"` dans feed
+- ✅ `aiSessionStore.interruptSession` : try-catch non-fatal
+
+### Post-v1 (noté, non bloquant)
+- ⚪ Strings hardcodées FR dans store/composants IDE (app FR par défaut — acceptable v1)
+- ⚪ Pas de banner "aucun provider" explicite quand liste vide
+- ⚪ Timeout "connecting >30s" non géré
 
 ---
 
