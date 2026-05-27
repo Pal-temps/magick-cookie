@@ -180,15 +180,7 @@ export function DashboardView() {
       <div class="dashboard-container" style={{ height: "100%" }}>
         <div class="dashboard-scroll">
           <div class="dashboard-header">
-            <h2 style={{
-              margin: "0",
-              "font-size": "20px",
-              "font-weight": "600",
-              color: "var(--text-primary)",
-              "text-transform": "capitalize",
-              "white-space": "nowrap",
-              "flex-shrink": "0",
-            }}>
+            <h2 class="dashboard-date-heading">
               {today()}
             </h2>
             <div class="dashboard-header-actions">

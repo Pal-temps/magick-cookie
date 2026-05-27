@@ -13,35 +13,21 @@ export function DailyStats() {
   const { t } = useT();
 
   return (
-    <div>
-      <div style={{ display: "flex", gap: "8px" }}>
-        <div style={{
-          flex: "1",
-          "text-align": "center",
-          padding: "10px 8px",
-          "border-radius": "var(--radius-md)",
-          background: "var(--bg-elevated)",
-          "min-width": "0",
-        }}>
-          <div style={{ "font-size": "20px", "font-weight": "700", color: "var(--accent-primary)", "font-variant-numeric": "tabular-nums" }}>
+    <div class="daily-stats">
+      <div class="daily-stats-grid">
+        <div class="daily-stats-cell">
+          <div class="daily-stats-value">
             {formatDuration(todayStats().totalSeconds)}
           </div>
-          <div style={{ "font-size": "10px", color: "var(--text-muted)", "margin-top": "4px" }}>
+          <div class="daily-stats-label">
             {t("dashboard.focus")}
           </div>
         </div>
-        <div style={{
-          flex: "1",
-          "text-align": "center",
-          padding: "10px 8px",
-          "border-radius": "var(--radius-md)",
-          background: "var(--bg-elevated)",
-          "min-width": "0",
-        }}>
-          <div style={{ "font-size": "20px", "font-weight": "700", color: "var(--accent-primary)", "font-variant-numeric": "tabular-nums" }}>
+        <div class="daily-stats-cell">
+          <div class="daily-stats-value">
             {todayStats().sessionCount}
           </div>
-          <div style={{ "font-size": "10px", color: "var(--text-muted)", "margin-top": "4px" }}>
+          <div class="daily-stats-label">
             {t("dashboard.sessions")}
           </div>
         </div>

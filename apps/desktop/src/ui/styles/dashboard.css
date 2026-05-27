@@ -95,23 +95,77 @@
   }
 }
 
+/* ─── Header ─── */
+
+.dashboard-date-heading {
+  margin: 0;
+  font-size: 19px;
+  font-weight: 600;
+  color: var(--text-primary);
+  text-transform: capitalize;
+  white-space: nowrap;
+  flex-shrink: 0;
+  letter-spacing: -0.015em;
+  line-height: 1.2;
+  text-wrap: balance;
+}
+
 /* ─── Cards ─── */
+
+@keyframes card-enter {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
 
 .dashboard-card {
   background: var(--bg-surface);
   border-radius: var(--radius-lg);
   border: 1px solid var(--border-color);
   overflow: hidden;
-  transition: transform 150ms ease, opacity 150ms ease;
+  transition:
+    transform 220ms cubic-bezier(0.34, 1.56, 0.64, 1),
+    box-shadow 220ms ease,
+    border-color 150ms ease,
+    opacity 150ms ease;
+  box-shadow: var(--shadow-card);
+  will-change: transform, box-shadow;
+  animation: card-enter 320ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
 }
+
+.dashboard-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-card-hover);
+  border-color: var(--border-hover);
+}
+
+/* Staggered card entrance — first 12 cards get a cascade delay */
+.dashboard-grid > .dashboard-card:nth-child(1)  { animation-delay:   0ms; }
+.dashboard-grid > .dashboard-card:nth-child(2)  { animation-delay:  45ms; }
+.dashboard-grid > .dashboard-card:nth-child(3)  { animation-delay:  90ms; }
+.dashboard-grid > .dashboard-card:nth-child(4)  { animation-delay: 135ms; }
+.dashboard-grid > .dashboard-card:nth-child(5)  { animation-delay: 180ms; }
+.dashboard-grid > .dashboard-card:nth-child(6)  { animation-delay: 225ms; }
+.dashboard-grid > .dashboard-card:nth-child(7)  { animation-delay: 270ms; }
+.dashboard-grid > .dashboard-card:nth-child(8)  { animation-delay: 315ms; }
+.dashboard-grid > .dashboard-card:nth-child(9)  { animation-delay: 360ms; }
+.dashboard-grid > .dashboard-card:nth-child(10) { animation-delay: 405ms; }
+.dashboard-grid > .dashboard-card:nth-child(11) { animation-delay: 450ms; }
+.dashboard-grid > .dashboard-card:nth-child(12) { animation-delay: 495ms; }
 
 .dashboard-card-header {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 8px 12px;
+  padding: 9px 12px;
   border-bottom: 1px solid var(--border-color);
   user-select: none;
+  background: color-mix(in srgb, var(--bg-elevated) 40%, transparent);
 }
 
 .dashboard-card-handle {
@@ -130,7 +184,8 @@
 
 .dashboard-card-handle:active {
   cursor: grabbing;
-  background: var(--accent-primary);
+  background: color-mix(in srgb, var(--accent-primary) 25%, transparent);
+  transform: scale(0.95);
 }
 
 .dashboard-card:hover .dashboard-card-handle {
@@ -192,17 +247,21 @@
 }
 
 .dashboard-card-body {
-  padding: 16px;
+  padding: 14px 16px 16px;
 }
 
 .dashboard-card--dragging {
-  opacity: 0.3;
+  opacity: 0.25;
+  transform: scale(0.97) rotate(0.5deg);
+  box-shadow: none;
 }
 
 .dashboard-card--drop-target {
-  outline: 2px dashed var(--accent-primary);
-  outline-offset: 2px;
-  transform: scale(1.02);
+  outline: 2px dashed color-mix(in srgb, var(--accent-primary) 60%, transparent);
+  outline-offset: 3px;
+  transform: translateY(-3px) scale(1.01);
+  border-color: color-mix(in srgb, var(--accent-primary) 50%, var(--border-color));
+  box-shadow: var(--shadow-card-hover), var(--shadow-accent);
 }
 
 /* ─── Config button ─── */
@@ -214,23 +273,31 @@
   width: 32px;
   height: 32px;
   border: 1px solid var(--border-color);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   background: var(--bg-surface);
   color: var(--text-secondary);
   cursor: pointer;
-  transition: background 150ms ease, color 150ms ease;
+  transition: background 150ms ease, color 150ms ease, transform 120ms ease, box-shadow 150ms ease;
   flex-shrink: 0;
+  box-shadow: var(--shadow-xs);
 }
 
 .dashboard-config-btn:hover {
   background: color-mix(in srgb, var(--accent-primary) 10%, var(--bg-surface));
   color: var(--text-primary);
+  box-shadow: var(--shadow-sm);
+}
+
+.dashboard-config-btn:active {
+  transform: scale(0.95) translateY(1px);
+  box-shadow: none;
 }
 
 .dashboard-config-btn--active {
   background: color-mix(in srgb, var(--accent-primary) 15%, var(--bg-surface));
   color: var(--accent-primary);
-  border-color: var(--accent-primary);
+  border-color: color-mix(in srgb, var(--accent-primary) 40%, var(--border-color));
+  box-shadow: var(--shadow-accent);
 }
 
 /* ─── Config panel ─── */
@@ -458,4 +525,43 @@
   .widget-row--expanded .widget-row-actions .widget-row-delete {
     display: inline-flex;
   }
+}
+
+/* ─── DailyStats widget ─── */
+
+.daily-stats-grid {
+  display: flex;
+  gap: 8px;
+}
+
+.daily-stats-cell {
+  flex: 1;
+  text-align: center;
+  padding: 12px 8px;
+  border-radius: var(--radius-md);
+  background: var(--bg-elevated);
+  min-width: 0;
+  transition: background 150ms ease;
+}
+
+.daily-stats-cell:hover {
+  background: color-mix(in srgb, var(--bg-elevated) 80%, var(--bg-overlay));
+}
+
+.daily-stats-value {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--accent-primary);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+
+.daily-stats-label {
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-top: 5px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 500;
 }

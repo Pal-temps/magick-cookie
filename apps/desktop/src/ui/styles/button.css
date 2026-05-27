@@ -1,0 +1,106 @@
+/* ═══════════════════════════════════════════
+   Button — Base styles and interaction states
+   ═══════════════════════════════════════════ */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border-radius: var(--radius-md);
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  border: 1px solid var(--border-color);
+  transition:
+    background 140ms ease,
+    color 140ms ease,
+    border-color 140ms ease,
+    box-shadow 140ms ease,
+    transform 120ms cubic-bezier(0.34, 1.56, 0.64, 1),
+    opacity 140ms ease;
+  white-space: nowrap;
+  user-select: none;
+  text-decoration: none;
+}
+
+.btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* Active / pressed state — physical click feel */
+.btn:active:not(:disabled) {
+  transform: scale(0.97) translateY(0.5px);
+}
+
+/* ─── Sizes ─── */
+
+.btn-sm {
+  padding: 4px 10px;
+  font-size: 12px;
+}
+
+.btn-md {
+  padding: 7px 16px;
+  font-size: 14px;
+}
+
+/* ─── Primary ─── */
+
+.btn-primary {
+  background: var(--accent-primary);
+  color: var(--accent-primary-text);
+  border-color: transparent;
+  box-shadow: var(--shadow-xs);
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: var(--accent-primary-hover);
+  box-shadow: var(--shadow-sm), var(--shadow-accent);
+}
+
+.btn-primary:active:not(:disabled) {
+  box-shadow: none;
+}
+
+/* ─── Secondary ─── */
+
+.btn-secondary {
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  border-color: var(--border-color);
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: var(--bg-overlay);
+  border-color: var(--border-hover);
+  color: var(--text-primary);
+}
+
+/* ─── Ghost ─── */
+
+.btn-ghost {
+  background: transparent;
+  color: var(--text-secondary);
+  border-color: transparent;
+}
+
+.btn-ghost:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--text-primary) 7%, transparent);
+  color: var(--text-primary);
+}
+
+/* ─── Danger ─── */
+
+.btn-danger {
+  background: var(--danger);
+  color: #ffffff;
+  border-color: transparent;
+}
+
+.btn-danger:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--danger) 85%, black);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--danger) 30%, transparent);
+}

@@ -18,7 +18,7 @@
       // Read theme before paint so splash matches the user's preference
       (function() {
         var bg = { dark: "#0d0d11", light: "#f8f7f4", cookie: "#2c1e14" };
-        var glow = { dark: "rgba(124,107,245,0.12)", light: "rgba(91,76,212,0.08)", cookie: "rgba(232,165,75,0.14)" };
+        var glow = { dark: "rgba(200,137,76,0.14)", light: "rgba(154,98,32,0.08)", cookie: "rgba(232,165,75,0.14)" };
         var text = { dark: "#505068", light: "#9090a8", cookie: "#8c7560" };
         var t = "dark";
         try {
@@ -50,7 +50,7 @@
         inset: 0;
         background: radial-gradient(
           ellipse 60% 50% at 50% 45%,
-          var(--splash-glow, rgba(124,107,245,0.12)) 0%,
+          var(--splash-glow, rgba(200,137,76,0.14)) 0%,
           transparent 70%
         );
         pointer-events: none;
