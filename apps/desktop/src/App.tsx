@@ -47,12 +47,19 @@ import { ensureVaultStructure, syncConfigsToVault } from "./application/services
 import { VaultUnlock } from "./ui/components/common/VaultUnlock";
 import { connectSSE } from "./infrastructure/api/sseClient";
 import { listen } from "@tauri-apps/api/event";
+import { invoke } from "@tauri-apps/api/core";
 import { useOfflineQueue } from "./infrastructure/offline/offlineQueue";
+import { FirstRunWizard } from "./ui/components/onboarding/FirstRunWizard";
 
 export function App() {
   const [localeChosen, setLocaleChosen] = createSignal(!!localStorage.getItem("magick-cookie-locale"));
   const [vaultReady, setVaultReady] = createSignal(false);
   const [vaultAnimating, setVaultAnimating] = createSignal(false);
+
+  // First-run wizard (installer bootstrap or empty notes path)
+  const [showWizard, setShowWizard] = createSignal(false);
+  const [bootstrapNotesDir, setBootstrapNotesDir] = createSignal<string | undefined>(undefined);
+  const [bootstrapWorkspaceDir, setBootstrapWorkspaceDir] = createSignal<string | undefined>(undefined);
 
   function handleVaultUnlocked() {
     setVaultAnimating(true);
@@ -184,6 +191,29 @@ export function App() {
       // API unreachable — continue anyway, offline mode will handle it
     }
     hideSplash();
+
+    // Check for installer bootstrap config or missing notes setup
+    if (!localStorage.getItem("onboarding-complete")) {
+      try {
+        const bootstrap = await invoke<{ notesDir: string; workspaceDir: string } | null>(
+          "get_bootstrap_config",
+        );
+        if (bootstrap) {
+          setBootstrapNotesDir(bootstrap.notesDir);
+          setBootstrapWorkspaceDir(bootstrap.workspaceDir);
+          setShowWizard(true);
+        } else {
+          // Also show if notes path has never been configured (manual install / dev)
+          const notesConfig = await invoke<{ path: string; remote: string }>("notes_get_config").catch(() => null);
+          if (notesConfig && !notesConfig.path) {
+            setShowWizard(true);
+          }
+        }
+      } catch {
+        // Non-fatal — wizard is optional
+      }
+    }
+
     // Essential data — needed for dashboard, notifications, global shortcuts
     fetchTodayStats();
     fetchActiveWalk();
@@ -356,6 +386,15 @@ export function App() {
           </Show>
         </Suspense>
       </AppLayout>
+    </Show>
+
+    {/* First-run wizard — appears after vault unlock, shown once */}
+    <Show when={vaultReady() && showWizard()}>
+      <FirstRunWizard
+        initialNotesDir={bootstrapNotesDir()}
+        initialWorkspaceDir={bootstrapWorkspaceDir()}
+        onClose={() => setShowWizard(false)}
+      />
     </Show>
     </Show>
     </>

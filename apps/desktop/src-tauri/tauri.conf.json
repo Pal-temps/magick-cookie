@@ -38,6 +38,15 @@
     ],
     "resources": [
       "icons/icon.png"
-    ]
+    ],
+    "windows": {
+      "nsis": {
+        "displayLanguageSelector": true,
+        "languages": ["French", "English"],
+        "installerIcon": "icons/icon.ico",
+        "installMode": "currentUser",
+        "installerHooks": "installer/hooks.nsi"
+      }
+    }
   }
 }

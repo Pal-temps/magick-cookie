@@ -1,4 +1,5 @@
 mod ai;
+mod bootstrap;
 mod browser;
 mod desktop_mode;
 mod devops;
@@ -77,6 +78,8 @@ pub fn run() {
     let browser_store: std::sync::Arc<browser::BrowserStore> =
         std::sync::Arc::new(browser::BrowserStore::new());
     let cli_manager: devops::SharedBinaryManager = devops::new_state();
+    // Read + consume bootstrap.json written by the NSIS installer (Windows first launch)
+    let bootstrap_state = bootstrap::BootstrapState(std::sync::Mutex::new(bootstrap::consume()));
 
     tauri::Builder::default()
         .manage(session_manager)
@@ -86,6 +89,7 @@ pub fn run() {
         .manage(secrets_state)
         .manage(browser_store)
         .manage(cli_manager)
+        .manage(bootstrap_state)
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_dialog::init())
@@ -170,6 +174,7 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            bootstrap::get_bootstrap_config,
             whisper::check_whisper_model,
             whisper::download_whisper_model,
             whisper::transcribe_audio,
