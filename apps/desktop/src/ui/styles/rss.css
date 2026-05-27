@@ -277,11 +277,12 @@
 }
 
 .rss-article--selected {
-  background: var(--bg-elevated);
+  background: color-mix(in srgb, var(--accent-primary) 8%, var(--bg-elevated));
+  border-left: 2px solid var(--accent-primary);
 }
 
 .rss-article--selected:hover {
-  background: var(--bg-elevated);
+  background: color-mix(in srgb, var(--accent-primary) 11%, var(--bg-elevated));
 }
 
 .rss-article__dot {
