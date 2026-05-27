@@ -14,6 +14,7 @@ const STATUS_COLORS: Record<ToolCallStatus, string> = {
   denied: "#f39c12",
   invalid_input: "#9b59b6",
   rate_limited: "#34495e",
+  disabled: "var(--text-muted)",
 };
 
 const REFRESH_INTERVAL_MS = 30_000;

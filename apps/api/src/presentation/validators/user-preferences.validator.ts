@@ -43,4 +43,7 @@ export const userPreferencesSchema = z.object({
   rss: z.object({
     retentionDays: z.number().int().min(7).max(365),
   }),
+  aiTools: z.object({
+    disabledTools: z.array(z.string().max(200)).max(500),
+  }).optional(),
 });

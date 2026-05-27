@@ -3,7 +3,7 @@
 
 import { api } from "../../infrastructure/api/apiClient";
 
-export type ToolCallStatus = "ok" | "error" | "denied" | "invalid_input" | "rate_limited";
+export type ToolCallStatus = "ok" | "error" | "denied" | "invalid_input" | "rate_limited" | "disabled";
 export type PermissionLevel = "auto" | "user-confirm" | "admin";
 
 export interface AiToolCall {

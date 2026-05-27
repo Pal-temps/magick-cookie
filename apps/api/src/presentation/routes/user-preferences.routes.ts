@@ -1,8 +1,12 @@
 import { Hono } from "hono";
 import type { UserPreferencesService } from "../../application/user-preferences/user-preferences.service";
+import type { ToolRegistry } from "../../application/agent/tool-registry";
 import { userPreferencesSchema } from "../validators/user-preferences.validator";
 
-export function createUserPreferencesRoutes(service: UserPreferencesService) {
+export function createUserPreferencesRoutes(
+  service: UserPreferencesService,
+  toolRegistry?: ToolRegistry,
+) {
   const app = new Hono();
 
   app.get("/", async (c) => {
@@ -16,6 +20,12 @@ export function createUserPreferencesRoutes(service: UserPreferencesService) {
       return c.json({ error: "Invalid preferences", issues: parsed.error.issues }, 400);
     }
     const saved = await service.save(parsed.data);
+    // Sync disabled tools to the in-memory registry immediately
+    if (toolRegistry && parsed.data.aiTools?.disabledTools) {
+      toolRegistry.setDisabledTools(parsed.data.aiTools.disabledTools);
+    } else if (toolRegistry && parsed.data.aiTools) {
+      toolRegistry.setDisabledTools([]);
+    }
     return c.json({ data: saved });
   });
 

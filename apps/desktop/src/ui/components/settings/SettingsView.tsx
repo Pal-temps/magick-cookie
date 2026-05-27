@@ -21,8 +21,9 @@ import { InfraSettings } from "./InfraSettings";
 import { LocaleSettings } from "./LocaleSettings";
 import { DevopsCliSettings } from "./DevopsCliSettings";
 import { AiActivitySettings } from "./AiActivitySettings";
+import { AiToolsSettings } from "./AiToolsSettings";
 
-type SettingsTab = "locale" | "theme" | "llm" | "focus" | "connectors" | "brief" | "vps" | "bookmarks" | "projects" | "routines" | "webhooks" | "caldav" | "email-rules" | "habits" | "shortcuts" | "rss" | "infra" | "devops-cli" | "ai-activity" | "data";
+type SettingsTab = "locale" | "theme" | "llm" | "focus" | "connectors" | "brief" | "vps" | "bookmarks" | "projects" | "routines" | "webhooks" | "caldav" | "email-rules" | "habits" | "shortcuts" | "rss" | "infra" | "devops-cli" | "ai-activity" | "ai-tools" | "data";
 
 export function SettingsView() {
   const { t } = useT();
@@ -57,6 +58,7 @@ export function SettingsView() {
     { id: "infra", key: "settings.infra" },
     { id: "devops-cli", key: "settings.devopsCli" },
     { id: "ai-activity", key: "settings.aiActivity" },
+    { id: "ai-tools", key: "settings.aiTools" },
     { id: "data", key: "settings.data" },
   ];
 
@@ -159,6 +161,9 @@ export function SettingsView() {
         </Show>
         <Show when={tab() === "ai-activity"}>
           <AiActivitySettings />
+        </Show>
+        <Show when={tab() === "ai-tools"}>
+          <AiToolsSettings />
         </Show>
         <Show when={tab() === "data"}>
           <DataSettings />

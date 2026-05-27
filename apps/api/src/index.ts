@@ -291,6 +291,12 @@ const vaultNoteService = new VaultNoteService(vaultNoteRepo);
 toolRegistry.registerAll(createNotesTools(vaultNoteService));
 const agentService = new AgentService(chatRepo, llmService, toolRegistry, agentMemoryRepo, providerService);
 
+// Init disabled tools from persisted preferences (non-blocking)
+userPreferencesService.get().then((prefs: any) => {
+  const disabled: string[] = prefs?.aiTools?.disabledTools ?? [];
+  if (disabled.length > 0) toolRegistry.setDisabledTools(disabled);
+}).catch(() => {});
+
 const clickUpSyncService = new ClickUpSyncService(connectorConfigRepo, calendarService, eventRepo, taskRepo);
 const connectorConfigService = new ConnectorConfigService(connectorConfigRepo);
 const githubSyncService = new GitHubSyncService(connectorConfigRepo, calendarService, eventRepo, taskRepo);
@@ -365,7 +371,7 @@ app.route("/api/caldav-accounts", createCalDavAccountRoutes(caldavService));
 app.route("/api/email-rules", createEmailRuleRoutes(emailRuleService));
 app.route("/api/routines", createRoutineRoutes(routineService));
 app.route("/api/webhooks", createWebhookRoutes(webhookService));
-app.route("/api/user-preferences", createUserPreferencesRoutes(userPreferencesService));
+app.route("/api/user-preferences", createUserPreferencesRoutes(userPreferencesService, toolRegistry));
 app.route("/api/relay", createRelayRoutes());
 
 // --- Jobs ---

@@ -174,6 +174,7 @@ export function formatToolsForLlm(tools: AgentTool[]): string {
 export class ToolRegistry {
   private tools = new Map<string, AgentTool>();
   private limiter = new RateLimiter();
+  private _disabledTools = new Set<string>();
 
   constructor(private auditService?: AiToolCallService) {}
 
@@ -193,9 +194,18 @@ export class ToolRegistry {
     return [...this.tools.values()];
   }
 
-  /** Build a description of all tools for the LLM system prompt */
+  isDisabled(name: string): boolean {
+    return this._disabledTools.has(name);
+  }
+
+  /** Replace the set of user-disabled tools (called on preferences save). */
+  setDisabledTools(tools: string[]): void {
+    this._disabledTools = new Set(tools);
+  }
+
+  /** Build a description of all (non-disabled) tools for the LLM system prompt */
   describeForLlm(): string {
-    const tools = this.all();
+    const tools = this.all().filter((t) => !this._disabledTools.has(t.name));
     if (tools.length === 0) return "";
 
     const lines = tools.map((t) => {
@@ -280,7 +290,24 @@ export class ToolRegistry {
       }
     }
 
-    // 3) Permission check. `user-confirm`/`admin` require an external approval
+    // 3) User-disabled check.
+    if (this._disabledTools.has(tool.name)) {
+      await this.recordAudit({
+        toolName: tool.name,
+        permissionLevel,
+        args: params,
+        status: "disabled",
+        errorMessage: "Tool disabled by user",
+        context,
+      });
+      return {
+        status: "disabled",
+        toolName: tool.name,
+        error: `L'outil ${tool.name} est désactivé dans les paramètres.`,
+      };
+    }
+
+    // 4) Permission check. `user-confirm`/`admin` require an external approval
     //    channel that callers wire up (agent.service / IDE session). When that
     //    channel is not wired, we deny conservatively and record the attempt.
     if (permissionLevel !== "auto") {

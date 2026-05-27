@@ -91,6 +91,10 @@ export function useSettingsStore() {
   function getInfra() { return preferences().infra ?? { ovhAppKey: "", ovhAppSecret: "", ovhConsumerKey: "", cfApiToken: "", githubToken: "", gitlabToken: "", gitlabUrl: "https://gitlab.com", servers: [] }; }
   function patchInfra(update: Partial<UserPreferences["infra"]>) { patch("infra", update); }
 
+  // AI Tools permissions
+  function getAiTools() { return preferences().aiTools ?? { disabledTools: [] }; }
+  function patchAiTools(update: Partial<UserPreferences["aiTools"]>) { patch("aiTools", update); }
+
   // Snapshot for sync
   function getSnapshot(): UserPreferences { return preferences(); }
 
@@ -113,6 +117,7 @@ export function useSettingsStore() {
     getRss, patchRss,
     getWorkspace, patchWorkspace,
     getInfra, patchInfra,
+    getAiTools, patchAiTools,
     getSnapshot,
     importFromSync,
   };

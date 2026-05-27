@@ -29,6 +29,10 @@ export interface UserPreferences {
     servers: { id: string; label: string; host: string; port: number; user: string; authMethod: "key" | "password" }[];
     // keyPath and passwords are in the KDBX vault
   };
+  aiTools: {
+    /** Tool names explicitly disabled by the user */
+    disabledTools: string[];
+  };
 }
 
 // Secrets are now stored in the KDBX vault, not in UserPreferences
@@ -66,5 +70,8 @@ export const DEFAULT_PREFERENCES: UserPreferences = {
   infra: {
     gitlabUrl: "https://gitlab.com",
     servers: [],
+  },
+  aiTools: {
+    disabledTools: [],
   },
 };

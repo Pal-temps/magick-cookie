@@ -7,13 +7,51 @@ import type { ToolRegistry } from "../../application/agent/tool-registry";
  * GET  /api/ai/tools         — list all registered tools in MCP inputSchema format
  * POST /api/ai/tools/call    — dispatch a tool and return its result
  */
+
+/** Derive a stable category slug from the tool name prefix. */
+function deriveCategory(name: string): string {
+  const rules: [string, string][] = [
+    ["analytics", "analytics"],
+    ["alarm", "alarms"],
+    ["bookmark", "bookmarks"],
+    ["brief", "brief"],
+    ["calendar", "calendar"],
+    ["event_", "calendar"],
+    ["contact", "contacts"],
+    ["clickup", "clickup"],
+    ["deploy", "deploy"],
+    ["dns_", "dns"],
+    ["email", "email"],
+    ["github", "github"],
+    ["gh_", "github"],
+    ["gitlab", "gitlab"],
+    ["git_", "git"],
+    ["note", "notes"],
+    ["routine", "routines"],
+    ["rss_", "rss"],
+    ["skill", "skills"],
+    ["snippet", "snippets"],
+    ["ssh_", "ssh"],
+    ["task", "tasks"],
+    ["flux_", "tasks"],
+    ["timer", "timer"],
+    ["save_memory", "memory"],
+    ["get_memory", "memory"],
+    ["list_memory", "memory"],
+    ["delete_memory", "memory"],
+  ];
+  for (const [prefix, cat] of rules) {
+    if (name.startsWith(prefix)) return cat;
+  }
+  return "other";
+}
+
 export function createAiToolsRoutes(toolRegistry: ToolRegistry) {
   const app = new Hono();
 
   /**
    * GET /api/ai/tools
-   * Returns every registered tool in MCP inputSchema format so the Cookia
-   * MCP server can expose them to Claude CLI.
+   * Returns every registered tool with category + disabled flag.
    */
   app.get("/", (c) => {
     const tools = toolRegistry.all().map((t) => {
@@ -26,7 +64,9 @@ export function createAiToolsRoutes(toolRegistry: ToolRegistry) {
       return {
         name: t.name,
         description: t.description,
+        category: deriveCategory(t.name),
         permissionLevel: t.permissionLevel ?? "auto",
+        disabled: toolRegistry.isDisabled(t.name),
         inputSchema: { type: "object", properties, required },
       };
     });
