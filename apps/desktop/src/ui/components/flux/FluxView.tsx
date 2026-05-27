@@ -24,10 +24,10 @@ export const [emailAccountFilter, setEmailAccountFilter] = createSignal<string |
 
 // ─── Kanban columns ───
 const COLUMNS: { title: string; status: FluxStatus | "undecided"; color: string }[] = [
-  { title: "Non trie", status: "undecided", color: "#6b7280" },
-  { title: "Prioritaire", status: "priority", color: "#f87171" },
-  { title: "Plus tard", status: "later", color: "#60a5fa" },
-  { title: "Archive", status: "archived", color: "#a78bfa" },
+  { title: "Non trié", status: "undecided", color: "#8a9299" },
+  { title: "Prioritaire", status: "priority", color: "#f07070" },
+  { title: "Plus tard", status: "later", color: "#4a9eca" },
+  { title: "Archivé", status: "archived", color: "#8a9e8a" },
 ];
 
 function suggestionClass(status: string): string {
