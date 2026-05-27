@@ -1412,7 +1412,7 @@
 
 .ide-ai-bubble--user {
   background: var(--accent-primary);
-  color: #fff;
+  color: var(--accent-primary-text);
   align-self: flex-end;
   border-bottom-right-radius: 4px;
   max-width: 90%;
@@ -1891,7 +1891,7 @@
 
 .cc-bubble--user .cc-bubble__content {
   background: var(--accent-primary, #d97757);
-  color: #fff;
+  color: var(--accent-primary-text, #100800);
   padding: 10px 14px;
   border-radius: 12px 12px 4px 12px;
   font-size: 13px;

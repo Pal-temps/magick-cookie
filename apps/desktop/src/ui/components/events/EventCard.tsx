@@ -6,8 +6,8 @@ interface EventCardProps {
   event: CalendarEvent;
 }
 
-const SOURCE_BADGE: Record<string, { label: string; color: string }> = {
-  task: { label: "T", color: "#7B68EE" },
+const SOURCE_BADGE: Record<string, { label: string; color: string; isAccent?: boolean }> = {
+  task: { label: "T", color: "var(--accent-primary)", isAccent: true },
   personal: { label: "P", color: "#00b894" },
   birthday: { label: "AN", color: "#fd79a8" },
   alarm: { label: "A", color: "#e17055" },
@@ -43,6 +43,7 @@ export function EventCard(props: EventCardProps) {
 
   return (
     <button
+      class="event-card"
       draggable={isDraggable()}
       onDragStart={(e) => {
         if (!isDraggable()) return;
@@ -72,15 +73,17 @@ export function EventCard(props: EventCardProps) {
       }}
     >
       <span
-        title={source().label === "T" ? "Tache" : source().label === "AN" ? "Anniversaire" : source().label === "A" ? "Alarme" : "Personnel"}
+        title={source().label === "T" ? "Tâche" : source().label === "AN" ? "Anniversaire" : source().label === "A" ? "Alarme" : "Personnel"}
         style={{
           "font-size": "8px",
           "font-weight": "700",
           "line-height": "1",
           padding: "2px 3px",
           "border-radius": "3px",
-          background: `${source().color}33`,
-          color: source().color,
+          background: source().isAccent
+            ? "color-mix(in srgb, var(--accent-primary) 20%, transparent)"
+            : `${source().color}33`,
+          color: source().isAccent ? "var(--accent-primary)" : source().color,
           "flex-shrink": "0",
           "letter-spacing": "0.5px",
         }}
