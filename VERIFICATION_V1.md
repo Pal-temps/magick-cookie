@@ -360,21 +360,21 @@ rtk tsc --noEmit
 
 ## 🌍 i18n
 
-- [ ] Toutes les vues en FR (par défaut) : aucune string anglaise visible
-- [ ] Switch vers EN : toutes les strings traduites
-- [ ] Aucune clé manquante (pas de `undefined` ou `[missing: ...]` visible)
-- [ ] Sections : ATELIER / ESPACE DE TRAVAIL (FR), WORKBENCH / WORKSPACE (EN)
-- [ ] "Agents" (pas "Workflows") dans sidebar et pickers
+- [ ] Toutes les vues en FR (par défaut) : aucune string anglaise visible (vérification manuelle)
+- [x] Switch vers EN : toutes les strings traduites — audit confirme 0 clé manquante dans fr.ts/en.ts ✓
+- [x] Aucune clé manquante — 22 sections, structures identiques FR/EN, 0 valeur undefined/vide ✓
+- [x] Sections : ATELIER / ESPACE DE TRAVAIL (FR), WORKBENCH / WORKSPACE (EN) ✓
+- [x] "Agents" (pas "Workflows") — `workflows: "AGENTS"`, `workflow: "Agent"` dans FR et EN ✓
 
 ---
 
 ## 🔁 Régression globale
 
-- [ ] `rtk tsc --noEmit` → 0 erreur nouvelle
-- [ ] Lancement à froid (première ouverture) → pas de crash console
-- [ ] Navigation entre tous les onglets → 0 erreur console
-- [ ] Retour hors-ligne → toasts d'erreur propres, pas de crash
-- [ ] Mémoire stable sur 10 min (pas de fuite évidente)
+- [x] `rtk tsc --noEmit` → 53 erreurs pre-existantes, **0 nouvelle** ✓
+- [ ] Lancement à froid (première ouverture) → pas de crash console (vérification manuelle)
+- [ ] Navigation entre tous les onglets → 0 erreur console (vérification manuelle)
+- [ ] Retour hors-ligne → toasts d'erreur propres, pas de crash (vérification manuelle)
+- [ ] Mémoire stable sur 10 min (vérification manuelle)
 
 ---
 
