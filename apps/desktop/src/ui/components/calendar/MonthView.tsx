@@ -1,6 +1,7 @@
 import { For, Show, createMemo, createSignal } from "solid-js";
 import { useViewStore } from "../../../application/stores/viewStore";
 import { useCalendarStore } from "../../../application/stores/calendarStore";
+import { useT } from "../../../i18n/context";
 import { EventCard } from "../events/EventCard";
 import { CellContextMenu } from "./CellContextMenu";
 
@@ -8,11 +9,10 @@ function toLocalDateStr(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-const DAY_NAMES_FULL = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"];
-
 export function MonthView() {
   const { currentDate } = useViewStore();
   const { visibleEvents, openCreateFormAtDate, updateEvent } = useCalendarStore();
+  const { t, dict } = useT();
 
   const [dropTarget, setDropTarget] = createSignal<string | null>(null);
 
@@ -87,7 +87,7 @@ export function MonthView() {
     <div style={{ display: "flex", "flex-direction": "column", height: "100%" }}>
       {/* Header */}
       <div class="month-header">
-        <For each={DAY_NAMES_FULL}>
+        <For each={dict().calendar.days}>
           {(d) => <div class="month-header-cell">{d}</div>}
         </For>
       </div>
@@ -140,7 +140,7 @@ export function MonthView() {
                         </For>
                         {cellEvents().length > 3 && (
                           <span style={{ "font-size": "10px", color: "var(--text-muted)", "text-align": "center" }}>
-                            +{cellEvents().length - 3} de plus
+                            +{cellEvents().length - 3} {t("calendar.moreEvents")}
                           </span>
                         )}
                       </div>

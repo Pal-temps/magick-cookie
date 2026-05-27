@@ -82,11 +82,11 @@ export function EventForm() {
   async function handleSubmit(e: Event) {
     e.preventDefault();
     const errs: Record<string, string> = {};
-    if (!title().trim()) errs.title = "Le titre est obligatoire";
-    if (!startAt()) errs.startAt = "La date de debut est obligatoire";
-    if (!endAt()) errs.endAt = "La date de fin est obligatoire";
-    if (startAt() && endAt() && new Date(startAt()) >= new Date(endAt())) errs.endAt = "La fin doit etre apres le debut";
-    if (!isEditing() && !calendarId()) errs.calendar = t("calendar.noEvents");
+    if (!title().trim()) errs.title = t("calendar.titleRequired");
+    if (!startAt()) errs.startAt = t("calendar.startRequired");
+    if (!endAt()) errs.endAt = t("calendar.endRequired");
+    if (startAt() && endAt() && new Date(startAt()) >= new Date(endAt())) errs.endAt = t("calendar.endAfterStart");
+    if (!isEditing() && !calendarId()) errs.calendar = t("calendar.calendarRequired");
     setErrors(errs);
     if (Object.keys(errs).length > 0) return;
 

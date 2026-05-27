@@ -68,7 +68,7 @@ const ENDPOINTS: Endpoint[] = [
   { tab: "calendar",  method: "GET",  path: "/api/events",             description: "Liste des événements", authRequired: true },
   { tab: "calendar",  method: "POST", path: "/api/llm/generate-events",
     description: "Génération d'événements (IA)",
-    body: { prompt: "test event" },
+    body: { prompt: "réunion lundi matin", date: today },
     authRequired: true },
   { tab: "calendar",  method: "GET",  path: "/api/caldav-accounts",    description: "Comptes CalDAV", authRequired: true },
 
@@ -210,6 +210,9 @@ async function checkEndpoint(
     }
     if (status === 404) {
       return { result: "error", status, ms, detail: "Route introuvable — vérifier le routeur" };
+    }
+    if (status === 503) {
+      return { result: "auth", status, ms, detail: "LLM non configuré (normal sans clé API)" };
     }
     if (status >= 500) {
       let body = "";

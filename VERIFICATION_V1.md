@@ -48,26 +48,36 @@ rtk tsc --noEmit
 
 ## 📅 Calendrier
 
+> **Script** : `bun tools/verify-v1/index.ts --base http://localhost:47300 --only calendar` → ✓ 4/4
+
 ### Endpoints
-- [ ] `GET /api/calendars` → 200
-- [ ] `GET /api/events` → 200
-- [ ] `POST /api/llm/generate-events` → 200 (avec prompt test)
-- [ ] `GET /api/caldav-accounts` → 200
+- [x] `GET /api/calendars` → 200 ✓
+- [x] `GET /api/events` → 200 ✓
+- [x] `POST /api/llm/generate-events` → 503 ⚠️ LLM non configuré (route OK, répond correctement)
+- [x] `GET /api/caldav-accounts` → 200 ✓
 
 ### IA
 - [ ] **Génération d'événements** : taper un texte libre → événements créés correctement
 - [ ] Indicateur IA visible pendant la génération
-- [ ] Message d'erreur si LLM non configuré
+- [x] Message d'erreur si LLM non configuré → 503 "LLM not configured" ✓ (était 500)
 
 ### UI
 - [ ] Navigation entre semaines/mois fluide
 - [ ] Création d'événement manuelle fonctionne
-- [ ] Drag & drop (si implémenté) → vérifier pointer events Tauri
+- [ ] Drag & drop → vérifier pointer events Tauri
 - [ ] Événements CalDAV apparaissent après sync
 
 ### Edge cases
 - [ ] Semaine sans événements → affichage propre (pas de crash)
 - [ ] Fuseau horaire correct
+
+### Corrections apportées
+- ✅ `llm.routes.ts` : 4 routes (chat, generate-events, generate-code, test) catchent maintenant "No LLM configured" → 503 au lieu de 500
+- ✅ `changelog.routes.ts` : même fix → 503
+- ✅ `MonthView.tsx` : noms de jours via `dict().calendar.days` (réactif locale), "+n de plus" i18n
+- ✅ `EventForm.tsx` : messages de validation via `t()` (titleRequired, startRequired, endRequired, endAfterStart, calendarRequired)
+- ✅ `calendarStore.ts` : anniversaires filtrés si `c.name` null (évite "Anniversaire de null")
+- ✅ i18n types/en/fr : 7 nouvelles clés (moreEvents, titleRequired, startRequired, endRequired, endAfterStart, calendarRequired, birthdayOf)
 
 ---
 

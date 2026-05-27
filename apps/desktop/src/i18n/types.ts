@@ -1003,5 +1003,12 @@ export interface Dictionary {
     addToCalendar: string;
     modify: string;
     cancel: string;
+    moreEvents: string;
+    titleRequired: string;
+    startRequired: string;
+    endRequired: string;
+    endAfterStart: string;
+    calendarRequired: string;
+    birthdayOf: string;
   };
 }

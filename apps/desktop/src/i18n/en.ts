@@ -1003,5 +1003,12 @@ export const dict: Dictionary = {
     addToCalendar: "Add to calendar",
     modify: "Edit",
     cancel: "Cancel",
+    moreEvents: "more",
+    titleRequired: "Title is required",
+    startRequired: "Start date is required",
+    endRequired: "End date is required",
+    endAfterStart: "End must be after start",
+    calendarRequired: "Please select a calendar",
+    birthdayOf: "Birthday of",
   },
 };

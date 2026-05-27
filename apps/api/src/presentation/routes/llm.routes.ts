@@ -2,6 +2,11 @@ import { Hono } from "hono";
 import type { LlmService } from "../../application/llm/llm.service";
 import { updateLlmConfigSchema, chatSchema, generateEventsSchema, generateCodeSchema } from "../validators/llm.validator";
 
+/** Returns true if the error is the standard "no config" sentinel thrown by LlmService. */
+function isNoLlmConfig(err: unknown): boolean {
+  return err instanceof Error && err.message === "No LLM configured";
+}
+
 export function createLlmRoutes(llmService: LlmService) {
   const app = new Hono();
 
@@ -21,15 +26,25 @@ export function createLlmRoutes(llmService: LlmService) {
   // POST /api/llm/chat
   app.post("/chat", async (c) => {
     const { messages } = chatSchema.parse(await c.req.json());
-    const response = await llmService.chat(messages);
-    return c.json({ data: { response } });
+    try {
+      const response = await llmService.chat(messages);
+      return c.json({ data: { response } });
+    } catch (err) {
+      if (isNoLlmConfig(err)) return c.json({ error: "LLM not configured" }, 503);
+      throw err;
+    }
   });
 
   // POST /api/llm/generate-events
   app.post("/generate-events", async (c) => {
     const { prompt, date } = generateEventsSchema.parse(await c.req.json());
-    const events = await llmService.generateEvents(prompt, date);
-    return c.json({ data: { events } });
+    try {
+      const events = await llmService.generateEvents(prompt, date);
+      return c.json({ data: { events } });
+    } catch (err) {
+      if (isNoLlmConfig(err)) return c.json({ error: "LLM not configured" }, 503);
+      throw err;
+    }
   });
 
   // POST /api/llm/generate-code
@@ -38,18 +53,28 @@ export function createLlmRoutes(llmService: LlmService) {
     if (!parsed.success) {
       return c.json({ error: "Invalid generate-code input", issues: parsed.error.issues }, 400);
     }
-    const result = await llmService.generateCode({
-      title: parsed.data.title,
-      description: parsed.data.description ?? null,
-      comments: parsed.data.comments ?? [],
-    });
-    return c.json({ data: result });
+    try {
+      const result = await llmService.generateCode({
+        title: parsed.data.title,
+        description: parsed.data.description ?? null,
+        comments: parsed.data.comments ?? [],
+      });
+      return c.json({ data: result });
+    } catch (err) {
+      if (isNoLlmConfig(err)) return c.json({ error: "LLM not configured" }, 503);
+      throw err;
+    }
   });
 
   // POST /api/llm/test
   app.post("/test", async (c) => {
-    const success = await llmService.testConnection();
-    return c.json({ data: { success } });
+    try {
+      const success = await llmService.testConnection();
+      return c.json({ data: { success } });
+    } catch (err) {
+      if (isNoLlmConfig(err)) return c.json({ data: { success: false, reason: "not_configured" } });
+      throw err;
+    }
   });
 
   // POST /api/llm/auto-setup — auto-detect and configure Ollama if running

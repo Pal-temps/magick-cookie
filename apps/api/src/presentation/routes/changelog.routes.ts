@@ -14,8 +14,15 @@ export function createChangelogRoutes(changelogService: ChangelogService) {
     if (isNaN(since.getTime())) {
       return c.json({ error: "Invalid 'since' date" }, 400);
     }
-    const data = await changelogService.generate(since, body.repo);
-    return c.json({ data });
+    try {
+      const data = await changelogService.generate(since, body.repo);
+      return c.json({ data });
+    } catch (err) {
+      if (err instanceof Error && err.message === "No LLM configured") {
+        return c.json({ error: "LLM not configured" }, 503);
+      }
+      throw err;
+    }
   });
 
   return app;

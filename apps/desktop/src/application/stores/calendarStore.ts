@@ -359,7 +359,7 @@ export function useCalendarStore() {
 
   function birthdayEventsForRange(from: Date, to: Date): CalendarEvent[] {
     const result: CalendarEvent[] = [];
-    for (const c of contacts().filter(c => c.birthDate !== null)) {
+    for (const c of contacts().filter(c => c.birthDate !== null && c.name)) {
       const birthDate = new Date(c.birthDate!);
       const birthMonth = birthDate.getMonth();
       const birthDay = birthDate.getDate();
