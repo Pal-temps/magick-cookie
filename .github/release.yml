@@ -1,0 +1,32 @@
+changelog:
+  exclude:
+    labels:
+      - duplicate
+      - invalid
+      - wontfix
+  categories:
+    - title: "🚨 Breaking changes"
+      labels:
+        - breaking
+    - title: "✨ New features"
+      labels:
+        - enhancement
+        - feat
+    - title: "🐛 Bug fixes"
+      labels:
+        - bug
+        - fix
+    - title: "✅ Validation"
+      labels:
+        - validation
+    - title: "⚙️ CI / Infrastructure"
+      labels:
+        - ci
+        - release
+    - title: "🔧 Maintenance"
+      labels:
+        - chore
+        - documentation
+    - title: "🔒 Security"
+      labels:
+        - security

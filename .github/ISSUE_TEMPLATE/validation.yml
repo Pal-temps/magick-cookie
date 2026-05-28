@@ -1,0 +1,92 @@
+name: "✅ Validation de feature"
+description: "Valider qu'une feature est prête pour la v1 — Validate a feature for v1 release"
+title: "[VALIDATION] "
+labels: ["validation"]
+body:
+  - type: markdown
+    attributes:
+      value: "> Utilise le template `.github/WIKI_TEMPLATES/feature-validation.md` pour la page wiki associée."
+
+  - type: dropdown
+    id: feature
+    attributes:
+      label: Feature à valider / Feature to validate
+      options:
+        - Dashboard & Widgets
+        - Calendar
+        - Notes
+        - IDE / Cookia
+        - Flux (Smart Inbox)
+        - Email
+        - RSS
+        - CI/CD
+        - Passwords (Vault)
+        - VPS Monitoring
+        - Browser
+        - Tools
+        - Settings
+        - Onboarding / First-Run
+        - Raccourcis / Shortcuts
+        - Thème / Theme & i18n
+        - Quick Capture / Focus Mode
+        - Desktop Mode
+        - DevOps CLI
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: phase1
+    attributes:
+      label: "Phase 1 — Tests automatisés"
+      options:
+        - label: "`bun test` passe sur les fichiers du module"
+        - label: "0 erreur TypeScript sur les fichiers modifiés"
+
+  - type: checkboxes
+    id: phase2
+    attributes:
+      label: "Phase 2 — Validation backend (API)"
+      options:
+        - label: "Routes GET → 200 avec la bonne structure"
+        - label: "Routes POST avec body invalide → 400"
+        - label: "Tests d'intégration API passent"
+
+  - type: checkboxes
+    id: phase3
+    attributes:
+      label: "Phase 3 — Setup & préconditions"
+      options:
+        - label: "App lancée (`bun run dev`)"
+        - label: "Vault déverrouillé"
+
+  - type: textarea
+    id: happy_path
+    attributes:
+      label: "Phase 4 — Happy path (résultats)"
+      description: "Décris ce que tu as testé et le résultat"
+    validations:
+      required: true
+
+  - type: textarea
+    id: edge_cases
+    attributes:
+      label: "Phase 5 — Edge cases (résultats)"
+      description: "Réseau absent, champs vides, actions rapides..."
+
+  - type: checkboxes
+    id: phase6
+    attributes:
+      label: "Phase 6 — Régression visuelle"
+      options:
+        - label: "Thème light — aucun artefact"
+        - label: "Thème dark — aucun artefact"
+        - label: "0 erreur console (F12)"
+
+  - type: checkboxes
+    id: phase7
+    attributes:
+      label: "Phase 7 — Documentation wiki"
+      options:
+        - label: "Page wiki créée sur https://github.com/Pal-temps/magick-cookie/wiki"
+        - label: "Template `.github/WIKI_TEMPLATES/feature-validation.md` utilisé"
+        - label: "Statut ✅ Validée renseigné"

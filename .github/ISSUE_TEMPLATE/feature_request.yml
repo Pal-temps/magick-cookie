@@ -1,0 +1,71 @@
+name: "✨ Feature request"
+description: "Proposer une nouvelle fonctionnalité — Propose a new feature"
+title: "[FEAT] "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: "> 🇫🇷 Remplissez en français **ou** 🇬🇧 Fill in English"
+
+  - type: dropdown
+    id: module
+    attributes:
+      label: Module concerné / Affected module
+      options:
+        - Dashboard & Widgets
+        - Calendar
+        - Notes
+        - IDE / Cookia
+        - Flux (Smart Inbox)
+        - Email
+        - RSS
+        - CI/CD
+        - Passwords (Vault)
+        - VPS Monitoring
+        - Browser
+        - Tools
+        - Settings
+        - Nouveau module / New module
+        - Autre / Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: milestone
+    attributes:
+      label: Milestone cible / Target milestone
+      options:
+        - "v1.0.0 — Release actuelle"
+        - "v1.1.0 — Prochaine version"
+        - "v2.0.0 — Vision long terme"
+        - "Non défini / Undefined"
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Contexte / Context
+      description: "FR: Pourquoi cette fonctionnalité est-elle nécessaire ? — EN: Why is this feature needed?"
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Solution souhaitée / Proposed solution
+      description: "FR: Description claire de ce que tu voudrais — EN: Clear description of what you'd like"
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives envisagées / Alternatives considered
+      description: "FR: Autres approches considérées — EN: Other approaches you considered"
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Informations supplémentaires / Additional information
+      description: "Mockups, exemples, liens utiles / Mockups, examples, useful links"

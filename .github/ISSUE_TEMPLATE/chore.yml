@@ -1,0 +1,60 @@
+name: "🔧 Chore / Infrastructure"
+description: "Tâche technique ou infra — Technical or infra task"
+title: "[CHORE] "
+labels: ["chore"]
+body:
+  - type: markdown
+    attributes:
+      value: "> 🇫🇷 Remplissez en français **ou** 🇬🇧 Fill in English"
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Domaine / Area
+      options:
+        - CI/CD
+        - Dépendances / Dependencies
+        - Base de données / Database
+        - Infrastructure / Infra
+        - Documentation
+        - Refactorisation / Refactoring
+        - Tests
+        - Sécurité / Security
+        - Autre / Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Contexte / Context
+      description: "FR: Pourquoi cette tâche est-elle nécessaire ? — EN: Why is this task necessary?"
+    validations:
+      required: true
+
+  - type: textarea
+    id: work
+    attributes:
+      label: Travail à faire / Work to do
+      placeholder: |
+        - [ ]
+        - [ ]
+        - [ ]
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Critères d'acceptance / Acceptance criteria
+      placeholder: |
+        - [ ]
+        - [ ]
+    validations:
+      required: true
+
+  - type: textarea
+    id: risks
+    attributes:
+      label: Risques / Risks
+      description: "FR: Quels systèmes sont affectés ? — EN: What systems are affected?"
