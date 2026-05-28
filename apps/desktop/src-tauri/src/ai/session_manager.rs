@@ -829,6 +829,7 @@ mod tests {
             temperature: None,
             max_tokens: None,
             resume_session_id: None,
+            session_id: None,
         }
     }
 

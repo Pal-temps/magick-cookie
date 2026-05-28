@@ -551,6 +551,7 @@ mod tests {
             temperature: None,
             max_tokens: None,
             resume_session_id: None,
+            session_id: None,
         }
     }
 
@@ -597,6 +598,7 @@ mod tests {
             temperature: None,
             max_tokens: None,
             resume_session_id: None,
+            session_id: None,
         };
         assert!(HttpApiAdapter::new("unknown", &cfg).is_err());
     }
