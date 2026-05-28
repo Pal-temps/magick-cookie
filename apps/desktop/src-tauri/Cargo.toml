@@ -29,7 +29,7 @@ tauri-plugin-dialog = "2"
 tauri-plugin-shell = "2"
 uuid = { version = "1", features = ["v4"] }
 portable-pty = "0.8"
-notify = "7"
+notify = "8"
 notify-debouncer-mini = "0.5"
 keepass = { version = "0.8", features = ["save_kdbx4"] }
 tauri-plugin-stronghold = "2"
