@@ -1,5 +1,5 @@
-use base64::Engine;
 use base64::engine::general_purpose::STANDARD as BASE64;
+use base64::Engine;
 use tauri::Manager;
 use xcap::image;
 
@@ -17,7 +17,12 @@ fn resize_for_ai(img: image::RgbaImage) -> image::RgbaImage {
     }
     let ratio = MAX_WIDTH as f32 / w as f32;
     let new_h = (h as f32 * ratio) as u32;
-    image::imageops::resize(&img, MAX_WIDTH, new_h, image::imageops::FilterType::Lanczos3)
+    image::imageops::resize(
+        &img,
+        MAX_WIDTH,
+        new_h,
+        image::imageops::FilterType::Lanczos3,
+    )
 }
 
 /// Encode an RGBA image as base64 PNG string.

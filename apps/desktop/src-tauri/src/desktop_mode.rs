@@ -2,11 +2,11 @@ use std::sync::Mutex;
 use tauri::{AppHandle, Emitter, Manager, PhysicalPosition, PhysicalSize};
 
 #[cfg(target_os = "windows")]
+use windows::Win32::Foundation::HWND;
+#[cfg(target_os = "windows")]
 use windows::Win32::UI::WindowsAndMessaging::{
     SetWindowPos, HWND_BOTTOM, HWND_NOTOPMOST, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE,
 };
-#[cfg(target_os = "windows")]
-use windows::Win32::Foundation::HWND;
 
 /// Saved window state before entering desktop mode
 struct SavedWindowState {

@@ -38,7 +38,13 @@ impl SessionManager {
         }
     }
 
-    pub fn add_session(&mut self, id: String, adapter: Box<dyn BackendAdapter>, config: SessionConfig, recorder: Option<SessionRecorder>) {
+    pub fn add_session(
+        &mut self,
+        id: String,
+        adapter: Box<dyn BackendAdapter>,
+        config: SessionConfig,
+        recorder: Option<SessionRecorder>,
+    ) {
         let session = AiSession {
             id: id.clone(),
             adapter,
@@ -81,7 +87,10 @@ pub type SharedMcpManager = Arc<Mutex<McpManager>>;
 
 // ─── Helper: create adapter from provider name ───
 
-fn create_adapter(provider: &str, config: &SessionConfig) -> Result<Box<dyn BackendAdapter>, String> {
+fn create_adapter(
+    provider: &str,
+    config: &SessionConfig,
+) -> Result<Box<dyn BackendAdapter>, String> {
     match provider {
         "claude-cli" => Ok(Box::new(crate::ai::adapters::claude_cli::ClaudeCliAdapter::new())),
         "anthropic-api" | "openai-api" | "gemini-api" | "ollama" | "lmstudio" => {
@@ -186,11 +195,9 @@ pub fn ai_start_session(
     adapter.start(config.clone(), event_tx)?;
 
     // Create session recorder (vault-backed JSONL)
-    let recorder = crate::notes::load_config_pub(&app)
-        .ok()
-        .and_then(|cfg| {
-            SessionRecorder::new(&cfg.path, &session_id, &provider, &config.model).ok()
-        });
+    let recorder = crate::notes::load_config_pub(&app).ok().and_then(|cfg| {
+        SessionRecorder::new(&cfg.path, &session_id, &provider, &config.model).ok()
+    });
 
     // Add session (enforce maximum to prevent unbounded accumulation)
     {
@@ -212,7 +219,12 @@ pub fn ai_start_session(
     std::thread::spawn(move || {
         for event in event_rx {
             // ─── MCP tool interception ───
-            if let AdapterEvent::ToolUse { ref id, ref name, ref input } = event {
+            if let AdapterEvent::ToolUse {
+                ref id,
+                ref name,
+                ref input,
+            } = event
+            {
                 if name.contains("__") || {
                     // Check if any connected MCP server provides this tool. A poisoned mutex
                     // here means another thread panicked with the lock — we degrade rather than
@@ -234,9 +246,14 @@ pub fn ai_start_session(
                             if let Some(ref mut rec) = session.recorder {
                                 rec.record(seq, &event);
                             }
-                            let _ = app_handle.emit("ai-event", &AiEventPayload {
-                                session_id: sid.clone(), seq, event: event.clone(),
-                            });
+                            let _ = app_handle.emit(
+                                "ai-event",
+                                &AiEventPayload {
+                                    session_id: sid.clone(),
+                                    seq,
+                                    event: event.clone(),
+                                },
+                            );
                         }
                     }
 
@@ -249,10 +266,7 @@ pub fn ai_start_session(
                             Ok(result) => (result, false),
                             Err(e) => (format!("MCP tool error: {e}"), true),
                         },
-                        Err(_) => (
-                            "MCP manager unavailable (mutex poisoned)".to_string(),
-                            true,
-                        ),
+                        Err(_) => ("MCP manager unavailable (mutex poisoned)".to_string(), true),
                     };
 
                     // Send result back to adapter + emit to frontend
@@ -263,7 +277,9 @@ pub fn ai_start_session(
                         };
                         if let Some(session) = mgr.get_session_mut(&sid) {
                             let _ = session.adapter.send_tool_result(
-                                tool_id.clone(), content.clone(), is_error,
+                                tool_id.clone(),
+                                content.clone(),
+                                is_error,
                             );
                             let result_event = AdapterEvent::ToolResult {
                                 tool_use_id: tool_id,
@@ -275,9 +291,14 @@ pub fn ai_start_session(
                             if let Some(ref mut rec) = session.recorder {
                                 rec.record(seq, &result_event);
                             }
-                            let _ = app_handle.emit("ai-event", &AiEventPayload {
-                                session_id: sid.clone(), seq, event: result_event,
-                            });
+                            let _ = app_handle.emit(
+                                "ai-event",
+                                &AiEventPayload {
+                                    session_id: sid.clone(),
+                                    seq,
+                                    event: result_event,
+                                },
+                            );
                         }
                     }
                     continue;
@@ -285,7 +306,12 @@ pub fn ai_start_session(
             }
 
             // ─── Built-in tool interception (screenshot) ───
-            if let AdapterEvent::ToolUse { ref id, ref name, ref input } = event {
+            if let AdapterEvent::ToolUse {
+                ref id,
+                ref name,
+                ref input,
+            } = event
+            {
                 if name == "screenshot" {
                     // Emit the ToolUse event to frontend first (so it shows in the UI)
                     {
@@ -299,9 +325,14 @@ pub fn ai_start_session(
                             if let Some(ref mut rec) = session.recorder {
                                 rec.record(seq, &event);
                             }
-                            let _ = app_handle.emit("ai-event", &AiEventPayload {
-                                session_id: sid.clone(), seq, event: event.clone(),
-                            });
+                            let _ = app_handle.emit(
+                                "ai-event",
+                                &AiEventPayload {
+                                    session_id: sid.clone(),
+                                    seq,
+                                    event: event.clone(),
+                                },
+                            );
                         }
                     }
                     // Release lock, execute capture
@@ -338,7 +369,9 @@ pub fn ai_start_session(
                         if let Some(session) = mgr.get_session_mut(&sid) {
                             // Send result to adapter (so AI continues)
                             let _ = session.adapter.send_tool_result(
-                                tool_id.clone(), content.clone(), is_error,
+                                tool_id.clone(),
+                                content.clone(),
+                                is_error,
                             );
                             // Emit ToolResult to frontend
                             let result_event = AdapterEvent::ToolResult {
@@ -351,9 +384,14 @@ pub fn ai_start_session(
                             if let Some(ref mut rec) = session.recorder {
                                 rec.record(seq, &result_event);
                             }
-                            let _ = app_handle.emit("ai-event", &AiEventPayload {
-                                session_id: sid.clone(), seq, event: result_event,
-                            });
+                            let _ = app_handle.emit(
+                                "ai-event",
+                                &AiEventPayload {
+                                    session_id: sid.clone(),
+                                    seq,
+                                    event: result_event,
+                                },
+                            );
                         }
                     }
                     continue; // Don't process this event further
@@ -433,11 +471,14 @@ pub fn ai_start_session(
                     if let Some(ref mut rec) = session.recorder {
                         rec.record(seq, &event);
                     }
-                    let _ = app_handle.emit("ai-event", &AiEventPayload {
-                        session_id: sid.clone(),
-                        seq,
-                        event,
-                    });
+                    let _ = app_handle.emit(
+                        "ai-event",
+                        &AiEventPayload {
+                            session_id: sid.clone(),
+                            seq,
+                            event,
+                        },
+                    );
                 }
             }
         }
@@ -516,14 +557,13 @@ pub fn ai_list_past_sessions(
     app: AppHandle,
 ) -> Result<Vec<crate::ai::session_recorder::PastSessionInfo>, String> {
     let config = crate::notes::load_config_pub(&app)?;
-    Ok(crate::ai::session_recorder::list_past_sessions(&config.path))
+    Ok(crate::ai::session_recorder::list_past_sessions(
+        &config.path,
+    ))
 }
 
 #[tauri::command]
-pub fn ai_read_past_session(
-    app: AppHandle,
-    session_id: String,
-) -> Result<Vec<String>, String> {
+pub fn ai_read_past_session(app: AppHandle, session_id: String) -> Result<Vec<String>, String> {
     let config = crate::notes::load_config_pub(&app)?;
     crate::ai::session_recorder::read_past_session(&config.path, &session_id)
 }
@@ -551,9 +591,7 @@ pub struct McpServerStatus {
 }
 
 #[tauri::command]
-pub fn mcp_list_servers(
-    app: AppHandle,
-) -> Result<Vec<McpServerStatus>, String> {
+pub fn mcp_list_servers(app: AppHandle) -> Result<Vec<McpServerStatus>, String> {
     let vault_config = crate::notes::load_config_pub(&app)?;
     let configs = crate::ai::mcp_client::load_mcp_configs(&vault_config.path);
 
@@ -571,10 +609,7 @@ pub fn mcp_list_servers(
 }
 
 #[tauri::command]
-pub fn mcp_add_server(
-    app: AppHandle,
-    config: McpServerConfig,
-) -> Result<(), String> {
+pub fn mcp_add_server(app: AppHandle, config: McpServerConfig) -> Result<(), String> {
     let vault_config = crate::notes::load_config_pub(&app)?;
     let mut configs = crate::ai::mcp_client::load_mcp_configs(&vault_config.path);
 
@@ -731,19 +766,33 @@ pub fn mcp_auto_connect_all(
 mod tests {
     use super::*;
     use crate::ai::adapter::BackendAdapter;
-    use crate::ai::types::{AdapterCapabilities, AdapterEvent, ImageData, SessionConfig, SessionPhase};
+    use crate::ai::types::{
+        AdapterCapabilities, AdapterEvent, ImageData, SessionConfig, SessionPhase,
+    };
 
     /// Mock adapter for testing SessionManager without Tauri runtime.
     struct MockAdapter;
 
     impl BackendAdapter for MockAdapter {
-        fn start(&mut self, _config: SessionConfig, _event_tx: mpsc::Sender<AdapterEvent>) -> Result<(), String> {
+        fn start(
+            &mut self,
+            _config: SessionConfig,
+            _event_tx: mpsc::Sender<AdapterEvent>,
+        ) -> Result<(), String> {
             Ok(())
         }
-        fn send_message(&mut self, _content: String, _images: Option<Vec<ImageData>>) -> Result<(), String> {
+        fn send_message(
+            &mut self,
+            _content: String,
+            _images: Option<Vec<ImageData>>,
+        ) -> Result<(), String> {
             Ok(())
         }
-        fn respond_permission(&mut self, _request_id: String, _allowed: bool) -> Result<(), String> {
+        fn respond_permission(
+            &mut self,
+            _request_id: String,
+            _allowed: bool,
+        ) -> Result<(), String> {
             Ok(())
         }
         fn interrupt(&mut self) -> Result<(), String> {
@@ -811,7 +860,10 @@ mod tests {
         for i in 0..n {
             mgr.remove_session(&format!("session-{i}"));
         }
-        assert!(mgr.list_sessions().is_empty(), "HashMap should be empty after removing all sessions");
+        assert!(
+            mgr.list_sessions().is_empty(),
+            "HashMap should be empty after removing all sessions"
+        );
     }
 
     #[test]
@@ -894,9 +946,15 @@ mod tests {
     fn test_max_sessions_enforced() {
         // Verify the MAX_SESSIONS constant is set to a reasonable value.
         // This prevents unbounded accumulation of AI sessions in memory.
-        assert_eq!(MAX_SESSIONS, 10, "MAX_SESSIONS should be 10 to limit memory usage");
+        assert_eq!(
+            MAX_SESSIONS, 10,
+            "MAX_SESSIONS should be 10 to limit memory usage"
+        );
         assert!(MAX_SESSIONS > 0, "MAX_SESSIONS must be positive");
-        assert!(MAX_SESSIONS <= 50, "MAX_SESSIONS should not be excessively large");
+        assert!(
+            MAX_SESSIONS <= 50,
+            "MAX_SESSIONS should not be excessively large"
+        );
     }
 
     #[test]
@@ -916,6 +974,9 @@ mod tests {
         // Remove one — now under capacity
         mgr.remove_session("s-0");
         assert_eq!(mgr.session_count(), MAX_SESSIONS - 1);
-        assert!(mgr.session_count() < MAX_SESSIONS, "Should be under capacity after removal");
+        assert!(
+            mgr.session_count() < MAX_SESSIONS,
+            "Should be under capacity after removal"
+        );
     }
 }

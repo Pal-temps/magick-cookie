@@ -53,8 +53,14 @@ fn load_config(app: &AppHandle) -> Result<NotesConfig, String> {
 // ─── SSH via KDBX vault ───
 
 /// Read a private SSH key from the KDBX vault by name
-fn get_ssh_key_from_vault(secrets: &crate::secrets::SecretsState, key_name: &str) -> Result<String, String> {
-    let db = secrets.db.as_ref().ok_or("Vault not unlocked — cannot access SSH keys")?;
+fn get_ssh_key_from_vault(
+    secrets: &crate::secrets::SecretsState,
+    key_name: &str,
+) -> Result<String, String> {
+    let db = secrets
+        .db
+        .as_ref()
+        .ok_or("Vault not unlocked — cannot access SSH keys")?;
     if let Some(group) = db.root.group_by_path(&["App Secrets", "SSH Keys"]) {
         for entry in &group.entries {
             if entry.get("Title") == Some(key_name) {
@@ -62,11 +68,17 @@ fn get_ssh_key_from_vault(secrets: &crate::secrets::SecretsState, key_name: &str
             }
         }
     }
-    Err(format!("SSH key '{}' not found in vault. Generate one in Coffre > Cles SSH.", key_name))
+    Err(format!(
+        "SSH key '{}' not found in vault. Generate one in Coffre > Cles SSH.",
+        key_name
+    ))
 }
 
 /// Export SSH key from vault to a temp file and return GIT_SSH_COMMAND + temp dir to clean up
-fn vault_ssh_command(secrets: &crate::secrets::SecretsState, key_name: &str) -> Result<(String, PathBuf), String> {
+fn vault_ssh_command(
+    secrets: &crate::secrets::SecretsState,
+    key_name: &str,
+) -> Result<(String, PathBuf), String> {
     let private_key = get_ssh_key_from_vault(secrets, key_name)?;
 
     let tmp_dir = std::env::temp_dir().join(format!("mc-git-ssh-{}", uuid::Uuid::new_v4()));
@@ -84,7 +96,8 @@ fn vault_ssh_command(secrets: &crate::secrets::SecretsState, key_name: &str) -> 
     }
 
     let key_str = key_file.to_string_lossy().replace('\\', "/");
-    let cmd = format!("ssh -i \"{key_str}\" -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new");
+    let cmd =
+        format!("ssh -i \"{key_str}\" -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new");
 
     Ok((cmd, tmp_dir))
 }
@@ -115,7 +128,10 @@ fn validate_remote_url(url: &str) -> Result<(), String> {
         return Err(format!("Remote URL must use https:// or git@ (SSH): {url}"));
     }
     // Reject shell metacharacters that could escape argument quoting
-    if url.chars().any(|c| matches!(c, ';' | '|' | '&' | '`' | '\0' | '\n')) {
+    if url
+        .chars()
+        .any(|c| matches!(c, ';' | '|' | '&' | '`' | '\0' | '\n'))
+    {
         return Err("Remote URL contains invalid characters".into());
     }
     // file:// and git:// are not allowed (could read local paths or use unencrypted protocol)
@@ -139,7 +155,11 @@ pub async fn notes_set_config(
     if !notes_dir.exists() && !remote.is_empty() {
         validate_remote_url(&remote)?;
         let mut cmd = Command::new("git");
-        cmd.arg("clone").arg("--config").arg("core.hooksPath=/dev/null").arg(&remote).arg(&path);
+        cmd.arg("clone")
+            .arg("--config")
+            .arg("core.hooksPath=/dev/null")
+            .arg(&remote)
+            .arg(&path);
 
         let mut tmp_dir = None;
         if let Some(ref key_name) = ssh_key_name {
@@ -149,15 +169,16 @@ pub async fn notes_set_config(
 
         let output = cmd.output().map_err(|e| format!("Git clone failed: {e}"))?;
 
-        if let Some(td) = tmp_dir { let _ = std::fs::remove_dir_all(td); }
+        if let Some(td) = tmp_dir {
+            let _ = std::fs::remove_dir_all(td);
+        }
 
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
             return Err(format!("Git clone error: {stderr}"));
         }
     } else if !notes_dir.exists() {
-        std::fs::create_dir_all(&notes_dir)
-            .map_err(|e| format!("Cannot create dir: {e}"))?;
+        std::fs::create_dir_all(&notes_dir).map_err(|e| format!("Cannot create dir: {e}"))?;
         Command::new("git")
             .arg("init")
             .current_dir(&notes_dir)
@@ -191,8 +212,8 @@ pub async fn notes_set_config(
     }
 
     let config = NotesConfig { path, remote };
-    let json = serde_json::to_string_pretty(&config)
-        .map_err(|e| format!("Serialize error: {e}"))?;
+    let json =
+        serde_json::to_string_pretty(&config).map_err(|e| format!("Serialize error: {e}"))?;
     let cfg_path = config_path(&app);
     std::fs::create_dir_all(cfg_path.parent().unwrap()).ok();
     std::fs::write(&cfg_path, json).map_err(|e| format!("Write config error: {e}"))?;
@@ -226,21 +247,41 @@ fn list_files_by_ext(app: &AppHandle, ext: &str) -> Result<Vec<NoteEntry>, Strin
     Ok(entries)
 }
 
-fn collect_files(base: &PathBuf, dir: &PathBuf, ext: &str, entries: &mut Vec<NoteEntry>) -> Result<(), String> {
+fn collect_files(
+    base: &PathBuf,
+    dir: &PathBuf,
+    ext: &str,
+    entries: &mut Vec<NoteEntry>,
+) -> Result<(), String> {
     let read_dir = std::fs::read_dir(dir).map_err(|e| format!("Read dir error: {e}"))?;
 
     for entry in read_dir.flatten() {
         let path = entry.path();
-        let name = path.file_name().unwrap_or_default().to_string_lossy().to_string();
+        let name = path
+            .file_name()
+            .unwrap_or_default()
+            .to_string_lossy()
+            .to_string();
 
         // Skip hidden files/dirs (.git, .obsidian) and internal vault dirs
         // Allow user-facing underscore dirs
         const ALLOWED_UNDERSCORE: &[&str] = &[
-            "_bookmarks", "_workflows", "_ide", "_projects", "_snippets",
-            "_config", "_secrets", "_mcp", "_sessions",
-            "_journal", "_benchmarks", "_snapshots",
+            "_bookmarks",
+            "_workflows",
+            "_ide",
+            "_projects",
+            "_snippets",
+            "_config",
+            "_secrets",
+            "_mcp",
+            "_sessions",
+            "_journal",
+            "_benchmarks",
+            "_snapshots",
         ];
-        if name.starts_with('.') || (name.starts_with('_') && !ALLOWED_UNDERSCORE.contains(&name.as_str())) {
+        if name.starts_with('.')
+            || (name.starts_with('_') && !ALLOWED_UNDERSCORE.contains(&name.as_str()))
+        {
             continue;
         }
 
@@ -293,7 +334,11 @@ fn collect_folders(base: &PathBuf, dir: &PathBuf, folders: &mut Vec<String>) -> 
 
     for entry in read_dir.flatten() {
         let path = entry.path();
-        let name = path.file_name().unwrap_or_default().to_string_lossy().to_string();
+        let name = path
+            .file_name()
+            .unwrap_or_default()
+            .to_string_lossy()
+            .to_string();
 
         if name.starts_with('.') {
             continue;
@@ -321,7 +366,11 @@ pub async fn notes_create_folder(app: AppHandle, path: String) -> Result<(), Str
 }
 
 #[tauri::command]
-pub async fn notes_rename(app: AppHandle, old_path: String, new_path: String) -> Result<(), String> {
+pub async fn notes_rename(
+    app: AppHandle,
+    old_path: String,
+    new_path: String,
+) -> Result<(), String> {
     let config = load_config(&app)?;
     let base = PathBuf::from(&config.path);
     let from = base.join(&old_path);
@@ -390,7 +439,10 @@ pub async fn notes_git_status(app: AppHandle) -> Result<GitStatus, String> {
         "Aucune modification".into()
     };
 
-    Ok(GitStatus { has_changes, summary })
+    Ok(GitStatus {
+        has_changes,
+        summary,
+    })
 }
 
 #[tauri::command]
@@ -412,7 +464,9 @@ pub async fn notes_git_pull(
 
     let output = cmd.output().map_err(|e| format!("Git pull failed: {e}"))?;
 
-    if let Some(td) = tmp_dir { let _ = std::fs::remove_dir_all(td); }
+    if let Some(td) = tmp_dir {
+        let _ = std::fs::remove_dir_all(td);
+    }
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
@@ -439,7 +493,10 @@ pub async fn notes_git_push(
         .output()
         .map_err(|e| format!("Git add failed: {e}"))?;
     if !output.status.success() {
-        return Err(format!("Git add error: {}", String::from_utf8_lossy(&output.stderr)));
+        return Err(format!(
+            "Git add error: {}",
+            String::from_utf8_lossy(&output.stderr)
+        ));
     }
 
     // git commit
@@ -469,7 +526,9 @@ pub async fn notes_git_push(
 
     let output = cmd.output().map_err(|e| format!("Git push failed: {e}"))?;
 
-    if let Some(td) = tmp_dir { let _ = std::fs::remove_dir_all(td); }
+    if let Some(td) = tmp_dir {
+        let _ = std::fs::remove_dir_all(td);
+    }
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
@@ -523,8 +582,7 @@ pub async fn vault_ensure_structure(app: AppHandle) -> Result<(), String> {
     for dir in VAULT_DIRS {
         let full = vault.join(dir);
         if !full.exists() {
-            std::fs::create_dir_all(&full)
-                .map_err(|e| format!("Failed to create {dir}: {e}"))?;
+            std::fs::create_dir_all(&full).map_err(|e| format!("Failed to create {dir}: {e}"))?;
         }
     }
 
@@ -583,23 +641,24 @@ pub async fn vault_read_json(app: AppHandle, rel_path: String) -> Result<String,
         return Err(format!("File not found: {rel_path}"));
     }
 
-    std::fs::read_to_string(&full)
-        .map_err(|e| format!("Read error: {e}"))
+    std::fs::read_to_string(&full).map_err(|e| format!("Read error: {e}"))
 }
 
 #[tauri::command]
-pub async fn vault_write_json(app: AppHandle, rel_path: String, content: String) -> Result<(), String> {
+pub async fn vault_write_json(
+    app: AppHandle,
+    rel_path: String,
+    content: String,
+) -> Result<(), String> {
     let config = load_config(&app)?;
     let vault = PathBuf::from(&config.path);
     let full = validate_vault_path(&vault, &rel_path)?;
 
     if let Some(parent) = full.parent() {
-        std::fs::create_dir_all(parent)
-            .map_err(|e| format!("mkdir error: {e}"))?;
+        std::fs::create_dir_all(parent).map_err(|e| format!("mkdir error: {e}"))?;
     }
 
-    std::fs::write(&full, &content)
-        .map_err(|e| format!("Write error: {e}"))
+    std::fs::write(&full, &content).map_err(|e| format!("Write error: {e}"))
 }
 
 #[tauri::command]
@@ -619,25 +678,46 @@ pub async fn vault_list_section(
     let filter_ext = ext.unwrap_or_default();
     let mut entries = Vec::new();
 
-    fn collect_section(base: &PathBuf, dir: &PathBuf, ext: &str, entries: &mut Vec<NoteEntry>) -> Result<(), String> {
+    fn collect_section(
+        base: &PathBuf,
+        dir: &PathBuf,
+        ext: &str,
+        entries: &mut Vec<NoteEntry>,
+    ) -> Result<(), String> {
         let read_dir = std::fs::read_dir(dir).map_err(|e| format!("Read dir error: {e}"))?;
         for entry in read_dir.flatten() {
             let path = entry.path();
-            let name = path.file_name().unwrap_or_default().to_string_lossy().to_string();
-            if name.starts_with('.') { continue; }
+            let name = path
+                .file_name()
+                .unwrap_or_default()
+                .to_string_lossy()
+                .to_string();
+            if name.starts_with('.') {
+                continue;
+            }
 
             if path.is_dir() {
                 collect_section(base, &path, ext, entries)?;
             } else if ext.is_empty() || name.ends_with(ext) {
-                let relative = path.strip_prefix(base).unwrap_or(&path)
-                    .to_string_lossy().replace('\\', "/");
+                let relative = path
+                    .strip_prefix(base)
+                    .unwrap_or(&path)
+                    .to_string_lossy()
+                    .replace('\\', "/");
                 let metadata = std::fs::metadata(&path).ok();
-                let modified = metadata.as_ref()
+                let modified = metadata
+                    .as_ref()
                     .and_then(|m| m.modified().ok())
                     .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
-                    .map(|d| d.as_secs()).unwrap_or(0);
+                    .map(|d| d.as_secs())
+                    .unwrap_or(0);
                 let size = metadata.map(|m| m.len()).unwrap_or(0);
-                entries.push(NoteEntry { name, path: relative, modified, size });
+                entries.push(NoteEntry {
+                    name,
+                    path: relative,
+                    modified,
+                    size,
+                });
             }
         }
         Ok(())

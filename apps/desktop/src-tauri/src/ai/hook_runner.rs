@@ -88,8 +88,12 @@ pub fn ai_run_hook(cwd: String, command: String) -> Result<HookResult, String> {
         }
     };
 
-    let stdout = stdout_rx.recv_timeout(Duration::from_secs(2)).unwrap_or_default();
-    let stderr = stderr_rx.recv_timeout(Duration::from_secs(2)).unwrap_or_default();
+    let stdout = stdout_rx
+        .recv_timeout(Duration::from_secs(2))
+        .unwrap_or_default();
+    let stderr = stderr_rx
+        .recv_timeout(Duration::from_secs(2))
+        .unwrap_or_default();
     let duration_ms = start.elapsed().as_millis() as u64;
 
     Ok(HookResult {

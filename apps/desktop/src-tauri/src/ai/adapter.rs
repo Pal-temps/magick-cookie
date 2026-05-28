@@ -22,11 +22,7 @@ pub trait BackendAdapter: Send {
     ) -> Result<(), String>;
 
     /// Respond to a permission request (allow or deny).
-    fn respond_permission(
-        &mut self,
-        request_id: String,
-        allowed: bool,
-    ) -> Result<(), String>;
+    fn respond_permission(&mut self, request_id: String, allowed: bool) -> Result<(), String>;
 
     /// Send a tool result back to the AI (for built-in tools like screenshot).
     fn send_tool_result(

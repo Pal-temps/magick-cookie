@@ -50,17 +50,29 @@ impl Triple {
     /// platforms — callers should surface an explicit error rather than panic.
     pub const fn host() -> Option<Self> {
         #[cfg(all(target_os = "windows", target_arch = "x86_64"))]
-        { Some(Self::X86_64WindowsMsvc) }
+        {
+            Some(Self::X86_64WindowsMsvc)
+        }
         #[cfg(all(target_os = "windows", target_arch = "aarch64"))]
-        { Some(Self::Aarch64WindowsMsvc) }
+        {
+            Some(Self::Aarch64WindowsMsvc)
+        }
         #[cfg(all(target_os = "macos", target_arch = "x86_64"))]
-        { Some(Self::X86_64AppleDarwin) }
+        {
+            Some(Self::X86_64AppleDarwin)
+        }
         #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
-        { Some(Self::Aarch64AppleDarwin) }
+        {
+            Some(Self::Aarch64AppleDarwin)
+        }
         #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
-        { Some(Self::X86_64LinuxGnu) }
+        {
+            Some(Self::X86_64LinuxGnu)
+        }
         #[cfg(all(target_os = "linux", target_arch = "aarch64"))]
-        { Some(Self::Aarch64LinuxGnu) }
+        {
+            Some(Self::Aarch64LinuxGnu)
+        }
         #[cfg(not(any(
             all(target_os = "windows", target_arch = "x86_64"),
             all(target_os = "windows", target_arch = "aarch64"),
@@ -69,7 +81,9 @@ impl Triple {
             all(target_os = "linux", target_arch = "x86_64"),
             all(target_os = "linux", target_arch = "aarch64"),
         )))]
-        { None }
+        {
+            None
+        }
     }
 }
 
@@ -157,8 +171,8 @@ fn subst_version(template: &str, version: &str) -> String {
 
 impl Manifest {
     pub fn embedded() -> Result<Self, ManifestError> {
-        let m: Manifest = serde_json::from_str(MANIFEST_JSON)
-            .map_err(|e| ManifestError::Parse(e.to_string()))?;
+        let m: Manifest =
+            serde_json::from_str(MANIFEST_JSON).map_err(|e| ManifestError::Parse(e.to_string()))?;
         if m.schema_version != SUPPORTED_SCHEMA {
             return Err(ManifestError::UnsupportedSchema(m.schema_version));
         }
@@ -179,14 +193,20 @@ impl Manifest {
 
     pub fn resolve(&self, name: &str, triple: Triple) -> Result<ResolvedAsset, ManifestError> {
         let cli = self.cli(name)?;
-        let asset = cli.assets.get(&triple).ok_or_else(|| ManifestError::UnsupportedTriple {
-            cli: name.to_string(),
-            triple,
-        })?;
+        let asset = cli
+            .assets
+            .get(&triple)
+            .ok_or_else(|| ManifestError::UnsupportedTriple {
+                cli: name.to_string(),
+                triple,
+            })?;
         let v = &cli.version;
         let url_base = subst_version(&cli.release.url_base, v);
         let archive_basename = subst_version(&asset.asset, v);
-        let checksums_url = format!("{url_base}/{}", subst_version(&cli.release.checksums_asset, v));
+        let checksums_url = format!(
+            "{url_base}/{}",
+            subst_version(&cli.release.checksums_asset, v)
+        );
         Ok(ResolvedAsset {
             url: format!("{url_base}/{archive_basename}"),
             archive: asset.archive,
@@ -226,7 +246,11 @@ mod tests {
         let v = m.cli("gh").unwrap().version.clone();
         for triple in ALL_TRIPLES {
             let r = m.resolve("gh", *triple).unwrap();
-            assert!(!r.url.contains("{version}"), "url still templated for {}", triple.as_str());
+            assert!(
+                !r.url.contains("{version}"),
+                "url still templated for {}",
+                triple.as_str()
+            );
             assert!(!r.archive_basename.contains("{version}"));
             assert!(!r.inner_path.contains("{version}"));
             assert!(!r.checksums_url.contains("{version}"));
@@ -246,10 +270,22 @@ mod tests {
     #[test]
     fn linux_archives_are_tar_gz_and_others_are_zip() {
         let m = Manifest::embedded().unwrap();
-        assert_eq!(m.resolve("gh", Triple::X86_64LinuxGnu).unwrap().archive, ArchiveType::TarGz);
-        assert_eq!(m.resolve("gh", Triple::Aarch64LinuxGnu).unwrap().archive, ArchiveType::TarGz);
-        assert_eq!(m.resolve("gh", Triple::X86_64WindowsMsvc).unwrap().archive, ArchiveType::Zip);
-        assert_eq!(m.resolve("gh", Triple::X86_64AppleDarwin).unwrap().archive, ArchiveType::Zip);
+        assert_eq!(
+            m.resolve("gh", Triple::X86_64LinuxGnu).unwrap().archive,
+            ArchiveType::TarGz
+        );
+        assert_eq!(
+            m.resolve("gh", Triple::Aarch64LinuxGnu).unwrap().archive,
+            ArchiveType::TarGz
+        );
+        assert_eq!(
+            m.resolve("gh", Triple::X86_64WindowsMsvc).unwrap().archive,
+            ArchiveType::Zip
+        );
+        assert_eq!(
+            m.resolve("gh", Triple::X86_64AppleDarwin).unwrap().archive,
+            ArchiveType::Zip
+        );
     }
 
     #[test]
@@ -272,7 +308,10 @@ mod tests {
     fn host_triple_resolves_on_supported_platforms() {
         // CI runs on one of the supported triples, so this must be Some.
         // Compile-time fallback returns None only on platforms we explicitly don't ship for.
-        assert!(Triple::host().is_some(), "host triple should be one of the 6 supported");
+        assert!(
+            Triple::host().is_some(),
+            "host triple should be one of the 6 supported"
+        );
     }
 
     #[test]

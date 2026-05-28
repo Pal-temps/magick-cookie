@@ -161,22 +161,17 @@ impl McpClient {
             params,
         };
 
-        let mut payload = serde_json::to_string(&request)
-            .map_err(|e| format!("Serialize request: {e}"))?;
+        let mut payload =
+            serde_json::to_string(&request).map_err(|e| format!("Serialize request: {e}"))?;
         payload.push('\n');
 
         // Write to stdin
         {
-            let mut stdin = self
-                .stdin
-                .lock()
-                .map_err(|e| format!("stdin lock: {e}"))?;
+            let mut stdin = self.stdin.lock().map_err(|e| format!("stdin lock: {e}"))?;
             stdin
                 .write_all(payload.as_bytes())
                 .map_err(|e| format!("Write to MCP server: {e}"))?;
-            stdin
-                .flush()
-                .map_err(|e| format!("Flush MCP stdin: {e}"))?;
+            stdin.flush().map_err(|e| format!("Flush MCP stdin: {e}"))?;
         }
 
         // Read response (blocking read of one line)
@@ -195,8 +190,8 @@ impl McpClient {
             return Err("Empty response from MCP server".into());
         }
 
-        let response: JsonRpcResponse = serde_json::from_str(line.trim())
-            .map_err(|e| format!("Parse MCP response: {e}"))?;
+        let response: JsonRpcResponse =
+            serde_json::from_str(line.trim()).map_err(|e| format!("Parse MCP response: {e}"))?;
 
         if let Some(err) = response.error {
             return Err(format!("MCP error: {}", err.message));
@@ -263,11 +258,7 @@ impl McpClient {
     }
 
     /// Execute a tool call on this MCP server.
-    pub fn call_tool(
-        &self,
-        name: &str,
-        arguments: serde_json::Value,
-    ) -> Result<String, String> {
+    pub fn call_tool(&self, name: &str, arguments: serde_json::Value) -> Result<String, String> {
         let params = serde_json::json!({
             "name": name,
             "arguments": arguments,

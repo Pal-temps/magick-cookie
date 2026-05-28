@@ -98,7 +98,6 @@ impl SessionRecorder {
     pub fn close(&mut self) {
         let _ = self.writer.flush();
     }
-
 }
 
 // ─── List past sessions ───
@@ -157,10 +156,26 @@ pub fn list_past_sessions(vault_path: &str) -> Vec<PastSessionInfo> {
         // Parse metadata from first line
         if let Ok(meta) = serde_json::from_str::<serde_json::Value>(lines[0]) {
             if meta.get("type").and_then(|t| t.as_str()) == Some("session_meta") {
-                provider = meta.get("provider").and_then(|v| v.as_str()).unwrap_or("").to_string();
-                model = meta.get("model").and_then(|v| v.as_str()).unwrap_or("").to_string();
-                started_at = meta.get("started_at").and_then(|v| v.as_str()).unwrap_or("").to_string();
-                label = meta.get("label").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                provider = meta
+                    .get("provider")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("")
+                    .to_string();
+                model = meta
+                    .get("model")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("")
+                    .to_string();
+                started_at = meta
+                    .get("started_at")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("")
+                    .to_string();
+                label = meta
+                    .get("label")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("")
+                    .to_string();
             }
         }
 
@@ -238,14 +253,20 @@ mod tests {
         let vault = tmp.to_str().unwrap();
         let mut rec = SessionRecorder::new(vault, "test-session-1", "claude-cli", "opus").unwrap();
 
-        rec.record(1, &AdapterEvent::SessionReady {
-            model: "opus".into(),
-            tools: vec!["read".into()],
-        });
-        rec.record(2, &AdapterEvent::StreamToken {
-            text: "Hello".into(),
-            phase: StreamPhase::Text,
-        });
+        rec.record(
+            1,
+            &AdapterEvent::SessionReady {
+                model: "opus".into(),
+                tools: vec!["read".into()],
+            },
+        );
+        rec.record(
+            2,
+            &AdapterEvent::StreamToken {
+                text: "Hello".into(),
+                phase: StreamPhase::Text,
+            },
+        );
         rec.close();
 
         let file = tmp.join("_sessions").join("test-session-1.jsonl");
@@ -282,7 +303,12 @@ mod tests {
 
         let vault = tmp.to_str().unwrap();
         let mut rec = SessionRecorder::new(vault, "s1", "anthropic-api", "sonnet").unwrap();
-        rec.record(1, &AdapterEvent::TurnComplete { stop_reason: Some("end_turn".into()) });
+        rec.record(
+            1,
+            &AdapterEvent::TurnComplete {
+                stop_reason: Some("end_turn".into()),
+            },
+        );
         rec.close();
 
         let sessions = list_past_sessions(vault);

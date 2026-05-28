@@ -11,7 +11,8 @@ pub struct FsChangeEvent {
     pub kind: String, // "modify" | "remove"
 }
 
-pub type SharedWatcher = Arc<Mutex<Option<notify_debouncer_mini::Debouncer<notify::RecommendedWatcher>>>>;
+pub type SharedWatcher =
+    Arc<Mutex<Option<notify_debouncer_mini::Debouncer<notify::RecommendedWatcher>>>>;
 
 pub fn new_shared_watcher() -> SharedWatcher {
     Arc::new(Mutex::new(None))
@@ -58,7 +59,11 @@ pub fn fs_watch_start(
 
                 let kind = match event.kind {
                     DebouncedEventKind::Any => {
-                        if event.path.exists() { "modify" } else { "remove" }
+                        if event.path.exists() {
+                            "modify"
+                        } else {
+                            "remove"
+                        }
                     }
                     DebouncedEventKind::AnyContinuous => "modify",
                     _ => "modify",

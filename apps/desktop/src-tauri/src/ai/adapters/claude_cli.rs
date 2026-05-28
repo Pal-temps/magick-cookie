@@ -9,8 +9,7 @@ use crate::ai::types::*;
 
 /// Combined Magick MCP server — permissions + all ToolRegistry tools.
 /// Embedded at compile time, extracted to a temp file on first use.
-const MAGICK_MCP_SCRIPT: &str =
-    include_str!("../../../../../api/src/mcp/magick-mcp-server.ts");
+const MAGICK_MCP_SCRIPT: &str = include_str!("../../../../../api/src/mcp/magick-mcp-server.ts");
 
 /// Default API URL (must match the Bun API server port).
 const DEFAULT_API_URL: &str = "http://localhost:47300";
@@ -29,8 +28,10 @@ fn magick_app_root() -> std::path::PathBuf {
         // apps/desktop/src-tauri → ../../ → project root
         const CARGO_MANIFEST_DIR: &str = env!("CARGO_MANIFEST_DIR");
         let dev_root = std::path::Path::new(CARGO_MANIFEST_DIR)
-            .parent().unwrap_or(std::path::Path::new("."))
-            .parent().unwrap_or(std::path::Path::new("."))
+            .parent()
+            .unwrap_or(std::path::Path::new("."))
+            .parent()
+            .unwrap_or(std::path::Path::new("."))
             .to_path_buf();
         if dev_root.exists() {
             return dev_root;
@@ -55,7 +56,11 @@ fn ensure_magick_mcp_script() -> Result<PathBuf, String> {
 }
 
 /// Write an mcp-config.json pointing at the combined server and return its path.
-fn write_mcp_config(script_path: &PathBuf, api_url: &str, session_id: &str) -> Result<PathBuf, String> {
+fn write_mcp_config(
+    script_path: &PathBuf,
+    api_url: &str,
+    session_id: &str,
+) -> Result<PathBuf, String> {
     let app_root = magick_app_root();
     let app_root_str = app_root.to_str().unwrap_or("").replace('\\', "/");
 
@@ -75,8 +80,7 @@ fn write_mcp_config(script_path: &PathBuf, api_url: &str, session_id: &str) -> R
 
     // Use char-safe truncation to avoid panicking on multi-byte UTF-8 session IDs
     let prefix: String = session_id.chars().take(8).collect();
-    let config_path = std::env::temp_dir()
-        .join(format!("magick-mcp-config-{}.json", prefix));
+    let config_path = std::env::temp_dir().join(format!("magick-mcp-config-{}.json", prefix));
 
     std::fs::write(&config_path, config.to_string())
         .map_err(|e| format!("Failed to write MCP config: {e}"))?;
@@ -137,7 +141,10 @@ impl ClaudeCliAdapter {
                 return Ok((*name).into());
             }
         }
-        Err("Claude CLI not found in PATH. Install: https://docs.anthropic.com/en/docs/claude-code".into())
+        Err(
+            "Claude CLI not found in PATH. Install: https://docs.anthropic.com/en/docs/claude-code"
+                .into(),
+        )
     }
 
     /// Spawn a claude process for a single turn and stream NDJSON events.
@@ -185,7 +192,7 @@ impl ClaudeCliAdapter {
             ne lis ni n'écris jamais ces données via des fichiers directement. \
             2. Ne modifie JAMAIS les fichiers du code source de l'application Magick Cookie. \
             3. Tu peux lire et écrire les fichiers du projet de l'utilisateur ouvert dans l'IDE."
-            .to_string()
+                .to_string(),
         );
 
         // ── Prompt & session ──────────────────────────────────────────────────
@@ -209,7 +216,9 @@ impl ClaudeCliAdapter {
             .stdout(Stdio::piped())
             .stderr(Stdio::piped());
 
-        let mut child = cmd.spawn().map_err(|e| format!("Failed to spawn claude: {e}"))?;
+        let mut child = cmd
+            .spawn()
+            .map_err(|e| format!("Failed to spawn claude: {e}"))?;
 
         let stdout = child.stdout.take().ok_or("Failed to capture stdout")?;
         let stderr = child.stderr.take().ok_or("Failed to capture stderr")?;
@@ -222,7 +231,9 @@ impl ClaudeCliAdapter {
             for line in reader.lines() {
                 let Ok(line) = line else { break };
                 let line = line.trim().to_string();
-                if line.is_empty() { continue; }
+                if line.is_empty() {
+                    continue;
+                }
 
                 // Capture session_id from any NDJSON line
                 if let Ok(json) = serde_json::from_str::<serde_json::Value>(&line) {
@@ -236,7 +247,9 @@ impl ClaudeCliAdapter {
 
                 let events = parse_ndjson_line(&line);
                 for event in events {
-                    if tx.send(event).is_err() { return; }
+                    if tx.send(event).is_err() {
+                        return;
+                    }
                 }
             }
             // Turn complete — process exited (normal for --print mode)
@@ -249,7 +262,9 @@ impl ClaudeCliAdapter {
             for line in reader.lines() {
                 let Ok(line) = line else { break };
                 let line = line.trim().to_string();
-                if line.is_empty() { continue; }
+                if line.is_empty() {
+                    continue;
+                }
                 if line.contains("error") || line.contains("Error") || line.contains("FATAL") {
                     let _ = tx_err.send(AdapterEvent::Error { message: line });
                 }
@@ -279,7 +294,10 @@ impl BackendAdapter for ClaudeCliAdapter {
         }
 
         // ── Set up combined Magick MCP server ─────────────────────────────────
-        let session_id = config.session_id.clone().unwrap_or_else(|| "unknown".to_string());
+        let session_id = config
+            .session_id
+            .clone()
+            .unwrap_or_else(|| "unknown".to_string());
         let mcp_result = ensure_magick_mcp_script()
             .and_then(|script| write_mcp_config(&script, DEFAULT_API_URL, &session_id));
 
@@ -326,7 +344,10 @@ impl BackendAdapter for ClaudeCliAdapter {
         if let Some(mut prev) = self.current_process.take() {
             match prev.try_wait() {
                 Ok(Some(_)) => {} // already exited
-                _ => { let _ = prev.kill(); let _ = prev.wait(); }
+                _ => {
+                    let _ = prev.kill();
+                    let _ = prev.wait();
+                }
             }
         }
 
@@ -348,11 +369,7 @@ impl BackendAdapter for ClaudeCliAdapter {
         Ok(())
     }
 
-    fn respond_permission(
-        &mut self,
-        _request_id: String,
-        _allowed: bool,
-    ) -> Result<(), String> {
+    fn respond_permission(&mut self, _request_id: String, _allowed: bool) -> Result<(), String> {
         // Permission flow is now handled via the MCP permission server:
         // Claude CLI → MCP server → API → frontend dialog → API resolve → MCP server → Claude CLI
         // The ai_respond_permission Tauri command is no longer needed for claude-cli.
@@ -431,13 +448,25 @@ fn parse_ndjson_line(line: &str) -> Vec<AdapterEvent> {
         "system" => {
             let subtype = json.get("subtype").and_then(|v| v.as_str()).unwrap_or("");
             if subtype == "init" {
-                let model = json.get("model").and_then(|v| v.as_str()).unwrap_or("unknown").to_string();
-                let tools = json.get("tools")
+                let model = json
+                    .get("model")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("unknown")
+                    .to_string();
+                let tools = json
+                    .get("tools")
                     .and_then(|v| v.as_array())
-                    .map(|arr| arr.iter().filter_map(|t| {
-                        t.as_str().map(|s| s.to_string())
-                            .or_else(|| t.get("name").and_then(|n| n.as_str()).map(|s| s.to_string()))
-                    }).collect())
+                    .map(|arr| {
+                        arr.iter()
+                            .filter_map(|t| {
+                                t.as_str().map(|s| s.to_string()).or_else(|| {
+                                    t.get("name")
+                                        .and_then(|n| n.as_str())
+                                        .map(|s| s.to_string())
+                                })
+                            })
+                            .collect()
+                    })
                     .unwrap_or_default();
                 return vec![AdapterEvent::SessionReady { model, tools }];
             }
@@ -446,22 +475,35 @@ fn parse_ndjson_line(line: &str) -> Vec<AdapterEvent> {
 
         "assistant" => {
             let content = extract_content(&json);
-            let model = json.get("message")
+            let model = json
+                .get("message")
                 .and_then(|m| m.get("model"))
                 .and_then(|v| v.as_str())
                 .map(|s| s.to_string());
 
             let mut events = vec![];
 
-            if let Some(blocks) = json.get("message")
+            if let Some(blocks) = json
+                .get("message")
                 .and_then(|m| m.get("content"))
                 .and_then(|c| c.as_array())
             {
                 for block in blocks {
                     if block.get("type").and_then(|v| v.as_str()) == Some("tool_use") {
-                        let id = block.get("id").and_then(|v| v.as_str()).unwrap_or("").to_string();
-                        let name = block.get("name").and_then(|v| v.as_str()).unwrap_or("").to_string();
-                        let input = block.get("input").cloned().unwrap_or(serde_json::Value::Null);
+                        let id = block
+                            .get("id")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("")
+                            .to_string();
+                        let name = block
+                            .get("name")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("")
+                            .to_string();
+                        let input = block
+                            .get("input")
+                            .cloned()
+                            .unwrap_or(serde_json::Value::Null);
                         events.push(AdapterEvent::ToolUse { id, name, input });
                     }
                 }
@@ -475,7 +517,8 @@ fn parse_ndjson_line(line: &str) -> Vec<AdapterEvent> {
         }
 
         "result" => {
-            let stop_reason = json.get("stop_reason")
+            let stop_reason = json
+                .get("stop_reason")
                 .or_else(|| json.get("result").and_then(|r| r.get("stop_reason")))
                 .and_then(|v| v.as_str())
                 .map(|s| s.to_string());
@@ -484,29 +527,53 @@ fn parse_ndjson_line(line: &str) -> Vec<AdapterEvent> {
         }
 
         "tool_use" => {
-            let id = json.get("id").and_then(|v| v.as_str()).unwrap_or("").to_string();
-            let name = json.get("name").and_then(|v| v.as_str()).unwrap_or("").to_string();
-            let input = json.get("input").cloned().unwrap_or(serde_json::Value::Null);
+            let id = json
+                .get("id")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string();
+            let name = json
+                .get("name")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string();
+            let input = json
+                .get("input")
+                .cloned()
+                .unwrap_or(serde_json::Value::Null);
             vec![AdapterEvent::ToolUse { id, name, input }]
         }
 
         "tool_result" => {
-            let tool_use_id = json.get("tool_use_id").and_then(|v| v.as_str()).unwrap_or("").to_string();
+            let tool_use_id = json
+                .get("tool_use_id")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string();
             let content = extract_tool_result_content(&json);
-            let is_error = json.get("is_error").and_then(|v| v.as_bool()).unwrap_or(false);
-            vec![AdapterEvent::ToolResult { tool_use_id, content, is_error }]
+            let is_error = json
+                .get("is_error")
+                .and_then(|v| v.as_bool())
+                .unwrap_or(false);
+            vec![AdapterEvent::ToolResult {
+                tool_use_id,
+                content,
+                is_error,
+            }]
         }
 
-        _ => vec![]
+        _ => vec![],
     }
 }
 
 fn extract_content(json: &serde_json::Value) -> String {
-    if let Some(blocks) = json.get("message")
+    if let Some(blocks) = json
+        .get("message")
         .and_then(|m| m.get("content"))
         .and_then(|c| c.as_array())
     {
-        let texts: Vec<&str> = blocks.iter()
+        let texts: Vec<&str> = blocks
+            .iter()
             .filter(|b| b.get("type").and_then(|t| t.as_str()) == Some("text"))
             .filter_map(|b| b.get("text").and_then(|t| t.as_str()))
             .collect();
@@ -526,7 +593,8 @@ fn extract_tool_result_content(json: &serde_json::Value) -> String {
         return s.to_string();
     }
     if let Some(arr) = json.get("content").and_then(|v| v.as_array()) {
-        let texts: Vec<&str> = arr.iter()
+        let texts: Vec<&str> = arr
+            .iter()
             .filter_map(|b| b.get("text").and_then(|t| t.as_str()))
             .collect();
         return texts.join("\n");

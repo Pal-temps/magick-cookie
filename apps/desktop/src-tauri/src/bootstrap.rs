@@ -1,7 +1,6 @@
 /// Bootstrap config — written by the NSIS installer before the first launch.
 /// On Windows: %APPDATA%\com.bumblelab.magick-cookie\bootstrap.json
 /// The file is consumed (read + deleted) once on startup; subsequent launches see None.
-
 use serde::{Deserialize, Serialize};
 use std::sync::Mutex;
 
@@ -56,8 +55,6 @@ pub fn consume() -> Option<BootstrapConfig> {
 
 /// Called by the frontend on mount. Returns the bootstrap config once, then None.
 #[tauri::command]
-pub fn get_bootstrap_config(
-    state: tauri::State<'_, BootstrapState>,
-) -> Option<BootstrapConfig> {
+pub fn get_bootstrap_config(state: tauri::State<'_, BootstrapState>) -> Option<BootstrapConfig> {
     state.0.lock().unwrap().take()
 }

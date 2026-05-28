@@ -44,7 +44,11 @@ pub struct SecretsState {
 
 impl SecretsState {
     pub fn new() -> Self {
-        Self { db: None, master_key: None, vault_path: None }
+        Self {
+            db: None,
+            master_key: None,
+            vault_path: None,
+        }
     }
 }
 
@@ -83,8 +87,11 @@ fn set_local_mode(vault_path: &Path, local: bool) -> Result<(), String> {
     let marker = vault_path.join("_secrets").join(".local-only");
     std::fs::create_dir_all(vault_path.join("_secrets")).ok();
     if local {
-        std::fs::write(&marker, "This vault stores secrets locally (not git-synced).\n")
-            .map_err(|e| format!("Write error: {e}"))?;
+        std::fs::write(
+            &marker,
+            "This vault stores secrets locally (not git-synced).\n",
+        )
+        .map_err(|e| format!("Write error: {e}"))?;
         // Move existing kdbx from git vault to local if it exists
         let git_kdbx = vault_path.join("_secrets").join("vault.kdbx");
         if git_kdbx.exists() {
@@ -121,7 +128,11 @@ fn entry_to_secret(entry: &Entry, group_path: &str, include_password: bool) -> S
         group: group_path.to_string(),
         title: entry.get("Title").unwrap_or("").to_string(),
         username: entry.get("UserName").unwrap_or("").to_string(),
-        password: if include_password { Some(entry.get("Password").unwrap_or("").to_string()) } else { None },
+        password: if include_password {
+            Some(entry.get("Password").unwrap_or("").to_string())
+        } else {
+            None
+        },
         url: entry.get("URL").unwrap_or("").to_string(),
         notes: entry.get("Notes").unwrap_or("").to_string(),
         tags: entry.tags.clone(),
@@ -129,7 +140,11 @@ fn entry_to_secret(entry: &Entry, group_path: &str, include_password: bool) -> S
 }
 
 fn collect_entries(group: &Group, path: &str, include_pwd: bool, results: &mut Vec<SecretEntry>) {
-    let current = if path.is_empty() { group.name.clone() } else { format!("{}/{}", path, group.name) };
+    let current = if path.is_empty() {
+        group.name.clone()
+    } else {
+        format!("{}/{}", path, group.name)
+    };
 
     for entry in &group.entries {
         results.push(entry_to_secret(entry, &current, include_pwd));
@@ -140,17 +155,27 @@ fn collect_entries(group: &Group, path: &str, include_pwd: bool, results: &mut V
 }
 
 fn collect_groups(group: &Group, path: &str) -> SecretGroup {
-    let current = if path.is_empty() { group.name.clone() } else { format!("{}/{}", path, group.name) };
+    let current = if path.is_empty() {
+        group.name.clone()
+    } else {
+        format!("{}/{}", path, group.name)
+    };
     SecretGroup {
         name: group.name.clone(),
         path: current.clone(),
         entry_count: group.entries.len(),
-        children: group.groups.iter().map(|g| collect_groups(g, &current)).collect(),
+        children: group
+            .groups
+            .iter()
+            .map(|g| collect_groups(g, &current))
+            .collect(),
     }
 }
 
 fn get_or_create_group<'a>(root: &'a mut Group, path: &str) -> &'a mut Group {
-    if path.is_empty() { return root; }
+    if path.is_empty() {
+        return root;
+    }
     let parts: Vec<&str> = path.split('/').collect();
     let mut current = root;
     for part in parts {
@@ -178,15 +203,20 @@ fn save_db(state: &SecretsState) -> Result<(), String> {
 
     let mut file = std::fs::File::create(&path).map_err(|e| format!("Create file error: {e}"))?;
     let key = DatabaseKey::new().with_password(master);
-    db.save(&mut file, key).map_err(|e| format!("Save KDBX error: {e}"))
+    db.save(&mut file, key)
+        .map_err(|e| format!("Save KDBX error: {e}"))
 }
 
 fn remove_entry_recursive(group: &mut Group, id: &str) -> bool {
     let before = group.entries.len();
     group.entries.retain(|e| e.uuid.to_string() != id);
-    if group.entries.len() < before { return true; }
+    if group.entries.len() < before {
+        return true;
+    }
     for sub in &mut group.groups {
-        if remove_entry_recursive(sub, id) { return true; }
+        if remove_entry_recursive(sub, id) {
+            return true;
+        }
     }
     false
 }
@@ -202,7 +232,9 @@ pub fn secrets_init(
     let mut s = state.lock().map_err(|e| e.to_string())?;
 
     // Git-backed vault path only if notes (git) is configured; otherwise fall back to local AppData.
-    s.vault_path = notes::load_config_pub(&app).ok().map(|c| PathBuf::from(&c.path));
+    s.vault_path = notes::load_config_pub(&app)
+        .ok()
+        .map(|c| PathBuf::from(&c.path));
     let path = kdbx_path(&s)?;
 
     if path.exists() {
@@ -221,7 +253,8 @@ pub fn secrets_init(
         }
         let mut file = std::fs::File::create(&path).map_err(|e| format!("Create error: {e}"))?;
         let key = DatabaseKey::new().with_password(&master_password);
-        db.save(&mut file, key).map_err(|e| format!("Save error: {e}"))?;
+        db.save(&mut file, key)
+            .map_err(|e| format!("Save error: {e}"))?;
         s.db = Some(db);
     }
 
@@ -280,26 +313,40 @@ pub fn secrets_set_local_mode(
 }
 
 #[tauri::command]
-pub fn secrets_list(state: tauri::State<'_, SharedSecrets>, group: Option<String>) -> Result<Vec<SecretEntry>, String> {
+pub fn secrets_list(
+    state: tauri::State<'_, SharedSecrets>,
+    group: Option<String>,
+) -> Result<Vec<SecretEntry>, String> {
     let s = state.lock().map_err(|e| e.to_string())?;
     let db = s.db.as_ref().ok_or("Vault not unlocked")?;
     let mut entries = Vec::new();
     collect_entries(&db.root, "", false, &mut entries);
-    if let Some(g) = group { entries.retain(|e| e.group.contains(&g)); }
+    if let Some(g) = group {
+        entries.retain(|e| e.group.contains(&g));
+    }
     Ok(entries)
 }
 
 #[tauri::command]
-pub fn secrets_get(state: tauri::State<'_, SharedSecrets>, id: String) -> Result<SecretEntry, String> {
+pub fn secrets_get(
+    state: tauri::State<'_, SharedSecrets>,
+    id: String,
+) -> Result<SecretEntry, String> {
     let s = state.lock().map_err(|e| e.to_string())?;
     let db = s.db.as_ref().ok_or("Vault not unlocked")?;
     let mut entries = Vec::new();
     collect_entries(&db.root, "", true, &mut entries);
-    entries.into_iter().find(|e| e.id == id).ok_or_else(|| format!("Entry not found: {id}"))
+    entries
+        .into_iter()
+        .find(|e| e.id == id)
+        .ok_or_else(|| format!("Entry not found: {id}"))
 }
 
 #[tauri::command]
-pub fn secrets_set(state: tauri::State<'_, SharedSecrets>, entry: SecretEntry) -> Result<(), String> {
+pub fn secrets_set(
+    state: tauri::State<'_, SharedSecrets>,
+    entry: SecretEntry,
+) -> Result<(), String> {
     let mut s = state.lock().map_err(|e| e.to_string())?;
     let db = s.db.as_mut().ok_or("Vault not unlocked")?;
 
@@ -311,13 +358,24 @@ pub fn secrets_set(state: tauri::State<'_, SharedSecrets>, entry: SecretEntry) -
     let group = get_or_create_group(&mut db.root, &entry.group);
 
     let mut kp_entry = Entry::new();
-    kp_entry.fields.insert("Title".into(), Value::Unprotected(entry.title));
-    kp_entry.fields.insert("UserName".into(), Value::Unprotected(entry.username));
+    kp_entry
+        .fields
+        .insert("Title".into(), Value::Unprotected(entry.title));
+    kp_entry
+        .fields
+        .insert("UserName".into(), Value::Unprotected(entry.username));
     if let Some(password) = entry.password {
-        kp_entry.fields.insert("Password".into(), Value::Protected(password.as_bytes().into()));
+        kp_entry.fields.insert(
+            "Password".into(),
+            Value::Protected(password.as_bytes().into()),
+        );
     }
-    kp_entry.fields.insert("URL".into(), Value::Unprotected(entry.url));
-    kp_entry.fields.insert("Notes".into(), Value::Unprotected(entry.notes));
+    kp_entry
+        .fields
+        .insert("URL".into(), Value::Unprotected(entry.url));
+    kp_entry
+        .fields
+        .insert("Notes".into(), Value::Unprotected(entry.notes));
     kp_entry.tags = entry.tags;
     group.entries.push(kp_entry);
 
@@ -335,13 +393,20 @@ pub fn secrets_delete(state: tauri::State<'_, SharedSecrets>, id: String) -> Res
 }
 
 #[tauri::command]
-pub fn secrets_search(state: tauri::State<'_, SharedSecrets>, query: String) -> Result<Vec<SecretEntry>, String> {
+pub fn secrets_search(
+    state: tauri::State<'_, SharedSecrets>,
+    query: String,
+) -> Result<Vec<SecretEntry>, String> {
     let s = state.lock().map_err(|e| e.to_string())?;
     let db = s.db.as_ref().ok_or("Vault not unlocked")?;
     let mut entries = Vec::new();
     collect_entries(&db.root, "", false, &mut entries);
     let q = query.to_lowercase();
-    entries.retain(|e| e.title.to_lowercase().contains(&q) || e.username.to_lowercase().contains(&q) || e.url.to_lowercase().contains(&q));
+    entries.retain(|e| {
+        e.title.to_lowercase().contains(&q)
+            || e.username.to_lowercase().contains(&q)
+            || e.url.to_lowercase().contains(&q)
+    });
     Ok(entries)
 }
 
@@ -353,10 +418,16 @@ pub fn secrets_groups(state: tauri::State<'_, SharedSecrets>) -> Result<SecretGr
 }
 
 #[tauri::command]
-pub fn secrets_delete_group(state: tauri::State<'_, SharedSecrets>, path: String) -> Result<(), String> {
+pub fn secrets_delete_group(
+    state: tauri::State<'_, SharedSecrets>,
+    path: String,
+) -> Result<(), String> {
     // Prevent deleting protected groups
     let protected = ["App Secrets", "Passwords"];
-    if protected.iter().any(|p| path == *p || path.starts_with(&format!("{p}/"))) {
+    if protected
+        .iter()
+        .any(|p| path == *p || path.starts_with(&format!("{p}/")))
+    {
         return Err("Ce groupe est protégé et ne peut pas être supprimé".into());
     }
 
@@ -389,19 +460,27 @@ pub fn secrets_delete_group(state: tauri::State<'_, SharedSecrets>, path: String
 }
 
 #[tauri::command]
-pub fn secrets_get_app_secret(state: tauri::State<'_, SharedSecrets>, key: String) -> Result<String, String> {
+pub fn secrets_get_app_secret(
+    state: tauri::State<'_, SharedSecrets>,
+    key: String,
+) -> Result<String, String> {
     let s = state.lock().map_err(|e| e.to_string())?;
     let db = s.db.as_ref().ok_or("Vault not unlocked")?;
     let mut entries = Vec::new();
     collect_entries(&db.root, "", true, &mut entries);
-    entries.into_iter()
+    entries
+        .into_iter()
         .find(|e| e.group.contains("App Secrets") && e.title == key)
         .and_then(|e| e.password)
         .ok_or_else(|| format!("App secret not found: {key}"))
 }
 
 #[tauri::command]
-pub fn secrets_set_app_secret(state: tauri::State<'_, SharedSecrets>, key: String, value: String) -> Result<(), String> {
+pub fn secrets_set_app_secret(
+    state: tauri::State<'_, SharedSecrets>,
+    key: String,
+    value: String,
+) -> Result<(), String> {
     // Remove existing entry with same title in App Secrets
     {
         let mut s = state.lock().map_err(|e| e.to_string())?;
@@ -410,23 +489,28 @@ pub fn secrets_set_app_secret(state: tauri::State<'_, SharedSecrets>, key: Strin
         group.entries.retain(|e| e.get("Title") != Some(&key));
     }
 
-    secrets_set(state, SecretEntry {
-        id: String::new(),
-        group: "App Secrets".to_string(),
-        title: key,
-        username: String::new(),
-        password: Some(value),
-        url: String::new(),
-        notes: String::new(),
-        tags: vec![],
-    })
+    secrets_set(
+        state,
+        SecretEntry {
+            id: String::new(),
+            group: "App Secrets".to_string(),
+            title: key,
+            username: String::new(),
+            password: Some(value),
+            url: String::new(),
+            notes: String::new(),
+            tags: vec![],
+        },
+    )
 }
 
 /// Remove an app secret by its key (title) from the "App Secrets" group.
 /// No-op (Ok) if the vault is locked or the key is not found.
 pub(crate) fn remove_app_secret(state: &SharedSecrets, key: &str) -> Result<(), String> {
     let mut s = state.lock().map_err(|e| e.to_string())?;
-    let Some(db) = s.db.as_mut() else { return Ok(()); };
+    let Some(db) = s.db.as_mut() else {
+        return Ok(());
+    };
     let key_owned = key.to_string();
     if let Some(group) = db.root.groups.iter_mut().find(|g| g.name == "App Secrets") {
         group.entries.retain(|e| e.get("Title") != Some(&key_owned));
@@ -454,7 +538,9 @@ pub fn secrets_generate_ssh_key(
     comment: Option<String>,
 ) -> Result<SshKeyResult, String> {
     let s = state.lock().map_err(|e| e.to_string())?;
-    if s.db.is_none() { return Err("Vault not unlocked".into()); }
+    if s.db.is_none() {
+        return Err("Vault not unlocked".into());
+    }
     drop(s); // Release lock before running ssh-keygen
 
     let comment = comment.unwrap_or_else(|| format!("magick-cookie-{name}"));
@@ -466,10 +552,14 @@ pub fn secrets_generate_ssh_key(
 
     let output = Command::new("ssh-keygen")
         .args([
-            "-t", "ed25519",
-            "-f", &key_path.to_string_lossy(),
-            "-N", "",
-            "-C", &comment,
+            "-t",
+            "ed25519",
+            "-f",
+            &key_path.to_string_lossy(),
+            "-N",
+            "",
+            "-C",
+            &comment,
         ])
         .output()
         .map_err(|e| format!("ssh-keygen failed: {e}"))?;
@@ -481,8 +571,8 @@ pub fn secrets_generate_ssh_key(
     }
 
     // Read private key
-    let private_key = std::fs::read_to_string(&key_path)
-        .map_err(|e| format!("Read private key error: {e}"))?;
+    let private_key =
+        std::fs::read_to_string(&key_path).map_err(|e| format!("Read private key error: {e}"))?;
 
     // Read public key
     let pubkey_path = tmp_dir.join("id_ed25519.pub");
@@ -511,10 +601,20 @@ pub fn secrets_generate_ssh_key(
     let group = get_or_create_group(&mut db.root, "App Secrets/SSH Keys");
 
     let mut entry = Entry::new();
-    entry.fields.insert("Title".into(), Value::Unprotected(name.clone()));
-    entry.fields.insert("UserName".into(), Value::Unprotected(public_key.clone()));
-    entry.fields.insert("Password".into(), Value::Protected(private_key.as_bytes().into()));
-    entry.fields.insert("Notes".into(), Value::Unprotected(format!("Fingerprint: {fingerprint}\nComment: {comment}")));
+    entry
+        .fields
+        .insert("Title".into(), Value::Unprotected(name.clone()));
+    entry
+        .fields
+        .insert("UserName".into(), Value::Unprotected(public_key.clone()));
+    entry.fields.insert(
+        "Password".into(),
+        Value::Protected(private_key.as_bytes().into()),
+    );
+    entry.fields.insert(
+        "Notes".into(),
+        Value::Unprotected(format!("Fingerprint: {fingerprint}\nComment: {comment}")),
+    );
     entry.tags = vec!["ssh-key".into()];
     group.entries.push(entry);
 
@@ -543,7 +643,8 @@ pub fn secrets_export_kdbx(
     }
     let mut file = std::fs::File::create(&path).map_err(|e| format!("Create error: {e}"))?;
     let key = DatabaseKey::new().with_password(master);
-    db.save(&mut file, key).map_err(|e| format!("Export KDBX error: {e}"))
+    db.save(&mut file, key)
+        .map_err(|e| format!("Export KDBX error: {e}"))
 }
 
 /// Import entries from an external KDBX file into the current vault
@@ -560,7 +661,8 @@ pub fn secrets_import_kdbx(
 
     let mut file = std::fs::File::open(&path).map_err(|e| format!("Open error: {e}"))?;
     let key = DatabaseKey::new().with_password(&import_password);
-    let import_db = Database::open(&mut file, key).map_err(|e| format!("Unlock import file error: {e}"))?;
+    let import_db =
+        Database::open(&mut file, key).map_err(|e| format!("Unlock import file error: {e}"))?;
 
     let mut s = state.lock().map_err(|e| e.to_string())?;
     let db = s.db.as_mut().ok_or("Vault not unlocked")?;
@@ -577,7 +679,11 @@ pub fn secrets_import_kdbx(
             *count += 1;
         }
         for sub in &src.groups {
-            let sub_path = if path.is_empty() { sub.name.clone() } else { format!("{}/{}", path, sub.name) };
+            let sub_path = if path.is_empty() {
+                sub.name.clone()
+            } else {
+                format!("{}/{}", path, sub.name)
+            };
             let exists = dst.groups.iter().position(|g| g.name == sub.name);
             let idx = if let Some(idx) = exists {
                 idx
@@ -609,7 +715,13 @@ pub fn secrets_list_ssh_keys(
             keys.push(SshKeyResult {
                 name: entry.get("Title").unwrap_or("").to_string(),
                 public_key: entry.get("UserName").unwrap_or("").to_string(),
-                fingerprint: entry.get("Notes").unwrap_or("").lines().next().unwrap_or("").replace("Fingerprint: ", ""),
+                fingerprint: entry
+                    .get("Notes")
+                    .unwrap_or("")
+                    .lines()
+                    .next()
+                    .unwrap_or("")
+                    .replace("Fingerprint: ", ""),
             });
         }
     }
@@ -692,8 +804,14 @@ mod tests {
     fn test_vault_starts_locked() {
         let state = SecretsState::new();
         assert!(state.db.is_none(), "db should be None on creation");
-        assert!(state.master_key.is_none(), "master_key should be None on creation");
-        assert!(state.vault_path.is_none(), "vault_path should be None on creation");
+        assert!(
+            state.master_key.is_none(),
+            "master_key should be None on creation"
+        );
+        assert!(
+            state.vault_path.is_none(),
+            "vault_path should be None on creation"
+        );
     }
 
     #[test]
@@ -726,9 +844,15 @@ mod tests {
         {
             let s = state.lock().unwrap();
             assert!(s.db.is_none(), "db should be None after lock");
-            assert!(s.master_key.is_none(), "master_key should be None after lock");
+            assert!(
+                s.master_key.is_none(),
+                "master_key should be None after lock"
+            );
             // vault_path is intentionally preserved across lock/unlock
-            assert!(s.vault_path.is_some(), "vault_path should be preserved after lock");
+            assert!(
+                s.vault_path.is_some(),
+                "vault_path should be preserved after lock"
+            );
         }
     }
 
@@ -746,7 +870,10 @@ mod tests {
             {
                 let s = state.lock().unwrap();
                 assert!(s.db.is_some(), "db should be Some after unlock cycle {i}");
-                assert!(s.master_key.is_some(), "master_key should be Some after unlock cycle {i}");
+                assert!(
+                    s.master_key.is_some(),
+                    "master_key should be Some after unlock cycle {i}"
+                );
             }
 
             // Simulate lock (zeroize before drop)
@@ -761,7 +888,10 @@ mod tests {
             {
                 let s = state.lock().unwrap();
                 assert!(s.db.is_none(), "db should be None after lock cycle {i}");
-                assert!(s.master_key.is_none(), "master_key should be None after lock cycle {i}");
+                assert!(
+                    s.master_key.is_none(),
+                    "master_key should be None after lock cycle {i}"
+                );
             }
         }
     }

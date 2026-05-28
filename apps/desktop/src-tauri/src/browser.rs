@@ -9,7 +9,9 @@ fn parse_web_url(raw: &str) -> Result<url::Url, String> {
     let parsed: url::Url = raw.parse().map_err(|e| format!("Invalid URL: {e}"))?;
     match parsed.scheme() {
         "http" | "https" => Ok(parsed),
-        other => Err(format!("Blocked URL scheme: {other} (only http/https allowed)")),
+        other => Err(format!(
+            "Blocked URL scheme: {other} (only http/https allowed)"
+        )),
     }
 }
 
@@ -48,14 +50,18 @@ pub async fn browser_create(
     // If already exists, just navigate
     if let Some(wv) = app.get_webview(&label) {
         let parsed = parse_web_url(&url)?;
-        wv.navigate(parsed).map_err(|e| format!("navigate failed: {e}"))?;
-        state.instances.lock().unwrap().get_mut(&id).map(|i| i.url = url);
+        wv.navigate(parsed)
+            .map_err(|e| format!("navigate failed: {e}"))?;
+        state
+            .instances
+            .lock()
+            .unwrap()
+            .get_mut(&id)
+            .map(|i| i.url = url);
         return Ok(());
     }
 
-    let window = app
-        .get_window("main")
-        .ok_or("Main window not found")?;
+    let window = app.get_window("main").ok_or("Main window not found")?;
 
     // Create webview with about:blank, then navigate to the actual URL.
     // This avoids Tauri's WebviewUrl::External issues with child webviews.
@@ -71,7 +77,9 @@ pub async fn browser_create(
 
     // Navigate to the actual URL
     let parsed = parse_web_url(&url)?;
-    webview.navigate(parsed).map_err(|e| format!("navigate failed: {e}"))?;
+    webview
+        .navigate(parsed)
+        .map_err(|e| format!("navigate failed: {e}"))?;
 
     state
         .instances
@@ -116,7 +124,8 @@ pub async fn browser_navigate(
     };
     let wv = app.get_webview(&label).ok_or("Webview not found")?;
     let parsed = parse_web_url(&url)?;
-    wv.navigate(parsed).map_err(|e| format!("navigate failed: {e}"))?;
+    wv.navigate(parsed)
+        .map_err(|e| format!("navigate failed: {e}"))?;
     Ok(())
 }
 
@@ -132,7 +141,8 @@ pub async fn browser_go_back(
         instances.get(&id).ok_or("Browser not found")?.label.clone()
     };
     let wv = app.get_webview(&label).ok_or("Webview not found")?;
-    wv.eval("history.back()").map_err(|e| format!("eval failed: {e}"))?;
+    wv.eval("history.back()")
+        .map_err(|e| format!("eval failed: {e}"))?;
     Ok(())
 }
 
@@ -148,7 +158,8 @@ pub async fn browser_go_forward(
         instances.get(&id).ok_or("Browser not found")?.label.clone()
     };
     let wv = app.get_webview(&label).ok_or("Webview not found")?;
-    wv.eval("history.forward()").map_err(|e| format!("eval failed: {e}"))?;
+    wv.eval("history.forward()")
+        .map_err(|e| format!("eval failed: {e}"))?;
     Ok(())
 }
 
@@ -164,7 +175,8 @@ pub async fn browser_reload(
         instances.get(&id).ok_or("Browser not found")?.label.clone()
     };
     let wv = app.get_webview(&label).ok_or("Webview not found")?;
-    wv.eval("location.reload()").map_err(|e| format!("eval failed: {e}"))?;
+    wv.eval("location.reload()")
+        .map_err(|e| format!("eval failed: {e}"))?;
     Ok(())
 }
 
@@ -183,8 +195,10 @@ pub async fn browser_set_visible(
     let wv = app.get_webview(&label).ok_or("Webview not found")?;
     if visible {
         // Make it visible and sized for viewing
-        wv.set_position(tauri::Position::Logical(tauri::LogicalPosition::new(0.0, 0.0)))
-            .map_err(|e| format!("set_position: {e}"))?;
+        wv.set_position(tauri::Position::Logical(tauri::LogicalPosition::new(
+            0.0, 0.0,
+        )))
+        .map_err(|e| format!("set_position: {e}"))?;
         let win = app.get_window("main").ok_or("No main window")?;
         let win_size = win.inner_size().map_err(|e| format!("inner_size: {e}"))?;
         wv.set_size(tauri::Size::Physical(win_size))
@@ -266,9 +280,7 @@ pub async fn browser_eval(
 
 /// List all active browser instances.
 #[tauri::command]
-pub fn browser_list(
-    state: tauri::State<'_, std::sync::Arc<BrowserStore>>,
-) -> Vec<String> {
+pub fn browser_list(state: tauri::State<'_, std::sync::Arc<BrowserStore>>) -> Vec<String> {
     state.instances.lock().unwrap().keys().cloned().collect()
 }
 

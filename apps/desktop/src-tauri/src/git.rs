@@ -94,7 +94,11 @@ pub fn git_status(project_path: String) -> Result<Vec<GitFileStatus>, String> {
 }
 
 #[tauri::command]
-pub fn git_diff(project_path: String, file_path: Option<String>, staged: Option<bool>) -> Result<String, String> {
+pub fn git_diff(
+    project_path: String,
+    file_path: Option<String>,
+    staged: Option<bool>,
+) -> Result<String, String> {
     if !is_git_repo(&project_path) {
         return Err("Not a git repository".into());
     }
@@ -149,7 +153,11 @@ pub fn git_commit(project_path: String, message: String) -> Result<String, Strin
 }
 
 #[tauri::command]
-pub fn git_log(project_path: String, file_path: Option<String>, limit: Option<u32>) -> Result<Vec<GitLogEntry>, String> {
+pub fn git_log(
+    project_path: String,
+    file_path: Option<String>,
+    limit: Option<u32>,
+) -> Result<Vec<GitLogEntry>, String> {
     if !is_git_repo(&project_path) {
         return Err("Not a git repository".into());
     }
@@ -216,20 +224,33 @@ pub fn git_branches(project_path: String) -> Result<Vec<GitBranch>, String> {
 
     for line in output.lines() {
         let trimmed = line.trim();
-        if trimmed.is_empty() || trimmed.contains("->") { continue; }
+        if trimmed.is_empty() || trimmed.contains("->") {
+            continue;
+        }
 
         let is_current = trimmed.starts_with('*');
-        let name = trimmed.trim_start_matches("* ").trim_start_matches("remotes/").to_string();
+        let name = trimmed
+            .trim_start_matches("* ")
+            .trim_start_matches("remotes/")
+            .to_string();
         let is_remote = line.contains("remotes/");
 
-        branches.push(GitBranch { name, is_current, is_remote });
+        branches.push(GitBranch {
+            name,
+            is_current,
+            is_remote,
+        });
     }
 
     Ok(branches)
 }
 
 fn validate_branch_name(branch: &str) -> Result<(), String> {
-    if branch.is_empty() || branch.starts_with('-') || branch.contains('\0') || branch.contains('\n') {
+    if branch.is_empty()
+        || branch.starts_with('-')
+        || branch.contains('\0')
+        || branch.contains('\n')
+    {
         return Err(format!("Invalid branch name: {branch}"));
     }
     Ok(())

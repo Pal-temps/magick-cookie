@@ -135,7 +135,9 @@ fn run_auth_login(app: &AppHandle, name: &str, binary: &Path) -> Result<(String,
         .args(["auth", "token", "--hostname", "github.com"])
         .output()
         .map_err(|e| format!("gh auth token: {e}"))?;
-    let token = String::from_utf8_lossy(&token_out.stdout).trim().to_string();
+    let token = String::from_utf8_lossy(&token_out.stdout)
+        .trim()
+        .to_string();
     if token.is_empty() {
         return Err("gh auth token returned empty token".to_string());
     }
@@ -173,8 +175,9 @@ pub async fn cli_auth_login(
     }
 
     let bm = ensure_manager(&app, &cli_state)?;
-    let binary =
-        bm.resolve(&name).ok_or_else(|| format!("{name} n'est pas installé — installe-le d'abord"))?;
+    let binary = bm
+        .resolve(&name)
+        .ok_or_else(|| format!("{name} n'est pas installé — installe-le d'abord"))?;
 
     let app_c = app.clone();
     let name_c = name.clone();

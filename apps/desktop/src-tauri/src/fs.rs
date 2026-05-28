@@ -23,11 +23,19 @@ fn walk_dir(base: &Path, rel: &str, entries: &mut Vec<FsEntry>) -> Result<(), St
         let name = entry.file_name().to_string_lossy().to_string();
 
         // Skip heavy/internal directories only — dotfiles (.env, .gitignore, etc.) are shown
-        if name == ".git" || name == "node_modules" || name == "target" || name == "__pycache__" || name == ".next" || name == ".nuxt" {
+        if name == ".git"
+            || name == "node_modules"
+            || name == "target"
+            || name == "__pycache__"
+            || name == ".next"
+            || name == ".nuxt"
+        {
             continue;
         }
 
-        let metadata = entry.metadata().map_err(|e| format!("metadata error: {e}"))?;
+        let metadata = entry
+            .metadata()
+            .map_err(|e| format!("metadata error: {e}"))?;
         let rel_path = if rel.is_empty() {
             name.clone()
         } else {
@@ -66,7 +74,9 @@ pub fn fs_list_dir(base_path: String) -> Result<Vec<FsEntry>, String> {
     let mut entries = Vec::new();
     walk_dir(&base, "", &mut entries)?;
     entries.sort_by(|a, b| {
-        b.is_dir.cmp(&a.is_dir).then(a.name.to_lowercase().cmp(&b.name.to_lowercase()))
+        b.is_dir
+            .cmp(&a.is_dir)
+            .then(a.name.to_lowercase().cmp(&b.name.to_lowercase()))
     });
     Ok(entries)
 }
@@ -154,7 +164,11 @@ pub fn fs_scan_projects(root_dirs: Vec<String>) -> Result<Vec<ProjectEntry>, Str
             if !markers.is_empty() {
                 let name = entry.file_name().to_string_lossy().to_string();
                 let path = child_path.to_string_lossy().to_string().replace('\\', "/");
-                projects.push(ProjectEntry { path, name, markers });
+                projects.push(ProjectEntry {
+                    path,
+                    name,
+                    markers,
+                });
             }
         }
     }

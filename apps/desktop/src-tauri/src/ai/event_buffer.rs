@@ -58,10 +58,7 @@ impl EventBuffer {
     /// Replay events since a given sequence number (exclusive).
     /// Returns events with seq > since_seq.
     pub fn replay_since(&self, since_seq: u32) -> Vec<&BufferedEvent> {
-        self.buffer
-            .iter()
-            .filter(|e| e.seq > since_seq)
-            .collect()
+        self.buffer.iter().filter(|e| e.seq > since_seq).collect()
     }
 
     /// Get the most recent N events.

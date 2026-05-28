@@ -33,10 +33,9 @@ impl std::fmt::Display for BinaryManagerError {
             Self::Http { url, status } => write!(f, "GET {url} returned HTTP {status}"),
             Self::Network(e) => write!(f, "network error: {e}"),
             Self::ChecksumMissing(name) => write!(f, "no checksum entry for {name}"),
-            Self::ChecksumMismatch { expected, actual } => write!(
-                f,
-                "sha256 mismatch: expected {expected}, got {actual}"
-            ),
+            Self::ChecksumMismatch { expected, actual } => {
+                write!(f, "sha256 mismatch: expected {expected}, got {actual}")
+            }
             Self::ExtractFailed(e) => write!(f, "extract failed: {e}"),
             Self::InnerBinaryMissing(p) => write!(f, "extracted binary missing at {p}"),
         }
@@ -46,10 +45,14 @@ impl std::fmt::Display for BinaryManagerError {
 impl std::error::Error for BinaryManagerError {}
 
 impl From<io::Error> for BinaryManagerError {
-    fn from(e: io::Error) -> Self { Self::Io(e) }
+    fn from(e: io::Error) -> Self {
+        Self::Io(e)
+    }
 }
 impl From<ManifestError> for BinaryManagerError {
-    fn from(e: ManifestError) -> Self { Self::Manifest(e) }
+    fn from(e: ManifestError) -> Self {
+        Self::Manifest(e)
+    }
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -91,7 +94,11 @@ impl BinaryManager {
         let manifest = Manifest::embedded()?;
         let install_root = app_data_dir.join(SUBDIR);
         fs::create_dir_all(&install_root)?;
-        Ok(Self { install_root, manifest, triple })
+        Ok(Self {
+            install_root,
+            manifest,
+            triple,
+        })
     }
 
     /// Used by tests to point at an arbitrary directory without going through Tauri.
@@ -100,27 +107,43 @@ impl BinaryManager {
         let triple = Triple::host().ok_or(BinaryManagerError::UnsupportedHostPlatform)?;
         let manifest = Manifest::embedded()?;
         fs::create_dir_all(&install_root)?;
-        Ok(Self { install_root, manifest, triple })
+        Ok(Self {
+            install_root,
+            manifest,
+            triple,
+        })
     }
 
     #[cfg(test)]
-    fn install_root(&self) -> &Path { &self.install_root }
+    fn install_root(&self) -> &Path {
+        &self.install_root
+    }
     #[cfg(test)]
-    fn host_triple(&self) -> Triple { self.triple }
+    fn host_triple(&self) -> Triple {
+        self.triple
+    }
 
     fn cli_dir(&self, name: &str) -> PathBuf {
         self.install_root.join(name)
     }
 
     fn cli_binary_path(&self, name: &str) -> PathBuf {
-        let exe = if self.triple.is_windows() { format!("{name}.exe") } else { name.to_string() };
+        let exe = if self.triple.is_windows() {
+            format!("{name}.exe")
+        } else {
+            name.to_string()
+        };
         self.cli_dir(name).join(exe)
     }
 
     /// Returns the on-disk path if the CLI is installed, else `None`.
     pub fn resolve(&self, name: &str) -> Option<PathBuf> {
         let p = self.cli_binary_path(name);
-        if p.is_file() { Some(p) } else { None }
+        if p.is_file() {
+            Some(p)
+        } else {
+            None
+        }
     }
 
     pub fn list_available(&self) -> Vec<AvailableCli> {
@@ -128,7 +151,10 @@ impl BinaryManager {
             .cli_names()
             .into_iter()
             .map(|name| {
-                let cli = self.manifest.cli(name).expect("cli_names returns valid keys");
+                let cli = self
+                    .manifest
+                    .cli(name)
+                    .expect("cli_names returns valid keys");
                 AvailableCli {
                     name: name.to_string(),
                     version: cli.version.clone(),
@@ -147,7 +173,11 @@ impl BinaryManager {
             .filter_map(|name| {
                 let path = self.resolve(name)?;
                 let version = self.manifest.cli(name).ok()?.version.clone();
-                Some(InstalledCli { name: name.to_string(), version, path })
+                Some(InstalledCli {
+                    name: name.to_string(),
+                    version,
+                    path,
+                })
             })
             .collect()
     }
@@ -222,36 +252,41 @@ impl BinaryManager {
 }
 
 fn download_to(url: &str, dest: &Path) -> Result<(), BinaryManagerError> {
-    let resp = reqwest::blocking::get(url)
-        .map_err(|e| BinaryManagerError::Network(e.to_string()))?;
+    let resp =
+        reqwest::blocking::get(url).map_err(|e| BinaryManagerError::Network(e.to_string()))?;
     if !resp.status().is_success() {
         return Err(BinaryManagerError::Http {
             url: url.to_string(),
             status: resp.status().as_u16(),
         });
     }
-    let bytes = resp.bytes().map_err(|e| BinaryManagerError::Network(e.to_string()))?;
+    let bytes = resp
+        .bytes()
+        .map_err(|e| BinaryManagerError::Network(e.to_string()))?;
     let mut f = fs::File::create(dest)?;
     f.write_all(&bytes)?;
     Ok(())
 }
 
 fn fetch_text(url: &str) -> Result<String, BinaryManagerError> {
-    let resp = reqwest::blocking::get(url)
-        .map_err(|e| BinaryManagerError::Network(e.to_string()))?;
+    let resp =
+        reqwest::blocking::get(url).map_err(|e| BinaryManagerError::Network(e.to_string()))?;
     if !resp.status().is_success() {
         return Err(BinaryManagerError::Http {
             url: url.to_string(),
             status: resp.status().as_u16(),
         });
     }
-    resp.text().map_err(|e| BinaryManagerError::Network(e.to_string()))
+    resp.text()
+        .map_err(|e| BinaryManagerError::Network(e.to_string()))
 }
 
 pub(super) fn parse_checksum(checksums_file: &str, archive_basename: &str) -> Option<String> {
     for raw in checksums_file.lines() {
         let line = raw.trim();
-        if line.is_empty() { continue; }
+        if line.is_empty() {
+            continue;
+        }
         // Match either "<hash>  <name>" (two spaces, GNU) or "<hash> <name>" (BSD).
         let (hash, name) = match line.split_once(char::is_whitespace) {
             Some((h, rest)) => (h, rest.trim_start()),
@@ -285,7 +320,9 @@ fn sha256_of_file(path: &Path) -> io::Result<String> {
     let mut buf = [0u8; 64 * 1024];
     loop {
         let n = f.read(&mut buf)?;
-        if n == 0 { break; }
+        if n == 0 {
+            break;
+        }
         hasher.update(&buf[..n]);
     }
     Ok(format!("{:x}", hasher.finalize()))
@@ -300,10 +337,15 @@ fn extract(archive: &Path, out_dir: &Path, kind: ArchiveType) -> Result<(), Bina
 
 fn extract_zip(archive: &Path, out_dir: &Path) -> Result<(), BinaryManagerError> {
     let f = fs::File::open(archive)?;
-    let mut zip = zip::ZipArchive::new(f).map_err(|e| BinaryManagerError::ExtractFailed(e.to_string()))?;
+    let mut zip =
+        zip::ZipArchive::new(f).map_err(|e| BinaryManagerError::ExtractFailed(e.to_string()))?;
     for i in 0..zip.len() {
-        let mut entry = zip.by_index(i).map_err(|e| BinaryManagerError::ExtractFailed(e.to_string()))?;
-        let Some(rel) = entry.enclosed_name() else { continue };
+        let mut entry = zip
+            .by_index(i)
+            .map_err(|e| BinaryManagerError::ExtractFailed(e.to_string()))?;
+        let Some(rel) = entry.enclosed_name() else {
+            continue;
+        };
         let out_path = out_dir.join(rel);
         if entry.is_dir() {
             fs::create_dir_all(&out_path)?;
@@ -329,7 +371,8 @@ fn extract_tar_gz(archive: &Path, out_dir: &Path) -> Result<(), BinaryManagerErr
     let f = fs::File::open(archive)?;
     let dec = flate2::read::GzDecoder::new(f);
     let mut tar = tar::Archive::new(dec);
-    tar.unpack(out_dir).map_err(|e| BinaryManagerError::ExtractFailed(e.to_string()))?;
+    tar.unpack(out_dir)
+        .map_err(|e| BinaryManagerError::ExtractFailed(e.to_string()))?;
     Ok(())
 }
 
@@ -377,14 +420,18 @@ mod tests {
     fn uninstall_unknown_cli_returns_manifest_error() {
         let bm = mk_manager();
         let err = bm.uninstall("nope").unwrap_err();
-        assert!(matches!(err, BinaryManagerError::Manifest(ManifestError::UnknownCli(_))));
+        assert!(matches!(
+            err,
+            BinaryManagerError::Manifest(ManifestError::UnknownCli(_))
+        ));
         let _ = fs::remove_dir_all(bm.install_root());
     }
 
     #[test]
     fn uninstall_known_but_absent_cli_is_a_noop() {
         let bm = mk_manager();
-        bm.uninstall("gh").expect("uninstalling absent gh should be Ok");
+        bm.uninstall("gh")
+            .expect("uninstalling absent gh should be Ok");
         let _ = fs::remove_dir_all(bm.install_root());
     }
 
@@ -419,13 +466,19 @@ mod tests {
     #[test]
     fn parse_checksum_finds_the_hash_with_double_space() {
         let s = "abc123  gh_2.66.1_windows_amd64.zip\ndef456  gh_2.66.1_linux_amd64.tar.gz\n";
-        assert_eq!(parse_checksum(s, "gh_2.66.1_linux_amd64.tar.gz"), Some("def456".into()));
+        assert_eq!(
+            parse_checksum(s, "gh_2.66.1_linux_amd64.tar.gz"),
+            Some("def456".into())
+        );
     }
 
     #[test]
     fn parse_checksum_handles_single_space() {
         let s = "cafebabe gh_2.66.1_macOS_arm64.zip\n";
-        assert_eq!(parse_checksum(s, "gh_2.66.1_macOS_arm64.zip"), Some("cafebabe".into()));
+        assert_eq!(
+            parse_checksum(s, "gh_2.66.1_macOS_arm64.zip"),
+            Some("cafebabe".into())
+        );
     }
 
     #[test]

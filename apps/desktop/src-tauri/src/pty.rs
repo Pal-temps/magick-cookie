@@ -13,10 +13,12 @@ const MAX_PTY_COUNT: usize = 10;
 // `ls | grep`, they should pass the full pipeline as a single `command` string — we refuse to
 // concatenate multi-arg values that could smuggle extra commands past the shell.
 fn reject_shell_metacharacters(value: &str, field: &str) -> Result<(), String> {
-    if value
-        .chars()
-        .any(|c| matches!(c, ';' | '|' | '&' | '`' | '$' | '\n' | '\r' | '<' | '>' | '\0'))
-    {
+    if value.chars().any(|c| {
+        matches!(
+            c,
+            ';' | '|' | '&' | '`' | '$' | '\n' | '\r' | '<' | '>' | '\0'
+        )
+    }) {
         return Err(format!(
             "Invalid {field}: contains shell metacharacter (;, |, &, `, $, <, >, newline)"
         ));
@@ -71,7 +73,10 @@ pub fn pty_spawn(
 ) -> Result<(), String> {
     // Enforce maximum PTY count to prevent resource exhaustion
     {
-        let store = state.instances.lock().map_err(|e| format!("Lock error: {e}"))?;
+        let store = state
+            .instances
+            .lock()
+            .map_err(|e| format!("Lock error: {e}"))?;
         if store.len() >= MAX_PTY_COUNT {
             return Err(format!(
                 "Maximum PTY count ({MAX_PTY_COUNT}) reached. Close unused terminals first."
@@ -141,7 +146,9 @@ pub fn pty_spawn(
         let shell = if cfg!(windows) {
             "powershell.exe"
         } else {
-            std::env::var("SHELL").unwrap_or_else(|_| "/bin/bash".into()).leak() as &str
+            std::env::var("SHELL")
+                .unwrap_or_else(|_| "/bin/bash".into())
+                .leak() as &str
         };
         let mut c = CommandBuilder::new(shell);
         if cfg!(windows) {
@@ -171,10 +178,17 @@ pub fn pty_spawn(
 
     // Store the writer for pty_write
     {
-        let mut store = state.instances.lock().map_err(|e| format!("Lock error: {e}"))?;
+        let mut store = state
+            .instances
+            .lock()
+            .map_err(|e| format!("Lock error: {e}"))?;
         store.insert(
             id.clone(),
-            PtyInstance { writer, pair, last_activity: Instant::now() },
+            PtyInstance {
+                writer,
+                pair,
+                last_activity: Instant::now(),
+            },
         );
     }
 
@@ -211,7 +225,10 @@ pub fn pty_write(
     id: String,
     data: String,
 ) -> Result<(), String> {
-    let mut store = state.instances.lock().map_err(|e| format!("Lock error: {e}"))?;
+    let mut store = state
+        .instances
+        .lock()
+        .map_err(|e| format!("Lock error: {e}"))?;
     let instance = store.get_mut(&id).ok_or("PTY not found")?;
     instance.last_activity = Instant::now();
     instance
@@ -232,7 +249,10 @@ pub fn pty_resize(
     cols: u16,
     rows: u16,
 ) -> Result<(), String> {
-    let store = state.instances.lock().map_err(|e| format!("Lock error: {e}"))?;
+    let store = state
+        .instances
+        .lock()
+        .map_err(|e| format!("Lock error: {e}"))?;
     let instance = store.get(&id).ok_or("PTY not found")?;
     instance
         .pair
@@ -248,11 +268,11 @@ pub fn pty_resize(
 }
 
 #[tauri::command]
-pub fn pty_kill(
-    state: tauri::State<'_, Arc<PtyStore>>,
-    id: String,
-) -> Result<(), String> {
-    let mut store = state.instances.lock().map_err(|e| format!("Lock error: {e}"))?;
+pub fn pty_kill(state: tauri::State<'_, Arc<PtyStore>>, id: String) -> Result<(), String> {
+    let mut store = state
+        .instances
+        .lock()
+        .map_err(|e| format!("Lock error: {e}"))?;
     store.remove(&id);
     // Dropping the PtyInstance closes the master, which sends SIGHUP to the shell
     Ok(())
@@ -317,8 +337,14 @@ mod tests {
     fn test_pty_max_count_enforced() {
         // Verify the MAX_PTY_COUNT constant is set to a reasonable value.
         // This prevents resource exhaustion from unbounded PTY creation.
-        assert_eq!(MAX_PTY_COUNT, 10, "MAX_PTY_COUNT should be 10 to limit terminal resources");
+        assert_eq!(
+            MAX_PTY_COUNT, 10,
+            "MAX_PTY_COUNT should be 10 to limit terminal resources"
+        );
         assert!(MAX_PTY_COUNT > 0, "MAX_PTY_COUNT must be positive");
-        assert!(MAX_PTY_COUNT <= 50, "MAX_PTY_COUNT should not be excessively large");
+        assert!(
+            MAX_PTY_COUNT <= 50,
+            "MAX_PTY_COUNT should not be excessively large"
+        );
     }
 }

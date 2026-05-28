@@ -4,8 +4,7 @@ use std::process::Command;
 use tauri::{AppHandle, Emitter, Manager};
 
 const MODEL_FILENAME: &str = "ggml-small.bin";
-const MODEL_URL: &str =
-    "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.bin";
+const MODEL_URL: &str = "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.bin";
 const CLI_URL: &str =
     "https://github.com/ggml-org/whisper.cpp/releases/download/v1.8.3/whisper-bin-x64.zip";
 const CLI_FILENAME: &str = "whisper-cli.exe";
@@ -108,11 +107,9 @@ pub async fn download_whisper_model(app: AppHandle) -> Result<(), String> {
         download_file(CLI_URL, &zip_path, &app, "whisper-download-progress").await?;
 
         // Extract ALL files from the zip (exe + DLLs)
-        let zip_data =
-            std::fs::read(&zip_path).map_err(|e| format!("Cannot read zip: {e}"))?;
+        let zip_data = std::fs::read(&zip_path).map_err(|e| format!("Cannot read zip: {e}"))?;
         let reader = std::io::Cursor::new(zip_data);
-        let mut archive =
-            zip::ZipArchive::new(reader).map_err(|e| format!("Invalid zip: {e}"))?;
+        let mut archive = zip::ZipArchive::new(reader).map_err(|e| format!("Invalid zip: {e}"))?;
 
         let dest_dir = whisper_dir(&app);
         let mut found_cli = false;
@@ -152,7 +149,10 @@ pub async fn download_whisper_model(app: AppHandle) -> Result<(), String> {
             let names: Vec<String> = (0..archive.len())
                 .filter_map(|i| archive.by_index(i).ok().map(|e| e.name().to_string()))
                 .collect();
-            return Err(format!("No whisper exe found in zip. Contents: {:?}", names));
+            return Err(format!(
+                "No whisper exe found in zip. Contents: {:?}",
+                names
+            ));
         }
 
         // Cleanup zip
@@ -182,8 +182,7 @@ pub async fn transcribe_audio(
 
     // Write samples to a temporary WAV file
     let tmp_wav = whisper_dir(&app).join("input.wav");
-    write_wav(&tmp_wav, &samples, sample_rate)
-        .map_err(|e| format!("Cannot write WAV: {e}"))?;
+    write_wav(&tmp_wav, &samples, sample_rate).map_err(|e| format!("Cannot write WAV: {e}"))?;
 
     // Run whisper-cli
     let output = Command::new(&cli)
@@ -205,13 +204,13 @@ pub async fn transcribe_audio(
         let stdout = String::from_utf8_lossy(&output.stdout);
         return Err(format!(
             "Whisper error (code {:?}): stderr={} stdout={}",
-            output.status.code(), stderr, stdout
+            output.status.code(),
+            stderr,
+            stdout
         ));
     }
 
-    let text = String::from_utf8_lossy(&output.stdout)
-        .trim()
-        .to_string();
+    let text = String::from_utf8_lossy(&output.stdout).trim().to_string();
 
     Ok(text)
 }

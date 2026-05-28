@@ -31,9 +31,15 @@ pub enum InstallProgress {
 impl InstallProgress {
     fn from_phase(name: &str, phase: InstallPhase) -> Self {
         match phase {
-            InstallPhase::Downloading => Self::Downloading { name: name.to_string() },
-            InstallPhase::Verifying => Self::Verifying { name: name.to_string() },
-            InstallPhase::Extracting => Self::Extracting { name: name.to_string() },
+            InstallPhase::Downloading => Self::Downloading {
+                name: name.to_string(),
+            },
+            InstallPhase::Verifying => Self::Verifying {
+                name: name.to_string(),
+            },
+            InstallPhase::Extracting => Self::Extracting {
+                name: name.to_string(),
+            },
         }
     }
 }

@@ -23,10 +23,26 @@ use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut}
 /// Global keyboard shortcuts — single source of truth.
 /// Each entry: (modifiers, key code, action name emitted via "global-shortcut" event).
 const GLOBAL_SHORTCUTS: &[(Modifiers, Code, &str)] = &[
-    (Modifiers::SHIFT.union(Modifiers::SUPER), Code::KeyN, "capture"),
-    (Modifiers::SHIFT.union(Modifiers::SUPER), Code::KeyT, "timer"),
-    (Modifiers::SHIFT.union(Modifiers::SUPER), Code::KeyB, "brief"),
-    (Modifiers::SHIFT.union(Modifiers::SUPER), Code::KeyD, "desktop"),
+    (
+        Modifiers::SHIFT.union(Modifiers::SUPER),
+        Code::KeyN,
+        "capture",
+    ),
+    (
+        Modifiers::SHIFT.union(Modifiers::SUPER),
+        Code::KeyT,
+        "timer",
+    ),
+    (
+        Modifiers::SHIFT.union(Modifiers::SUPER),
+        Code::KeyB,
+        "brief",
+    ),
+    (
+        Modifiers::SHIFT.union(Modifiers::SUPER),
+        Code::KeyD,
+        "desktop",
+    ),
 ];
 
 /// Open a detached window (terminal or AI session).
@@ -65,11 +81,11 @@ fn restore_main_window(app: &tauri::AppHandle) {
     });
 }
 
-
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let session_manager: ai::session_manager::SharedSessionManager =
-        std::sync::Arc::new(std::sync::Mutex::new(ai::session_manager::SessionManager::new()));
+    let session_manager: ai::session_manager::SharedSessionManager = std::sync::Arc::new(
+        std::sync::Mutex::new(ai::session_manager::SessionManager::new()),
+    );
     let mcp_manager: ai::session_manager::SharedMcpManager =
         std::sync::Arc::new(std::sync::Mutex::new(ai::mcp_client::McpManager::new()));
     let pty_store: std::sync::Arc<pty::PtyStore> = pty::new_pty_store();
@@ -151,10 +167,12 @@ pub fn run() {
                     // Right-click is handled by the menu automatically
                     match event {
                         tauri::tray::TrayIconEvent::Click {
-                            button: tauri::tray::MouseButton::Left, ..
+                            button: tauri::tray::MouseButton::Left,
+                            ..
                         }
                         | tauri::tray::TrayIconEvent::DoubleClick {
-                            button: tauri::tray::MouseButton::Left, ..
+                            button: tauri::tray::MouseButton::Left,
+                            ..
                         } => {
                             restore_main_window(tray.app_handle());
                         }

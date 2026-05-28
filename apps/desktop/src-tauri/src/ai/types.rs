@@ -63,16 +63,10 @@ pub enum SessionPhase {
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum AdapterEvent {
     /// Session initialized, ready to receive messages
-    SessionReady {
-        model: String,
-        tools: Vec<String>,
-    },
+    SessionReady { model: String, tools: Vec<String> },
 
     /// Streaming token (text or thinking)
-    StreamToken {
-        text: String,
-        phase: StreamPhase,
-    },
+    StreamToken { text: String, phase: StreamPhase },
 
     /// Complete assistant message
     AssistantMessage {
@@ -103,9 +97,7 @@ pub enum AdapterEvent {
     },
 
     /// Permission request cancelled
-    PermissionCancelled {
-        request_id: String,
-    },
+    PermissionCancelled { request_id: String },
 
     /// Tool execution progress
     ToolProgress {
@@ -115,19 +107,13 @@ pub enum AdapterEvent {
     },
 
     /// Turn complete (AI finished responding)
-    TurnComplete {
-        stop_reason: Option<String>,
-    },
+    TurnComplete { stop_reason: Option<String> },
 
     /// Error
-    Error {
-        message: String,
-    },
+    Error { message: String },
 
     /// Session terminated
-    SessionTerminated {
-        reason: String,
-    },
+    SessionTerminated { reason: String },
 }
 
 // ─── Event wrapper (sent to frontend via Tauri emit) ───
