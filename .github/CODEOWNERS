@@ -1,0 +1,17 @@
+# CODEOWNERS — auto-assign reviewers on PRs
+# https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# Global owner — all files
+* @BumblePlumz
+
+# Rust backend (Tauri)
+/apps/desktop/src-tauri/ @BumblePlumz
+
+# SolidJS frontend
+/apps/desktop/src/ @BumblePlumz
+
+# API
+/apps/api/ @BumblePlumz
+
+# CI/CD & infra
+/.github/ @BumblePlumz
