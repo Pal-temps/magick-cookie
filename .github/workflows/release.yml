@@ -35,7 +35,7 @@ jobs:
           workspaces: apps/desktop/src-tauri
 
       - name: Install dependencies
-        run: bun install --frozen-lockfile
+        run: bun install
 
       - name: Build Tauri (NSIS installer)
         working-directory: apps/desktop
