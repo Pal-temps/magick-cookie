@@ -61,7 +61,7 @@ export class DrizzleTimerSessionRepository implements TimerSessionRepository {
     const result = await this.db
       .select({
         totalSeconds: sql<number>`coalesce(sum(${timerSessions.actualSeconds}), 0)`,
-        sessionCount: sql<number>`count(*)::int`,
+        sessionCount: sql<number>`cast(count(*) as integer)`,
       })
       .from(timerSessions)
       .where(
@@ -80,17 +80,17 @@ export class DrizzleTimerSessionRepository implements TimerSessionRepository {
   async getDailyStats(from: Date, to: Date): Promise<DailyTimerStats[]> {
     const rows = await this.db
       .select({
-        date: sql<string>`to_char(${timerSessions.startedAt}::date, 'YYYY-MM-DD')`,
+        date: sql<string>`strftime('%Y-%m-%d', datetime(${timerSessions.startedAt} / 1000, 'unixepoch'))`,
         totalSeconds: sql<number>`coalesce(sum(${timerSessions.actualSeconds}), 0)`,
-        focusSeconds: sql<number>`coalesce(sum(case when ${timerSessions.completed} = true then ${timerSessions.actualSeconds} else 0 end), 0)`,
-        sessionCount: sql<number>`count(*)::int`,
-        completedCount: sql<number>`count(*) filter (where ${timerSessions.completed} = true)::int`,
-        cancelledCount: sql<number>`count(*) filter (where ${timerSessions.completed} = false)::int`,
+        focusSeconds: sql<number>`coalesce(sum(case when ${timerSessions.completed} = 1 then ${timerSessions.actualSeconds} else 0 end), 0)`,
+        sessionCount: sql<number>`cast(count(*) as integer)`,
+        completedCount: sql<number>`cast(count(*) filter (where ${timerSessions.completed} = 1) as integer)`,
+        cancelledCount: sql<number>`cast(count(*) filter (where ${timerSessions.completed} = 0) as integer)`,
       })
       .from(timerSessions)
       .where(and(gte(timerSessions.startedAt, from), lte(timerSessions.startedAt, to)))
-      .groupBy(sql`${timerSessions.startedAt}::date`)
-      .orderBy(sql`${timerSessions.startedAt}::date`);
+      .groupBy(sql`strftime('%Y-%m-%d', datetime(${timerSessions.startedAt} / 1000, 'unixepoch'))`)
+      .orderBy(sql`strftime('%Y-%m-%d', datetime(${timerSessions.startedAt} / 1000, 'unixepoch'))`);
 
     return rows.map((r) => ({
       date: r.date,

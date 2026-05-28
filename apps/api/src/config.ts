@@ -8,7 +8,7 @@ const defaultCorsOrigins = [
 
 export const config = {
   port: Number(process.env.PORT) || 47300,
-  databaseUrl: process.env.DATABASE_URL || "postgres://postgres:postgres@localhost:47532/magick_cookie",
+  databasePath: process.env.DATABASE_PATH || "./dev.db",
   vpsApiUrl: process.env.VPS_API_URL || "https://api.tomexplore.com",
   vpsApiToken: process.env.VPS_API_TOKEN || "",
   ovhApiBase: process.env.OVH_API_BASE || "https://eu.api.ovh.com/1.0",

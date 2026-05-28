@@ -48,7 +48,7 @@ export class DrizzleReminderRepository implements ReminderRepository {
   async updateScheduledAt(eventId: string, newStartAt: Date): Promise<void> {
     await this.db.update(reminders)
       .set({
-        scheduledAt: sql`${newStartAt} - (minutes_before * interval '1 minute')`,
+        scheduledAt: sql`${newStartAt.getTime()} - (minutes_before * 60000)`,
       })
       .where(and(eq(reminders.eventId, eventId), isNull(reminders.sentAt)));
   }

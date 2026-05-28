@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-import { drizzle } from "drizzle-orm/postgres-js";
-import postgres from "postgres";
+import { drizzle } from "drizzle-orm/bun-sqlite";
+import { Database } from "bun:sqlite";
 import { sql } from "drizzle-orm";
 
 import * as schema from "../../infrastructure/database/schema";
@@ -39,13 +39,10 @@ import { createEmailRoutes, createEmailAccountRoutes } from "../../presentation/
 import { createConnectorConfigRoutes } from "../../presentation/routes/connector-config.routes";
 import { createLlmRoutes } from "../../presentation/routes/llm.routes";
 
-// --- Test Database ---
-const databaseUrl =
-  process.env.DATABASE_URL ||
-  "postgres://postgres:postgres@localhost:47532/magick_cookie_test";
-
-const queryClient = postgres(databaseUrl);
-const db = drizzle(queryClient, { schema });
+// --- Test Database (in-memory) ---
+const sqlite = new Database(":memory:");
+sqlite.exec("PRAGMA foreign_keys = ON;");
+const db = drizzle(sqlite, { schema });
 
 // --- DI ---
 const calendarRepo = new DrizzleCalendarRepository(db);
@@ -63,8 +60,6 @@ const reminderService = new ReminderService(reminderRepo, eventRepo);
 const contactService = new ContactService(contactRepo);
 const reminderEmitter = new InMemoryReminderEmitter();
 
-// Email service wired with connectors that never touch the network. Integration tests that need
-// real IMAP/SMTP behaviour should mock these two at the call site.
 const noopImap = { syncInbox: async () => [], watchInbox: async () => {} } as any;
 const noopSmtp = { sendEmail: async () => {} } as any;
 const emailService = new EmailService(emailAccountRepo, emailRepo, noopImap, noopSmtp);
@@ -123,12 +118,16 @@ export async function request(
  * Truncate all tables in dependency-safe order.
  */
 export async function cleanDb() {
-  await db.execute(sql`TRUNCATE TABLE reminders, events, calendars, contacts, emails, email_accounts, connector_configs, llm_configs CASCADE`);
+  db.run(sql`DELETE FROM reminders`);
+  db.run(sql`DELETE FROM events`);
+  db.run(sql`DELETE FROM calendars`);
+  db.run(sql`DELETE FROM contacts`);
+  db.run(sql`DELETE FROM emails`);
+  db.run(sql`DELETE FROM email_accounts`);
+  db.run(sql`DELETE FROM connector_configs`);
+  db.run(sql`DELETE FROM llm_configs`);
 }
 
-// bun test loads setup.ts once for the whole suite and runs test files concurrently. Closing the
-// pool in one file's afterAll would kill every other file's pending queries, so we let the pool
-// drain naturally when the process exits (postgres-js registers its own teardown).
 export async function closeDb() {
-  // no-op by design — see comment above
+  // no-op — in-memory DB is cleaned up when the process exits
 }

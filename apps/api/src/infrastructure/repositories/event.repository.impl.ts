@@ -74,19 +74,19 @@ export class DrizzleEventRepository implements EventRepository {
 
   async countByDateRange(from: Date, to: Date): Promise<{ total: number; dailyStats: { date: string; count: number }[] }> {
     const totalRows = await this.db
-      .select({ count: sql<number>`count(*)::int` })
+      .select({ count: sql<number>`cast(count(*) as integer)` })
       .from(events)
       .where(and(gte(events.startAt, from), lte(events.startAt, to)));
 
     const dailyRows = await this.db
       .select({
-        date: sql<string>`to_char(${events.startAt}::date, 'YYYY-MM-DD')`,
-        count: sql<number>`count(*)::int`,
+        date: sql<string>`strftime('%Y-%m-%d', datetime(${events.startAt} / 1000, 'unixepoch'))`,
+        count: sql<number>`cast(count(*) as integer)`,
       })
       .from(events)
       .where(and(gte(events.startAt, from), lte(events.startAt, to)))
-      .groupBy(sql`${events.startAt}::date`)
-      .orderBy(sql`${events.startAt}::date`);
+      .groupBy(sql`strftime('%Y-%m-%d', datetime(${events.startAt} / 1000, 'unixepoch'))`)
+      .orderBy(sql`strftime('%Y-%m-%d', datetime(${events.startAt} / 1000, 'unixepoch'))`);
 
     return {
       total: Number(totalRows[0]?.count ?? 0),

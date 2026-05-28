@@ -55,7 +55,7 @@ export class DrizzleWellnessLogRepository implements WellnessLogRepository {
 
   async increment(date: string, type: string, amount: number): Promise<WellnessLog | null> {
     const rows = await this.db.update(wellnessLogs).set({
-      value: sql`GREATEST(0, ${wellnessLogs.value} + ${amount})`,
+      value: sql`case when ${wellnessLogs.value} + ${amount} < 0 then 0 else ${wellnessLogs.value} + ${amount} end`,
     }).where(
       and(eq(wellnessLogs.date, date), eq(wellnessLogs.type, type))
     ).returning();

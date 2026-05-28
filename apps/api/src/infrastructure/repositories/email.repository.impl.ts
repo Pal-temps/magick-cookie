@@ -140,24 +140,24 @@ export class DrizzleEmailRepository implements EmailRepository {
 
   async countByDateRange(from: Date, to: Date): Promise<{ total: number; unread: number; dailyStats: { date: string; count: number }[] }> {
     const totalRows = await this.db
-      .select({ count: sql<number>`count(*)::int` })
+      .select({ count: sql<number>`cast(count(*) as integer)` })
       .from(emails)
       .where(and(gte(emails.sentAt, from), lte(emails.sentAt, to)));
 
     const unreadRows = await this.db
-      .select({ count: sql<number>`count(*)::int` })
+      .select({ count: sql<number>`cast(count(*) as integer)` })
       .from(emails)
       .where(and(gte(emails.sentAt, from), lte(emails.sentAt, to), eq(emails.isRead, false)));
 
     const dailyRows = await this.db
       .select({
-        date: sql<string>`to_char(${emails.sentAt}::date, 'YYYY-MM-DD')`,
-        count: sql<number>`count(*)::int`,
+        date: sql<string>`strftime('%Y-%m-%d', datetime(${emails.sentAt} / 1000, 'unixepoch'))`,
+        count: sql<number>`cast(count(*) as integer)`,
       })
       .from(emails)
       .where(and(gte(emails.sentAt, from), lte(emails.sentAt, to)))
-      .groupBy(sql`${emails.sentAt}::date`)
-      .orderBy(sql`${emails.sentAt}::date`);
+      .groupBy(sql`strftime('%Y-%m-%d', datetime(${emails.sentAt} / 1000, 'unixepoch'))`)
+      .orderBy(sql`strftime('%Y-%m-%d', datetime(${emails.sentAt} / 1000, 'unixepoch'))`);
 
     return {
       total: Number(totalRows[0]?.count ?? 0),

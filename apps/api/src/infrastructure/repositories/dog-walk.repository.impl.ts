@@ -57,7 +57,7 @@ export class DrizzleDogWalkRepository implements DogWalkRepository {
     const result = await this.db
       .select({
         totalSeconds: sql<number>`coalesce(sum(${dogWalks.durationSeconds}), 0)`,
-        walkCount: sql<number>`count(*) filter (where ${dogWalks.endedAt} is not null)::int`,
+        walkCount: sql<number>`cast(count(*) filter (where ${dogWalks.endedAt} is not null) as integer)`,
       })
       .from(dogWalks)
       .where(and(gte(dogWalks.startedAt, startOfDay), lte(dogWalks.startedAt, endOfDay)));
@@ -71,14 +71,14 @@ export class DrizzleDogWalkRepository implements DogWalkRepository {
   async getDailyStats(from: Date, to: Date): Promise<{ date: string; totalSeconds: number; walkCount: number }[]> {
     const rows = await this.db
       .select({
-        date: sql<string>`to_char(${dogWalks.startedAt}::date, 'YYYY-MM-DD')`,
+        date: sql<string>`strftime('%Y-%m-%d', datetime(${dogWalks.startedAt} / 1000, 'unixepoch'))`,
         totalSeconds: sql<number>`coalesce(sum(${dogWalks.durationSeconds}), 0)`,
-        walkCount: sql<number>`count(*) filter (where ${dogWalks.endedAt} is not null)::int`,
+        walkCount: sql<number>`cast(count(*) filter (where ${dogWalks.endedAt} is not null) as integer)`,
       })
       .from(dogWalks)
       .where(and(gte(dogWalks.startedAt, from), lte(dogWalks.startedAt, to)))
-      .groupBy(sql`${dogWalks.startedAt}::date`)
-      .orderBy(sql`${dogWalks.startedAt}::date`);
+      .groupBy(sql`strftime('%Y-%m-%d', datetime(${dogWalks.startedAt} / 1000, 'unixepoch'))`)
+      .orderBy(sql`strftime('%Y-%m-%d', datetime(${dogWalks.startedAt} / 1000, 'unixepoch'))`);
 
     return rows.map((r) => ({
       date: r.date,

@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "bun run --hot src/index.ts",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit migrate",
+    "db:migrate": "bun run src/scripts/db-migrate.ts",
     "db:reset": "bun run db:drop && bun run db:migrate && echo 'DB reset done'",
     "db:drop": "bun run src/scripts/db-drop.ts",
     "db:studio": "drizzle-kit studio",
@@ -22,7 +22,6 @@
     "linkedom": "^0.18.12",
     "mailparser": "^3.9.4",
     "nodemailer": "^8.0.2",
-    "postgres": "^3.4.0",
     "rss-parser": "^3.13.0",
     "ssh2": "^1.17.0",
     "zod": "^3.24.0"

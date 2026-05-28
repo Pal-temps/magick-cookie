@@ -1,121 +1,119 @@
-import { pgTable, uuid, varchar, text, boolean, timestamp, integer, numeric, doublePrecision, pgEnum, index, uniqueIndex } from "drizzle-orm/pg-core";
+import { sqliteTable, text, integer, real, index, uniqueIndex } from "drizzle-orm/sqlite-core";
 import { sql } from "drizzle-orm";
 
-export const calendars = pgTable("calendars", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  name: varchar("name", { length: 255 }).notNull(),
+export const calendars = sqliteTable("calendars", {
+  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  name: text("name").notNull(),
   description: text("description"),
-  color: varchar("color", { length: 7 }).notNull().default("#6c5ce7"),
-  isDefault: boolean("is_default").notNull().default(false),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
+  color: text("color").notNull().default("#6c5ce7"),
+  isDefault: integer("is_default", { mode: "boolean" }).notNull().default(false),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch() * 1000)`),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch() * 1000)`).$onUpdate(() => new Date()),
 });
 
-export const tasks = pgTable("tasks", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  externalId: varchar("external_id", { length: 255 }),
-  source: varchar("source", { length: 50 }).notNull().default("manual"),
-  title: varchar("title", { length: 500 }).notNull(),
+export const tasks = sqliteTable("tasks", {
+  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  externalId: text("external_id"),
+  source: text("source").notNull().default("manual"),
+  title: text("title").notNull(),
   description: text("description"),
-  status: varchar("status", { length: 255 }).notNull().default("open"),
-  priority: varchar("priority", { length: 50 }),
-  url: varchar("url", { length: 1000 }),
+  status: text("status").notNull().default("open"),
+  priority: text("priority"),
+  url: text("url"),
   labels: text("labels").notNull().default("[]"),
   assignees: text("assignees").notNull().default("[]"),
-  dueDate: timestamp("due_date", { withTimezone: true }),
-  startDate: timestamp("start_date", { withTimezone: true }),
+  dueDate: integer("due_date", { mode: "timestamp" }),
+  startDate: integer("start_date", { mode: "timestamp" }),
   metadata: text("metadata"),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch() * 1000)`),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch() * 1000)`).$onUpdate(() => new Date()),
 }, (table) => [
   uniqueIndex("idx_tasks_external_source").on(table.externalId, table.source),
   index("idx_tasks_source").on(table.source),
   index("idx_tasks_due_date").on(table.dueDate),
 ]);
 
-export const events = pgTable("events", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  calendarId: uuid("calendar_id").notNull().references(() => calendars.id, { onDelete: "cascade" }),
-  title: varchar("title", { length: 500 }).notNull(),
+export const events = sqliteTable("events", {
+  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  calendarId: text("calendar_id").notNull().references(() => calendars.id, { onDelete: "cascade" }),
+  title: text("title").notNull(),
   description: text("description"),
-  location: varchar("location", { length: 500 }),
-  latitude: doublePrecision("latitude"),
-  longitude: doublePrecision("longitude"),
-  startAt: timestamp("start_at", { withTimezone: true }).notNull(),
-  endAt: timestamp("end_at", { withTimezone: true }).notNull(),
-  isAllDay: boolean("is_all_day").notNull().default(false),
-  recurrenceRule: varchar("recurrence_rule", { length: 500 }),
-  taskId: uuid("task_id").references(() => tasks.id, { onDelete: "set null" }),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
+  location: text("location"),
+  latitude: real("latitude"),
+  longitude: real("longitude"),
+  startAt: integer("start_at", { mode: "timestamp" }).notNull(),
+  endAt: integer("end_at", { mode: "timestamp" }).notNull(),
+  isAllDay: integer("is_all_day", { mode: "boolean" }).notNull().default(false),
+  recurrenceRule: text("recurrence_rule"),
+  taskId: text("task_id").references(() => tasks.id, { onDelete: "set null" }),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch() * 1000)`),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch() * 1000)`).$onUpdate(() => new Date()),
 });
 
-export const reminderTypeEnum = pgEnum("reminder_type", ["push"]);
-
-export const reminders = pgTable("reminders", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  eventId: uuid("event_id").notNull().references(() => events.id, { onDelete: "cascade" }),
-  type: reminderTypeEnum("type").notNull().default("push"),
+export const reminders = sqliteTable("reminders", {
+  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  eventId: text("event_id").notNull().references(() => events.id, { onDelete: "cascade" }),
+  type: text("type").notNull().default("push"),
   minutesBefore: integer("minutes_before").notNull().default(15),
-  scheduledAt: timestamp("scheduled_at", { withTimezone: true }).notNull(),
-  sentAt: timestamp("sent_at", { withTimezone: true }),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  scheduledAt: integer("scheduled_at", { mode: "timestamp" }).notNull(),
+  sentAt: integer("sent_at", { mode: "timestamp" }),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch() * 1000)`),
 }, (table) => [
   index("idx_reminders_pending").on(table.scheduledAt).where(sql`sent_at IS NULL`),
 ]);
 
-export const timerSessions = pgTable("timer_sessions", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  mode: varchar("mode", { length: 20 }).notNull(),
+export const timerSessions = sqliteTable("timer_sessions", {
+  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  mode: text("mode").notNull(),
   durationMinutes: integer("duration_minutes").notNull(),
   actualSeconds: integer("actual_seconds").notNull(),
-  startedAt: timestamp("started_at", { withTimezone: true }).notNull(),
-  endedAt: timestamp("ended_at", { withTimezone: true }).notNull(),
-  completed: boolean("completed").notNull().default(true),
-  label: varchar("label", { length: 255 }),
-  taskId: uuid("task_id").references(() => tasks.id, { onDelete: "set null" }),
-  projectId: uuid("project_id").references(() => projects.id, { onDelete: "set null" }),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  startedAt: integer("started_at", { mode: "timestamp" }).notNull(),
+  endedAt: integer("ended_at", { mode: "timestamp" }).notNull(),
+  completed: integer("completed", { mode: "boolean" }).notNull().default(true),
+  label: text("label"),
+  taskId: text("task_id").references(() => tasks.id, { onDelete: "set null" }),
+  projectId: text("project_id").references(() => projects.id, { onDelete: "set null" }),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch() * 1000)`),
 });
 
-export const wellnessConfigs = pgTable("wellness_configs", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  type: varchar("type", { length: 50 }).notNull().unique(),
-  label: varchar("label", { length: 255 }).notNull(),
+export const wellnessConfigs = sqliteTable("wellness_configs", {
+  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  type: text("type").notNull().unique(),
+  label: text("label").notNull(),
   intervalMinutes: integer("interval_minutes").notNull(),
-  enabled: boolean("enabled").notNull().default(true),
-  alertSound: varchar("alert_sound", { length: 50 }),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
+  enabled: integer("enabled", { mode: "boolean" }).notNull().default(true),
+  alertSound: text("alert_sound"),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch() * 1000)`),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch() * 1000)`).$onUpdate(() => new Date()),
 });
 
-export const wellnessLogs = pgTable("wellness_logs", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  type: varchar("type", { length: 50 }).notNull(),
-  date: varchar("date", { length: 10 }).notNull(),
+export const wellnessLogs = sqliteTable("wellness_logs", {
+  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  type: text("type").notNull(),
+  date: text("date").notNull(),
   value: integer("value").notNull().default(0),
   goal: integer("goal").notNull(),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch() * 1000)`),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch() * 1000)`).$onUpdate(() => new Date()),
 });
 
-export const dogWalks = pgTable("dog_walks", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  startedAt: timestamp("started_at", { withTimezone: true }).notNull().defaultNow(),
-  endedAt: timestamp("ended_at", { withTimezone: true }),
+export const dogWalks = sqliteTable("dog_walks", {
+  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  startedAt: integer("started_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch() * 1000)`),
+  endedAt: integer("ended_at", { mode: "timestamp" }),
   durationSeconds: integer("duration_seconds"),
   notes: text("notes"),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch() * 1000)`),
 });
 
-export const fluxItems = pgTable("flux_items", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  entityType: varchar("entity_type", { length: 20 }).notNull(),
-  entityId: uuid("entity_id").notNull(),
-  fluxStatus: varchar("flux_status", { length: 50 }).notNull(),
-  decidedAt: timestamp("decided_at", { withTimezone: true }).notNull().defaultNow(),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
+export const fluxItems = sqliteTable("flux_items", {
+  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  entityType: text("entity_type").notNull(),
+  entityId: text("entity_id").notNull(),
+  fluxStatus: text("flux_status").notNull(),
+  decidedAt: integer("decided_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch() * 1000)`),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch() * 1000)`),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch() * 1000)`).$onUpdate(() => new Date()),
 }, (table) => [
   uniqueIndex("idx_flux_entity").on(table.entityType, table.entityId),
   index("idx_flux_status").on(table.fluxStatus),
@@ -123,306 +121,303 @@ export const fluxItems = pgTable("flux_items", {
   index("idx_flux_pagination").on(table.entityType, table.fluxStatus, table.decidedAt),
 ]);
 
-export const emailAccounts = pgTable("email_accounts", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  label: varchar("label", { length: 255 }).notNull(),
-  email: varchar("email", { length: 255 }).notNull(),
-  imapHost: varchar("imap_host", { length: 255 }).notNull(),
+export const emailAccounts = sqliteTable("email_accounts", {
+  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  label: text("label").notNull(),
+  email: text("email").notNull(),
+  imapHost: text("imap_host").notNull(),
   imapPort: integer("imap_port").notNull().default(993),
-  imapSecure: boolean("imap_secure").notNull().default(true),
-  smtpHost: varchar("smtp_host", { length: 255 }).notNull(),
+  imapSecure: integer("imap_secure", { mode: "boolean" }).notNull().default(true),
+  smtpHost: text("smtp_host").notNull(),
   smtpPort: integer("smtp_port").notNull().default(587),
-  smtpSecure: boolean("smtp_secure").notNull().default(false),
-  username: varchar("username", { length: 255 }).notNull(),
+  smtpSecure: integer("smtp_secure", { mode: "boolean" }).notNull().default(false),
+  username: text("username").notNull(),
   passwordEnc: text("password_enc").notNull(),
-  lastSyncedAt: timestamp("last_synced_at", { withTimezone: true }),
-  selfSigned: boolean("self_signed").notNull().default(false),
-  syncEnabled: boolean("sync_enabled").notNull().default(true),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
+  lastSyncedAt: integer("last_synced_at", { mode: "timestamp" }),
+  selfSigned: integer("self_signed", { mode: "boolean" }).notNull().default(false),
+  syncEnabled: integer("sync_enabled", { mode: "boolean" }).notNull().default(true),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch() * 1000)`),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch() * 1000)`).$onUpdate(() => new Date()),
 });
 
-export const emails = pgTable("emails", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  accountId: uuid("account_id").notNull().references(() => emailAccounts.id, { onDelete: "cascade" }),
-  messageId: varchar("message_id", { length: 500 }).notNull(),
+export const emails = sqliteTable("emails", {
+  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  accountId: text("account_id").notNull().references(() => emailAccounts.id, { onDelete: "cascade" }),
+  messageId: text("message_id").notNull(),
   imapUid: integer("imap_uid"),
-  subject: varchar("subject", { length: 1000 }),
-  fromAddress: varchar("from_address", { length: 500 }).notNull(),
-  fromName: varchar("from_name", { length: 255 }),
+  subject: text("subject"),
+  fromAddress: text("from_address").notNull(),
+  fromName: text("from_name"),
   toAddresses: text("to_addresses").notNull().default("[]"),
   ccAddresses: text("cc_addresses"),
   bodyText: text("body_text"),
   bodyHtml: text("body_html"),
-  hasAttachments: boolean("has_attachments").notNull().default(false),
+  hasAttachments: integer("has_attachments", { mode: "boolean" }).notNull().default(false),
   attachmentNames: text("attachment_names"),
-  isRead: boolean("is_read").notNull().default(false),
-  isStarred: boolean("is_starred").notNull().default(false),
-  isArchived: boolean("is_archived").notNull().default(false),
-  folder: varchar("folder", { length: 255 }).notNull().default("INBOX"),
+  isRead: integer("is_read", { mode: "boolean" }).notNull().default(false),
+  isStarred: integer("is_starred", { mode: "boolean" }).notNull().default(false),
+  isArchived: integer("is_archived", { mode: "boolean" }).notNull().default(false),
+  folder: text("folder").notNull().default("INBOX"),
   summary: text("summary"),
-  classification: varchar("classification", { length: 50 }),
-  sentAt: timestamp("sent_at", { withTimezone: true }).notNull(),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  classification: text("classification"),
+  sentAt: integer("sent_at", { mode: "timestamp" }).notNull(),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch() * 1000)`),
 }, (table) => [
   index("idx_emails_account_folder").on(table.accountId, table.folder, table.sentAt),
   index("idx_emails_unread").on(table.accountId, table.isRead),
 ]);
 
-export const llmConfigs = pgTable("llm_configs", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  provider: varchar("provider", { length: 50 }).notNull(),
-  baseUrl: varchar("base_url", { length: 500 }).notNull(),
-  model: varchar("model", { length: 255 }).notNull(),
+export const llmConfigs = sqliteTable("llm_configs", {
+  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  provider: text("provider").notNull(),
+  baseUrl: text("base_url").notNull(),
+  model: text("model").notNull(),
   apiKey: text("api_key"),
   maxTokens: integer("max_tokens").notNull().default(2048),
-  temperature: varchar("temperature", { length: 10 }).notNull().default("0.7"),
-  enabled: boolean("enabled").notNull().default(true),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
+  temperature: text("temperature").notNull().default("0.7"),
+  enabled: integer("enabled", { mode: "boolean" }).notNull().default(true),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch() * 1000)`),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch() * 1000)`).$onUpdate(() => new Date()),
 });
 
-export const chatConversations = pgTable("chat_conversations", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  title: varchar("title", { length: 500 }).notNull().default("Nouvelle conversation"),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
+export const chatConversations = sqliteTable("chat_conversations", {
+  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  title: text("title").notNull().default("Nouvelle conversation"),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch() * 1000)`),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch() * 1000)`).$onUpdate(() => new Date()),
 });
 
-export const chatMessages = pgTable("chat_messages", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  conversationId: uuid("conversation_id").notNull().references(() => chatConversations.id, { onDelete: "cascade" }),
-  role: varchar("role", { length: 20 }).notNull(),
+export const chatMessages = sqliteTable("chat_messages", {
+  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  conversationId: text("conversation_id").notNull().references(() => chatConversations.id, { onDelete: "cascade" }),
+  role: text("role").notNull(),
   content: text("content").notNull(),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch() * 1000)`),
 }, (table) => [
   index("idx_chat_messages_conversation").on(table.conversationId, table.createdAt),
 ]);
 
-// Generic synced issues/PRs cache table — source-agnostic so gitlab/clickup can
-// reuse this pattern later. Today only populated from the GitHub connector.
-export const syncedIssues = pgTable("synced_issues", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  source: varchar("source", { length: 50 }).notNull().default("github"),
-  externalId: varchar("external_id", { length: 500 }).notNull(),
+export const syncedIssues = sqliteTable("synced_issues", {
+  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  source: text("source").notNull().default("github"),
+  externalId: text("external_id").notNull(),
   prNumber: integer("pr_number").notNull(),
-  repo: varchar("repo", { length: 500 }).notNull(),
-  title: varchar("title", { length: 1000 }).notNull(),
-  state: varchar("state", { length: 50 }).notNull(),
-  draft: boolean("draft").notNull().default(false),
-  author: varchar("author", { length: 255 }).notNull(),
-  url: varchar("url", { length: 1000 }).notNull(),
-  reviewRequested: boolean("review_requested").notNull().default(false),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
+  repo: text("repo").notNull(),
+  title: text("title").notNull(),
+  state: text("state").notNull(),
+  draft: integer("draft", { mode: "boolean" }).notNull().default(false),
+  author: text("author").notNull(),
+  url: text("url").notNull(),
+  reviewRequested: integer("review_requested", { mode: "boolean" }).notNull().default(false),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch() * 1000)`),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch() * 1000)`).$onUpdate(() => new Date()),
 }, (table) => [
   uniqueIndex("idx_synced_issues_source_external_id").on(table.source, table.externalId),
 ]);
 
-export const bookmarkCategories = pgTable("bookmark_categories", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  value: varchar("value", { length: 30 }).notNull().unique(),
-  label: varchar("label", { length: 100 }).notNull(),
+export const bookmarkCategories = sqliteTable("bookmark_categories", {
+  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  value: text("value").notNull().unique(),
+  label: text("label").notNull(),
   sortOrder: integer("sort_order").notNull().default(0),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch() * 1000)`),
 });
 
-export const bookmarks = pgTable("bookmarks", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  name: varchar("name", { length: 255 }).notNull(),
-  url: varchar("url", { length: 1000 }).notNull(),
-  emoji: varchar("emoji", { length: 10 }),
-  category: varchar("category", { length: 30 }).notNull().default("none"),
-  isFavorite: boolean("is_favorite").notNull().default(false),
+export const bookmarks = sqliteTable("bookmarks", {
+  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  name: text("name").notNull(),
+  url: text("url").notNull(),
+  emoji: text("emoji"),
+  category: text("category").notNull().default("none"),
+  isFavorite: integer("is_favorite", { mode: "boolean" }).notNull().default(false),
   sortOrder: integer("sort_order").notNull().default(0),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch() * 1000)`),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch() * 1000)`).$onUpdate(() => new Date()),
 });
 
-export const projects = pgTable("projects", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  name: varchar("name", { length: 255 }).notNull(),
-  color: varchar("color", { length: 7 }).notNull().default("#6c5ce7"),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
+export const projects = sqliteTable("projects", {
+  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  name: text("name").notNull(),
+  color: text("color").notNull().default("#6c5ce7"),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch() * 1000)`),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch() * 1000)`).$onUpdate(() => new Date()),
 });
 
-export const pushNotifications = pgTable("push_notifications", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  type: varchar("type", { length: 50 }).notNull(),
-  title: varchar("title", { length: 500 }).notNull(),
+export const pushNotifications = sqliteTable("push_notifications", {
+  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  type: text("type").notNull(),
+  title: text("title").notNull(),
   body: text("body").notNull(),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  readAt: timestamp("read_at", { withTimezone: true }),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch() * 1000)`),
+  readAt: integer("read_at", { mode: "timestamp" }),
 });
 
-export const agentMemory = pgTable("agent_memory", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  type: varchar("type", { length: 20 }).notNull(),
+export const agentMemory = sqliteTable("agent_memory", {
+  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  type: text("type").notNull(),
   content: text("content").notNull(),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  expiresAt: timestamp("expires_at", { withTimezone: true }),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch() * 1000)`),
+  expiresAt: integer("expires_at", { mode: "timestamp" }),
 }, (table) => [
   index("idx_agent_memory_type").on(table.type),
 ]);
 
-export const alarms = pgTable("alarms", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  time: varchar("time", { length: 5 }).notNull(),
-  label: varchar("label", { length: 255 }).notNull(),
-  repeatPattern: varchar("repeat_pattern", { length: 20 }).notNull().default("once"),
-  repeatDays: varchar("repeat_days", { length: 20 }),
-  enabled: boolean("enabled").notNull().default(true),
-  alertSound: varchar("alert_sound", { length: 50 }).default("alarm"),
-  lastFiredAt: timestamp("last_fired_at", { withTimezone: true }),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
+export const alarms = sqliteTable("alarms", {
+  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  time: text("time").notNull(),
+  label: text("label").notNull(),
+  repeatPattern: text("repeat_pattern").notNull().default("once"),
+  repeatDays: text("repeat_days"),
+  enabled: integer("enabled", { mode: "boolean" }).notNull().default(true),
+  alertSound: text("alert_sound").default("alarm"),
+  lastFiredAt: integer("last_fired_at", { mode: "timestamp" }),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch() * 1000)`),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch() * 1000)`).$onUpdate(() => new Date()),
 });
 
-export const rssFeeds = pgTable("rss_feeds", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  label: varchar("label", { length: 255 }).notNull(),
-  url: varchar("url", { length: 1000 }).notNull(),
-  category: varchar("category", { length: 100 }),
-  siteUrl: varchar("site_url", { length: 1000 }),
-  lastSyncedAt: timestamp("last_synced_at", { withTimezone: true }),
-  syncEnabled: boolean("sync_enabled").notNull().default(true),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
+export const rssFeeds = sqliteTable("rss_feeds", {
+  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  label: text("label").notNull(),
+  url: text("url").notNull(),
+  category: text("category"),
+  siteUrl: text("site_url"),
+  lastSyncedAt: integer("last_synced_at", { mode: "timestamp" }),
+  syncEnabled: integer("sync_enabled", { mode: "boolean" }).notNull().default(true),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch() * 1000)`),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch() * 1000)`).$onUpdate(() => new Date()),
 });
 
-export const rssArticles = pgTable("rss_articles", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  feedId: uuid("feed_id").notNull().references(() => rssFeeds.id, { onDelete: "cascade" }),
-  guid: varchar("guid", { length: 1000 }).notNull(),
-  title: varchar("title", { length: 1000 }),
-  link: varchar("link", { length: 1000 }),
+export const rssArticles = sqliteTable("rss_articles", {
+  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  feedId: text("feed_id").notNull().references(() => rssFeeds.id, { onDelete: "cascade" }),
+  guid: text("guid").notNull(),
+  title: text("title"),
+  link: text("link"),
   description: text("description"),
   content: text("content"),
-  author: varchar("author", { length: 500 }),
-  publishedAt: timestamp("published_at", { withTimezone: true }),
-  isRead: boolean("is_read").notNull().default(false),
-  isStarred: boolean("is_starred").notNull().default(false),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  author: text("author"),
+  publishedAt: integer("published_at", { mode: "timestamp" }),
+  isRead: integer("is_read", { mode: "boolean" }).notNull().default(false),
+  isStarred: integer("is_starred", { mode: "boolean" }).notNull().default(false),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch() * 1000)`),
 }, (table) => [
   index("idx_rss_articles_feed_published").on(table.feedId, table.publishedAt),
   index("idx_rss_articles_unread").on(table.feedId, table.isRead),
   uniqueIndex("idx_rss_articles_feed_guid").on(table.feedId, table.guid),
 ]);
 
-export const snippets = pgTable("snippets", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  title: varchar("title", { length: 255 }).notNull(),
+export const snippets = sqliteTable("snippets", {
+  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  title: text("title").notNull(),
   content: text("content").notNull(),
-  language: varchar("language", { length: 50 }).notNull().default("text"),
+  language: text("language").notNull().default("text"),
   tags: text("tags").notNull().default("[]"),
-  isFavorite: boolean("is_favorite").notNull().default(false),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
+  isFavorite: integer("is_favorite", { mode: "boolean" }).notNull().default(false),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch() * 1000)`),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch() * 1000)`).$onUpdate(() => new Date()),
 });
 
-export const caldavAccounts = pgTable("caldav_accounts", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  label: varchar("label", { length: 255 }).notNull(),
-  url: varchar("url", { length: 1000 }).notNull(),
-  username: varchar("username", { length: 255 }).notNull(),
+export const caldavAccounts = sqliteTable("caldav_accounts", {
+  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  label: text("label").notNull(),
+  url: text("url").notNull(),
+  username: text("username").notNull(),
   passwordEnc: text("password_enc").notNull(),
-  calendarId: uuid("calendar_id").references(() => calendars.id, { onDelete: "set null" }),
-  lastSyncedAt: timestamp("last_synced_at", { withTimezone: true }),
-  syncEnabled: boolean("sync_enabled").notNull().default(true),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
+  calendarId: text("calendar_id").references(() => calendars.id, { onDelete: "set null" }),
+  lastSyncedAt: integer("last_synced_at", { mode: "timestamp" }),
+  syncEnabled: integer("sync_enabled", { mode: "boolean" }).notNull().default(true),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch() * 1000)`),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch() * 1000)`).$onUpdate(() => new Date()),
 });
 
-export const emailRules = pgTable("email_rules", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  name: varchar("name", { length: 255 }).notNull(),
-  conditionField: varchar("condition_field", { length: 50 }).notNull(),
-  conditionOperator: varchar("condition_operator", { length: 20 }).notNull(),
-  conditionValue: varchar("condition_value", { length: 500 }).notNull(),
-  actionType: varchar("action_type", { length: 50 }).notNull(),
-  actionValue: varchar("action_value", { length: 100 }).notNull(),
-  enabled: boolean("enabled").notNull().default(true),
+export const emailRules = sqliteTable("email_rules", {
+  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  name: text("name").notNull(),
+  conditionField: text("condition_field").notNull(),
+  conditionOperator: text("condition_operator").notNull(),
+  conditionValue: text("condition_value").notNull(),
+  actionType: text("action_type").notNull(),
+  actionValue: text("action_value").notNull(),
+  enabled: integer("enabled", { mode: "boolean" }).notNull().default(true),
   sortOrder: integer("sort_order").notNull().default(0),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch() * 1000)`),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch() * 1000)`).$onUpdate(() => new Date()),
 });
 
-export const routines = pgTable("routines", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  name: varchar("name", { length: 255 }).notNull(),
-  triggerTime: varchar("trigger_time", { length: 5 }).notNull(),
-  triggerDays: varchar("trigger_days", { length: 20 }).notNull().default("1,2,3,4,5"),
+export const routines = sqliteTable("routines", {
+  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  name: text("name").notNull(),
+  triggerTime: text("trigger_time").notNull(),
+  triggerDays: text("trigger_days").notNull().default("1,2,3,4,5"),
   steps: text("steps").notNull().default("[]"),
-  enabled: boolean("enabled").notNull().default(true),
-  lastRunAt: timestamp("last_run_at", { withTimezone: true }),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
+  enabled: integer("enabled", { mode: "boolean" }).notNull().default(true),
+  lastRunAt: integer("last_run_at", { mode: "timestamp" }),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch() * 1000)`),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch() * 1000)`).$onUpdate(() => new Date()),
 });
 
-export const webhooks = pgTable("webhooks", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  name: varchar("name", { length: 255 }).notNull(),
-  secret: varchar("secret", { length: 255 }).notNull(),
-  source: varchar("source", { length: 100 }),
-  enabled: boolean("enabled").notNull().default(true),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
+export const webhooks = sqliteTable("webhooks", {
+  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  name: text("name").notNull(),
+  secret: text("secret").notNull(),
+  source: text("source"),
+  enabled: integer("enabled", { mode: "boolean" }).notNull().default(true),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch() * 1000)`),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch() * 1000)`).$onUpdate(() => new Date()),
 });
 
-export const webhookEvents = pgTable("webhook_events", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  webhookId: uuid("webhook_id").notNull().references(() => webhooks.id, { onDelete: "cascade" }),
+export const webhookEvents = sqliteTable("webhook_events", {
+  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  webhookId: text("webhook_id").notNull().references(() => webhooks.id, { onDelete: "cascade" }),
   payload: text("payload").notNull(),
-  receivedAt: timestamp("received_at", { withTimezone: true }).notNull().defaultNow(),
-  readAt: timestamp("read_at", { withTimezone: true }),
+  receivedAt: integer("received_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch() * 1000)`),
+  readAt: integer("read_at", { mode: "timestamp" }),
 }, (table) => [
   index("idx_webhook_events_webhook").on(table.webhookId, table.receivedAt),
 ]);
 
-export const userPreferences = pgTable("user_preferences", {
-  id: uuid("id").primaryKey().defaultRandom(),
+export const userPreferences = sqliteTable("user_preferences", {
+  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
   data: text("data").notNull(),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch() * 1000)`),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch() * 1000)`).$onUpdate(() => new Date()),
 });
 
-export const connectorConfigs = pgTable("connector_configs", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  type: varchar("type", { length: 50 }).notNull().unique(),
+export const connectorConfigs = sqliteTable("connector_configs", {
+  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  type: text("type").notNull().unique(),
   token: text("token").notNull(),
   settings: text("settings").notNull().default("{}"),
-  enabled: boolean("enabled").notNull().default(true),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
+  enabled: integer("enabled", { mode: "boolean" }).notNull().default(true),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch() * 1000)`),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch() * 1000)`).$onUpdate(() => new Date()),
 });
 
-// Audit trail for every agent tool invocation — see docs/plans/ai-integration-2026-04-25.md (P2).
-export const aiToolCalls = pgTable("ai_tool_calls", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  conversationId: uuid("conversation_id"),
-  sessionId: varchar("session_id", { length: 255 }),
-  toolName: varchar("tool_name", { length: 100 }).notNull(),
-  permissionLevel: varchar("permission_level", { length: 20 }).notNull().default("auto"),
+export const aiToolCalls = sqliteTable("ai_tool_calls", {
+  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  conversationId: text("conversation_id"),
+  sessionId: text("session_id"),
+  toolName: text("tool_name").notNull(),
+  permissionLevel: text("permission_level").notNull().default("auto"),
   args: text("args").notNull().default("{}"),
   result: text("result"),
   errorMessage: text("error_message"),
-  status: varchar("status", { length: 20 }).notNull(),
+  status: text("status").notNull(),
   durationMs: integer("duration_ms"),
   undoToken: text("undo_token"),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch() * 1000)`),
 }, (table) => [
   index("idx_ai_tool_calls_conversation").on(table.conversationId, table.createdAt),
   index("idx_ai_tool_calls_tool").on(table.toolName, table.createdAt),
 ]);
 
-export const contacts = pgTable("contacts", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  name: varchar("name", { length: 255 }).notNull(),
-  birthDate: timestamp("birth_date", { withTimezone: true }),
-  phone: varchar("phone", { length: 50 }),
-  email: varchar("email", { length: 255 }),
+export const contacts = sqliteTable("contacts", {
+  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  name: text("name").notNull(),
+  birthDate: integer("birth_date", { mode: "timestamp" }),
+  phone: text("phone"),
+  email: text("email"),
   notes: text("notes"),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch() * 1000)`),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch() * 1000)`).$onUpdate(() => new Date()),
 });
