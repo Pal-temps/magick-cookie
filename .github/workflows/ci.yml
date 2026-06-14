@@ -15,7 +15,7 @@ jobs:
     name: "API · Unit tests"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: ./.github/actions/setup-bun
       - run: bun run test
 
@@ -24,7 +24,7 @@ jobs:
     name: "Desktop · Unit tests"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: ./.github/actions/setup-bun
       - name: Unit tests
         working-directory: apps/desktop
@@ -35,7 +35,7 @@ jobs:
     name: "TypeScript · tsc"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: ./.github/actions/setup-bun
       - name: TypeScript check
         working-directory: apps/desktop
@@ -46,7 +46,7 @@ jobs:
     name: "Frontend · Build"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: ./.github/actions/setup-bun
       - name: Build SolidJS frontend
         working-directory: apps/desktop
@@ -57,7 +57,7 @@ jobs:
     name: "Rust · Tests"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
@@ -75,7 +75,7 @@ jobs:
     name: "Rust · Clippy"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
@@ -95,7 +95,7 @@ jobs:
     name: "Rust · rustfmt"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt
@@ -108,7 +108,7 @@ jobs:
     name: "Rust · cargo-audit"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
@@ -124,7 +124,7 @@ jobs:
     name: "JS · bun audit"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: ./.github/actions/setup-bun
       - name: Security audit
         run: bun audit
