@@ -15,7 +15,7 @@
   },
   "dependencies": {
     "@excalidraw/excalidraw": "^0.18.0",
-    "@tanstack/solid-virtual": "^3.13.23",
+    "@tanstack/solid-virtual": "^3.13.26",
     "@tauri-apps/api": "^2",
     "@tauri-apps/plugin-dialog": "^2.6.0",
     "@tauri-apps/plugin-notification": "^2",
